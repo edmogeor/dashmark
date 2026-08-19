@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+## [0.1.0-alpha.1] - 2026-08-19
+
+### Added
+
 - Automatic discovery of Docker containers into clickable dashboard cards.
 - `dashmark.*` labels for title, description, URL, icon, category, order, hidden, access groups, and search aliases.
 - Traefik router rule reuse to derive card URLs without a separate `dashmark.url`.
