@@ -188,6 +188,7 @@ export function Dashboard({
             >
               <Card className="min-w-[300px] overflow-hidden bg-surface shadow-none">
                 <CardContent className="flex flex-row items-center gap-4 py-6">
+                  <img src="/brand/icon.svg" alt={strings.app.title} className="h-8 w-8 shrink-0 rounded-lg" />
                   <div className="min-w-0 flex-1">
                     <SearchBar value={search} onChange={setSearch} disabled={!!error} />
                   </div>

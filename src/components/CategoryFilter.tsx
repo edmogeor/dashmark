@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { ChevronDown, LayoutGrid } from 'lucide-react'
+import { ChevronDown, ListFilter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -31,7 +31,7 @@ export function CategoryFilter({ categories, selected, onSelect, disabled }: Cat
             open ? 'bg-surface-hover dark:bg-surface-hover' : 'bg-card dark:bg-card'
           )}
         >
-          <LayoutGrid className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <ListFilter className="h-4 w-4 shrink-0 text-muted-foreground" />
           <span className="hidden min-w-0 truncate sm:inline">{selected ?? strings.category.all}</span>
           <span className="hidden flex-1 sm:inline" />
           <ChevronDown className="hidden h-4 w-4 shrink-0 sm:inline" />

@@ -2,19 +2,6 @@ import http from 'node:http'
 
 export const demoContainers = [
   {
-    Id: 'placeholder123',
-    Names: ['/qzjxwkvbpnmlrty-service'],
-    Image: 'example.invalid/qzjxwkvbpnmlrty-service:latest',
-    ImageID: 'sha256:placeholder',
-    State: 'running',
-    Status: 'Up 5 minutes',
-    Labels: {
-      'dashmark.title': 'Qzjxwkvbpnmlrty Service',
-      'dashmark.description': 'Icon placeholder example',
-      'dashmark.url': 'http://localhost:8080'
-    }
-  },
-  {
     Id: 'plex123',
     Names: ['/plex'],
     Image: 'plexinc/pms-docker',
@@ -118,7 +105,7 @@ export const demoContainers = [
       'dashmark.title': 'NZBGet',
       'dashmark.description': 'Usenet downloader',
       'dashmark.url': 'http://localhost:8087',
-      'dashmark.icon': 'placeholder'
+      'dashmark.icon': 'nzbget'
     }
   }
 ]
