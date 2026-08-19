@@ -3,7 +3,7 @@ services:
     image: ghcr.io/edmogeor/dashmark:latest
     container_name: dashmark
     ports:
-      - "127.0.0.1:3000:4321"
+      - "127.0.0.1:4321:4321"
     volumes:
       - ./config/config.example.yml:/app/config.yml:ro
       - ./icons:/app/icons:ro

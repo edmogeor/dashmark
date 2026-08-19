@@ -59,7 +59,7 @@ services:
     image: ghcr.io/edmogeor/dashmark:latest
     container_name: dashmark
     ports:
-      - "127.0.0.1:3000:4321"
+      - "127.0.0.1:4321:4321"
     volumes:
       - ./config.yml:/app/config.yml:ro
       - ./icons:/app/icons:ro
@@ -95,7 +95,7 @@ Then start it:
 docker compose up -d
 ```
 
-Open http://localhost:3000. Dashmark shows a card for every running container that has a URL.
+Open http://localhost:4321. Dashmark shows a card for every running container that has a URL.
 
 ## How it works
 
