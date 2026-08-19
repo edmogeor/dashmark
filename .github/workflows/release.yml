@@ -87,6 +87,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=raw,value=latest,enable=${{ !contains(github.ref, '-') }}
+            type=match,pattern=v?\d+\.\d+\.\d+-(alpha|beta|rc)\..*,group=1,enable=${{ contains(github.ref, '-') }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6

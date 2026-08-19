@@ -302,20 +302,6 @@ export function Dashboard({
             )}
           </>
         )}
-        {import.meta.env.DEV && !error && cards.length > 0 && (
-          <motion.div
-            layout="position"
-            className="mt-12"
-            variants={fadeUp}
-            initial="hidden"
-            animate="show"
-          >
-            <p className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">No categories (dev)</p>
-            <div className="grid min-w-[300px] grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              <AppCard card={cards[0]} showStatus={showStatus} asCard isLoading={showLoading || statusUnavailable} />
-            </div>
-          </motion.div>
-        )}
         </div>
       </div>
     </>

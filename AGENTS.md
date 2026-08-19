@@ -46,3 +46,14 @@ ci: publish Docker image on release
 - Keep `CHANGELOG.md` updated under `[Unreleased]`; move it to a dated
   version heading when tagging a release.
 - `package.json` version is bumped by the release workflow automatically.
+
+### Prereleases
+
+- Tag prereleases with a SemVer suffix: `v0.1.0-alpha.1`, `v0.1.0-beta.2`,
+  or `v1.0.0-rc.1`.
+- The release workflow publishes the Docker image to
+  `ghcr.io/edmogeor/dashmark` with these tags:
+  - `X.Y.Z-alpha.N` - the exact prerelease.
+  - `alpha` / `beta` / `rc` - a moving tag for the newest build of that channel.
+  - `latest` is only applied to stable releases, never to prereleases.
+- The GitHub Release is marked as a prerelease when the tag contains a `-`.
