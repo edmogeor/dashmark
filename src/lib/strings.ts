@@ -1,0 +1,55 @@
+export const strings = {
+  app: {
+    title: 'Dashmark'
+  },
+  meta: {
+    lang: 'en',
+    description: 'A lightweight dashboard of links to your Docker services.'
+  },
+  category: {
+    all: 'All categories',
+    uncategorised: 'Uncategorised'
+  },
+  search: {
+    placeholder: 'Search',
+    clear: 'Clear search'
+  },
+  card: {
+    description: 'Description'
+  },
+  dashboard: {
+    noServices: 'No services found'
+  },
+  status: {
+    loading: 'Loading status',
+    created: 'created',
+    restarting: 'restarting',
+    running: 'running',
+    removing: 'removing',
+    paused: 'paused',
+    exited: 'exited',
+    dead: 'dead',
+    healthy: 'healthy',
+    unhealthy: 'unhealthy',
+    starting: 'starting'
+  },
+  theme: {
+    toggle: 'Toggle theme',
+    switchToSystem: 'Switch to system theme',
+    switchToLight: 'Switch to light mode',
+    switchToDark: 'Switch to dark mode'
+  },
+  errors: {
+    unableToLoadServices: 'Unable to load services',
+    liveStatusUnavailable: 'Live status is unavailable.',
+    dockerUnreachable: 'Docker is unreachable. Check DOCKER_HOST and the Docker socket mount.',
+    configInvalid: 'The config file is invalid.',
+    missingGroupsHeader: 'Access groups are enabled but the groups header was not received from the reverse proxy.',
+    expectedHeader: (header: string) => `Expected header: ${header}`
+  }
+} as const
+
+export function statusLabel(value: string): string {
+  const status = strings.status as Record<string, string>
+  return status[value] ?? value
+}

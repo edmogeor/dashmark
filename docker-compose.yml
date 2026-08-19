@@ -1,0 +1,34 @@
+services:
+  dashmark:
+    image: dashmark:latest
+    build: .
+    container_name: dashmark
+    ports:
+      - "127.0.0.1:3000:4321"
+    volumes:
+      - ./config/config.example.yml:/app/config.yml:ro
+      - ./icons:/app/icons:ro
+    environment:
+      - ACCESS_GROUPS_ENABLED=false
+      - DOCKER_HOST=tcp://dockerproxy:2375
+    depends_on:
+      - dockerproxy
+    restart: unless-stopped
+
+  dockerproxy:
+    image: wollomatic/socket-proxy:1
+    container_name: dashmark-dockerproxy
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges
+    command:
+      - "-loglevel=info"
+      - "-listenip=0.0.0.0"
+      - "-allowfrom=dashmark"
+      - "-allowGET=/version"
+      - "-allowGET=/v1\\..{1,2}/containers/.*"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro

@@ -1,0 +1,22 @@
+services:
+  plex:
+    title: Plex
+    description: Media server
+    url: https://plex.home.local
+    icon: plex
+    category: Media
+    order: 1
+    search_aliases:
+      - movies
+      - watch later
+    access_groups:
+      - media
+      - admins
+
+  nzbget:
+    url: https://nzbget.home.local
+    category: Downloads
+    order: 2
+
+settings:
+  theme: system

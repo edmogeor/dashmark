@@ -1,0 +1,10 @@
+node_modules
+npm-debug.log
+dist
+.astro
+.git
+.env
+.DS_Store
+src/data/icons.json
+.tmp-icons
+public/selfhst-icons

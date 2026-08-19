@@ -1,0 +1,13 @@
+node_modules
+npm-debug.log
+dist
+.git
+.astro
+.env
+.DS_Store
+tests
+.fallow
+*.md
+docker-compose*.yml
+.gitignore
+vitest.config.ts

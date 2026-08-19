@@ -1,0 +1,49 @@
+---
+import { Dashboard } from '@/components/Dashboard'
+import { ThemeToggle } from '@/components/ThemeToggle'
+import { getConfig } from '@/lib/config'
+import { getCards } from '@/lib/docker'
+import { strings } from '@/lib/strings'
+import '@/styles/global.css'
+
+const config = getConfig()
+const { cards: initialCards, error: initialError } = await getCards(config, Astro.request.headers)
+---
+
+<!doctype html>
+<html lang={strings.meta.lang} class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{strings.app.title}</title>
+    <meta name="description" content={strings.meta.description} />
+    <meta name="theme-color" content="#FF5A5F" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content={strings.app.title} />
+    <script is:inline>
+      (function () {
+        const theme = localStorage.getItem('dashmark-theme') || 'system'
+        const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        document.documentElement.classList.toggle('dark', theme === 'dark' || (theme === 'system' && systemDark))
+      })()
+    </script>
+  </head>
+  <body class="flex min-h-screen flex-col bg-background text-foreground">
+    <ThemeToggle client:load />
+
+    <main class="my-auto w-full">
+      <Dashboard
+        client:load
+        initialCards={initialCards}
+        initialError={initialError}
+        initialShowSearch={!config.disableSearch}
+        initialShowStatus={!config.disableStatus}
+      />
+    </main>
+  </body>
+</html>
