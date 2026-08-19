@@ -2,6 +2,20 @@
   <img src="public/brand/icon.svg" width="140" alt="Dashmark logo"/>
   <h1>Dashmark</h1>
   <p>A lightweight dashboard of links to your Docker services.</p>
+  <p>
+    <a href="https://github.com/edmogeor/dashmark">
+      <img src="https://img.shields.io/github/stars/edmogeor/dashmark.svg?style=flat" alt="GitHub stars">
+    </a>
+    <a href="https://github.com/edmogeor/dashmark/actions/workflows/ci.yml">
+      <img src="https://github.com/edmogeor/dashmark/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"/>
+    </a>
+    <a href="https://github.com/fallow-rs/fallow">
+      <img src="https://raw.githubusercontent.com/edmogeor/dashmark/badges/badge.svg" alt="fallow health"/>
+    </a>
+    <a href="./LICENSE">
+      <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"/>
+    </a>
+  </p>
 </div>
 
 Dashmark reads your Docker daemon and shows a link for each labeled container automatically. Shape those links with `dashmark.*` labels on your containers - set the title, icon, category, and more. No Docker SDK. No agent. Just a single small Node.js service that reads container labels and renders a clean, minimal dashboard with Astro.
