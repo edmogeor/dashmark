@@ -49,6 +49,15 @@ jobs:
         id: extract_release_notes
         uses: ffurrer2/extract-release-notes@v2
 
+      - name: Update package.json version and commit
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          npm version $VERSION --allow-same-version --no-git-tag-version
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git commit -am "chore(release): bump version to ${VERSION} [skip ci]" || echo "No changes to commit"
+          git push origin HEAD:main || echo "Could not push to main"
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
