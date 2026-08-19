@@ -43,8 +43,8 @@ Dashmark reads your Docker daemon and shows a link for each labeled container au
 - **Group with categories.** Cards group under labels like `Media` or `Monitoring`.
 - **Search and filter.** Find a service by name, category, or a custom alias.
 - **Live status.** Each card shows whether its container is running and healthy. Status refreshes every 30 seconds.
-- **Custom icons.** Name a selfhst reference, link to an image, or point at a file in your icons directory.
 - **Automatic icons.** With no icon set, Dashmark fuzzy-matches the image name against the [selfhst](https://selfh.st/) index.
+- **Custom icons.** Name a selfhst reference, link to an image, or point at a file in your icons directory.
 - **Access groups.** Hide cards from users who should not see them, using groups from Authentik or Authelia.
 - **YAML config.** Define cards by hand for services Docker does not run.
 - **Self-hosted and small.** One container, one read-only socket mount, no external database.
