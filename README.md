@@ -3,9 +3,6 @@
   <h1>Dashmark</h1>
   <p>A lightweight dashboard of links to your Docker services.</p>
   <p>
-    <a href="https://github.com/edmogeor/dashmark">
-      <img src="https://img.shields.io/github/stars/edmogeor/dashmark.svg?style=flat" alt="GitHub stars">
-    </a>
     <a href="https://github.com/edmogeor/dashmark/actions/workflows/ci.yml">
       <img src="https://github.com/edmogeor/dashmark/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"/>
     </a>
