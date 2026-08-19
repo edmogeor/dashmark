@@ -32,6 +32,9 @@ jobs:
       - name: Fetch icons
         run: npm run fetch-icons
 
+      - name: Lint
+        run: npm run lint
+
       - name: Typecheck
         run: npm run typecheck
 

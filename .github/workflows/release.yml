@@ -29,6 +29,9 @@ jobs:
       - name: Fetch icons
         run: npm run fetch-icons
 
+      - name: Lint
+        run: npm run lint
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -97,3 +100,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           body: ${{ steps.extract_release_notes.outputs.release_notes }}
+          prerelease: ${{ contains(github.ref, '-') }}
