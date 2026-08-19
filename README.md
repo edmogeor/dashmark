@@ -38,13 +38,14 @@ Dashmark reads your Docker daemon and shows a link for each labeled container au
 
 ## Features
 
-- **Discover automatically.** Dashmark lists your running containers and makes a card for each one that has a URL.
+- **Label-driven.** Dashmark lists your containers and makes a card for each one whose URL it can find from a `dashmark.url` label, a Traefik rule, or YAML.
 - **Label everything.** Set titles, icons, categories, and more with `dashmark.*` labels on your containers.
 - **Traefik friendly.** Reuse your existing Traefik router rules as card URLs, so you do not set a URL twice.
 - **Group with categories.** Cards group under labels like `Media` or `Monitoring`.
 - **Search and filter.** Find a service by name, category, or a custom alias.
 - **Live status.** Each card shows whether its container is running and healthy. Status refreshes every 30 seconds.
-- **Custom or automatic icons.** Name an icon, link to an image, or let Dashmark match a [selfhst](https://selfh.st/) icon to the image name.
+- **Custom icons.** Name a selfhst reference, link to an image, or point at a file in your icons directory.
+- **Automatic icons.** With no icon set, Dashmark fuzzy-matches the image name against the [selfhst](https://selfh.st/) index.
 - **Access groups.** Hide cards from users who should not see them, using groups from Authentik or Authelia.
 - **YAML config.** Define cards by hand for services Docker does not run.
 - **Self-hosted and small.** One container, one read-only socket mount, no external database.
