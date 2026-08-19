@@ -38,8 +38,7 @@ Dashmark reads your Docker daemon and shows a link for each labeled container au
 
 ## Features
 
-- **Label-driven.** Dashmark lists your containers and makes a card for each one whose URL it can find from a `dashmark.url` label, a Traefik rule, or YAML.
-- **Label everything.** Set titles, icons, categories, and more with `dashmark.*` labels on your containers.
+- **Label-driven.** Dashmark lists your containers and turns each one into a card, shaped by `dashmark.*` labels for the title, URL, icon, category, and more.
 - **Traefik friendly.** Reuse your existing Traefik router rules as card URLs, so you do not set a URL twice.
 - **Group with categories.** Cards group under labels like `Media` or `Monitoring`.
 - **Search and filter.** Find a service by name, category, or a custom alias.
