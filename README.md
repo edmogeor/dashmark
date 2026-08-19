@@ -45,7 +45,7 @@ Dashmark reads your Docker daemon and shows a link for each labeled container au
 - **Group with categories.** Cards group under labels like `Media` or `Monitoring`.
 - **Search and filter.** Find a service by name, category, or a custom alias.
 - **Live status.** Each card shows whether its container is running and healthy. Status refreshes every 30 seconds.
-- **Custom or automatic icons.** Name an icon, link to an image, or let Dashmark match a selfhst icon to the image name.
+- **Custom or automatic icons.** Name an icon, link to an image, or let Dashmark match a [selfhst](https://selfh.st/) icon to the image name.
 - **Access groups.** Hide cards from users who should not see them, using groups from Authentik or Authelia.
 - **YAML config.** Define cards by hand for services Docker does not run.
 - **Self-hosted and small.** One container, one read-only socket mount, no external database.
@@ -147,7 +147,7 @@ Put labels on your containers to shape their cards. Every label starts with the 
 | `dashmark.url` | The URL the card links to. You can also set this in YAML or reuse an existing Traefik rule |
 | `dashmark.title` | The display title. Falls back to the container name |
 | `dashmark.description` | A short description shown in a tooltip |
-| `dashmark.icon` | A selfhst reference, a URL, a filename in `ICONS_DIR`, `none`, or `placeholder` |
+| `dashmark.icon` | A selfhst reference, a URL, a filename in `ICONS_DIR`, or `placeholder` |
 | `dashmark.category` | The group name |
 | `dashmark.access_groups` | Comma-separated group allow-list |
 | `dashmark.search_aliases` | Comma-separated extra search terms |
@@ -224,15 +224,14 @@ Each service accepts these fields: `title`, `description`, `url`, `icon`, `categ
 
 Dashmark resolves a card's icon in this order:
 
-1. `icon: none` shows a simple box.
-2. `icon: placeholder` shows the title's initials. Use this to opt a single container out of auto-matching.
-3. An `http(s)` URL is used directly.
-4. A filename is looked up inside `ICONS_DIR`. A missing file shows initials and stops there.
-5. A selfhst reference is resolved against the CDN.
-6. With no icon set, Dashmark fuzzy-matches the image name against the selfhst index.
-7. If nothing matches, it falls back to initials.
+1. `icon: placeholder` shows the title's initials. Use this to opt a single container out of auto-matching.
+2. An `http(s)` URL is used directly.
+3. A filename is looked up inside `ICONS_DIR`. A missing file shows initials and stops there.
+4. A selfhst reference is resolved against the CDN.
+5. With no icon set, Dashmark fuzzy-matches the image name against the selfhst index.
+6. If nothing matches, it falls back to initials.
 
-The selfhst index ships in the image. If it is missing, Dashmark pages it from the GitHub API instead.
+The [selfhst](https://selfh.st/) index ships in the image. If it is missing, Dashmark pages it from the GitHub API instead.
 
 ### Access groups
 

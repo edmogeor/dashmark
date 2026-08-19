@@ -30,13 +30,13 @@ describe('resolveIcon', () => {
     config.disableAutomaticIcons = false
   })
 
-  it('returns none for icon=none', async () => {
+  it('returns placeholder for icon=none', async () => {
     const result = await resolveIcon(config, {
       iconLabel: 'none',
       title: 'Plex',
       containerName: 'plex'
     })
-    expect(result).toEqual({ type: 'none' })
+    expect(result).toEqual({ type: 'placeholder', initials: 'P' })
   })
 
   it('returns placeholder for icon=placeholder', async () => {

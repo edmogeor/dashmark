@@ -82,7 +82,6 @@ function resolveFileIcon(config: AppConfig, value: string): string | null {
 export type IconResult =
   | { type: 'image'; src: string; alt: string }
   | { type: 'placeholder'; initials: string }
-  | { type: 'none' }
 
 export async function resolveIcon(
   config: AppConfig,
@@ -95,10 +94,6 @@ export async function resolveIcon(
 ): Promise<IconResult> {
   const { iconLabel, imageName, title, containerName } = options
   const normalizedLabel = iconLabel?.toLowerCase()
-
-  if (normalizedLabel === 'none') {
-    return { type: 'none' }
-  }
 
   if (normalizedLabel === 'placeholder') {
     return makePlaceholder(title)

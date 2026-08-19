@@ -7,7 +7,7 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from '@/components/ui/tooltip'
-import { Info, Box } from 'lucide-react'
+import { Info } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import { MarqueeText } from './MarqueeText'
 import type { Card as CardType } from '@/lib/docker'
@@ -31,14 +31,6 @@ function InitialsPlaceholder({ title }: { title: string }) {
 
 function AppIcon({ icon, title }: { icon: CardType['icon']; title: string }) {
   const [error, setError] = useState(false)
-
-  if (icon.type === 'none') {
-    return (
-      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-foreground transition-colors group-hover/card:bg-card">
-        <Box className="h-5 w-5" />
-      </div>
-    )
-  }
 
   if (icon.type === 'image' && !error) {
     return (
