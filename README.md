@@ -56,8 +56,7 @@ Create a `docker-compose.yml`:
 ```yaml
 services:
   dashmark:
-    image: dashmark:latest
-    build: .
+    image: ghcr.io/edmogeor/dashmark:latest
     container_name: dashmark
     ports:
       - "127.0.0.1:3000:4321"
