@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: npm ci || npm install
 
+      - name: Fetch icons
+        run: npm run fetch-icons
+
       - name: Typecheck
         run: npm run typecheck
 
