@@ -78,10 +78,11 @@ export function Dashboard({
   const statusToastDismissed = useRef(false)
   const statusToastRecovering = useRef(false)
 
-  function showStatusToast(message: string) {
+  function showStatusToast(description: string) {
     statusToastRecovering.current = false
     if (statusToastDismissed.current) return
-    toast.error(message, {
+    toast.error(strings.errors.statusUpdateFailed, {
+      description,
       id: STATUS_TOAST_ID,
       duration: Infinity,
       closeButton: true,
@@ -131,7 +132,7 @@ export function Dashboard({
       } catch {
         if (controller.signal.aborted) return
         setStatusUnavailable(true)
-        showStatusToast(strings.errors.liveStatusUnavailable)
+        showStatusToast(strings.errors.serverUnreachable)
       } finally {
         if (!controller.signal.aborted) setIsLoading(false)
       }

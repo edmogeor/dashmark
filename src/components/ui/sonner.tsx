@@ -28,13 +28,6 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={isDark ? 'dark' : 'light'}
       position="top-center"
       richColors
-      style={
-        {
-          '--error-bg': 'var(--error-bg)',
-          '--error-border': 'var(--error-border)',
-          '--error-text': 'var(--error-text)'
-        } as React.CSSProperties
-      }
       {...props}
     />
   )

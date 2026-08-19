@@ -97,6 +97,7 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, asCard =
                   state={card.state}
                   health={card.health}
                   loading={isLoading && card.hasContainer}
+                  asCard={asCard}
                 />
               </div>
             )}

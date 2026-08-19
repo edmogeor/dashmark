@@ -6,6 +6,7 @@ type StatusBadgeProps = {
   state?: string
   health?: string
   loading?: boolean
+  asCard?: boolean
 }
 
 function getColorClass(status: string): string {
@@ -24,11 +25,14 @@ function getColorClass(status: string): string {
   }
 }
 
-export function StatusBadge({ state, health, loading }: StatusBadgeProps) {
+export function StatusBadge({ state, health, loading, asCard = false }: StatusBadgeProps) {
   if (loading) {
     return (
       <span
-        className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted"
+        className={cn(
+          'inline-flex h-5 w-5 items-center justify-center rounded-full',
+          asCard ? 'bg-muted' : 'bg-surface-active'
+        )}
         aria-busy="true"
         aria-label={strings.status.loading}
       >
