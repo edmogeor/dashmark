@@ -21,15 +21,18 @@ type AppCardProps = {
   isLoading?: boolean
 }
 
-function InitialsPlaceholder({ title }: { title: string }) {
+function InitialsPlaceholder({ title, asCard }: { title: string; asCard: boolean }) {
   return (
-    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-sm font-semibold text-foreground/50 transition-colors group-hover/card:bg-card">
+    <div className={cn(
+      'flex h-10 w-10 items-center justify-center rounded-lg text-sm font-semibold text-foreground/50',
+      asCard ? 'bg-surface dark:bg-background' : 'bg-card'
+    )}>
       {getInitials(title)}
     </div>
   )
 }
 
-function AppIcon({ icon, title }: { icon: CardType['icon']; title: string }) {
+function AppIcon({ icon, title, asCard }: { icon: CardType['icon']; title: string; asCard: boolean }) {
   const [error, setError] = useState(false)
 
   if (icon.type === 'image' && !error) {
@@ -44,14 +47,14 @@ function AppIcon({ icon, title }: { icon: CardType['icon']; title: string }) {
     )
   }
 
-  return <InitialsPlaceholder title={title} />
+  return <InitialsPlaceholder title={title} asCard={asCard} />
 }
 
 export const AppCard = memo(function AppCard({ card, showStatus = true, asCard = false, isLoading = false }: AppCardProps) {
   const cardClassName = cn(
     'group/card h-full overflow-hidden transition-[background-color,translate] not-has-[.info-button:hover]:hover:-translate-y-0.5',
     asCard
-      ? 'min-w-0 bg-card not-has-[.info-button:hover]:hover:bg-accent'
+      ? 'min-w-0 bg-card not-has-[.info-button:hover]:hover:bg-surface-hover dark:not-has-[.info-button:hover]:hover:bg-accent'
       : 'min-w-0 border-0 bg-surface shadow-none not-has-[.info-button:hover]:hover:bg-surface-hover'
   )
 
@@ -59,7 +62,7 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, asCard =
     <a href={card.url} target="_blank" rel="noopener noreferrer" className="block rounded-lg">
       <Card className={cardClassName}>
         <CardContent className="flex items-start gap-4 p-4">
-          <AppIcon icon={card.icon} title={card.title} />
+          <AppIcon icon={card.icon} title={card.title} asCard={asCard} />
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <MarqueeText className="min-w-0 flex-1 font-semibold">

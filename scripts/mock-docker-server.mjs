@@ -26,6 +26,7 @@ export const demoContainers = [
       'dashmark.description': 'Media server',
       'dashmark.url': 'http://localhost:8081',
       'dashmark.icon': 'plex',
+      'dashmark.category': 'Media',
       'dashmark.order': '1'
     }
   },
@@ -41,6 +42,7 @@ export const demoContainers = [
       'dashmark.description': 'Open source media server',
       'dashmark.url': 'http://localhost:8082',
       'dashmark.icon': 'jellyfin',
+      'dashmark.category': 'Media',
       'dashmark.order': '2'
     }
   },
@@ -56,6 +58,7 @@ export const demoContainers = [
       'dashmark.description': 'Monitoring dashboards',
       'dashmark.url': 'http://localhost:8083',
       'dashmark.icon': 'grafana',
+      'dashmark.category': 'Monitoring',
       'dashmark.order': '1'
     }
   },
@@ -71,6 +74,7 @@ export const demoContainers = [
       'dashmark.description': 'Uptime monitor',
       'dashmark.url': 'http://localhost:8084',
       'dashmark.icon': 'uptime-kuma',
+      'dashmark.category': 'Monitoring',
       'dashmark.order': '2'
     }
   },
@@ -85,7 +89,8 @@ export const demoContainers = [
       'dashmark.title': 'Portainer',
       'dashmark.description': 'Docker management UI',
       'dashmark.url': 'http://localhost:8085',
-      'dashmark.icon': 'portainer'
+      'dashmark.icon': 'portainer',
+      'dashmark.category': 'Management'
     }
   },
   {
@@ -98,7 +103,22 @@ export const demoContainers = [
     Labels: {
       'dashmark.title': 'Watchtower',
       'dashmark.url': 'http://localhost:8086',
-      'dashmark.icon': 'watchtower'
+      'dashmark.icon': 'watchtower',
+      'dashmark.category': 'Management'
+    }
+  },
+  {
+    Id: 'nzbget123',
+    Names: ['/nzbget'],
+    Image: 'linuxserver/nzbget',
+    ImageID: 'sha256:nzbget',
+    State: 'running',
+    Status: 'Up 4 minutes',
+    Labels: {
+      'dashmark.title': 'NZBGet',
+      'dashmark.description': 'Usenet downloader',
+      'dashmark.url': 'http://localhost:8087',
+      'dashmark.icon': 'placeholder'
     }
   }
 ]
