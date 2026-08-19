@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-alpha.2] - 2026-08-19
+
 ### Added
+
+- App icon next to the search bar.
+- Filter icon for the category dropdown.
+
+### Changed
+
+- Removed the placeholder-icon demo container; NZBGet now uses a selfhst icon.
+- Placeholder icons match the surrounding card and no longer change on hover.
+- Error toast uses the app's defined colours and reports the reason on a second line.
 
 ## [0.1.0-alpha.1] - 2026-08-19
 
