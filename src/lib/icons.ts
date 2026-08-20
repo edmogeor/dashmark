@@ -7,8 +7,7 @@ import { isOutsideDirectory } from './paths'
 import { fetchSelfhstIcons, fuzzyMatchIcon, type SelfhstIcon } from './selfhst'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
-
-const IMAGE_SUFFIXES = ['-server', '-client', '-web', '-app', '-service', '-core', '-api', '-docker', '-ce', '-ee']
+import { IMAGE_SUFFIXES, SELFHST_PREFIX } from './constants'
 
 function stripSuffix(name: string): string[] {
   const results: string[] = []
@@ -53,8 +52,6 @@ function getImageCandidates(
 function looksLikeUrl(value: string): boolean {
   return /^https?:\/\//i.test(value)
 }
-
-const SELFHST_PREFIX = 'selfhst:'
 
 function isSelfhstReference(value: string): boolean {
   return value.toLowerCase().startsWith(SELFHST_PREFIX)

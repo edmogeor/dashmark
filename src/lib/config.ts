@@ -1,5 +1,6 @@
 import { logger } from './logger'
 import { logMessages } from './log-messages'
+import { AUTO_ACCESS_GROUPS_HEADER, ACCESS_GROUPS_HEADER_TOKEN, DEFAULT_PORT, MAX_PORT } from './constants'
 
 export type AppConfig = {
   dockerHost: string
@@ -26,22 +27,20 @@ function parseBool(value: string | undefined, defaultValue: boolean): boolean {
   return value.toLowerCase() === 'true'
 }
 
-const HEADER_TOKEN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/
-
 function isValidHeaderToken(value: string): boolean {
-  return HEADER_TOKEN.test(value)
+  return ACCESS_GROUPS_HEADER_TOKEN.test(value)
 }
 
 function parseAccessGroupsHeader(value: string | undefined): string {
-  const header = value || 'auto'
+  const header = value || AUTO_ACCESS_GROUPS_HEADER
   if (isValidHeaderToken(header)) return header
   logger.error('config', logMessages.config.invalidAccessGroupsHeader, { header })
-  return 'auto'
+  return AUTO_ACCESS_GROUPS_HEADER
 }
 
 function parsePort(value: string | undefined, defaultValue: number): number {
   const port = Number(value)
-  return Number.isInteger(port) && port > 0 && port <= 65_535 ? port : defaultValue
+  return Number.isInteger(port) && port > 0 && port <= MAX_PORT ? port : defaultValue
 }
 
 function optionalString(value: string | undefined): string | undefined {
@@ -59,7 +58,7 @@ export function getConfig(): AppConfig {
     iconsDir: process.env.ICONS_DIR || '/app/icons',
     enableAccessGroups,
     accessGroupsHeader,
-    port: parsePort(process.env.PORT, 4321),
+    port: parsePort(process.env.PORT, DEFAULT_PORT),
     showSearch: parseBool(process.env.SHOW_SEARCH, true),
     showStatus: parseBool(process.env.SHOW_STATUS, true),
     enableAutomaticIcons: parseBool(process.env.ENABLE_AUTOMATIC_ICONS, true),

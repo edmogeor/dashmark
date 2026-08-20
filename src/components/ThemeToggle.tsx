@@ -1,17 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { Sun, Moon } from 'lucide-react'
 import { strings } from '@/lib/strings'
+import { THEME_REVEAL_TIMEOUT_MS, THEME_STORAGE_KEY } from '@/lib/constants'
 
 type Theme = 'light' | 'dark'
-
-const REVEAL_TIMEOUT_MS = 4000
 
 function getSystemTheme(): Theme {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
 function getStoredOverride(): Theme | null {
-  const value = localStorage.getItem('dashmark-theme')
+  const value = localStorage.getItem(THEME_STORAGE_KEY)
   return value === 'light' || value === 'dark' ? value : null
 }
 
@@ -88,18 +87,18 @@ export function ThemeToggle() {
 
   function showThenAutoHide() {
     show()
-    hideTimer.current = setTimeout(hide, REVEAL_TIMEOUT_MS)
+    hideTimer.current = setTimeout(hide, THEME_REVEAL_TIMEOUT_MS)
   }
 
   function handleToggle() {
     if (override) {
-      localStorage.removeItem('dashmark-theme')
+      localStorage.removeItem(THEME_STORAGE_KEY)
       setOverride(null)
       setResolved(getSystemTheme())
       applyTheme(null)
     } else {
       const nextOverride = resolved === 'dark' ? 'light' : 'dark'
-      localStorage.setItem('dashmark-theme', nextOverride)
+      localStorage.setItem(THEME_STORAGE_KEY, nextOverride)
       setOverride(nextOverride)
       setResolved(nextOverride)
       applyTheme(nextOverride)

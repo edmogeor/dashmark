@@ -1,3 +1,5 @@
+import { LABEL_PREFIX, TRAEFIK_ROUTER_RULE } from './constants'
+
 export type ParsedLabels = {
   hidden: boolean
   url?: string
@@ -9,8 +11,6 @@ export type ParsedLabels = {
   accessGroups: string[]
   searchAliases: string[]
 }
-
-const LABEL_PREFIX = 'dashmark'
 
 function parseCommaSeparated(value: string | undefined): string[] {
   return value?.split(',').map(item => item.trim()).filter(Boolean) ?? []
@@ -51,8 +51,6 @@ export function isValidUrl(url: string): boolean {
     return false
   }
 }
-
-const TRAEFIK_ROUTER_RULE = /^traefik\.http\.routers\.[^.]+\.rule$/
 
 function extractTraefikHost(rule: string): string | undefined {
   for (const block of rule.matchAll(/Host\(([^)]*)\)/g)) {

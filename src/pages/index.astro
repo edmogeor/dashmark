@@ -6,6 +6,7 @@ import { getCards } from '@/lib/docker'
 import { getUser } from '@/lib/auth'
 import { resolveGreeting } from '@/lib/greeting'
 import { strings } from '@/lib/strings'
+import { THEME_STORAGE_KEY } from '@/lib/constants'
 import '@/styles/global.css'
 
 const config = getConfig()
@@ -29,10 +30,10 @@ const greeting = resolveGreeting(config, user)
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content={strings.app.title} />
-    <script is:inline>
+    <script is:inline define:vars={{ themeStorageKey: THEME_STORAGE_KEY }}>
       (function () {
         const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-        const stored = localStorage.getItem('dashmark-theme')
+        const stored = localStorage.getItem(themeStorageKey)
         const useToggle = document.documentElement.dataset.themeToggleEnabled === 'true'
         const dark = useToggle ? (stored ? stored === 'dark' : systemDark) : systemDark
         document.documentElement.classList.toggle('dark', dark)

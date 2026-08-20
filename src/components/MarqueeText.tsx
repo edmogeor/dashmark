@@ -1,13 +1,11 @@
 import { useRef, useState, useEffect, type ReactNode } from 'react'
-
-const MARQUEE_SPEED = 80
-const FADE_WIDTH = 16
+import { MARQUEE_SPEED, MARQUEE_FADE_WIDTH } from '@/lib/constants'
 
 export function MarqueeText({ children, className }: { children: ReactNode; className?: string }) {
   const innerRef = useRef<HTMLSpanElement>(null)
   const [offset, setOffset] = useState(0)
   const duration = offset ? Math.abs(offset) / MARQUEE_SPEED : 0
-  const fadeDuration = Math.min(duration, FADE_WIDTH / MARQUEE_SPEED)
+  const fadeDuration = Math.min(duration, MARQUEE_FADE_WIDTH / MARQUEE_SPEED)
   const fadeDelay = duration - fadeDuration
 
   useEffect(() => {

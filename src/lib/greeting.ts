@@ -1,6 +1,7 @@
 import type { AppConfig } from './config'
 import type { AuthUser } from './auth'
 import { strings } from './strings'
+import { MORNING_START_HOUR, AFTERNOON_START_HOUR, EVENING_START_HOUR } from './constants'
 
 export type GreetingPeriod = 'morning' | 'afternoon' | 'evening'
 
@@ -17,9 +18,9 @@ const TAG_RESOLVERS: Record<string, TagResolver> = {
 
 export function greetingPeriod(date: Date): GreetingPeriod {
   const hour = date.getHours()
-  if (hour < 5) return 'evening'
-  if (hour < 12) return 'morning'
-  if (hour < 17) return 'afternoon'
+  if (hour < MORNING_START_HOUR) return 'evening'
+  if (hour < AFTERNOON_START_HOUR) return 'morning'
+  if (hour < EVENING_START_HOUR) return 'afternoon'
   return 'evening'
 }
 

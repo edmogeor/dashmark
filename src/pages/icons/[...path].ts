@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { getConfig } from '@/lib/config'
 import { isOutsideDirectory } from '@/lib/paths'
+import { ICON_CACHE_MAX_AGE, ICON_MIME_TYPES } from '@/lib/constants'
 
 export const GET: APIRoute = async ({ params }) => {
   const config = getConfig()
@@ -19,15 +20,7 @@ export const GET: APIRoute = async ({ params }) => {
   }
 
   const ext = path.extname(filePath).toLowerCase()
-  const mimeTypes: Record<string, string> = {
-    '.svg': 'image/svg+xml',
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.gif': 'image/gif',
-    '.webp': 'image/webp'
-  }
-  const mimeType = mimeTypes[ext]
+  const mimeType = ICON_MIME_TYPES[ext]
   if (!mimeType || !fs.existsSync(filePath)) {
     return new Response('Not found', { status: 404 })
   }
@@ -56,7 +49,7 @@ export const GET: APIRoute = async ({ params }) => {
   return new Response(new Uint8Array(content), {
     headers: {
       'Content-Type': mimeType,
-      'Cache-Control': 'public, max-age=3600',
+      'Cache-Control': `public, max-age=${ICON_CACHE_MAX_AGE}`,
       'X-Content-Type-Options': 'nosniff'
     }
   })

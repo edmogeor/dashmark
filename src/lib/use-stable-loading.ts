@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-
-const DEFAULT_DELAY_MS = 300
-const DEFAULT_MIN_DURATION_MS = 300
+import { LOADING_DELAY_MS, LOADING_MIN_DURATION_MS } from './constants'
 
 /**
  * Converts a raw loading signal into a stable spinner signal.
@@ -11,8 +9,8 @@ const DEFAULT_MIN_DURATION_MS = 300
  */
 export function useStableLoading(
   isLoading: boolean,
-  delay = DEFAULT_DELAY_MS,
-  minDuration = DEFAULT_MIN_DURATION_MS
+  delay = LOADING_DELAY_MS,
+  minDuration = LOADING_MIN_DURATION_MS
 ): boolean {
   const [show, setShow] = useState(false)
   const showStartRef = useRef<number | null>(null)

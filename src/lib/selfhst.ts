@@ -4,14 +4,20 @@ import Fuse from 'fuse.js'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
 import { errorMessage } from './errors'
+import {
+  SELFHST_CDN,
+  SELFHST_GITHUB_API_URL,
+  SELFHST_PAGE_SIZE,
+  SELFHST_MATCH_THRESHOLD,
+  SELFHST_REFERENCE_WEIGHT,
+  SELFHST_NAME_WEIGHT
+} from './constants'
 
 export type SelfhstIcon = {
   reference: string
   name: string
   url: string
 }
-
-const SELFHST_CDN = 'https://cdn.jsdelivr.net/gh/selfhst/icons@main'
 
 const cache = new Map<string, SelfhstIcon[]>()
 
@@ -44,7 +50,7 @@ async function fetchRemoteIcons(): Promise<SelfhstIcon[]> {
 
   while (true) {
     const response = await fetch(
-      `https://api.github.com/repos/selfhst/icons/contents/svg?per_page=100&page=${page}`
+      `${SELFHST_GITHUB_API_URL}?per_page=${SELFHST_PAGE_SIZE}&page=${page}`
     )
     if (!response.ok) {
       throw new Error(`GitHub API responded with ${response.status}`)
@@ -65,7 +71,7 @@ async function fetchRemoteIcons(): Promise<SelfhstIcon[]> {
       }
     }
 
-    if (data.length < 100) break
+    if (data.length < SELFHST_PAGE_SIZE) break
     page++
   }
 
@@ -96,8 +102,6 @@ export async function fetchSelfhstIcons(): Promise<SelfhstIcon[]> {
   }
 }
 
-const MATCH_THRESHOLD = 0.3
-
 const fuseCache = new WeakMap<SelfhstIcon[], Fuse<SelfhstIcon>>()
 
 function getFuse(icons: SelfhstIcon[]): Fuse<SelfhstIcon> {
@@ -106,10 +110,10 @@ function getFuse(icons: SelfhstIcon[]): Fuse<SelfhstIcon> {
 
   const fuse = new Fuse(icons, {
     keys: [
-      { name: 'reference', weight: 0.7 },
-      { name: 'name', weight: 0.3 }
+      { name: 'reference', weight: SELFHST_REFERENCE_WEIGHT },
+      { name: 'name', weight: SELFHST_NAME_WEIGHT }
     ],
-    threshold: MATCH_THRESHOLD,
+    threshold: SELFHST_MATCH_THRESHOLD,
     includeScore: true
   })
   fuseCache.set(icons, fuse)

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { motion, AnimatePresence, type Variants } from 'framer-motion'
 import Fuse from 'fuse.js'
 import { SearchBar } from './SearchBar'
@@ -7,16 +7,15 @@ import { AppCard } from './AppCard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { CircleAlert, User } from 'lucide-react'
-import { toast } from 'sonner'
 import { Toaster } from '@/components/ui/sonner'
 import type { Card as CardType } from '@/lib/docker'
 import type { DashmarkError } from '@/lib/errors'
 import { useStableLoading } from '@/lib/use-stable-loading'
+import { useStatusPolling } from '@/lib/use-status-polling'
 import { strings } from '@/lib/strings'
+import { SEARCH_FUZZY_THRESHOLD } from '@/lib/constants'
 
 const UNCATEGORISED = strings.category.uncategorised
-const STATUS_POLL_INTERVAL_MS = 30_000
-const STATUS_TOAST_ID = 'status-warning'
 
 const staggerContainer: Variants = {
   hidden: {},
@@ -50,6 +49,61 @@ function sortCategories(a: string, b: string): number {
   return a.localeCompare(b)
 }
 
+function GroupBadge({ group }: { group: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+      <User className="h-3.5 w-3.5" />
+      {group}
+    </span>
+  )
+}
+
+function UserGroupsBadge({ groups }: { groups: string[] }) {
+  return (
+    <div className="ml-auto flex items-center gap-1.5">
+      <GroupBadge group={groups[0]} />
+      {groups.length > 1 && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex cursor-help items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                +{groups.length - 1}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" align="end" collisionPadding={16} className="flex flex-col items-start gap-1.5">
+              {groups.slice(1).map(group => (
+                <GroupBadge key={group} group={group} />
+              ))}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
+    </div>
+  )
+}
+
+function ErrorPanel({ error }: { error: DashmarkError }) {
+  return (
+    <motion.div
+      className="flex items-center justify-center py-12"
+      variants={fadeUp}
+      initial="hidden"
+      animate="show"
+    >
+      <div className="mx-auto flex w-full max-w-xl gap-4 rounded-lg border border-error-border bg-error-bg p-6 text-error-text">
+        <CircleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+        <div className="min-w-0">
+          <p className="font-semibold">{strings.errors.unableToLoadServices}</p>
+          <p className="mt-1 text-sm">{error.message}</p>
+          {error.detail && (
+            <p className="mt-2 whitespace-pre-wrap text-xs opacity-80">{error.detail}</p>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
 export function Dashboard({
   initialCards,
   initialError,
@@ -81,77 +135,13 @@ export function Dashboard({
   const [isLoading, setIsLoading] = useState(!initialError)
   const showLoading = useStableLoading(isLoading)
   const [statusUnavailable, setStatusUnavailable] = useState(false)
-  const statusToastDismissed = useRef(false)
-  const statusToastRecovering = useRef(false)
 
-  function showStatusToast(description: string) {
-    statusToastRecovering.current = false
-    if (statusToastDismissed.current) return
-    toast.error(strings.errors.statusUpdateFailed, {
-      description,
-      id: STATUS_TOAST_ID,
-      duration: Infinity,
-      closeButton: true,
-      onDismiss: () => {
-        if (statusToastRecovering.current) return
-        statusToastDismissed.current = true
-      }
-    })
-  }
-
-  useEffect(() => {
-    if (error) return
-
-    const controller = new AbortController()
-    let interval: ReturnType<typeof setInterval> | null = null
-
-    async function pollStatus() {
-      setIsLoading(true)
-      try {
-        const res = await fetch('/api/status', { signal: controller.signal })
-        const data = await res.json() as {
-          statuses?: Record<string, { state?: string; health?: string }>
-          error?: DashmarkError
-        }
-        if (controller.signal.aborted) return
-        if (data.error) {
-          setStatusUnavailable(true)
-          showStatusToast(data.error.message)
-        } else if (data.statuses) {
-          setStatusUnavailable(false)
-          statusToastRecovering.current = true
-          statusToastDismissed.current = false
-          toast.dismiss(STATUS_TOAST_ID)
-          setCards(prev =>
-            prev.map(card => {
-              if (!card.hasContainer) return card
-              const status = data.statuses![card.id]
-              if (!status) {
-                if (card.state === undefined && card.health === undefined) return card
-                return { ...card, state: undefined, health: undefined }
-              }
-              if (card.state === status.state && card.health === status.health) return card
-              return { ...card, state: status.state, health: status.health }
-            })
-          )
-        }
-      } catch {
-        if (controller.signal.aborted) return
-        setStatusUnavailable(true)
-        showStatusToast(strings.errors.serverUnreachable)
-      } finally {
-        if (!controller.signal.aborted) setIsLoading(false)
-      }
-    }
-
-    pollStatus()
-    interval = setInterval(pollStatus, STATUS_POLL_INTERVAL_MS)
-
-    return () => {
-      controller.abort()
-      if (interval) clearInterval(interval)
-    }
-  }, [error])
+  useStatusPolling({
+    enabled: !error,
+    setCards,
+    setUnavailable: setStatusUnavailable,
+    setLoading: setIsLoading
+  })
 
   const filtered = useMemo(() => {
     const categoryOf = (card: CardType) => categoryName(card).toLowerCase()
@@ -165,7 +155,7 @@ export function Dashboard({
 
     const fuse = new Fuse(categoryFiltered, {
       keys: ['title', 'category', 'searchAliases'],
-      threshold: 0.2,
+      threshold: SEARCH_FUZZY_THRESHOLD,
       ignoreLocation: true,
       shouldSort: false
     })
@@ -208,34 +198,7 @@ export function Dashboard({
                     {greeting}
                   </h1>
                   {showGroups && userGroups.length > 0 && (
-                    <div className="ml-auto flex items-center gap-1.5">
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                        <User className="h-3.5 w-3.5" />
-                        {userGroups[0]}
-                      </span>
-                      {userGroups.length > 1 && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="inline-flex cursor-help items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                                +{userGroups.length - 1}
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom" align="end" collisionPadding={16} className="flex flex-col items-start gap-1.5">
-                              {userGroups.slice(1).map(group => (
-                                <span
-                                  key={group}
-                                  className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
-                                >
-                                  <User className="h-3.5 w-3.5" />
-                                  {group}
-                                </span>
-                              ))}
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-                    </div>
+                    <UserGroupsBadge groups={userGroups} />
                   )}
                 </div>
               )}
@@ -268,23 +231,7 @@ export function Dashboard({
       <div className={`mx-auto w-full max-w-6xl px-6 pb-12 ${showSearch || showHeader ? '' : 'pt-12'}`}>
         <div className="min-h-0">
         {error ? (
-          <motion.div
-            className="flex items-center justify-center py-12"
-            variants={fadeUp}
-            initial="hidden"
-            animate="show"
-          >
-            <div className="mx-auto flex w-full max-w-xl gap-4 rounded-lg border border-error-border bg-error-bg p-6 text-error-text">
-              <CircleAlert className="mt-0.5 h-5 w-5 shrink-0" />
-              <div className="min-w-0">
-                <p className="font-semibold">{strings.errors.unableToLoadServices}</p>
-                <p className="mt-1 text-sm">{error.message}</p>
-                {error.detail && (
-                  <p className="mt-2 whitespace-pre-wrap text-xs opacity-80">{error.detail}</p>
-                )}
-              </div>
-            </div>
-          </motion.div>
+          <ErrorPanel error={error} />
         ) : (
           <>
             {Object.keys(grouped).length === 0 ? (

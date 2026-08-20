@@ -1,6 +1,6 @@
 import http from 'node:http'
 
-export const demoContainers = [
+const demoContainers = [
   {
     Id: 'plex123',
     Names: ['/plex'],

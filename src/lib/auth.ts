@@ -1,40 +1,13 @@
 import type { AppConfig } from './config'
-
-export const AUTO_GROUP_HEADERS = [
-  'X-Authentik-Groups',
-  'Remote-Groups',
-  'X-Forwarded-Groups',
-  'X-Auth-Groups'
-]
-
-const AUTO_NAME_HEADERS = [
-  'X-Authentik-Name',
-  'Remote-Name',
-  'X-Forwarded-Preferred-Username',
-  'X-Auth-Name'
-]
-
-const AUTO_FIRST_NAME_HEADERS = [
-  'X-Authentik-Given-Name'
-]
-
-const AUTO_LAST_NAME_HEADERS = [
-  'X-Authentik-Family-Name'
-]
-
-const AUTO_USERNAME_HEADERS = [
-  'X-Authentik-Username',
-  'Remote-User',
-  'X-Forwarded-User',
-  'X-Auth-Username'
-]
-
-const AUTO_EMAIL_HEADERS = [
-  'X-Authentik-Email',
-  'Remote-Email',
-  'X-Forwarded-Email',
-  'X-Auth-Email'
-]
+import {
+  AUTO_ACCESS_GROUPS_HEADER,
+  AUTO_GROUP_HEADERS,
+  AUTO_NAME_HEADERS,
+  AUTO_FIRST_NAME_HEADERS,
+  AUTO_LAST_NAME_HEADERS,
+  AUTO_USERNAME_HEADERS,
+  AUTO_EMAIL_HEADERS
+} from './constants'
 
 export type AuthUser = {
   name?: string
@@ -46,7 +19,7 @@ export type AuthUser = {
 }
 
 export function groupHeaderNames(config: AppConfig): string[] {
-  return config.accessGroupsHeader === 'auto'
+  return config.accessGroupsHeader === AUTO_ACCESS_GROUPS_HEADER
     ? AUTO_GROUP_HEADERS
     : [config.accessGroupsHeader]
 }

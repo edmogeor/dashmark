@@ -1,6 +1,6 @@
-export type LogLevel = 'info' | 'warn' | 'error'
+type LogLevel = 'info' | 'warn' | 'error'
 
-export type LogScope = 'docker' | 'config' | 'icons' | 'selfhst'
+type LogScope = 'docker' | 'config' | 'icons' | 'selfhst'
 
 type LogContext = Record<string, unknown>
 

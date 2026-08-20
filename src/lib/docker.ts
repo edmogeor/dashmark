@@ -11,6 +11,15 @@ import { logger } from './logger'
 import { logMessages } from './log-messages'
 import { dashmarkError, errorMessage, type DashmarkError } from './errors'
 import { strings } from './strings'
+import {
+  DOCKER_REQUEST_TIMEOUT_MS,
+  DOCKER_MAX_RESPONSE_BYTES,
+  DOCKER_STATUS_CACHE_TTL_MS,
+  DOCKER_TLS_PORT,
+  DOCKER_PLAIN_PORT,
+  DOCKER_API_FALLBACK_VERSION,
+  COMPOSE_SERVICE_LABEL
+} from './constants'
 
 export type Card = {
   id: string
@@ -52,7 +61,7 @@ function parseDockerHost(dockerHost: string): DockerHost {
   if (dockerHost.startsWith('tcp://') || dockerHost.startsWith('http://') || dockerHost.startsWith('https://')) {
     const url = new URL(dockerHost.replace(/^tcp:/, 'http:'))
     const secure = url.protocol === 'https:'
-    const defaultPort = secure ? 2376 : 2375
+    const defaultPort = secure ? DOCKER_TLS_PORT : DOCKER_PLAIN_PORT
     return {
       hostname: url.hostname,
       port: url.port ? parseInt(url.port, 10) : defaultPort,
@@ -64,10 +73,6 @@ function parseDockerHost(dockerHost: string): DockerHost {
 }
 
 const apiVersionCache = new Map<string, string>()
-
-const REQUEST_TIMEOUT_MS = 10_000
-const MAX_RESPONSE_BYTES = 10 * 1024 * 1024
-const STATUS_CACHE_TTL_MS = 30_000
 
 type Timestamped<T> = { data: T; timestamp: number }
 const containerListCache = new Map<string, Timestamped<DockerContainer[]>>()
@@ -104,8 +109,8 @@ async function rawDockerRequest<T>(
       res.setEncoding('utf8')
       res.on('data', chunk => {
         responseBytes += Buffer.byteLength(chunk)
-        if (responseBytes > MAX_RESPONSE_BYTES) {
-          req.destroy(new Error(`Docker API response exceeded ${MAX_RESPONSE_BYTES} bytes`))
+        if (responseBytes > DOCKER_MAX_RESPONSE_BYTES) {
+          req.destroy(new Error(`Docker API response exceeded ${DOCKER_MAX_RESPONSE_BYTES} bytes`))
           return
         }
         data += chunk
@@ -124,8 +129,8 @@ async function rawDockerRequest<T>(
     })
 
     req.on('error', reject)
-    req.setTimeout(REQUEST_TIMEOUT_MS, () => {
-      req.destroy(new Error(`Docker API request timed out after ${REQUEST_TIMEOUT_MS}ms`))
+    req.setTimeout(DOCKER_REQUEST_TIMEOUT_MS, () => {
+      req.destroy(new Error(`Docker API request timed out after ${DOCKER_REQUEST_TIMEOUT_MS}ms`))
     })
     req.end()
   })
@@ -143,7 +148,7 @@ async function getDockerApiVersion(dockerHost: string): Promise<string> {
     return version
   } catch (error) {
     const message = errorMessage(error)
-    const fallback = '1.41'
+    const fallback = DOCKER_API_FALLBACK_VERSION
     logger.warn('docker', logMessages.docker.apiVersionFallback, {
       dockerHost,
       fallback,
@@ -176,7 +181,7 @@ async function getCachedContainers(dockerHost: string, ttlMs: number): Promise<D
 
 async function fetchContainers(config: AppConfig): Promise<{ containers: DockerContainer[]; error?: DashmarkError }> {
   try {
-    const containers = await getCachedContainers(config.dockerHost, STATUS_CACHE_TTL_MS)
+    const containers = await getCachedContainers(config.dockerHost, DOCKER_STATUS_CACHE_TTL_MS)
     return { containers }
   } catch (error) {
     const message = errorMessage(error)
@@ -213,8 +218,6 @@ function containerName(container: DockerContainer): string {
   const name = container.Names?.[0] ?? ''
   return name.startsWith('/') ? name.slice(1) : name
 }
-
-const COMPOSE_SERVICE_LABEL = 'com.docker.compose.service'
 
 function lookupYamlService(
   yamlServices: Record<string, YamlService>,
