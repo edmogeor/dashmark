@@ -10,6 +10,8 @@ import { THEME_STORAGE_KEY } from '@/lib/constants'
 import '@/styles/global.css'
 
 const config = getConfig()
+const origin = Astro.url.origin
+const imageUrl = `${origin}/brand/og-image.png`
 const { cards: initialCards, error: initialError } = await getCards(config, Astro.request.headers)
 const user = getUser(config, Astro.request.headers)
 const greeting = resolveGreeting(config, user)
@@ -22,6 +24,15 @@ const greeting = resolveGreeting(config, user)
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{strings.app.title}</title>
     <meta name="description" content={strings.meta.description} />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={strings.app.title} />
+    <meta property="og:title" content={strings.app.title} />
+    <meta property="og:description" content={strings.meta.description} />
+    <meta property="og:url" content={Astro.url.href} />
+    <meta property="og:image" content={imageUrl} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta name="theme-color" content="#FF5A5F" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
