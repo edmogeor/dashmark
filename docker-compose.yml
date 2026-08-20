@@ -24,6 +24,7 @@ services:
       # - SHOW_BRANDING=true
       # - SHOW_HEADER=true
       # - SHOW_GROUP_TAGS=true
+      # - SHOW_THEME_TOGGLE=true
       # - CUSTOM_HEADER="{greeting}, {first_name}!"   # no default; this is an example
       # - GREETING_MORNING=Good morning
       # - GREETING_AFTERNOON=Good afternoon

@@ -186,7 +186,14 @@ export function Dashboard({
     () => cards.some(card => Boolean(card.category?.trim())),
     [cards]
   )
-  const categories = useMemo(() => getCategories(cards), [cards])
+  const categories = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const card of cards) {
+      const category = card.category?.trim() || UNCATEGORISED
+      counts[category] = (counts[category] ?? 0) + 1
+    }
+    return getCategories(cards).map(name => ({ name, count: counts[name] ?? 0 }))
+  }, [cards])
 
   return (
     <>
@@ -239,7 +246,7 @@ export function Dashboard({
                 </div>
               )}
               {showSearch && (
-                <Card className="min-w-[300px] overflow-hidden bg-surface shadow-none">
+                <Card className="overflow-hidden bg-surface shadow-none">
                   <CardContent className="flex flex-row items-center gap-4 py-6">
                     {showBranding && (
                       <img src="/brand/icon.svg" alt={strings.app.title} className="h-8 w-8 shrink-0 rounded-lg" />
@@ -247,9 +254,10 @@ export function Dashboard({
                     <div className="min-w-0 flex-1">
                       <SearchBar value={search} onChange={setSearch} disabled={!!error} />
                     </div>
-                    {categories.some(c => c !== UNCATEGORISED) && (
+                    {categories.some(c => c.name !== UNCATEGORISED) && (
                       <CategoryFilter
                         categories={categories}
+                        total={cards.length}
                         selected={selectedCategory}
                         onSelect={setSelectedCategory}
                         disabled={!!error}
@@ -292,7 +300,7 @@ export function Dashboard({
         ) : !hasCategories ? (
           <motion.div
             layout="position"
-            className="grid min-w-[300px] grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+            className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
             variants={staggerContainer}
             initial="hidden"
             animate="show"
@@ -313,7 +321,7 @@ export function Dashboard({
         ) : (
           <motion.div
             layout="position"
-            className="grid grid-cols-1 gap-6 sm:grid-cols-[repeat(auto-fit,minmax(300px,1fr))]"
+            className="grid grid-cols-1 gap-6 sm:grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))]"
             variants={staggerContainer}
             initial="hidden"
             animate="show"
@@ -328,7 +336,7 @@ export function Dashboard({
                   variants={fadeUp}
                   exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.2, ease: 'easeOut' } }}
                 >
-                  <Card className="@container min-w-[300px] overflow-hidden">
+                  <Card className="@container overflow-hidden">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-xs uppercase tracking-widest text-muted-foreground">{category}</CardTitle>
                     </CardHeader>

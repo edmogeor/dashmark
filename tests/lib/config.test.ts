@@ -10,6 +10,7 @@ const trackedVars = [
   'SHOW_BRANDING',
   'SHOW_HEADER',
   'SHOW_GROUP_TAGS',
+  'SHOW_THEME_TOGGLE',
   'CUSTOM_HEADER',
   'GREETING_MORNING',
   'GREETING_AFTERNOON',
@@ -92,6 +93,16 @@ describe('getConfig feature toggles', () => {
   it('can hide the group tags', () => {
     process.env.SHOW_GROUP_TAGS = 'false'
     expect(getConfig().showGroupTags).toBe(false)
+  })
+
+  it('defaults showThemeToggle to true', () => {
+    delete process.env.SHOW_THEME_TOGGLE
+    expect(getConfig().showThemeToggle).toBe(true)
+  })
+
+  it('can hide the theme toggle', () => {
+    process.env.SHOW_THEME_TOGGLE = 'false'
+    expect(getConfig().showThemeToggle).toBe(false)
   })
 })
 

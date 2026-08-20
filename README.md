@@ -129,6 +129,7 @@ You can configure Dashmark with environment variables, Docker labels, or a YAML 
 | `ACCESS_GROUPS_HEADER` | `auto` | Group header. `auto` detects Authentik, Authelia, oauth2-proxy, or Keycloak Gatekeeper |
 | `SHOW_HEADER` | `true` | Show a greeting header with the user's name and group tags |
 | `SHOW_GROUP_TAGS` | `true` | Show the group tags in the header |
+| `SHOW_THEME_TOGGLE` | `true` | Show the light/dark toggle. When `false`, Dashmark always follows the system preference |
 | `CUSTOM_HEADER` | unset | Header greeting template. Supports the tags listed below |
 | `GREETING_MORNING` | `Good morning` | The morning greeting, used by `{greeting}` and the default greeting |
 | `GREETING_AFTERNOON` | `Good afternoon` | The afternoon greeting |

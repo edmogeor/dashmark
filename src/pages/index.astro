@@ -15,7 +15,7 @@ const greeting = resolveGreeting(config, user)
 ---
 
 <!doctype html>
-<html lang={strings.meta.lang} class="dark">
+<html lang={strings.meta.lang} class="dark" data-theme-toggle-enabled={config.showThemeToggle ? 'true' : 'false'}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -31,14 +31,16 @@ const greeting = resolveGreeting(config, user)
     <meta name="apple-mobile-web-app-title" content={strings.app.title} />
     <script is:inline>
       (function () {
-        const theme = localStorage.getItem('dashmark-theme') || 'system'
         const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-        document.documentElement.classList.toggle('dark', theme === 'dark' || (theme === 'system' && systemDark))
+        const stored = localStorage.getItem('dashmark-theme')
+        const useToggle = document.documentElement.dataset.themeToggleEnabled === 'true'
+        const dark = useToggle ? (stored ? stored === 'dark' : systemDark) : systemDark
+        document.documentElement.classList.toggle('dark', dark)
       })()
     </script>
   </head>
   <body class="flex min-h-screen flex-col bg-background text-foreground">
-    <ThemeToggle client:load />
+    {config.showThemeToggle && <ThemeToggle client:load />}
 
     <main class="my-auto w-full">
       <Dashboard

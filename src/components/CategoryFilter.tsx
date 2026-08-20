@@ -11,13 +11,14 @@ import {
 import { strings } from '@/lib/strings'
 
 type CategoryFilterProps = {
-  categories: string[]
+  categories: { name: string; count: number }[]
+  total: number
   selected: string | null
   onSelect: (category: string | null) => void
   disabled?: boolean
 }
 
-export function CategoryFilter({ categories, selected, onSelect, disabled }: CategoryFilterProps) {
+export function CategoryFilter({ categories, total, selected, onSelect, disabled }: CategoryFilterProps) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -40,12 +41,14 @@ export function CategoryFilter({ categories, selected, onSelect, disabled }: Cat
       <DropdownMenuContent align="end" className="w-[200px]">
         <DropdownMenuItem onClick={() => onSelect(null)}>
           <Check className={cn('opacity-0', selected === null && 'opacity-100')} />
-          {strings.category.all}
+          <span className="flex-1">{strings.category.all}</span>
+          <span className="text-xs text-muted-foreground">{total}</span>
         </DropdownMenuItem>
-        {categories.map(category => (
-          <DropdownMenuItem key={category} onClick={() => onSelect(category)}>
-            <Check className={cn('opacity-0', selected === category && 'opacity-100')} />
-            {category}
+        {categories.map(({ name, count }) => (
+          <DropdownMenuItem key={name} onClick={() => onSelect(name)}>
+            <Check className={cn('opacity-0', selected === name && 'opacity-100')} />
+            <span className="flex-1">{name}</span>
+            <span className="text-xs text-muted-foreground">{count}</span>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
