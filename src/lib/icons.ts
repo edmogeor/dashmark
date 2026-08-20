@@ -7,7 +7,8 @@ import { isOutsideDirectory } from './paths'
 import { fetchSelfhstIcons, fuzzyMatchIcon, type SelfhstIcon } from './selfhst'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
-import { IMAGE_SUFFIXES, SELFHST_PREFIX } from './constants'
+import { IMAGE_SUFFIXES, SELFHST_CDN, SELFHST_PREFIX } from './constants'
+import { analyzeIconLuminance, type IconContrast } from './icon-luminance'
 
 function stripSuffix(name: string): string[] {
   const results: string[] = []
@@ -79,8 +80,13 @@ function resolveFileIcon(config: AppConfig, value: string): string | null {
 }
 
 export type IconResult =
-  | { type: 'image'; src: string; alt: string }
+  | { type: 'image'; src: string; alt: string; contrast?: IconContrast }
   | { type: 'placeholder'; initials: string }
+
+async function imageIcon(src: string, alt: string): Promise<IconResult> {
+  const contrast = src.startsWith(SELFHST_CDN) ? (await analyzeIconLuminance(src)) ?? undefined : undefined
+  return { type: 'image', src, alt, contrast }
+}
 
 export async function resolveIcon(
   config: AppConfig,
@@ -100,7 +106,7 @@ export async function resolveIcon(
 
   if (iconLabel) {
     if (looksLikeUrl(iconLabel) && isValidUrl(iconLabel)) {
-      return { type: 'image', src: iconLabel, alt: title }
+      return imageIcon(iconLabel, title)
     }
 
     if (isSelfhstReference(iconLabel)) {
@@ -108,7 +114,7 @@ export async function resolveIcon(
       const icons = await fetchSelfhstIcons()
       const selfhstUrl = resolveSelfhstReference(reference, icons)
       if (selfhstUrl) {
-        return { type: 'image', src: selfhstUrl, alt: title }
+        return imageIcon(selfhstUrl, title)
       }
       logger.warn('icons', logMessages.icons.selfhstReferenceNotFound, { iconLabel })
       return makePlaceholder(title)
@@ -129,7 +135,7 @@ export async function resolveIcon(
   const candidates = getImageCandidates(imageName, containerName, title)
   const match = fuzzyMatchIcon(candidates, icons)
   if (match) {
-    return { type: 'image', src: match.url, alt: title }
+    return imageIcon(match.url, title)
   }
 
   return makePlaceholder(title)

@@ -152,7 +152,7 @@ Put labels on your containers to shape their cards. Every label starts with the 
 | `dashmark.url` | The URL the card links to. You can also set this in YAML or reuse an existing Traefik rule |
 | `dashmark.title` | The display title. Falls back to the container name |
 | `dashmark.description` | A short description shown in a tooltip |
-| `dashmark.icon` | A `selfhst:<slug>` reference, a URL, a filename in `ICONS_DIR`, or `placeholder` |
+| `dashmark.icon` | A `selfhst:<slug>` reference, a URL, a filename in `ICONS_DIR`, or `placeholder`. Selfhst icons that are dominated by very dark or very light colours automatically switch to their `-light` or `-dark` monochrome variant when the current theme would make them hard to see |
 | `dashmark.category` | The group name |
 | `dashmark.access_groups` | Comma-separated group allow-list |
 | `dashmark.search_aliases` | Comma-separated extra search terms |

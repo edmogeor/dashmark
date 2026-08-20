@@ -13,6 +13,7 @@ import { MarqueeText } from './MarqueeText'
 import type { Card as CardType } from '@/lib/docker'
 import { getInitials } from '@/lib/initials'
 import { strings } from '@/lib/strings'
+import { useIsDark } from '@/lib/use-is-dark'
 
 type AppCardProps = {
   card: CardType
@@ -33,13 +34,27 @@ function InitialsPlaceholder({ title, asCard }: { title: string; asCard: boolean
   )
 }
 
+function selfhstVariantUrl(src: string, suffix: 'light' | 'dark'): string {
+  return src.replace(/\.svg$/, `-${suffix}.svg`)
+}
+
+function useContrastAwareSrc(icon: CardType['icon']): string | undefined {
+  const isDark = useIsDark()
+  if (icon.type !== 'image') return undefined
+  if (!icon.contrast) return icon.src
+  if (icon.contrast === 'dark' && isDark) return selfhstVariantUrl(icon.src, 'light')
+  if (icon.contrast === 'light' && !isDark) return selfhstVariantUrl(icon.src, 'dark')
+  return icon.src
+}
+
 function AppIcon({ icon, title, asCard }: { icon: CardType['icon']; title: string; asCard: boolean }) {
   const [error, setError] = useState(false)
+  const src = useContrastAwareSrc(icon)
 
-  if (icon.type === 'image' && !error) {
+  if (icon.type === 'image' && src && !error) {
     return (
       <img
-        src={icon.src}
+        src={src}
         alt={icon.alt}
         className="h-10 w-10 object-contain"
         loading="lazy"

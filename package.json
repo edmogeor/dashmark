@@ -29,6 +29,7 @@
     "radix-ui": "^1.6.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "sharp": "^0.35.3",
     "sonner": "^2.0.8",
     "tailwind-merge": "^2.6.0"
   },
