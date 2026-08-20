@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react'
-import { motion, AnimatePresence, type Variants } from 'framer-motion'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { motion, type Variants } from 'framer-motion'
+import { useWindowVirtualizer } from '@tanstack/react-virtual'
+import type { Virtualizer } from '@tanstack/virtual-core'
 import Fuse from 'fuse.js'
 import { SearchBar } from './SearchBar'
 import { CategoryFilter } from './CategoryFilter'
@@ -13,20 +15,45 @@ import type { DashmarkError } from '@/lib/errors'
 import { useStableLoading } from '@/lib/use-stable-loading'
 import { useStatusPolling } from '@/lib/use-status-polling'
 import { strings } from '@/lib/strings'
+import { cn } from '@/lib/utils'
 import { SEARCH_FUZZY_THRESHOLD } from '@/lib/constants'
 
 const UNCATEGORISED = strings.category.uncategorised
 
-const staggerContainer: Variants = {
-  hidden: {},
-  show: {
-    transition: { staggerChildren: 0.06, delayChildren: 0.08 }
+const COLUMN_WIDTH = 300
+const COLUMN_GUTTER = 24
+
+function measureElement<T extends Element>(
+  element: T,
+  entry: ResizeObserverEntry | undefined,
+  instance: Virtualizer<Window, T>
+): number {
+  const borderBox = entry?.borderBoxSize
+  if (Array.isArray(borderBox) && borderBox[0]) {
+    return borderBox[0].blockSize
   }
+  // During initial mount the ResizeObserver entry isn't available yet, so
+  // return the virtualizer's estimate instead of forcing a synchronous layout.
+  const index = instance.indexFromElement(element)
+  return instance.options.estimateSize(index)
+}
+
+const CARD_ESTIMATE_BASE = 54
+const CARD_ESTIMATE_DELTA = 128
+
+function estimateCategoryHeight(index: number, items: CategoryItem[]): number {
+  const cardCount = items[index]?.cards.length ?? 1
+  return CARD_ESTIMATE_BASE + cardCount * CARD_ESTIMATE_DELTA
 }
 
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 12 },
   show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } }
+}
+
+const staggerContainer: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.06, delayChildren: 0.08 } }
 }
 
 function categoryName(card: CardType): string {
@@ -104,6 +131,133 @@ function ErrorPanel({ error }: { error: DashmarkError }) {
   )
 }
 
+type CategoryItem = {
+  category: string
+  cards: CardType[]
+  showStatus: boolean
+  isLoading: boolean
+}
+
+function CategoryColumn({ data, twoColumn }: { data: CategoryItem; twoColumn: boolean }) {
+  const { category, cards, showStatus, isLoading } = data
+  return (
+    <Card className="@container overflow-hidden">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-xs uppercase tracking-widest text-muted-foreground">{category}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className={cn('grid grid-cols-1 gap-6', twoColumn && '@[520px]:grid-cols-2')}>
+          {cards.map(card => (
+            <AppCard key={card.id} card={card} showStatus={showStatus} isLoading={isLoading} />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function MasonryGrid({ items, onReady, animate }: { items: CategoryItem[]; onReady?: () => void; animate?: boolean }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const readyRef = useRef(false)
+  const onReadyRef = useRef(onReady)
+  const hasAnimatedRef = useRef(false)
+  const [width, setWidth] = useState(0)
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    onReadyRef.current = onReady
+  }, [onReady])
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    const measure = () => {
+      const newWidth = el.getBoundingClientRect().width
+      setWidth(newWidth)
+      if (!readyRef.current && newWidth > 0) {
+        readyRef.current = true
+        // Yield to the browser so the virtualizer can compute its initial
+        // layout before revealing the grid, then start the stagger animation
+        // from the correct final positions.
+        requestAnimationFrame(() => {
+          setReady(true)
+          onReadyRef.current?.()
+        })
+      }
+    }
+    measure()
+
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  const lanes = Math.max(1, Math.floor((width + COLUMN_GUTTER) / (COLUMN_WIDTH + COLUMN_GUTTER)))
+  const columnWidth = (width - (lanes - 1) * COLUMN_GUTTER) / lanes
+
+  const virtualizer = useWindowVirtualizer({
+    count: items.length,
+    lanes,
+    gap: COLUMN_GUTTER,
+    overscan: 6,
+    estimateSize: index => estimateCategoryHeight(index, items),
+    getItemKey: index => items[index]?.category ?? index,
+    measureElement
+  })
+
+  const virtualItems = virtualizer.getVirtualItems()
+  const visualRank = new Map<number, number>()
+  ;[...virtualItems]
+    .sort((a, b) => a.start - b.start || a.lane - b.lane)
+    .forEach((item, rank) => visualRank.set(item.index, rank))
+
+  const twoColumn = items.some(item => item.cards.length > 1)
+
+  return (
+    <div ref={containerRef}>
+      {ready && (
+        <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+          {virtualItems.map(virtualItem => {
+            const item = items[virtualItem.index]
+            if (!item) return null
+            const delay = 0.08 + (visualRank.get(virtualItem.index) ?? 0) * 0.06
+            return (
+              <div
+                key={virtualItem.key}
+                data-index={virtualItem.index}
+                ref={virtualizer.measureElement}
+                className="absolute top-0"
+                style={{
+                  left: virtualItem.lane * (columnWidth + COLUMN_GUTTER),
+                  width: columnWidth,
+                  transform: `translateY(${virtualItem.start}px)`
+                }}
+              >
+                <motion.div
+                  initial={hasAnimatedRef.current ? false : { opacity: 0, y: 12 }}
+                  animate={animate ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
+                  transition={{ duration: 0.3, ease: 'easeOut', delay }}
+                  style={{ willChange: 'transform, opacity' }}
+                  onAnimationComplete={() => {
+                    hasAnimatedRef.current = true
+                  }}
+                >
+                  <CategoryColumn data={item} twoColumn={twoColumn} />
+                </motion.div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CategoryMasonry({ items, onReady, animate }: { items: CategoryItem[]; onReady?: () => void; animate?: boolean }) {
+  return <MasonryGrid items={items} onReady={onReady} animate={animate} />
+}
+
 export function Dashboard({
   initialCards,
   initialError,
@@ -168,6 +322,27 @@ export function Dashboard({
     () => cards.some(card => Boolean(card.category?.trim())),
     [cards]
   )
+  const willRenderMasonry = !error && Object.keys(grouped).length > 0 && hasCategories
+
+  const [masonryLayoutReady, setMasonryLayoutReady] = useState(false)
+  const [searchBarDone, setSearchBarDone] = useState(false)
+
+  useEffect(() => {
+    if (!willRenderMasonry) setMasonryLayoutReady(true)
+  }, [willRenderMasonry])
+
+  const categoryItems = useMemo<CategoryItem[]>(
+    () =>
+      Object.entries(grouped)
+        .sort(([a], [b]) => sortCategories(a, b))
+        .map(([category, cards]) => ({
+          category,
+          cards,
+          showStatus,
+          isLoading: showLoading || statusUnavailable
+        })),
+    [grouped, showStatus, showLoading, statusUnavailable]
+  )
   const categories = useMemo(() => {
     const counts: Record<string, number> = {}
     for (const card of cards) {
@@ -186,11 +361,12 @@ export function Dashboard({
         <div className="dashboard-search sticky top-0 z-10 mb-8">
           <div className="pt-18">
             <motion.div
-              layout
+              layout={searchBarDone}
               className="mx-auto w-full max-w-6xl px-6"
               initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
+              animate={masonryLayoutReady ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
               transition={{ duration: 0.3, ease: 'easeOut' }}
+              onAnimationComplete={() => setSearchBarDone(true)}
             >
               {showHeader && (
                 <div className={`flex items-center ${showSearch ? 'mb-4' : ''}`}>
@@ -240,71 +416,19 @@ export function Dashboard({
           </div>
         ) : !hasCategories ? (
           <motion.div
-            layout="position"
-            className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
             variants={staggerContainer}
             initial="hidden"
             animate="show"
+            className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
           >
-            <AnimatePresence mode="popLayout">
-              {uncategorised.map(card => (
-                <motion.div
-                  key={card.id}
-                  layout="position"
-                  variants={fadeUp}
-                  exit={{ opacity: 0, y: -8, transition: { duration: 0.15, ease: 'easeOut' } }}
-                >
-                  <AppCard card={card} showStatus={showStatus} asCard isLoading={showLoading || statusUnavailable} />
-                </motion.div>
-              ))}
-            </AnimatePresence>
+            {uncategorised.map(card => (
+              <motion.div key={card.id} variants={fadeUp}>
+                <AppCard card={card} showStatus={showStatus} asCard isLoading={showLoading || statusUnavailable} />
+              </motion.div>
+            ))}
           </motion.div>
         ) : (
-          <motion.div
-            layout="position"
-            className="grid grid-cols-1 gap-6 sm:grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))]"
-            variants={staggerContainer}
-            initial="hidden"
-            animate="show"
-          >
-            <AnimatePresence mode="popLayout">
-              {Object.entries(grouped)
-                .sort(([a], [b]) => sortCategories(a, b))
-                .map(([category, categoryCards]) => (
-                <motion.div
-                  key={category}
-                  layout="position"
-                  variants={fadeUp}
-                  exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.2, ease: 'easeOut' } }}
-                >
-                  <Card className="@container overflow-hidden">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-xs uppercase tracking-widest text-muted-foreground">{category}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <motion.div
-                        layout="position"
-                        className="service-grid grid grid-cols-1 gap-6 @[520px]:grid-cols-2"
-                      >
-                        <AnimatePresence mode="popLayout" initial={false}>
-                          {categoryCards.map(card => (
-                            <motion.div
-                              key={card.id}
-                              layout="position"
-                              initial={false}
-                              exit={{ opacity: 0, y: -8, transition: { duration: 0.15, ease: 'easeOut' } }}
-                            >
-                              <AppCard card={card} showStatus={showStatus} isLoading={showLoading || statusUnavailable} />
-                            </motion.div>
-                          ))}
-                        </AnimatePresence>
-                      </motion.div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
+          <CategoryMasonry items={categoryItems} onReady={() => setMasonryLayoutReady(true)} animate={searchBarDone} />
             )}
           </>
         )}

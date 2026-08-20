@@ -29,7 +29,7 @@ export function groupHeaderNames(config: AppConfig): string[] {
 export function parseUserGroups(headerValue: string | null | undefined): string[] {
   if (!headerValue) return []
   return headerValue
-    .split(/[,;]/)
+    .split(/[,;|]/)
     .map(g => g.trim())
     .filter(Boolean)
 }

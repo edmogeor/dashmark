@@ -4,7 +4,7 @@ import { URL } from 'node:url'
 import type { AppConfig } from './config'
 import type { YamlService } from './config-file'
 import { loadYamlConfig } from './config-file'
-import { parseLabels, isValidUrl, traefikUrl } from './labels'
+import { parseLabels, isValidUrl, traefikUrl, hasDashmarkLabels } from './labels'
 import { resolveIcon, type IconResult } from './icons'
 import { groupHeaderNames, readUserGroups } from './auth'
 import { logger } from './logger'
@@ -263,8 +263,13 @@ function filterCardsByAccessGroups(cards: Card[], userGroups: string[]): Card[] 
   return cards.filter(card => groupsIntersect(card.accessGroups, userGroups))
 }
 
-function resolveCardUrl(primaryUrl: string | undefined, labels: Record<string, string>): string | undefined {
+function resolveCardUrl(
+  primaryUrl: string | undefined,
+  labels: Record<string, string>,
+  useTraefikFallback: boolean
+): string | undefined {
   if (primaryUrl && isValidUrl(primaryUrl)) return primaryUrl
+  if (!useTraefikFallback) return undefined
   const derived = traefikUrl(labels)
   return derived && isValidUrl(derived) ? derived : undefined
 }
@@ -299,8 +304,10 @@ async function cardFromContainer(
   yamlService: YamlService | undefined
 ): Promise<Card | null> {
   const name = containerName(container)
-  const labels = mergeWithYaml(parseLabels(container.Labels ?? {}), yamlService)
-  const url = resolveCardUrl(labels.url, container.Labels ?? {})
+  const rawLabels = container.Labels ?? {}
+  const labels = mergeWithYaml(parseLabels(rawLabels), yamlService)
+  const useTraefikFallback = yamlService !== undefined || hasDashmarkLabels(rawLabels)
+  const url = resolveCardUrl(labels.url, rawLabels, useTraefikFallback)
 
   if (labels.hidden || !url) return null
 
@@ -463,12 +470,13 @@ function getAllCards(config: AppConfig): Promise<{ cards: Card[]; error?: Dashma
 export async function getCards(
   config: AppConfig,
   headers: Headers
-): Promise<{ cards: Card[]; error?: DashmarkError }> {
+): Promise<{ cards: Card[]; usesAccessGroups: boolean; error?: DashmarkError }> {
   const { groups: userGroups, error: userGroupsError } = getUserGroups(config, headers)
-  if (userGroupsError) return { cards: [], error: userGroupsError }
+  if (userGroupsError) return { cards: [], usesAccessGroups: false, error: userGroupsError }
 
   const { cards: allCards, error } = await getAllCards(config)
-  if (error) return { cards: [], error }
+  if (error) return { cards: [], usesAccessGroups: false, error }
 
-  return { cards: filterCardsByAccessGroups(allCards, userGroups) }
+  const usesAccessGroups = allCards.some(card => card.accessGroups.length > 0)
+  return { cards: filterCardsByAccessGroups(allCards, userGroups), usesAccessGroups }
 }

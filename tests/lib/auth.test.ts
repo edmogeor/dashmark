@@ -18,6 +18,10 @@ describe('parseUserGroups', () => {
     expect(parseUserGroups('admins,media;family')).toEqual(['admins', 'media', 'family'])
   })
 
+  it('splits pipe separated values (Authentik)', () => {
+    expect(parseUserGroups('Admins|admins|users')).toEqual(['Admins', 'admins', 'users'])
+  })
+
   it('trims and drops empty entries', () => {
     expect(parseUserGroups(' admins , , media ')).toEqual(['admins', 'media'])
   })

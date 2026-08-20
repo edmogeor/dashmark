@@ -43,6 +43,10 @@ export function parseLabels(labels: Record<string, string>): ParsedLabels {
   }
 }
 
+export function hasDashmarkLabels(labels: Record<string, string>): boolean {
+  return Object.keys(labels).some(key => key.startsWith(`${LABEL_PREFIX}.`))
+}
+
 export function isValidUrl(url: string): boolean {
   try {
     const parsed = new URL(url)

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseLabels, isValidUrl, traefikUrl } from '@/lib/labels'
+import { parseLabels, isValidUrl, traefikUrl, hasDashmarkLabels } from '@/lib/labels'
 
 describe('parseLabels', () => {
   it('parses all supported dashmark labels', () => {
@@ -58,6 +58,20 @@ describe('parseLabels', () => {
 
   it('ignores non-finite order values', () => {
     expect(parseLabels({ 'dashmark.order': 'Infinity' }).order).toBeUndefined()
+  })
+})
+
+describe('hasDashmarkLabels', () => {
+  it('detects any dashmark.* label', () => {
+    expect(hasDashmarkLabels({ 'dashmark.title': 'Plex' })).toBe(true)
+    expect(hasDashmarkLabels({ 'dashmark.hidden': 'true' })).toBe(true)
+  })
+
+  it('ignores non-dashmark labels', () => {
+    expect(
+      hasDashmarkLabels({ 'traefik.http.routers.app.rule': 'Host(`app.example.com`)' })
+    ).toBe(false)
+    expect(hasDashmarkLabels({})).toBe(false)
   })
 })
 

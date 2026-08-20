@@ -12,7 +12,7 @@ import '@/styles/global.css'
 const config = getConfig()
 const origin = Astro.url.origin
 const imageUrl = `${origin}/brand/og-image.png`
-const { cards: initialCards, error: initialError } = await getCards(config, Astro.request.headers)
+const { cards: initialCards, error: initialError, usesAccessGroups } = await getCards(config, Astro.request.headers)
 const user = getUser(config, Astro.request.headers)
 const greeting = resolveGreeting(config, user)
 ---
@@ -63,7 +63,7 @@ const greeting = resolveGreeting(config, user)
         initialShowStatus={config.showStatus}
         initialShowBranding={config.showBranding}
         showHeader={config.showHeader}
-        showGroups={config.showGroupTags}
+        showGroups={config.showGroupTags && usesAccessGroups}
         greeting={greeting}
         userGroups={user.groups}
       />

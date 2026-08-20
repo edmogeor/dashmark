@@ -128,7 +128,7 @@ You can configure Dashmark with environment variables, Docker labels, or a YAML 
 | `ENABLE_ACCESS_GROUPS` | `false` | When `true`, filter cards by the groups header |
 | `ACCESS_GROUPS_HEADER` | `auto` | Group header. `auto` detects Authentik, Authelia, oauth2-proxy, or Keycloak Gatekeeper |
 | `SHOW_HEADER` | `true` | Show a greeting header with the user's name and group tags |
-| `SHOW_GROUP_TAGS` | `true` | Show the group tags in the header |
+| `SHOW_GROUP_TAGS` | `true` | Show the user's group tags in the header when a card uses access groups |
 | `SHOW_THEME_TOGGLE` | `true` | Show the light/dark toggle. When `false`, Dashmark always follows the system preference |
 | `CUSTOM_HEADER` | unset | Header greeting template. Supports the tags listed below |
 | `GREETING_MORNING` | `Good morning` | The morning greeting, used by `{greeting}` and the default greeting |
@@ -172,9 +172,9 @@ services:
       - "dashmark.order=1"
 ```
 
-If you do not set `dashmark.url`, Dashmark tries to build one from a Traefik label that looks like `traefik.http.routers.<name>.rule` with a `Host(...)` rule. It defaults to `https://`.
+If you do not set `dashmark.url`, Dashmark builds one from a Traefik label that looks like `traefik.http.routers.<name>.rule` with a `Host(...)` rule. It defaults to `https://`. Dashmark only does this when the container also has at least one `dashmark.*` label (or a matching YAML entry). A container with only Traefik labels does not appear.
 
-If you already route a service with Traefik, you do not need `dashmark.url` at all:
+So if you already route a service with Traefik, you do not need `dashmark.url`, as long as you set another `dashmark.*` label to opt in:
 
 ```yaml
 services:
@@ -301,7 +301,7 @@ A tag with no matching header shows as empty text. Dashmark detects the name, us
 
 `{first_name}` and `{last_name}` come from the dedicated Authentik headers `X-Authentik-Given-Name` and `X-Authentik-Family-Name` when they are present. Otherwise, Dashmark splits the full name on spaces: the first word is the first name and the last word is the last name. For example, `John Mary Doe` becomes `John` / `Doe`. A single-word name gives a first name only.
 
-Group tags appear next to the greeting from the groups header (the same one `ACCESS_GROUPS_HEADER` uses). They are shown by default; set `SHOW_GROUP_TAGS=false` to hide them.
+Group tags appear next to the greeting from the groups header (the same one `ACCESS_GROUPS_HEADER` uses). Dashmark only shows them when at least one card has `access_groups` set. Set `SHOW_GROUP_TAGS=false` to hide them entirely.
 
 ## Security
 

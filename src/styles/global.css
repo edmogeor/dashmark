@@ -194,12 +194,4 @@
     --marquee-right-fade: 0px;
   }
 }
-
-.service-grid {
-  @container (min-width: 520px) {
-    & > *:only-child {
-      grid-column: span 2 / span 2;
-    }
-  }
-}
 }

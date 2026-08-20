@@ -69,6 +69,45 @@ describe('getCards', () => {
     })
   })
 
+  it('reports whether any card uses access groups', async () => {
+    server.containers = [
+      {
+        Id: 'plain1',
+        Names: ['/plain'],
+        Image: 'nginx',
+        ImageID: 'sha256:plain',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: { 'dashmark.url': 'https://plain.home.local' }
+      }
+    ]
+
+    const config = getConfig()
+    config.dockerHost = dockerHost
+
+    const withoutGroups = await getCards(config, new Headers())
+    expect(withoutGroups.usesAccessGroups).toBe(false)
+
+    server.containers = [
+      {
+        Id: 'gated1',
+        Names: ['/gated'],
+        Image: 'nginx',
+        ImageID: 'sha256:gated',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: {
+          'dashmark.url': 'https://gated.home.local',
+          'dashmark.access_groups': 'admins'
+        }
+      }
+    ]
+    clearDockerCache()
+
+    const withGroups = await getCards(config, new Headers())
+    expect(withGroups.usesAccessGroups).toBe(true)
+  })
+
   it('hides containers with dashmark.hidden=true', async () => {
     server.containers = [
       {
@@ -116,6 +155,59 @@ describe('getCards', () => {
     expect(cards[0]).toMatchObject({
       title: 'Traefik App',
       url: 'https://app.example.com'
+    })
+  })
+
+  it('does not create a card from Traefik labels alone', async () => {
+    server.containers = [
+      {
+        Id: 'traefik2',
+        Names: ['/traefik-only'],
+        Image: 'nginx',
+        ImageID: 'sha256:traefik2',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: {
+          'traefik.http.routers.traefik-only.rule': 'Host(`app.example.com`)'
+        }
+      }
+    ]
+
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    const { cards, error } = await getCards(config, new Headers())
+
+    expect(error).toBeUndefined()
+    expect(cards).toHaveLength(0)
+  })
+
+  it('derives a Traefik URL when a matching YAML entry opts in', async () => {
+    server.containers = [
+      {
+        Id: 'traefik3',
+        Names: ['/traefik-yaml'],
+        Image: 'nginx',
+        ImageID: 'sha256:traefik3',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: {
+          'traefik.http.routers.traefik-yaml.rule': 'Host(`app.example.com`)'
+        }
+      }
+    ]
+
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.configFile = writeTempConfig('traefik-yaml:\n  title: Traefik YAML\n')
+
+    const { cards, error } = await getCards(config, new Headers())
+
+    expect(error).toBeUndefined()
+    expect(cards).toHaveLength(1)
+    expect(cards[0]).toMatchObject({
+      title: 'Traefik YAML',
+      url: 'https://app.example.com',
+      hasContainer: true
     })
   })
 
