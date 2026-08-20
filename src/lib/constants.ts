@@ -55,7 +55,6 @@ export const TRAEFIK_ROUTER_RULE = /^traefik\.http\.routers\.[^.]+\.rule$/
 
 export const IMAGE_SUFFIXES = ['-server', '-client', '-web', '-app', '-service', '-core', '-api', '-docker', '-ce', '-ee']
 
-export const SELFHST_PREFIX = 'selfhst:'
 export const SELFHST_CDN = 'https://cdn.jsdelivr.net/gh/selfhst/icons@main'
 export const SELFHST_GITHUB_API_URL = 'https://api.github.com/repos/selfhst/icons/contents/svg'
 export const SELFHST_PAGE_SIZE = 100

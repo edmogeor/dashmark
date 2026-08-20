@@ -61,20 +61,7 @@ describe('resolveIcon', () => {
     })
   })
 
-  it('resolves selfhst reference to CDN URL', async () => {
-    const result = await resolveIcon(config, {
-      iconLabel: 'selfhst:plex',
-      title: 'Plex',
-      containerName: 'plex'
-    })
-    expect(result).toEqual({
-      type: 'image',
-      src: 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/plex.svg',
-      alt: 'Plex'
-    })
-  })
-
-  it('treats a bare name as a custom file, not a selfhst reference', async () => {
+  it('treats a bare name as a path inside ICONS_DIR', async () => {
     vi.mocked(fs.existsSync).mockReturnValue(true)
 
     const result = await resolveIcon(config, {
@@ -88,6 +75,21 @@ describe('resolveIcon', () => {
       alt: 'Plex'
     })
     expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('resolves a subdirectory path inside ICONS_DIR', async () => {
+    vi.mocked(fs.existsSync).mockReturnValue(true)
+
+    const result = await resolveIcon(config, {
+      iconLabel: 'media/plex.svg',
+      title: 'Plex',
+      containerName: 'plex'
+    })
+    expect(result).toEqual({
+      type: 'image',
+      src: '/icons/media/plex.svg',
+      alt: 'Plex'
+    })
   })
 
   it('resolves custom file icon when present', async () => {

@@ -152,7 +152,7 @@ Put labels on your containers to shape their cards. Every label starts with the 
 | `dashmark.url` | The URL the card links to. You can also set this in YAML or reuse an existing Traefik rule |
 | `dashmark.title` | The display title. Falls back to the container name |
 | `dashmark.description` | A short description shown in a tooltip |
-| `dashmark.icon` | A `selfhst:<slug>` reference, a URL, a filename in `ICONS_DIR`, or `placeholder`. Selfhst icons that are dominated by very dark or very light colours automatically switch to their `-light` or `-dark` monochrome variant when the current theme would make them hard to see |
+| `dashmark.icon` | A URL, a path inside `ICONS_DIR`, or `placeholder`. Leave it unset to let Dashmark guess from the image name. Selfhst icons that are dominated by very dark or very light colours automatically switch to their `-light` or `-dark` monochrome variant when the current theme would make them hard to see |
 | `dashmark.category` | The group name |
 | `dashmark.access_groups` | Comma-separated group allow-list |
 | `dashmark.search_aliases` | Comma-separated extra search terms |
@@ -168,7 +168,7 @@ services:
       - "dashmark.title=Plex"
       - "dashmark.description=Media server"
       - "dashmark.url=https://plex.example.com"
-      - "dashmark.icon=plex"
+      - "dashmark.icon=plex.svg"
       - "dashmark.category=Media"
       - "dashmark.order=1"
 ```
@@ -185,7 +185,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.plex.rule=Host(`plex.example.com`)"
       - "dashmark.title=Plex"
-      - "dashmark.icon=plex"
+      - "dashmark.icon=plex.svg"
       - "dashmark.category=Media"
 ```
 
@@ -208,7 +208,7 @@ plex:
   title: Plex
   description: Media server
   url: https://plex.example.com
-  icon: selfhst:plex
+  icon: plex.svg
   category: Media
   order: 1
   search_aliases:
@@ -234,7 +234,7 @@ A key that does not match any running container becomes a standalone card, as lo
 github:
   title: GitHub
   url: https://github.com
-  icon: selfhst:github
+  icon: github.svg
   category: External
 
 router-admin:
@@ -251,10 +251,9 @@ Dashmark picks a card's icon in this order:
 
 1. `icon: placeholder` shows the title's initials. Use this to turn off guessing for one container.
 2. An `http(s)` URL is used directly.
-3. A `selfhst:` reference (for example `selfhst:plex`) looks up the slug on the selfhst CDN, ignoring letter case.
-4. Any other value is a filename looked up inside `ICONS_DIR`. A missing file shows initials.
-5. With no icon set, Dashmark guesses the icon from the image name, using the selfhst index.
-6. If nothing matches, it falls back to initials.
+3. Any other value is a path inside `ICONS_DIR` (subdirectories are allowed). A missing file shows initials.
+4. With no icon set, Dashmark guesses the icon from the image name, using the selfhst index.
+5. If nothing matches, it falls back to initials.
 
 The [selfhst](https://selfh.st/) index is included in the image. If it is missing, Dashmark fetches it from the GitHub API instead.
 

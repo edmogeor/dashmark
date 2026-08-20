@@ -216,10 +216,11 @@ function MasonryGrid({ items, onReady, animate, openInNewTab }: { items: Categor
   }, [itemsKey, virtualizer])
 
   const virtualItems = virtualizer.getVirtualItems()
-  const visualRank = new Map<number, number>()
-  ;[...virtualItems]
-    .sort((a, b) => a.start - b.start || a.lane - b.lane)
-    .forEach((item, rank) => visualRank.set(item.index, rank))
+  const visualRank = new Map(
+    [...virtualItems]
+      .sort((a, b) => a.start - b.start || a.lane - b.lane)
+      .map((item, rank) => [item.index, rank])
+  )
 
   const twoColumn = items.some(item => item.cards.length > 1)
   const showGrid = width > 0
@@ -262,10 +263,6 @@ function MasonryGrid({ items, onReady, animate, openInNewTab }: { items: Categor
       )}
     </div>
   )
-}
-
-function CategoryMasonry({ items, onReady, animate, openInNewTab }: { items: CategoryItem[]; onReady?: () => void; animate?: boolean; openInNewTab: boolean }) {
-  return <MasonryGrid items={items} onReady={onReady} animate={animate} openInNewTab={openInNewTab} />
 }
 
 export function Dashboard({
@@ -441,7 +438,7 @@ export function Dashboard({
             ))}
           </motion.div>
         ) : (
-          <CategoryMasonry items={categoryItems} onReady={() => setMasonryLayoutReady(true)} animate={searchBarDone} openInNewTab={openInNewTab} />
+          <MasonryGrid items={categoryItems} onReady={() => setMasonryLayoutReady(true)} animate={searchBarDone} openInNewTab={openInNewTab} />
             )}
           </>
         )}

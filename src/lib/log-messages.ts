@@ -11,8 +11,7 @@ export const logMessages = {
   },
   icons: {
     invalidPath: 'invalid custom icon path',
-    fileNotFound: 'custom icon file not found',
-    selfhstReferenceNotFound: 'selfhst icon reference not found'
+    fileNotFound: 'custom icon file not found'
   },
   selfhst: {
     localIndexFailed: 'failed to load local icon index',
