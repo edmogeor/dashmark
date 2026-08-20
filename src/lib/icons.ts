@@ -124,7 +124,7 @@ export async function resolveIcon(
     return makePlaceholder(title)
   }
 
-  if (config.disableAutomaticIcons) {
+  if (!config.enableAutomaticIcons) {
     return makePlaceholder(title)
   }
 

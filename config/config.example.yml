@@ -1,3 +1,12 @@
+# Dashmark service config.
+#
+# Each top-level key is a service, keyed by its container name or Compose
+# service name. A key matching a running container overrides that container's
+# `dashmark.*` labels; a key with no matching container becomes a standalone
+# card (it needs a `url` and has no status badge).
+
+# Override the card for a container you run. Omitted fields fall back to the
+# container's labels or defaults.
 plex:
   title: Plex
   description: Media server
@@ -8,11 +17,23 @@ plex:
   search_aliases:
     - movies
     - watch later
+
+# A standalone card for a service Dashmark does not run. Only `url` is
+# required.
+github:
+  title: GitHub
+  url: https://github.com
+  icon: selfhst:github
+  category: External
+
+# Restrict a card to these groups when ENABLE_ACCESS_GROUPS=true. Cards with
+# no `access_groups` are visible to everyone.
+portainer:
+  url: https://portainer.home.local
+  category: Management
   access_groups:
-    - media
     - admins
 
-nzbget:
-  url: https://nzbget.home.local
-  category: Downloads
-  order: 2
+# Hide a container so it does not appear on the dashboard.
+speedtest:
+  hidden: true

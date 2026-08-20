@@ -53,7 +53,7 @@ Dashmark reads your Docker daemon and shows a link for each labeled container au
 
 Dashmark ships as a Docker image. The easiest way to run it is with Docker Compose.
 
-Create a `docker-compose.yml`:
+Create a `docker-compose.yml` (see the [annotated example](https://github.com/edmogeor/dashmark/blob/main/docker-compose.yml) for every option):
 
 ```yaml
 services:
@@ -66,7 +66,6 @@ services:
       - ./config.yml:/app/config.yml:ro
       - ./icons:/app/icons:ro
     environment:
-      - ACCESS_GROUPS_ENABLED=false
       - DOCKER_HOST=tcp://dockerproxy:2375
     depends_on:
       - dockerproxy
@@ -126,12 +125,18 @@ You can configure Dashmark with environment variables, Docker labels, or a YAML 
 | `DOCKER_HOST` | `unix:///var/run/docker.sock` | Docker socket or TCP endpoint |
 | `CONFIG_FILE` | `/app/config.yml` | Optional YAML config file path |
 | `ICONS_DIR` | `/app/icons` | Folder for custom icon files |
-| `ACCESS_GROUPS_ENABLED` | `false` | When `true`, filter cards by the groups header |
+| `ENABLE_ACCESS_GROUPS` | `false` | When `true`, filter cards by the groups header |
 | `ACCESS_GROUPS_HEADER` | `auto` | Group header. `auto` detects Authentik, Authelia, oauth2-proxy, or Keycloak Gatekeeper |
-| `DISABLE_SEARCH` | `false` | Hide the search bar and category filter |
-| `DISABLE_STATUS` | `false` | Hide the state and health badge on cards |
-| `DISABLE_AUTOMATIC_ICONS` | `false` | When `true`, do not auto-match icons. Cards without an icon show initials |
-| `DISABLE_BRANDING` | `false` | Hide the Dashmark logo next to the search bar |
+| `SHOW_HEADER` | `true` | Show a greeting header with the user's name and group tags |
+| `SHOW_GROUP_TAGS` | `true` | Show the group tags in the header |
+| `CUSTOM_HEADER` | unset | Header greeting template. Supports the tags listed below |
+| `GREETING_MORNING` | `Good morning` | The morning greeting, used by `{greeting}` and the default greeting |
+| `GREETING_AFTERNOON` | `Good afternoon` | The afternoon greeting |
+| `GREETING_EVENING` | `Good evening` | The evening greeting |
+| `SHOW_SEARCH` | `true` | Show the search bar and category filter |
+| `SHOW_STATUS` | `true` | Show the state and health badge on cards |
+| `ENABLE_AUTOMATIC_ICONS` | `true` | When `false`, do not auto-match icons. Cards without an icon show initials |
+| `SHOW_BRANDING` | `true` | Show the Dashmark logo next to the search bar |
 | `PORT` | `4321` | HTTP port Dashmark listens on |
 
 ### Docker labels
@@ -216,7 +221,7 @@ nzbget:
   order: 2
 ```
 
-Each service accepts these fields: `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `access_groups`, and `search_aliases`.
+Each service accepts these fields: `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `access_groups`, and `search_aliases`. See [`config/config.example.yml`](https://github.com/edmogeor/dashmark/blob/main/config/config.example.yml) for a commented example.
 
 #### Custom cards
 
@@ -252,7 +257,7 @@ The [selfhst](https://selfh.st/) index ships in the image. If it is missing, Das
 
 ### Access groups
 
-Turn on `ACCESS_GROUPS_ENABLED=true` to filter cards by group. Your reverse proxy must send a groups header with each request. Dashmark shows a card when the card's `access_groups` overlap with the user's groups. Cards with no `access_groups` are visible to everyone.
+Turn on `ENABLE_ACCESS_GROUPS=true` to filter cards by group. Your reverse proxy must send a groups header with each request. Dashmark shows a card when the card's `access_groups` overlap with the user's groups. Cards with no `access_groups` are visible to everyone.
 
 Serve Dashmark behind a proxy that handles login, so the header is trustworthy. When the header is missing, Dashmark shows an error and sets the `Vary` header so shared caches key on the groups header.
 
@@ -266,6 +271,35 @@ Serve Dashmark behind a proxy that handles login, so the header is trustworthy. 
 | Keycloak Gatekeeper (louketo) | `X-Auth-Groups` |
 
 Keycloak, Pocket ID, and Zitadel are OIDC providers that do not inject a groups header themselves. Put oauth2-proxy (or a proxy that sets `X-Forwarded-Groups`) in front of them. If your proxy sets a different header, set `ACCESS_GROUPS_HEADER` to that header name.
+
+### Greeting and header
+
+The header is shown by default (`SHOW_HEADER=true`). It renders a greeting above the search bar: the time-of-day greeting followed by the user's first name, e.g. `Good morning, John!`, `Good afternoon, John!`, or `Good evening, John!`. When no name is available it falls back to just the period, e.g. `Good afternoon!`.
+
+Use `CUSTOM_HEADER` to template it instead, for example:
+
+```
+CUSTOM_HEADER={greeting}, {first_name}!
+```
+
+The template is a plain string that supports these tags, each filled from an auth header your reverse proxy sets:
+
+| Tag | Meaning |
+| --- | --- |
+| `{greeting}` | The time-of-day greeting (`Good morning`, `Good afternoon`, or `Good evening`) |
+| `{full_name}` | The user's full name |
+| `{first_name}` | The user's first name |
+| `{last_name}` | The user's last name |
+| `{username}` | The username |
+| `{email}` | The email address |
+
+The time-of-day greeting itself can be customised with `GREETING_MORNING`, `GREETING_AFTERNOON`, and `GREETING_EVENING`. These replace `Good morning`, `Good afternoon`, and `Good evening` respectively, both in the default greeting and in the `{greeting}` tag.
+
+A tag with no matching header renders as empty text. Dashmark detects the name, username, and email headers from Authentik (`X-Authentik-Name`, `X-Authentik-Username`, `X-Authentik-Email`), Authelia (`Remote-Name`, `Remote-User`, `Remote-Email`), oauth2-proxy (`X-Forwarded-Preferred-Username`, `X-Forwarded-User`, `X-Forwarded-Email`), and Keycloak Gatekeeper (`X-Auth-Name`, `X-Auth-Username`, `X-Auth-Email`).
+
+`{first_name}` and `{last_name}` resolve from the dedicated Authentik headers `X-Authentik-Given-Name` and `X-Authentik-Family-Name` when present. Otherwise Dashmark derives them by splitting the full name on whitespace: the first word becomes the first name and the last word becomes the last name (e.g. `John Mary Doe` -> `John` / `Doe`). A single-word name yields a first name only.
+
+Group tags appear next to the greeting from the groups header (the same one `ACCESS_GROUPS_HEADER` uses). They are shown by default; set `SHOW_GROUP_TAGS=false` to hide them.
 
 ## Security
 
@@ -283,7 +317,7 @@ npm run typecheck  # type-check with astro check
 npm run build      # build for production
 ```
 
-`npm run dev` uses a mock Docker API with a handful of labeled cards. It needs no Docker daemon and gives you hot reload.
+`npm run dev` uses a mock Docker API with a handful of labeled cards. It needs no Docker daemon and gives you hot reload. The mock also injects sample auth headers (name, username, email, groups) and enables `SHOW_HEADER`, so you can see the header in action.
 
 ## License
 

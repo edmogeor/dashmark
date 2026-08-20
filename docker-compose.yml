@@ -8,8 +8,26 @@ services:
       - ./config/config.example.yml:/app/config.yml:ro
       - ./icons:/app/icons:ro
     environment:
-      - ACCESS_GROUPS_ENABLED=false
+      # Points Dashmark at the socket-proxy sidecar below. The default is the
+      # Docker socket at unix:///var/run/docker.sock.
       - DOCKER_HOST=tcp://dockerproxy:2375
+
+      # Optional settings, shown with their defaults. Uncomment one to change it.
+      # - PORT=4321
+      # - CONFIG_FILE=/app/config.yml
+      # - ICONS_DIR=/app/icons
+      # - ENABLE_ACCESS_GROUPS=false
+      # - ACCESS_GROUPS_HEADER=auto
+      # - SHOW_SEARCH=true
+      # - SHOW_STATUS=true
+      # - ENABLE_AUTOMATIC_ICONS=true
+      # - SHOW_BRANDING=true
+      # - SHOW_HEADER=true
+      # - SHOW_GROUP_TAGS=true
+      # - CUSTOM_HEADER="{greeting}, {first_name}!"   # no default; this is an example
+      # - GREETING_MORNING=Good morning
+      # - GREETING_AFTERNOON=Good afternoon
+      # - GREETING_EVENING=Good evening
     depends_on:
       - dockerproxy
     restart: unless-stopped

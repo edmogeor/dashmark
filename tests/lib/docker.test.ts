@@ -162,7 +162,7 @@ describe('getCards', () => {
 
     const config = getConfig()
     config.dockerHost = dockerHost
-    config.accessGroupsEnabled = true
+    config.enableAccessGroups = true
     config.accessGroupsHeader = 'X-Authentik-Groups'
 
     const noGroup = await getCards(config, new Headers())
@@ -199,7 +199,7 @@ describe('getCards', () => {
 
     const config = getConfig()
     config.dockerHost = dockerHost
-    config.accessGroupsEnabled = true
+    config.enableAccessGroups = true
     config.accessGroupsHeader = 'auto'
 
     const oauth2Proxy = await getCards(
@@ -373,7 +373,7 @@ describe('getContainerStatuses', () => {
 
     const config = getConfig()
     config.dockerHost = dockerHost
-    config.accessGroupsEnabled = true
+    config.enableAccessGroups = true
     config.accessGroupsHeader = 'X-Authentik-Groups'
 
     const noGroup = await getContainerStatuses(config, new Headers())

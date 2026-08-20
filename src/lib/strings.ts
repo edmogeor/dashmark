@@ -10,6 +10,11 @@ export const strings = {
     all: 'All categories',
     uncategorised: 'Uncategorised'
   },
+  greeting: {
+    morning: 'Good morning',
+    afternoon: 'Good afternoon',
+    evening: 'Good evening'
+  },
   search: {
     placeholder: 'Search',
     clear: 'Clear search'

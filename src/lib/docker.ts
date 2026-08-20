@@ -6,6 +6,7 @@ import type { YamlService } from './config-file'
 import { loadYamlConfig } from './config-file'
 import { parseLabels, isValidUrl, traefikUrl } from './labels'
 import { resolveIcon, type IconResult } from './icons'
+import { groupHeaderNames, readUserGroups } from './auth'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
 import { dashmarkError, type DashmarkError } from './errors'
@@ -253,14 +254,6 @@ function mergeWithYaml(
   }
 }
 
-function parseUserGroups(headerValue: string | null): string[] {
-  if (!headerValue) return []
-  return headerValue
-    .split(/[,;]/)
-    .map(g => g.trim())
-    .filter(Boolean)
-}
-
 function groupsIntersect(cardGroups: string[], userGroups: string[]): boolean {
   if (cardGroups.length === 0) return true
   const lowerUser = new Set(userGroups.map(g => g.toLowerCase()))
@@ -277,34 +270,18 @@ function resolveCardUrl(primaryUrl: string | undefined, labels: Record<string, s
   return derived && isValidUrl(derived) ? derived : undefined
 }
 
-const AUTO_ACCESS_GROUP_HEADERS = [
-  'X-Authentik-Groups',
-  'Remote-Groups',
-  'X-Forwarded-Groups',
-  'X-Auth-Groups'
-]
-
-function groupHeaderNames(config: AppConfig): string[] {
-  return config.accessGroupsHeader === 'auto'
-    ? AUTO_ACCESS_GROUP_HEADERS
-    : [config.accessGroupsHeader]
-}
-
 export function addAccessGroupVaryHeader(headers: Headers, config: AppConfig): void {
-  if (!config.accessGroupsEnabled) return
+  if (!config.enableAccessGroups) return
   headers.set('Vary', groupHeaderNames(config).join(', '))
 }
 
 function getUserGroups(config: AppConfig, headers: Headers): { groups: string[]; error?: DashmarkError } {
-  if (!config.accessGroupsEnabled) return { groups: [] }
+  if (!config.enableAccessGroups) return { groups: [] }
 
-  const names = groupHeaderNames(config)
-  for (const name of names) {
-    const value = headers.get(name)
-    if (value) return { groups: parseUserGroups(value) }
-  }
+  const { groups, found } = readUserGroups(config, headers)
+  if (found) return { groups }
 
-  const expected = names.join(', ')
+  const expected = groupHeaderNames(config).join(', ')
   logger.error('docker', logMessages.docker.missingAccessGroupsHeader, { expected })
   return {
     groups: [],
@@ -422,7 +399,7 @@ export async function getContainerStatuses(
   config: AppConfig,
   headers: Headers
 ): Promise<{ statuses: Record<string, ContainerStatus>; error?: DashmarkError }> {
-  if (config.disableStatus) {
+  if (!config.showStatus) {
     return { statuses: {} }
   }
 

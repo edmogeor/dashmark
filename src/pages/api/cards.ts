@@ -7,8 +7,8 @@ export const GET: APIRoute = async ({ request }) => {
   const { cards, error } = await getCards(config, request.headers)
 
   const ui = {
-    showSearch: !config.disableSearch,
-    showStatus: !config.disableStatus
+    showSearch: config.showSearch,
+    showStatus: config.showStatus
   }
   const headers = new Headers({
     'Content-Type': 'application/json',

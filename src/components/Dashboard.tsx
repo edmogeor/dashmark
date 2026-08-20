@@ -4,7 +4,8 @@ import { SearchBar } from './SearchBar'
 import { CategoryFilter } from './CategoryFilter'
 import { AppCard } from './AppCard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { CircleAlert } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { CircleAlert, User } from 'lucide-react'
 import { toast } from 'sonner'
 import { Toaster } from '@/components/ui/sonner'
 import type { Card as CardType } from '@/lib/docker'
@@ -60,13 +61,21 @@ export function Dashboard({
   initialError,
   initialShowSearch = true,
   initialShowStatus = true,
-  initialShowBranding = true
+  initialShowBranding = true,
+  showHeader = false,
+  showGroups = false,
+  greeting,
+  userGroups = []
 }: {
   initialCards: CardType[]
   initialError?: DashmarkError
   initialShowSearch?: boolean
   initialShowStatus?: boolean
   initialShowBranding?: boolean
+  showHeader?: boolean
+  showGroups?: boolean
+  greeting?: string
+  userGroups?: string[]
 }) {
   const [cards, setCards] = useState<CardType[]>(initialCards)
   const [error] = useState<DashmarkError | null>(initialError ?? null)
@@ -179,7 +188,7 @@ export function Dashboard({
   return (
     <>
       <Toaster />
-      {showSearch && (
+      {(showSearch || showHeader) && (
         <div className="dashboard-search sticky top-0 z-10 mb-8">
           <div className="pt-18">
             <motion.div
@@ -189,30 +198,69 @@ export function Dashboard({
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, ease: 'easeOut' }}
             >
-              <Card className="min-w-[300px] overflow-hidden bg-surface shadow-none">
-                <CardContent className="flex flex-row items-center gap-4 py-6">
-                  {showBranding && (
-                    <img src="/brand/icon.svg" alt={strings.app.title} className="h-8 w-8 shrink-0 rounded-lg" />
+              {showHeader && (
+                <div className={`flex items-center ${showSearch ? 'mb-4' : ''}`}>
+                  <h1 className="text-2xl font-semibold tracking-tight">
+                    {greeting}
+                  </h1>
+                  {showGroups && userGroups.length > 0 && (
+                    <div className="ml-auto flex items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                        <User className="h-3.5 w-3.5" />
+                        {userGroups[0]}
+                      </span>
+                      {userGroups.length > 1 && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex cursor-help items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                                +{userGroups.length - 1}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" align="end" collisionPadding={16} className="flex flex-col items-start gap-1.5">
+                              {userGroups.slice(1).map(group => (
+                                <span
+                                  key={group}
+                                  className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
+                                >
+                                  <User className="h-3.5 w-3.5" />
+                                  {group}
+                                </span>
+                              ))}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
                   )}
-                  <div className="min-w-0 flex-1">
-                    <SearchBar value={search} onChange={setSearch} disabled={!!error} />
-                  </div>
-                  {categories.some(c => c !== UNCATEGORISED) && (
-                    <CategoryFilter
-                      categories={categories}
-                      selected={selectedCategory}
-                      onSelect={setSelectedCategory}
-                      disabled={!!error}
-                    />
-                  )}
-                </CardContent>
-              </Card>
+                </div>
+              )}
+              {showSearch && (
+                <Card className="min-w-[300px] overflow-hidden bg-surface shadow-none">
+                  <CardContent className="flex flex-row items-center gap-4 py-6">
+                    {showBranding && (
+                      <img src="/brand/icon.svg" alt={strings.app.title} className="h-8 w-8 shrink-0 rounded-lg" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <SearchBar value={search} onChange={setSearch} disabled={!!error} />
+                    </div>
+                    {categories.some(c => c !== UNCATEGORISED) && (
+                      <CategoryFilter
+                        categories={categories}
+                        selected={selectedCategory}
+                        onSelect={setSelectedCategory}
+                        disabled={!!error}
+                      />
+                    )}
+                  </CardContent>
+                </Card>
+              )}
             </motion.div>
           </div>
         </div>
       )}
 
-      <div className={`mx-auto w-full max-w-6xl px-6 pb-12 ${showSearch ? '' : 'pt-12'}`}>
+      <div className={`mx-auto w-full max-w-6xl px-6 pb-12 ${showSearch || showHeader ? '' : 'pt-12'}`}>
         <div className="min-h-0">
         {error ? (
           <motion.div

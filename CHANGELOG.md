@@ -10,12 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `ACCESS_GROUPS_HEADER=auto` now also detects oauth2-proxy (`X-Forwarded-Groups`) and Keycloak Gatekeeper (`X-Auth-Groups`) group headers, enabling Keycloak, Pocket ID, and Zitadel behind oauth2-proxy.
-- `DISABLE_BRANDING` environment variable to hide the Dashmark logo next to the search bar.
+- Greeting header with the user's name and group tags, shown by default (`SHOW_HEADER`, `SHOW_GROUP_TAGS`).
+- `CUSTOM_HEADER` greeting template with `{greeting}`, `{full_name}`, `{first_name}`, `{last_name}`, `{username}`, and `{email}` tags, plus `GREETING_MORNING`/`GREETING_AFTERNOON`/`GREETING_EVENING` to customise the time-of-day greeting.
 - YAML config entries can be keyed by compose service name (via `com.docker.compose.service`) in addition to container name.
 
 ### Changed
 
 - Invalid `ACCESS_GROUPS_HEADER` values fall back to `auto` with an error log instead of failing at request time.
+- Boolean environment variables now use positive polarity: `DISABLE_SEARCH` -> `SHOW_SEARCH`, `DISABLE_STATUS` -> `SHOW_STATUS`, `DISABLE_BRANDING` -> `SHOW_BRANDING`, `DISABLE_GROUP_TAGS` -> `SHOW_GROUP_TAGS`, `DISABLE_AUTOMATIC_ICONS` -> `ENABLE_AUTOMATIC_ICONS`, and `ACCESS_GROUPS_ENABLED` -> `ENABLE_ACCESS_GROUPS`.
 - Selfhst icon references now require a `selfhst:` prefix (e.g. `selfhst:plex`); bare names are treated as custom files.
 - YAML config is now a flat map of services; the `services:` wrapper and the unused `settings` key are gone.
 

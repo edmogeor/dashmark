@@ -3,11 +3,15 @@ import { Dashboard } from '@/components/Dashboard'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { getConfig } from '@/lib/config'
 import { getCards } from '@/lib/docker'
+import { getUser } from '@/lib/auth'
+import { resolveGreeting } from '@/lib/greeting'
 import { strings } from '@/lib/strings'
 import '@/styles/global.css'
 
 const config = getConfig()
 const { cards: initialCards, error: initialError } = await getCards(config, Astro.request.headers)
+const user = getUser(config, Astro.request.headers)
+const greeting = resolveGreeting(config, user)
 ---
 
 <!doctype html>
@@ -41,9 +45,13 @@ const { cards: initialCards, error: initialError } = await getCards(config, Astr
         client:load
         initialCards={initialCards}
         initialError={initialError}
-        initialShowSearch={!config.disableSearch}
-        initialShowStatus={!config.disableStatus}
-        initialShowBranding={!config.disableBranding}
+        initialShowSearch={config.showSearch}
+        initialShowStatus={config.showStatus}
+        initialShowBranding={config.showBranding}
+        showHeader={config.showHeader}
+        showGroups={config.showGroupTags}
+        greeting={greeting}
+        userGroups={user.groups}
       />
     </main>
   </body>

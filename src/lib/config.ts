@@ -5,13 +5,19 @@ export type AppConfig = {
   dockerHost: string
   configFile: string
   iconsDir: string
-  accessGroupsEnabled: boolean
+  enableAccessGroups: boolean
   accessGroupsHeader: string
   port: number
-  disableSearch: boolean
-  disableStatus: boolean
-  disableAutomaticIcons: boolean
-  disableBranding: boolean
+  showSearch: boolean
+  showStatus: boolean
+  enableAutomaticIcons: boolean
+  showBranding: boolean
+  showHeader: boolean
+  showGroupTags: boolean
+  customHeader?: string
+  greetingMorning?: string
+  greetingAfternoon?: string
+  greetingEvening?: string
 }
 
 function parseBool(value: string | undefined, defaultValue: boolean): boolean {
@@ -38,19 +44,26 @@ function parsePort(value: string | undefined, defaultValue: number): number {
 }
 
 export function getConfig(): AppConfig {
-  const accessGroupsEnabled = parseBool(process.env.ACCESS_GROUPS_ENABLED, false)
+  const enableAccessGroups = parseBool(process.env.ENABLE_ACCESS_GROUPS, false)
   const accessGroupsHeader = parseAccessGroupsHeader(process.env.ACCESS_GROUPS_HEADER)
+  const customHeader = process.env.CUSTOM_HEADER?.trim() || undefined
 
   return {
     dockerHost: process.env.DOCKER_HOST || 'unix:///var/run/docker.sock',
     configFile: process.env.CONFIG_FILE || '/app/config.yml',
     iconsDir: process.env.ICONS_DIR || '/app/icons',
-    accessGroupsEnabled,
+    enableAccessGroups,
     accessGroupsHeader,
     port: parsePort(process.env.PORT, 4321),
-    disableSearch: parseBool(process.env.DISABLE_SEARCH, false),
-    disableStatus: parseBool(process.env.DISABLE_STATUS, false),
-    disableAutomaticIcons: parseBool(process.env.DISABLE_AUTOMATIC_ICONS, false),
-    disableBranding: parseBool(process.env.DISABLE_BRANDING, false)
+    showSearch: parseBool(process.env.SHOW_SEARCH, true),
+    showStatus: parseBool(process.env.SHOW_STATUS, true),
+    enableAutomaticIcons: parseBool(process.env.ENABLE_AUTOMATIC_ICONS, true),
+    showBranding: parseBool(process.env.SHOW_BRANDING, true),
+    showHeader: parseBool(process.env.SHOW_HEADER, true),
+    showGroupTags: parseBool(process.env.SHOW_GROUP_TAGS, true),
+    customHeader,
+    greetingMorning: process.env.GREETING_MORNING?.trim() || undefined,
+    greetingAfternoon: process.env.GREETING_AFTERNOON?.trim() || undefined,
+    greetingEvening: process.env.GREETING_EVENING?.trim() || undefined
   }
 }

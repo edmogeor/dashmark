@@ -26,7 +26,7 @@ describe('resolveIcon', () => {
 
   afterEach(() => {
     vi.resetAllMocks()
-    config.disableAutomaticIcons = false
+    config.enableAutomaticIcons = true
   })
 
   it('returns placeholder for icon=none', async () => {
@@ -129,8 +129,8 @@ describe('resolveIcon', () => {
     })
   })
 
-  it('skips automatic matching when disableAutomaticIcons is set', async () => {
-    config.disableAutomaticIcons = true
+  it('skips automatic matching when enableAutomaticIcons is false', async () => {
+    config.enableAutomaticIcons = false
 
     const result = await resolveIcon(config, {
       imageName: 'linuxserver/plex',
