@@ -100,23 +100,13 @@ Open http://localhost:4321. Dashmark shows a card for every running container th
 
 ## How it works
 
-Here are the words we use, in plain terms:
+Dashmark connects to your Docker socket read-only via HTTP—or reads a manual YAML config—to automatically discover containers and turn them into interactive dashboard cards based on container labels.
 
-- **Card** is one clickable entry on the dashboard. It links to a service. Most cards come from a Docker container.
-- **Container** is a Docker container Dashmark found through the Docker API.
-- **Category** is a label that groups cards, like `Media` or `Monitoring`.
-- **Access groups** are the permission groups from your identity provider. They decide who sees a card.
-- **Container state** is what Docker reports, like `running` or `paused`.
-- **Health status** is the optional health-check result: `healthy`, `unhealthy`, or `starting`.
-- **Icon** is the picture on a card. It can be an image, initials, or a simple box.
-
-On each page load, Dashmark asks Docker for its containers and turns each one into a card. The page then polls for status every 30 seconds to keep badges fresh.
-
-Dashmark reads Docker directly over HTTP. It never installs an agent and never writes to your socket. Mount the socket read-only.
+Cards auto-refresh every 30 seconds to reflect real-time container states and health checks. You can easily organize them with categories and icons, and restrict visibility using access groups synced from your identity provider.
 
 ## Configuration
 
-You can configure Dashmark with environment variables, Docker labels, or a YAML file. Labels live on your containers. The YAML file lives on the Dashmark host. YAML wins when both set the same value.
+You can configure Dashmark with environment variables, Docker labels, or a YAML file. YAML wins when both set the same value.
 
 ### Environment variables
 
@@ -152,7 +142,7 @@ Put labels on your containers to shape their cards. Every label starts with the 
 | `dashmark.url` | The URL the card links to. You can also set this in YAML or reuse an existing Traefik rule |
 | `dashmark.title` | The display title. Falls back to the container name |
 | `dashmark.description` | A short description shown in a tooltip |
-| `dashmark.icon` | A URL, a path inside `ICONS_DIR`, or `placeholder`. Leave it unset to let Dashmark guess from the image name. Selfhst icons that are dominated by very dark or very light colours automatically switch to their `-light` or `-dark` monochrome variant when the current theme would make them hard to see |
+| `dashmark.icon` | A URL, a path inside `ICONS_DIR`, or `placeholder`. Leave it unset to let Dashmark guess from the image name. Selfhst icons that are to dark or to light automatically switch to their `-light` or `-dark` monochrome variant. |
 | `dashmark.category` | The group name |
 | `dashmark.access_groups` | Comma-separated group allow-list |
 | `dashmark.search_aliases` | Comma-separated extra search terms |
@@ -324,6 +314,8 @@ npm run build      # build for production
 ```
 
 `npm run dev` uses a mock Docker API with a handful of labeled cards. It needs no Docker daemon and gives you hot reload. The mock also injects sample auth headers (name, username, email, groups) and enables `SHOW_HEADER`, so you can see the header in action.
+
+Pull requests are welcomed if you'd like to help me develop this image!
 
 ## License
 
