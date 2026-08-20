@@ -7,7 +7,8 @@ import {
   AUTO_FIRST_NAME_HEADERS,
   AUTO_LAST_NAME_HEADERS,
   AUTO_USERNAME_HEADERS,
-  AUTO_EMAIL_HEADERS
+  AUTO_EMAIL_HEADERS,
+  AUTH_TOKEN_HEADER
 } from './constants'
 
 export type AuthUser = {
@@ -79,8 +80,8 @@ export function readUserGroups(config: AppConfig, headers: Headers): { groups: s
 
 export function isAuthorized(request: Request, authToken: string | undefined): boolean {
   if (!authToken) return true
-  const expected = Buffer.from(`Bearer ${authToken}`)
-  const provided = Buffer.from(request.headers.get('Authorization') ?? '')
+  const expected = Buffer.from(authToken)
+  const provided = Buffer.from(request.headers.get(AUTH_TOKEN_HEADER) ?? '')
   return expected.length === provided.length && timingSafeEqual(expected, provided)
 }
 

@@ -139,7 +139,7 @@ You can configure Dashmark with environment variables, Docker labels, or a YAML 
 | `ENABLE_AUTOMATIC_ICONS` | `true` | When `false`, do not auto-match icons. Cards without an icon show initials |
 | `SHOW_BRANDING` | `true` | Show the Dashmark logo next to the search bar |
 | `PORT` | `4321` | HTTP port Dashmark listens on |
-| `AUTH_TOKEN` | unset | Optional shared secret. When set, every request must include `Authorization: Bearer <token>`. Set the same token in your reverse proxy, which must overwrite the `Authorization` header. Off by default |
+| `AUTH_TOKEN` | unset | Optional shared secret. When set, every request must include `X-Dashmark-Token: <token>`. Set the same token in your reverse proxy, which must overwrite the header. Off by default |
 
 ### Docker labels
 
@@ -307,7 +307,7 @@ Group tags appear next to the greeting from the groups header (the same one `ACC
 
 If you host Dashmark on the public internet, add a login layer in front of it. We recommend Authentik or Authelia, which work out of the box with `ACCESS_GROUPS_HEADER=auto`. Keycloak, Pocket ID, and Zitadel also work through oauth2-proxy. Pair this with access groups to control who sees which cards.
 
-For defense in depth, set `AUTH_TOKEN` to a shared secret. Dashmark then requires `Authorization: Bearer <token>` on every request and rejects anything that reaches it directly (bypassing the proxy). Configure your reverse proxy to overwrite the `Authorization` header with the token after authenticating the user. Generate a strong token with `openssl rand -hex 32`.
+Dashmark is only reachable the way you expose it. If you bind to `127.0.0.1` (as in the example compose file) or only put it on a private Docker network with your proxy, it cannot be reached directly from the internet, and no `AUTH_TOKEN` is needed. Use `AUTH_TOKEN` when Dashmark must be directly reachable and you want to make sure it only serves requests that came through your proxy. Set it to a shared secret and have the proxy set the `X-Dashmark-Token` header to it (overwriting anything the client sends); Dashmark then rejects requests without that header. Generate a token with `openssl rand -hex 32`.
 
 Also expose Docker through a [socket proxy](https://github.com/wollomatic/socket-proxy) instead of mounting the raw socket. A socket proxy gives read-only, filtered access to the Docker API. It keeps the full Docker socket away from Dashmark and anything else that reaches the internet.
 

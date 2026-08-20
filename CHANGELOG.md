@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `AUTH_TOKEN` now checks a dedicated `X-Dashmark-Token` header instead of the `Authorization` header.
+
 ## [0.1.0-alpha.4] - 2026-08-20
 
 ### Added

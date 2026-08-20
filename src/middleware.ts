@@ -19,10 +19,7 @@ export const onRequest = defineMiddleware((context, next) => {
   }
 
   if (!isAuthorized(context.request, process.env.AUTH_TOKEN)) {
-    return new Response('Unauthorized', {
-      status: 401,
-      headers: { 'WWW-Authenticate': 'Bearer' }
-    })
+    return new Response('Unauthorized', { status: 401 })
   }
 
   return next()

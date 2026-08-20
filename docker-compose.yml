@@ -25,7 +25,7 @@ services:
       # - SHOW_HEADER=true
       # - SHOW_GROUP_TAGS=true
       # - SHOW_THEME_TOGGLE=true
-      # - AUTH_TOKEN=                # shared secret; when set, requests must send "Authorization: Bearer <token>"
+      # - AUTH_TOKEN=                # shared secret; when set, requests must send "X-Dashmark-Token: <token>"
       # - CUSTOM_HEADER="{greeting}, {first_name}!"   # no default; this is an example
       # - GREETING_MORNING=Good morning
       # - GREETING_AFTERNOON=Good afternoon

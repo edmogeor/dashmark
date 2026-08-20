@@ -4,6 +4,8 @@ export const MAX_PORT = 65_535
 export const AUTO_ACCESS_GROUPS_HEADER = 'auto'
 export const ACCESS_GROUPS_HEADER_TOKEN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/
 
+export const AUTH_TOKEN_HEADER = 'X-Dashmark-Token'
+
 export const AUTO_GROUP_HEADERS = [
   'X-Authentik-Groups',
   'Remote-Groups',

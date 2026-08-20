@@ -177,27 +177,27 @@ describe('isAuthorized', () => {
     expect(isAuthorized(new Request('http://dashmark.test/'), undefined)).toBe(true)
   })
 
-  it('rejects requests without an Authorization header', () => {
+  it('rejects requests without a token header', () => {
     expect(isAuthorized(new Request('http://dashmark.test/'), 'secret')).toBe(false)
   })
 
   it('rejects requests with an incorrect token', () => {
     const request = new Request('http://dashmark.test/', {
-      headers: { Authorization: 'Bearer wrong' }
+      headers: { 'X-Dashmark-Token': 'wrong' }
     })
     expect(isAuthorized(request, 'secret')).toBe(false)
   })
 
   it('rejects requests with a different length token', () => {
     const request = new Request('http://dashmark.test/', {
-      headers: { Authorization: 'Bearer longertoken' }
+      headers: { 'X-Dashmark-Token': 'longertoken' }
     })
     expect(isAuthorized(request, 'secret')).toBe(false)
   })
 
-  it('accepts requests with the correct bearer token', () => {
+  it('accepts requests with the correct token', () => {
     const request = new Request('http://dashmark.test/', {
-      headers: { Authorization: 'Bearer secret' }
+      headers: { 'X-Dashmark-Token': 'secret' }
     })
     expect(isAuthorized(request, 'secret')).toBe(true)
   })
