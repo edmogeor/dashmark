@@ -16,6 +16,7 @@ export type AppConfig = {
   showHeader: boolean
   showGroupTags: boolean
   showThemeToggle: boolean
+  openInNewTab: boolean
   customHeader?: string
   greetingMorning?: string
   greetingAfternoon?: string
@@ -66,6 +67,7 @@ export function getConfig(): AppConfig {
     showHeader: parseBool(process.env.SHOW_HEADER, true),
     showGroupTags: parseBool(process.env.SHOW_GROUP_TAGS, true),
     showThemeToggle: parseBool(process.env.SHOW_THEME_TOGGLE, true),
+    openInNewTab: parseBool(process.env.NEW_TAB, false),
     customHeader,
     greetingMorning: optionalString(process.env.GREETING_MORNING),
     greetingAfternoon: optionalString(process.env.GREETING_AFTERNOON),

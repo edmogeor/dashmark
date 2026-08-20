@@ -138,7 +138,7 @@ type CategoryItem = {
   isLoading: boolean
 }
 
-function CategoryColumn({ data, twoColumn }: { data: CategoryItem; twoColumn: boolean }) {
+function CategoryColumn({ data, twoColumn, openInNewTab }: { data: CategoryItem; twoColumn: boolean; openInNewTab: boolean }) {
   const { category, cards, showStatus, isLoading } = data
   return (
     <Card className="@container overflow-hidden">
@@ -148,7 +148,7 @@ function CategoryColumn({ data, twoColumn }: { data: CategoryItem; twoColumn: bo
       <CardContent>
         <div className={cn('grid grid-cols-1 gap-6', twoColumn && '@[520px]:grid-cols-2')}>
           {cards.map(card => (
-            <AppCard key={card.id} card={card} showStatus={showStatus} isLoading={isLoading} />
+            <AppCard key={card.id} card={card} showStatus={showStatus} isLoading={isLoading} openInNewTab={openInNewTab} />
           ))}
         </div>
       </CardContent>
@@ -160,7 +160,7 @@ function itemsSignature(items: CategoryItem[]): string {
   return items.map(item => `${item.category}:${item.cards.length}`).join('\0')
 }
 
-function MasonryGrid({ items, onReady, animate }: { items: CategoryItem[]; onReady?: () => void; animate?: boolean }) {
+function MasonryGrid({ items, onReady, animate, openInNewTab }: { items: CategoryItem[]; onReady?: () => void; animate?: boolean; openInNewTab: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const notifiedRef = useRef(false)
   const onReadyRef = useRef(onReady)
@@ -253,7 +253,7 @@ function MasonryGrid({ items, onReady, animate }: { items: CategoryItem[]; onRea
                     hasAnimatedRef.current = true
                   }}
                 >
-                  <CategoryColumn data={item} twoColumn={twoColumn} />
+                  <CategoryColumn data={item} twoColumn={twoColumn} openInNewTab={openInNewTab} />
                 </motion.div>
               </div>
             )
@@ -264,8 +264,8 @@ function MasonryGrid({ items, onReady, animate }: { items: CategoryItem[]; onRea
   )
 }
 
-function CategoryMasonry({ items, onReady, animate }: { items: CategoryItem[]; onReady?: () => void; animate?: boolean }) {
-  return <MasonryGrid items={items} onReady={onReady} animate={animate} />
+function CategoryMasonry({ items, onReady, animate, openInNewTab }: { items: CategoryItem[]; onReady?: () => void; animate?: boolean; openInNewTab: boolean }) {
+  return <MasonryGrid items={items} onReady={onReady} animate={animate} openInNewTab={openInNewTab} />
 }
 
 export function Dashboard({
@@ -274,6 +274,7 @@ export function Dashboard({
   initialShowSearch = true,
   initialShowStatus = true,
   initialShowBranding = true,
+  initialOpenInNewTab = false,
   showHeader = false,
   showGroups = false,
   greeting,
@@ -284,6 +285,7 @@ export function Dashboard({
   initialShowSearch?: boolean
   initialShowStatus?: boolean
   initialShowBranding?: boolean
+  initialOpenInNewTab?: boolean
   showHeader?: boolean
   showGroups?: boolean
   greeting?: string
@@ -296,6 +298,7 @@ export function Dashboard({
   const showSearch = initialShowSearch
   const showStatus = initialShowStatus
   const showBranding = initialShowBranding
+  const openInNewTab = initialOpenInNewTab
   const [isLoading, setIsLoading] = useState(!initialError)
   const showLoading = useStableLoading(isLoading)
   const [statusUnavailable, setStatusUnavailable] = useState(false)
@@ -433,12 +436,12 @@ export function Dashboard({
           >
             {uncategorised.map(card => (
               <motion.div key={card.id} variants={fadeUp}>
-                <AppCard card={card} showStatus={showStatus} asCard isLoading={showLoading || statusUnavailable} />
+                <AppCard card={card} showStatus={showStatus} asCard isLoading={showLoading || statusUnavailable} openInNewTab={openInNewTab} />
               </motion.div>
             ))}
           </motion.div>
         ) : (
-          <CategoryMasonry items={categoryItems} onReady={() => setMasonryLayoutReady(true)} animate={searchBarDone} />
+          <CategoryMasonry items={categoryItems} onReady={() => setMasonryLayoutReady(true)} animate={searchBarDone} openInNewTab={openInNewTab} />
             )}
           </>
         )}

@@ -138,6 +138,7 @@ You can configure Dashmark with environment variables, Docker labels, or a YAML 
 | `SHOW_STATUS` | `true` | Show the state and health badge on cards |
 | `ENABLE_AUTOMATIC_ICONS` | `true` | When `false`, Dashmark does not guess icons. Cards without an icon show initials |
 | `SHOW_BRANDING` | `true` | Show the Dashmark logo next to the search bar |
+| `NEW_TAB` | `false` | When `true`, card links open in a new tab |
 | `PORT` | `4321` | HTTP port Dashmark listens on |
 | `AUTH_TOKEN` | unset | Optional shared secret. When set, Dashmark only serves requests that include `X-Dashmark-Token: <token>`. Set the same token in your reverse proxy, and have it overwrite the header. Off by default |
 

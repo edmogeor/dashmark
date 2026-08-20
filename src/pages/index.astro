@@ -66,6 +66,7 @@ const greeting = resolveGreeting(config, user)
         showGroups={config.showGroupTags && usesAccessGroups}
         greeting={greeting}
         userGroups={user.groups}
+        initialOpenInNewTab={config.openInNewTab}
       />
     </main>
   </body>

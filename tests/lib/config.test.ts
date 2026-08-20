@@ -11,6 +11,7 @@ const trackedVars = [
   'SHOW_HEADER',
   'SHOW_GROUP_TAGS',
   'SHOW_THEME_TOGGLE',
+  'NEW_TAB',
   'CUSTOM_HEADER',
   'GREETING_MORNING',
   'GREETING_AFTERNOON',
@@ -103,6 +104,16 @@ describe('getConfig feature toggles', () => {
   it('can hide the theme toggle', () => {
     process.env.SHOW_THEME_TOGGLE = 'false'
     expect(getConfig().showThemeToggle).toBe(false)
+  })
+
+  it('defaults openInNewTab to false', () => {
+    delete process.env.NEW_TAB
+    expect(getConfig().openInNewTab).toBe(false)
+  })
+
+  it('can open links in a new tab', () => {
+    process.env.NEW_TAB = 'true'
+    expect(getConfig().openInNewTab).toBe(true)
   })
 })
 

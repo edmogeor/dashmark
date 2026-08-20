@@ -19,6 +19,7 @@ type AppCardProps = {
   showStatus?: boolean
   asCard?: boolean
   isLoading?: boolean
+  openInNewTab?: boolean
 }
 
 function InitialsPlaceholder({ title, asCard }: { title: string; asCard: boolean }) {
@@ -50,7 +51,7 @@ function AppIcon({ icon, title, asCard }: { icon: CardType['icon']; title: strin
   return <InitialsPlaceholder title={title} asCard={asCard} />
 }
 
-export const AppCard = memo(function AppCard({ card, showStatus = true, asCard = false, isLoading = false }: AppCardProps) {
+export const AppCard = memo(function AppCard({ card, showStatus = true, asCard = false, isLoading = false, openInNewTab = false }: AppCardProps) {
   const cardClassName = cn(
     'group/card h-full overflow-hidden transition-[background-color,translate] not-has-[.info-button:hover]:hover:-translate-y-0.5',
     asCard
@@ -59,7 +60,12 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, asCard =
   )
 
   return (
-    <a href={card.url} target="_blank" rel="noopener noreferrer" className="block rounded-lg">
+    <a
+      href={card.url}
+      target={openInNewTab ? '_blank' : undefined}
+      rel={openInNewTab ? 'noopener noreferrer' : undefined}
+      className="block rounded-lg"
+    >
       <Card className={cardClassName}>
         <CardContent className="flex items-start gap-4 p-4">
           <AppIcon icon={card.icon} title={card.title} asCard={asCard} />
