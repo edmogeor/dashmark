@@ -15,7 +15,7 @@
   </p>
 </div>
 
-Dashmark reads your Docker daemon and shows a link for each labeled container automatically. Shape those links with `dashmark.*` labels on your containers - set the title, icon, category, and more. No Docker SDK. No agent. Just a single small Node.js service that reads container labels and renders a clean, minimal dashboard with Astro.
+Dashmark reads your Docker daemon and turns each labeled container into a link on the dashboard. You shape those links with `dashmark.*` labels on your containers, which set the title, icon, category, and more. Dashmark is one small Node.js service. It reads container labels and shows a clean, minimal dashboard with Astro. It needs no Docker SDK and installs no agent.
 
 ![Dashmark dashboard](assets/screenshot.png)
 
@@ -43,7 +43,7 @@ Dashmark reads your Docker daemon and shows a link for each labeled container au
 - **Group with categories.** Cards group under labels like `Media` or `Monitoring`.
 - **Search and filter.** Find a service by name, category, or a custom alias.
 - **Live status.** Each card shows whether its container is running and healthy. Status refreshes every 30 seconds.
-- **Automatic icons.** With no icon set, Dashmark fuzzy-matches the image name against the [selfhst](https://selfh.st/) index.
+- **Automatic icons.** With no icon set, Dashmark guesses the icon from the image name, using the [selfhst](https://selfh.st/) index.
 - **Custom icons.** Name a selfhst reference, link to an image, or point at a file in your icons directory.
 - **Access groups.** Hide cards from users who should not see them, using groups from Authentik or Authelia.
 - **YAML config.** Define cards by hand for services Docker does not run.
@@ -51,7 +51,7 @@ Dashmark reads your Docker daemon and shows a link for each labeled container au
 
 ## Quick start
 
-Dashmark ships as a Docker image. The easiest way to run it is with Docker Compose.
+Dashmark is a Docker image. The easiest way to run it is with Docker Compose.
 
 Create a `docker-compose.yml` (see the [annotated example](https://github.com/edmogeor/dashmark/blob/main/docker-compose.yml) for every option):
 
@@ -110,7 +110,7 @@ Here are the words we use, in plain terms:
 - **Health status** is the optional health-check result: `healthy`, `unhealthy`, or `starting`.
 - **Icon** is the picture on a card. It can be an image, initials, or a simple box.
 
-On each page load, Dashmark asks Docker for its containers. It turns each one into a card. The page then polls for status every 30 seconds to keep badges fresh.
+On each page load, Dashmark asks Docker for its containers and turns each one into a card. The page then polls for status every 30 seconds to keep badges fresh.
 
 Dashmark reads Docker directly over HTTP. It never installs an agent and never writes to your socket. Mount the socket read-only.
 
@@ -136,10 +136,10 @@ You can configure Dashmark with environment variables, Docker labels, or a YAML 
 | `GREETING_EVENING` | `Good evening` | The evening greeting |
 | `SHOW_SEARCH` | `true` | Show the search bar and category filter |
 | `SHOW_STATUS` | `true` | Show the state and health badge on cards |
-| `ENABLE_AUTOMATIC_ICONS` | `true` | When `false`, do not auto-match icons. Cards without an icon show initials |
+| `ENABLE_AUTOMATIC_ICONS` | `true` | When `false`, Dashmark does not guess icons. Cards without an icon show initials |
 | `SHOW_BRANDING` | `true` | Show the Dashmark logo next to the search bar |
 | `PORT` | `4321` | HTTP port Dashmark listens on |
-| `AUTH_TOKEN` | unset | Optional shared secret. When set, every request must include `X-Dashmark-Token: <token>`. Set the same token in your reverse proxy, which must overwrite the header. Off by default |
+| `AUTH_TOKEN` | unset | Optional shared secret. When set, Dashmark only serves requests that include `X-Dashmark-Token: <token>`. Set the same token in your reverse proxy, and have it overwrite the header. Off by default |
 
 ### Docker labels
 
@@ -200,7 +200,7 @@ docker compose up -d
 
 The optional YAML file at `CONFIG_FILE` lets you define cards by hand, or override labels for a container. YAML values beat Docker labels for the same container.
 
-Each top-level key is a service, keyed by **container name or compose service name**. A key matching a running container overrides its `dashmark.*` labels; a key with no matching container still renders a card, just without a state badge. If you use Docker Compose, you can key by the service name (e.g. `plex`) instead of the generated container name (e.g. `stack_plex_1`).
+Each top-level key is a service, named by **container name or Compose service name**. If a key matches a running container, it overrides that container's `dashmark.*` labels. If no container matches, the key still shows a card, but without a state badge. With Docker Compose, you can use the service name (for example `plex`) instead of the generated container name (for example `stack_plex_1`).
 
 ```yaml
 plex:
@@ -246,22 +246,22 @@ If a container with the same name later starts, the key switches to overriding t
 
 ### Icons
 
-Dashmark resolves a card's icon in this order:
+Dashmark picks a card's icon in this order:
 
-1. `icon: placeholder` shows the title's initials. Use this to opt a single container out of auto-matching.
+1. `icon: placeholder` shows the title's initials. Use this to turn off guessing for one container.
 2. An `http(s)` URL is used directly.
-3. A `selfhst:` reference (e.g. `selfhst:plex`) resolves the icon's bare slug against the selfhst CDN, matched case-insensitively.
-4. Any other value is a filename looked up inside `ICONS_DIR`. A missing file shows initials and stops there.
-5. With no icon set, Dashmark fuzzy-matches the image name against the selfhst index.
+3. A `selfhst:` reference (for example `selfhst:plex`) looks up the slug on the selfhst CDN, ignoring letter case.
+4. Any other value is a filename looked up inside `ICONS_DIR`. A missing file shows initials.
+5. With no icon set, Dashmark guesses the icon from the image name, using the selfhst index.
 6. If nothing matches, it falls back to initials.
 
-The [selfhst](https://selfh.st/) index ships in the image. If it is missing, Dashmark pages it from the GitHub API instead.
+The [selfhst](https://selfh.st/) index is included in the image. If it is missing, Dashmark fetches it from the GitHub API instead.
 
 ### Access groups
 
 Turn on `ENABLE_ACCESS_GROUPS=true` to filter cards by group. Your reverse proxy must send a groups header with each request. Dashmark shows a card when the card's `access_groups` overlap with the user's groups. Cards with no `access_groups` are visible to everyone.
 
-Serve Dashmark behind a proxy that handles login, so the header is trustworthy. When the header is missing, Dashmark shows an error and sets the `Vary` header so shared caches key on the groups header.
+Serve Dashmark behind a proxy that handles login, so the header is trustworthy. When the header is missing, Dashmark shows an error. It also sets the `Vary` header so shared caches treat requests with different groups separately.
 
 `ACCESS_GROUPS_HEADER=auto` (the default) detects the groups header from these providers, in order:
 
@@ -272,11 +272,11 @@ Serve Dashmark behind a proxy that handles login, so the header is trustworthy. 
 | oauth2-proxy (Keycloak, Pocket ID, Zitadel) | `X-Forwarded-Groups` |
 | Keycloak Gatekeeper (louketo) | `X-Auth-Groups` |
 
-Keycloak, Pocket ID, and Zitadel are OIDC providers that do not inject a groups header themselves. Put oauth2-proxy (or a proxy that sets `X-Forwarded-Groups`) in front of them. If your proxy sets a different header, set `ACCESS_GROUPS_HEADER` to that header name.
+Keycloak, Pocket ID, and Zitadel are identity providers that do not add a groups header themselves. Put oauth2-proxy (or a proxy that sets `X-Forwarded-Groups`) in front of them. If your proxy sets a different header, set `ACCESS_GROUPS_HEADER` to that header name.
 
 ### Greeting and header
 
-The header is shown by default (`SHOW_HEADER=true`). It renders a greeting above the search bar: the time-of-day greeting followed by the user's first name, e.g. `Good morning, John!`, `Good afternoon, John!`, or `Good evening, John!`. When no name is available it falls back to just the period, e.g. `Good afternoon!`.
+The header is shown by default (`SHOW_HEADER=true`). It shows a greeting above the search bar: the time-of-day greeting followed by the user's first name, for example `Good morning, John!`, `Good afternoon, John!`, or `Good evening, John!`. When no name is available, it shows only the greeting, for example `Good afternoon!`.
 
 Use `CUSTOM_HEADER` to template it instead, for example:
 
@@ -295,19 +295,21 @@ The template is a plain string that supports these tags, each filled from an aut
 | `{username}` | The username |
 | `{email}` | The email address |
 
-The time-of-day greeting itself can be customised with `GREETING_MORNING`, `GREETING_AFTERNOON`, and `GREETING_EVENING`. These replace `Good morning`, `Good afternoon`, and `Good evening` respectively, both in the default greeting and in the `{greeting}` tag.
+The time-of-day greeting itself can be customised with `GREETING_MORNING`, `GREETING_AFTERNOON`, and `GREETING_EVENING`. These replace `Good morning`, `Good afternoon`, and `Good evening`, both in the default greeting and in the `{greeting}` tag.
 
-A tag with no matching header renders as empty text. Dashmark detects the name, username, and email headers from Authentik (`X-Authentik-Name`, `X-Authentik-Username`, `X-Authentik-Email`), Authelia (`Remote-Name`, `Remote-User`, `Remote-Email`), oauth2-proxy (`X-Forwarded-Preferred-Username`, `X-Forwarded-User`, `X-Forwarded-Email`), and Keycloak Gatekeeper (`X-Auth-Name`, `X-Auth-Username`, `X-Auth-Email`).
+A tag with no matching header shows as empty text. Dashmark detects the name, username, and email headers from Authentik (`X-Authentik-Name`, `X-Authentik-Username`, `X-Authentik-Email`), Authelia (`Remote-Name`, `Remote-User`, `Remote-Email`), oauth2-proxy (`X-Forwarded-Preferred-Username`, `X-Forwarded-User`, `X-Forwarded-Email`), and Keycloak Gatekeeper (`X-Auth-Name`, `X-Auth-Username`, `X-Auth-Email`).
 
-`{first_name}` and `{last_name}` resolve from the dedicated Authentik headers `X-Authentik-Given-Name` and `X-Authentik-Family-Name` when present. Otherwise Dashmark derives them by splitting the full name on whitespace: the first word becomes the first name and the last word becomes the last name (e.g. `John Mary Doe` -> `John` / `Doe`). A single-word name yields a first name only.
+`{first_name}` and `{last_name}` come from the dedicated Authentik headers `X-Authentik-Given-Name` and `X-Authentik-Family-Name` when they are present. Otherwise, Dashmark splits the full name on spaces: the first word is the first name and the last word is the last name. For example, `John Mary Doe` becomes `John` / `Doe`. A single-word name gives a first name only.
 
 Group tags appear next to the greeting from the groups header (the same one `ACCESS_GROUPS_HEADER` uses). They are shown by default; set `SHOW_GROUP_TAGS=false` to hide them.
 
 ## Security
 
-If you host Dashmark on the public internet, add a login layer in front of it. We recommend Authentik or Authelia, which work out of the box with `ACCESS_GROUPS_HEADER=auto`. Keycloak, Pocket ID, and Zitadel also work through oauth2-proxy. Pair this with access groups to control who sees which cards.
+If you host Dashmark on the public internet, add a login layer in front of it. We recommend Authentik or Authelia. Both work out of the box with `ACCESS_GROUPS_HEADER=auto`. Keycloak, Pocket ID, and Zitadel also work through oauth2-proxy. Use access groups to control who sees which cards.
 
-Dashmark is only reachable the way you expose it. If you bind to `127.0.0.1` (as in the example compose file) or only put it on a private Docker network with your proxy, it cannot be reached directly from the internet, and no `AUTH_TOKEN` is needed. Use `AUTH_TOKEN` when Dashmark must be directly reachable and you want to make sure it only serves requests that came through your proxy. Set it to a shared secret and have the proxy set the `X-Dashmark-Token` header to it (overwriting anything the client sends); Dashmark then rejects requests without that header. Generate a token with `openssl rand -hex 32`.
+Dashmark is reachable only in the way you expose it. Bind it to `127.0.0.1` (as in the example compose file), or put it on a private Docker network with your proxy. Then it cannot be reached from the internet, and you do not need `AUTH_TOKEN`.
+
+Use `AUTH_TOKEN` when Dashmark must be directly reachable and you want it to serve only requests that came through your proxy. Set `AUTH_TOKEN` to a shared secret. Have your proxy set the `X-Dashmark-Token` header to that secret, overwriting anything the client sends. Dashmark then rejects any request without that header. Generate a token with `openssl rand -hex 32`.
 
 Also expose Docker through a [socket proxy](https://github.com/wollomatic/socket-proxy) instead of mounting the raw socket. A socket proxy gives read-only, filtered access to the Docker API. It keeps the full Docker socket away from Dashmark and anything else that reaches the internet.
 
