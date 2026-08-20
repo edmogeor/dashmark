@@ -15,7 +15,7 @@
   </p>
 </div>
 
-Dashmark reads your Docker daemon and turns each labeled container into a link on the dashboard. You shape those links with `dashmark.*` labels on your containers, which set the title, icon, category, and more. Dashmark is one small Node.js service. It reads container labels and shows a clean, minimal dashboard with Astro. It needs no Docker SDK and installs no agent.
+Dashmark reads your Docker daemon and turns each labeled container into a link on the dashboard. You shape those links with `dashmark.*` labels on your containers, which set the title, icon, category, and more. Dashmark is one small Node.js service. It reads container labels and shows a clean, minimal  Astro-based dashboard.
 
 ![Dashmark dashboard](assets/screenshot.png)
 
