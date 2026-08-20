@@ -9,7 +9,8 @@ import {
   getUserEmail,
   parseUserGroups,
   readUserGroups,
-  groupHeaderNames
+  groupHeaderNames,
+  isAuthorized
 } from '@/lib/auth'
 
 describe('parseUserGroups', () => {
@@ -168,5 +169,36 @@ describe('readUserGroups', () => {
     const config = getConfig()
     expect(readUserGroups(config, new Headers()).found).toBe(false)
     expect(readUserGroups(config, new Headers({ 'Remote-Groups': 'admins' })).found).toBe(true)
+  })
+})
+
+describe('isAuthorized', () => {
+  it('allows requests when no token is configured', () => {
+    expect(isAuthorized(new Request('http://dashmark.test/'), undefined)).toBe(true)
+  })
+
+  it('rejects requests without an Authorization header', () => {
+    expect(isAuthorized(new Request('http://dashmark.test/'), 'secret')).toBe(false)
+  })
+
+  it('rejects requests with an incorrect token', () => {
+    const request = new Request('http://dashmark.test/', {
+      headers: { Authorization: 'Bearer wrong' }
+    })
+    expect(isAuthorized(request, 'secret')).toBe(false)
+  })
+
+  it('rejects requests with a different length token', () => {
+    const request = new Request('http://dashmark.test/', {
+      headers: { Authorization: 'Bearer longertoken' }
+    })
+    expect(isAuthorized(request, 'secret')).toBe(false)
+  })
+
+  it('accepts requests with the correct bearer token', () => {
+    const request = new Request('http://dashmark.test/', {
+      headers: { Authorization: 'Bearer secret' }
+    })
+    expect(isAuthorized(request, 'secret')).toBe(true)
   })
 })

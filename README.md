@@ -139,6 +139,7 @@ You can configure Dashmark with environment variables, Docker labels, or a YAML 
 | `ENABLE_AUTOMATIC_ICONS` | `true` | When `false`, do not auto-match icons. Cards without an icon show initials |
 | `SHOW_BRANDING` | `true` | Show the Dashmark logo next to the search bar |
 | `PORT` | `4321` | HTTP port Dashmark listens on |
+| `AUTH_TOKEN` | unset | Optional shared secret. When set, every request must include `Authorization: Bearer <token>`. Set the same token in your reverse proxy, which must overwrite the `Authorization` header. Off by default |
 
 ### Docker labels
 
@@ -305,6 +306,8 @@ Group tags appear next to the greeting from the groups header (the same one `ACC
 ## Security
 
 If you host Dashmark on the public internet, add a login layer in front of it. We recommend Authentik or Authelia, which work out of the box with `ACCESS_GROUPS_HEADER=auto`. Keycloak, Pocket ID, and Zitadel also work through oauth2-proxy. Pair this with access groups to control who sees which cards.
+
+For defense in depth, set `AUTH_TOKEN` to a shared secret. Dashmark then requires `Authorization: Bearer <token>` on every request and rejects anything that reaches it directly (bypassing the proxy). Configure your reverse proxy to overwrite the `Authorization` header with the token after authenticating the user. Generate a strong token with `openssl rand -hex 32`.
 
 Also expose Docker through a [socket proxy](https://github.com/wollomatic/socket-proxy) instead of mounting the raw socket. A socket proxy gives read-only, filtered access to the Docker API. It keeps the full Docker socket away from Dashmark and anything else that reaches the internet.
 

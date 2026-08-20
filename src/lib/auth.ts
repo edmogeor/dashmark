@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto'
 import type { AppConfig } from './config'
 import {
   AUTO_ACCESS_GROUPS_HEADER,
@@ -74,6 +75,13 @@ export function readUserGroups(config: AppConfig, headers: Headers): { groups: s
     if (value) return { groups: parseUserGroups(value), found: true }
   }
   return { groups: [], found: false }
+}
+
+export function isAuthorized(request: Request, authToken: string | undefined): boolean {
+  if (!authToken) return true
+  const expected = Buffer.from(`Bearer ${authToken}`)
+  const provided = Buffer.from(request.headers.get('Authorization') ?? '')
+  return expected.length === provided.length && timingSafeEqual(expected, provided)
 }
 
 export function getUser(config: AppConfig, headers: Headers): AuthUser {
