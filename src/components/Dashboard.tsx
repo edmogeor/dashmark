@@ -156,6 +156,10 @@ function CategoryColumn({ data, twoColumn }: { data: CategoryItem; twoColumn: bo
   )
 }
 
+function itemsSignature(items: CategoryItem[]): string {
+  return items.map(item => `${item.category}:${item.cards.length}`).join('\0')
+}
+
 function MasonryGrid({ items, onReady, animate }: { items: CategoryItem[]; onReady?: () => void; animate?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const notifiedRef = useRef(false)
@@ -200,6 +204,16 @@ function MasonryGrid({ items, onReady, animate }: { items: CategoryItem[]; onRea
     getItemKey: index => items[index]?.category ?? index,
     measureElement
   })
+
+  const itemsKey = itemsSignature(items)
+  useLayoutEffect(() => {
+    // The virtualizer caches lane assignments by index. When the category at a
+    // given index changes (e.g. search filters or clears), those cached lanes
+    // become stale and can place the last category in the wrong column. Reset
+    // the virtualizer's measurements so lanes are reassigned from the current
+    // items.
+    virtualizer.measure()
+  }, [itemsKey, virtualizer])
 
   const virtualItems = virtualizer.getVirtualItems()
   const visualRank = new Map<number, number>()
