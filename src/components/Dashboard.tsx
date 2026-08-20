@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { motion, type Variants } from 'framer-motion'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import type { Virtualizer } from '@tanstack/virtual-core'
@@ -158,33 +158,21 @@ function CategoryColumn({ data, twoColumn }: { data: CategoryItem; twoColumn: bo
 
 function MasonryGrid({ items, onReady, animate }: { items: CategoryItem[]; onReady?: () => void; animate?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const readyRef = useRef(false)
+  const notifiedRef = useRef(false)
   const onReadyRef = useRef(onReady)
   const hasAnimatedRef = useRef(false)
   const [width, setWidth] = useState(0)
-  const [ready, setReady] = useState(false)
 
   useEffect(() => {
     onReadyRef.current = onReady
   }, [onReady])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = containerRef.current
     if (!el) return
 
     const measure = () => {
-      const newWidth = el.getBoundingClientRect().width
-      setWidth(newWidth)
-      if (!readyRef.current && newWidth > 0) {
-        readyRef.current = true
-        // Yield to the browser so the virtualizer can compute its initial
-        // layout before revealing the grid, then start the stagger animation
-        // from the correct final positions.
-        requestAnimationFrame(() => {
-          setReady(true)
-          onReadyRef.current?.()
-        })
-      }
+      setWidth(el.getBoundingClientRect().width)
     }
     measure()
 
@@ -192,6 +180,13 @@ function MasonryGrid({ items, onReady, animate }: { items: CategoryItem[]; onRea
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
+
+  useEffect(() => {
+    if (!notifiedRef.current && width > 0) {
+      notifiedRef.current = true
+      onReadyRef.current?.()
+    }
+  }, [width])
 
   const lanes = Math.max(1, Math.floor((width + COLUMN_GUTTER) / (COLUMN_WIDTH + COLUMN_GUTTER)))
   const columnWidth = (width - (lanes - 1) * COLUMN_GUTTER) / lanes
@@ -213,10 +208,11 @@ function MasonryGrid({ items, onReady, animate }: { items: CategoryItem[]; onRea
     .forEach((item, rank) => visualRank.set(item.index, rank))
 
   const twoColumn = items.some(item => item.cards.length > 1)
+  const showGrid = width > 0
 
   return (
     <div ref={containerRef}>
-      {ready && (
+      {showGrid && (
         <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
           {virtualItems.map(virtualItem => {
             const item = items[virtualItem.index]
@@ -361,7 +357,7 @@ export function Dashboard({
         <div className="dashboard-search sticky top-0 z-10 mb-8">
           <div className="pt-18">
             <motion.div
-              layout={searchBarDone}
+              layout="position"
               className="mx-auto w-full max-w-6xl px-6"
               initial={{ opacity: 0, y: 8 }}
               animate={masonryLayoutReady ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
