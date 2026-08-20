@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence, type Variants } from 'framer-motion'
+import Fuse from 'fuse.js'
 import { SearchBar } from './SearchBar'
 import { CategoryFilter } from './CategoryFilter'
 import { AppCard } from './AppCard'
@@ -160,21 +161,23 @@ export function Dashboard({
   }, [error])
 
   const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase()
-    return cards.filter(card => {
-      const matchesSearch =
-        !query ||
-        card.title.toLowerCase().includes(query) ||
-        (card.category?.toLowerCase().includes(query) ?? false) ||
-        card.searchAliases.some(a => a.toLowerCase().includes(query))
+    const categoryOf = (card: CardType) =>
+      (card.category?.trim() || UNCATEGORISED).toLowerCase()
 
-      const cardCategory = card.category?.trim() || UNCATEGORISED
-      const matchesCategory =
-        !selectedCategory ||
-        cardCategory.toLowerCase() === selectedCategory.toLowerCase()
+    const categoryFiltered = selectedCategory
+      ? cards.filter(card => categoryOf(card) === selectedCategory.toLowerCase())
+      : cards
 
-      return matchesSearch && matchesCategory
+    const query = search.trim()
+    if (!query) return categoryFiltered
+
+    const fuse = new Fuse(categoryFiltered, {
+      keys: ['title', 'category', 'searchAliases'],
+      threshold: 0.2,
+      ignoreLocation: true,
+      shouldSort: false
     })
+    return fuse.search(query).map(result => result.item)
   }, [cards, search, selectedCategory])
 
   const grouped = useMemo(() => groupByCategory(filtered), [filtered])

@@ -42,7 +42,7 @@ A manually defined Card entry in the YAML config, keyed by container name or com
 
 Data flows through `src/pages/index.astro`, which is rendered on demand. It calls `getConfig()` and `getCards(config, request.headers)` server-side and passes `initialCards`/`initialError` into the `<Dashboard client:load />` island. It also calls `getUser()` and `resolveGreeting()` to compute the header greeting and group tags, which are passed to `Dashboard` when `SHOW_HEADER` is enabled.
 
-The `Dashboard` island renders the cards and polls `GET /api/status` every 30 seconds to refresh Container State/Health badges in place. `GET /api/cards` is implemented and tested but is not currently called by the client.
+The `Dashboard` island renders the cards and polls `GET /api/status` every 30 seconds to refresh Container State/Health badges in place.
 
 `src/pages/icons/[...path].ts` serves custom icon files from `ICONS_DIR`, guarded against path traversal.
 
@@ -161,10 +161,3 @@ Scripts are plain `.mjs` under `scripts/`: `fetch-icons`, `mock-docker-server`, 
 - A YAML-defined **Card** with no matching **Container** has no state badge.
 - A **Card** has exactly one **Category** (implicit `Uncategorised` when unset) and one **Icon**.
 - **Container State** and **Health Status** are displayed only on Cards that have a Container.
-
-## Flagged ambiguities
-
-- `GET /api/cards` exists and is tested but the client never calls it; only `GET /api/status` is polled.
-- Search matches title, category, and `search_aliases` by substring; it does not search descriptions and is not fuzzy.
-- `StatusBadge` colors `running`/`healthy` green and `unhealthy`/`exited`/`dead` red; other states (`paused`, `created`, `restarting`, `removing`) render with the muted default.
-- A custom-file icon label that does not exist short-circuits to a placeholder and never falls through to selfhst or fuzzy matching.

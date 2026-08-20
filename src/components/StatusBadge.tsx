@@ -15,10 +15,15 @@ function getColorClass(status: string): string {
     case 'healthy':
       return 'bg-success/15 text-success'
     case 'starting':
+    case 'paused':
       return 'bg-warning/15 text-warning'
+    case 'created':
+    case 'restarting':
+      return 'bg-info/15 text-info'
     case 'unhealthy':
     case 'exited':
     case 'dead':
+    case 'removing':
       return 'bg-destructive/15 text-destructive'
     default:
       return 'bg-muted text-muted-foreground'
