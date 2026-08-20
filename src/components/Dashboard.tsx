@@ -59,12 +59,14 @@ export function Dashboard({
   initialCards,
   initialError,
   initialShowSearch = true,
-  initialShowStatus = true
+  initialShowStatus = true,
+  initialShowBranding = true
 }: {
   initialCards: CardType[]
   initialError?: DashmarkError
   initialShowSearch?: boolean
   initialShowStatus?: boolean
+  initialShowBranding?: boolean
 }) {
   const [cards, setCards] = useState<CardType[]>(initialCards)
   const [error] = useState<DashmarkError | null>(initialError ?? null)
@@ -72,6 +74,7 @@ export function Dashboard({
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const showSearch = initialShowSearch
   const showStatus = initialShowStatus
+  const showBranding = initialShowBranding
   const [isLoading, setIsLoading] = useState(!initialError)
   const showLoading = useStableLoading(isLoading)
   const [statusUnavailable, setStatusUnavailable] = useState(false)
@@ -188,7 +191,9 @@ export function Dashboard({
             >
               <Card className="min-w-[300px] overflow-hidden bg-surface shadow-none">
                 <CardContent className="flex flex-row items-center gap-4 py-6">
-                  <img src="/brand/icon.svg" alt={strings.app.title} className="h-8 w-8 shrink-0 rounded-lg" />
+                  {showBranding && (
+                    <img src="/brand/icon.svg" alt={strings.app.title} className="h-8 w-8 shrink-0 rounded-lg" />
+                  )}
                   <div className="min-w-0 flex-1">
                     <SearchBar value={search} onChange={setSearch} disabled={!!error} />
                   </div>

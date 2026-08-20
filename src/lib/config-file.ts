@@ -18,12 +18,7 @@ export type YamlService = {
   search_aliases?: string[]
 }
 
-export type YamlConfig = {
-  services?: Record<string, YamlService>
-  settings?: {
-    theme?: string
-  }
-}
+export type YamlConfig = Record<string, YamlService>
 
 export type YamlConfigResult = {
   config: YamlConfig
@@ -75,16 +70,14 @@ function parseService(value: unknown): YamlService | null {
 function parseConfig(value: unknown): YamlConfig {
   if (!isRecord(value)) return {}
 
-  const services: Record<string, YamlService> = {}
-  if (isRecord(value.services)) {
-    for (const [name, service] of Object.entries(value.services)) {
-      const parsedService = parseService(service)
-      if (parsedService) services[name] = parsedService
-      else logger.warn('config', logMessages.config.invalidYamlService, { service: name })
-    }
+  const services: YamlConfig = {}
+  for (const [name, service] of Object.entries(value)) {
+    const parsedService = parseService(service)
+    if (parsedService) services[name] = parsedService
+    else logger.warn('config', logMessages.config.invalidYamlService, { service: name })
   }
 
-  return { services }
+  return services
 }
 
 export function loadYamlConfig(config: AppConfig): YamlConfigResult {

@@ -6,7 +6,7 @@ import fsSync from 'node:fs'
 
 const DATA_DIR = 'src/data'
 const TARBALL_URL = 'https://github.com/selfhst/icons/archive/refs/heads/main.tar.gz'
-const CDN_BASE = process.env.ICONS_CDN || 'https://cdn.jsdelivr.net/gh/selfhst/icons@main'
+const CDN_BASE = 'https://cdn.jsdelivr.net/gh/selfhst/icons@main'
 
 function downloadTarball(url, dest) {
   return new Promise((resolve, reject) => {

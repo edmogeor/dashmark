@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `ACCESS_GROUPS_HEADER=auto` now also detects oauth2-proxy (`X-Forwarded-Groups`) and Keycloak Gatekeeper (`X-Auth-Groups`) group headers, enabling Keycloak, Pocket ID, and Zitadel behind oauth2-proxy.
+- `DISABLE_BRANDING` environment variable to hide the Dashmark logo next to the search bar.
+- YAML config entries can be keyed by compose service name (via `com.docker.compose.service`) in addition to container name.
+
+### Changed
+
+- Invalid `ACCESS_GROUPS_HEADER` values fall back to `auto` with an error log instead of failing at request time.
+- Selfhst icon references now require a `selfhst:` prefix (e.g. `selfhst:plex`); bare names are treated as custom files.
+- YAML config is now a flat map of services; the `services:` wrapper and the unused `settings` key are gone.
+
+### Removed
+
+- `ICONS_CDN` environment variable; the selfhst icon CDN is now hardcoded.
+- `DASHMARK_LABEL_PREFIX` environment variable; the label prefix is now always `dashmark`.
+
 ## [0.1.0-alpha.2] - 2026-08-19
 
 ### Added

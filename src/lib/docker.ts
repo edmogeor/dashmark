@@ -73,7 +73,7 @@ const containerListCache = new Map<string, Timestamped<DockerContainer[]>>()
 const allCardsCache = new Map<string, Promise<{ cards: Card[]; error?: DashmarkError }>>()
 
 function allCardsCacheKey(config: AppConfig): string {
-  return [config.dockerHost, config.labelPrefix, config.configFile, config.iconsDir, config.iconsCdn].join('\0')
+  return [config.dockerHost, config.configFile, config.iconsDir].join('\0')
 }
 
 async function rawDockerRequest<T>(
@@ -217,6 +217,23 @@ function containerName(container: DockerContainer): string {
   return name.startsWith('/') ? name.slice(1) : name
 }
 
+const COMPOSE_SERVICE_LABEL = 'com.docker.compose.service'
+
+function lookupYamlService(
+  yamlServices: Record<string, YamlService>,
+  container: DockerContainer
+): { key?: string; service?: YamlService } {
+  const name = containerName(container)
+  if (yamlServices[name]) return { key: name, service: yamlServices[name] }
+
+  const composeService = container.Labels?.[COMPOSE_SERVICE_LABEL]
+  if (composeService && yamlServices[composeService]) {
+    return { key: composeService, service: yamlServices[composeService] }
+  }
+
+  return {}
+}
+
 function mergeWithYaml(
   labels: ReturnType<typeof parseLabels>,
   yamlService?: YamlService
@@ -260,36 +277,44 @@ function resolveCardUrl(primaryUrl: string | undefined, labels: Record<string, s
   return derived && isValidUrl(derived) ? derived : undefined
 }
 
+const AUTO_ACCESS_GROUP_HEADERS = [
+  'X-Authentik-Groups',
+  'Remote-Groups',
+  'X-Forwarded-Groups',
+  'X-Auth-Groups'
+]
+
+function groupHeaderNames(config: AppConfig): string[] {
+  return config.accessGroupsHeader === 'auto'
+    ? AUTO_ACCESS_GROUP_HEADERS
+    : [config.accessGroupsHeader]
+}
+
 export function addAccessGroupVaryHeader(headers: Headers, config: AppConfig): void {
   if (!config.accessGroupsEnabled) return
-  const headerName = config.accessGroupsHeader === 'auto'
-    ? 'X-Authentik-Groups, Remote-Groups'
-    : config.accessGroupsHeader
-  headers.set('Vary', headerName)
+  headers.set('Vary', groupHeaderNames(config).join(', '))
 }
 
 function getUserGroups(config: AppConfig, headers: Headers): { groups: string[]; error?: DashmarkError } {
   if (!config.accessGroupsEnabled) return { groups: [] }
 
-  const headerName = config.accessGroupsHeader === 'auto'
-    ? (headers.has('X-Authentik-Groups') ? 'X-Authentik-Groups' : 'Remote-Groups')
-    : config.accessGroupsHeader
-  const headerValue = headers.get(headerName)
-
-  if (!headerValue) {
-    logger.error('docker', logMessages.docker.missingAccessGroupsHeader, { headerName })
-    return {
-      groups: [],
-      error: dashmarkError(
-        'MISSING_GROUPS_HEADER',
-        strings.errors.missingGroupsHeader,
-        false,
-        strings.errors.expectedHeader(headerName)
-      )
-    }
+  const names = groupHeaderNames(config)
+  for (const name of names) {
+    const value = headers.get(name)
+    if (value) return { groups: parseUserGroups(value) }
   }
 
-  return { groups: parseUserGroups(headerValue) }
+  const expected = names.join(', ')
+  logger.error('docker', logMessages.docker.missingAccessGroupsHeader, { expected })
+  return {
+    groups: [],
+    error: dashmarkError(
+      'MISSING_GROUPS_HEADER',
+      strings.errors.missingGroupsHeader,
+      false,
+      strings.errors.expectedHeader(expected)
+    )
+  }
 }
 
 async function cardFromContainer(
@@ -298,7 +323,7 @@ async function cardFromContainer(
   yamlService: YamlService | undefined
 ): Promise<Card | null> {
   const name = containerName(container)
-  const labels = mergeWithYaml(parseLabels(config, container.Labels ?? {}), yamlService)
+  const labels = mergeWithYaml(parseLabels(container.Labels ?? {}), yamlService)
   const url = resolveCardUrl(labels.url, container.Labels ?? {})
 
   if (labels.hidden || !url) return null
@@ -386,7 +411,7 @@ async function loadServicesAndContainers(config: AppConfig): Promise<LoadedServi
   const yamlConfig = loadYamlConfig(config)
   if (yamlConfig.error) return { yamlServices: {}, containers: [], error: yamlConfig.error }
 
-  const yamlServices = yamlConfig.config.services ?? {}
+  const yamlServices = yamlConfig.config
   const { containers, error } = await fetchContainers(config)
   if (error) return { yamlServices, containers, error }
 
@@ -409,8 +434,8 @@ export async function getContainerStatuses(
 
   const statuses: Record<string, ContainerStatus> = {}
   for (const container of containers) {
-    const name = containerName(container)
-    const labels = mergeWithYaml(parseLabels(config, container.Labels ?? {}), yamlServices[name])
+    const { service } = lookupYamlService(yamlServices, container)
+    const labels = mergeWithYaml(parseLabels(container.Labels ?? {}), service)
     if (labels.hidden || !groupsIntersect(labels.accessGroups, userGroups)) continue
 
     statuses[container.Id] = {
@@ -426,19 +451,19 @@ async function buildAllCards(config: AppConfig): Promise<{ cards: Card[]; error?
   const { yamlServices, containers, error } = await loadServicesAndContainers(config)
   if (error) return { cards: [], error }
 
-  const processedIds = new Set<string>()
+  const matchedKeys = new Set<string>()
   const cards: Card[] = []
 
   for (const container of containers) {
-    const name = containerName(container)
-    const card = await cardFromContainer(config, container, yamlServices[name])
+    const { key, service } = lookupYamlService(yamlServices, container)
+    const card = await cardFromContainer(config, container, service)
     if (card) cards.push(card)
 
-    processedIds.add(name)
+    if (key) matchedKeys.add(key)
   }
 
   for (const [name, yamlService] of Object.entries(yamlServices)) {
-    if (processedIds.has(name)) continue
+    if (matchedKeys.has(name)) continue
     const card = await cardFromYaml(config, name, yamlService)
     if (card) cards.push(card)
   }

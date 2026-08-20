@@ -1,10 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { getConfig } from '@/lib/config'
 import { parseLabels, isValidUrl, traefikUrl } from '@/lib/labels'
 
 describe('parseLabels', () => {
-  const config = getConfig()
-
   it('parses all supported dashmark labels', () => {
     const labels = {
       'dashmark.title': 'Plex',
@@ -17,7 +14,7 @@ describe('parseLabels', () => {
       'dashmark.access_groups': 'media, admins'
     }
 
-    expect(parseLabels(config, labels)).toEqual({
+    expect(parseLabels(labels)).toEqual({
       hidden: true,
       url: 'https://plex.home.local',
       title: 'Plex',
@@ -31,7 +28,7 @@ describe('parseLabels', () => {
   })
 
   it('returns defaults for missing labels', () => {
-    expect(parseLabels(config, {})).toEqual({
+    expect(parseLabels({})).toEqual({
       hidden: false,
       url: undefined,
       title: undefined,
@@ -49,18 +46,18 @@ describe('parseLabels', () => {
       'other.title': 'Ignored',
       'dashmark.title': 'Plex'
     }
-    expect(parseLabels(config, labels).title).toBe('Plex')
+    expect(parseLabels(labels).title).toBe('Plex')
   })
 
   it('parses search_aliases as a comma-separated list', () => {
     const labels = {
       'dashmark.search_aliases': 'movies, watch later'
     }
-    expect(parseLabels(config, labels).searchAliases).toEqual(['movies', 'watch later'])
+    expect(parseLabels(labels).searchAliases).toEqual(['movies', 'watch later'])
   })
 
   it('ignores non-finite order values', () => {
-    expect(parseLabels(config, { 'dashmark.order': 'Infinity' }).order).toBeUndefined()
+    expect(parseLabels({ 'dashmark.order': 'Infinity' }).order).toBeUndefined()
   })
 })
 

@@ -1,11 +1,7 @@
-services:
-  nzbget:
-    title: NZBGet
-    description: Usenet downloader
-    url: http://localhost:8085
-    icon: nzbget
-    category: Downloads
-    order: 1
-
-settings:
-  theme: system
+nzbget:
+  title: NZBGet
+  description: Usenet downloader
+  url: http://localhost:8085
+  icon: selfhst:nzbget
+  category: Downloads
+  order: 1

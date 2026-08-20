@@ -1,20 +1,35 @@
+import { logger } from './logger'
+import { logMessages } from './log-messages'
+
 export type AppConfig = {
   dockerHost: string
-  labelPrefix: string
   configFile: string
   iconsDir: string
-  iconsCdn: string
   accessGroupsEnabled: boolean
   accessGroupsHeader: string
   port: number
   disableSearch: boolean
   disableStatus: boolean
   disableAutomaticIcons: boolean
+  disableBranding: boolean
 }
 
 function parseBool(value: string | undefined, defaultValue: boolean): boolean {
   if (value === undefined) return defaultValue
   return value.toLowerCase() === 'true'
+}
+
+const HEADER_TOKEN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/
+
+function isValidHeaderToken(value: string): boolean {
+  return HEADER_TOKEN.test(value)
+}
+
+function parseAccessGroupsHeader(value: string | undefined): string {
+  const header = value || 'auto'
+  if (isValidHeaderToken(header)) return header
+  logger.error('config', logMessages.config.invalidAccessGroupsHeader, { header })
+  return 'auto'
 }
 
 function parsePort(value: string | undefined, defaultValue: number): number {
@@ -24,19 +39,18 @@ function parsePort(value: string | undefined, defaultValue: number): number {
 
 export function getConfig(): AppConfig {
   const accessGroupsEnabled = parseBool(process.env.ACCESS_GROUPS_ENABLED, false)
-  const accessGroupsHeaderRaw = process.env.ACCESS_GROUPS_HEADER || 'auto'
+  const accessGroupsHeader = parseAccessGroupsHeader(process.env.ACCESS_GROUPS_HEADER)
 
   return {
     dockerHost: process.env.DOCKER_HOST || 'unix:///var/run/docker.sock',
-    labelPrefix: process.env.DASHMARK_LABEL_PREFIX || 'dashmark',
     configFile: process.env.CONFIG_FILE || '/app/config.yml',
     iconsDir: process.env.ICONS_DIR || '/app/icons',
-    iconsCdn: process.env.ICONS_CDN || 'https://cdn.jsdelivr.net/gh/selfhst/icons@main',
     accessGroupsEnabled,
-    accessGroupsHeader: accessGroupsHeaderRaw,
+    accessGroupsHeader,
     port: parsePort(process.env.PORT, 4321),
     disableSearch: parseBool(process.env.DISABLE_SEARCH, false),
     disableStatus: parseBool(process.env.DISABLE_STATUS, false),
-    disableAutomaticIcons: parseBool(process.env.DISABLE_AUTOMATIC_ICONS, false)
+    disableAutomaticIcons: parseBool(process.env.DISABLE_AUTOMATIC_ICONS, false),
+    disableBranding: parseBool(process.env.DISABLE_BRANDING, false)
   }
 }

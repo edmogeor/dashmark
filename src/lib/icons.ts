@@ -54,8 +54,10 @@ function looksLikeUrl(value: string): boolean {
   return /^https?:\/\//i.test(value)
 }
 
-function looksLikeFile(value: string): boolean {
-  return /\.[a-zA-Z0-9]{2,6}$/.test(value)
+const SELFHST_PREFIX = 'selfhst:'
+
+function isSelfhstReference(value: string): boolean {
+  return value.toLowerCase().startsWith(SELFHST_PREFIX)
 }
 
 function resolveSelfhstReference(value: string, icons: SelfhstIcon[]): string | null {
@@ -104,31 +106,29 @@ export async function resolveIcon(
       return { type: 'image', src: iconLabel, alt: title }
     }
 
-    if (looksLikeFile(iconLabel)) {
-      const src = resolveFileIcon(config, iconLabel)
-      if (src) {
-        return { type: 'image', src, alt: title }
+    if (isSelfhstReference(iconLabel)) {
+      const reference = iconLabel.slice(SELFHST_PREFIX.length)
+      const icons = await fetchSelfhstIcons()
+      const selfhstUrl = resolveSelfhstReference(reference, icons)
+      if (selfhstUrl) {
+        return { type: 'image', src: selfhstUrl, alt: title }
       }
+      logger.warn('icons', logMessages.icons.selfhstReferenceNotFound, { iconLabel })
       return makePlaceholder(title)
     }
-  }
 
-  if (!iconLabel && config.disableAutomaticIcons) {
-    return makePlaceholder(title)
-  }
-
-  const icons = await fetchSelfhstIcons(config.iconsCdn)
-
-  if (iconLabel) {
-    const selfhstUrl = resolveSelfhstReference(iconLabel, icons)
-    if (selfhstUrl) {
-      return { type: 'image', src: selfhstUrl, alt: title }
+    const src = resolveFileIcon(config, iconLabel)
+    if (src) {
+      return { type: 'image', src, alt: title }
     }
-
-    logger.warn('icons', logMessages.icons.selfhstReferenceNotFound, { iconLabel })
     return makePlaceholder(title)
   }
 
+  if (config.disableAutomaticIcons) {
+    return makePlaceholder(title)
+  }
+
+  const icons = await fetchSelfhstIcons()
   const candidates = getImageCandidates(imageName, containerName, title)
   const match = fuzzyMatchIcon(candidates, icons)
   if (match) {

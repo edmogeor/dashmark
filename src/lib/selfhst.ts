@@ -10,9 +10,11 @@ export type SelfhstIcon = {
   url: string
 }
 
+const SELFHST_CDN = 'https://cdn.jsdelivr.net/gh/selfhst/icons@main'
+
 const cache = new Map<string, SelfhstIcon[]>()
 
-function loadLocalIcons(cdnBase: string): SelfhstIcon[] | null {
+function loadLocalIcons(): SelfhstIcon[] | null {
   try {
     const filePath = path.resolve('src/data/icons.json')
     if (!fs.existsSync(filePath)) return null
@@ -22,7 +24,7 @@ function loadLocalIcons(cdnBase: string): SelfhstIcon[] | null {
       try {
         const segments = new URL(icon.url).pathname.split('/').filter(Boolean)
         const iconPath = segments.slice(-2).join('/')
-        return iconPath ? [{ ...icon, url: `${cdnBase}/${iconPath}` }] : []
+        return iconPath ? [{ ...icon, url: `${SELFHST_CDN}/${iconPath}` }] : []
       } catch {
         return []
       }
@@ -35,7 +37,7 @@ function loadLocalIcons(cdnBase: string): SelfhstIcon[] | null {
   }
 }
 
-async function fetchRemoteIcons(cdnBase: string): Promise<SelfhstIcon[]> {
+async function fetchRemoteIcons(): Promise<SelfhstIcon[]> {
   const icons: SelfhstIcon[] = []
   let page = 1
 
@@ -57,7 +59,7 @@ async function fetchRemoteIcons(cdnBase: string): Promise<SelfhstIcon[]> {
         icons.push({
           reference,
           name: reference.replace(/[-_]/g, ' '),
-          url: `${cdnBase}/svg/${item.name}`
+          url: `${SELFHST_CDN}/svg/${item.name}`
         })
       }
     }
@@ -69,24 +71,24 @@ async function fetchRemoteIcons(cdnBase: string): Promise<SelfhstIcon[]> {
   return icons
 }
 
-export async function fetchSelfhstIcons(cdnBase: string): Promise<SelfhstIcon[]> {
-  const cached = cache.get(cdnBase)
+export async function fetchSelfhstIcons(): Promise<SelfhstIcon[]> {
+  const cached = cache.get(SELFHST_CDN)
   if (cached) return cached
 
-  const local = loadLocalIcons(cdnBase)
+  const local = loadLocalIcons()
   if (local) {
-    cache.set(cdnBase, local)
+    cache.set(SELFHST_CDN, local)
     return local
   }
 
   try {
-    const icons = await fetchRemoteIcons(cdnBase)
-    cache.set(cdnBase, icons)
+    const icons = await fetchRemoteIcons()
+    cache.set(SELFHST_CDN, icons)
     return icons
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     logger.error('selfhst', logMessages.selfhst.fetchFailed, {
-      cdnBase,
+      cdnBase: SELFHST_CDN,
       error: message
     })
     return []

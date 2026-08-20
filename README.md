@@ -124,20 +124,19 @@ You can configure Dashmark with environment variables, Docker labels, or a YAML 
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `DOCKER_HOST` | `unix:///var/run/docker.sock` | Docker socket or TCP endpoint |
-| `DASHMARK_LABEL_PREFIX` | `dashmark` | Prefix for all Dashmark labels |
 | `CONFIG_FILE` | `/app/config.yml` | Optional YAML config file path |
 | `ICONS_DIR` | `/app/icons` | Folder for custom icon files |
-| `ICONS_CDN` | `https://cdn.jsdelivr.net/gh/selfhst/icons@main` | Base URL for the selfhst icon CDN |
 | `ACCESS_GROUPS_ENABLED` | `false` | When `true`, filter cards by the groups header |
-| `ACCESS_GROUPS_HEADER` | `auto` | Group header. `auto` tries `X-Authentik-Groups`, then `Remote-Groups` |
+| `ACCESS_GROUPS_HEADER` | `auto` | Group header. `auto` detects Authentik, Authelia, oauth2-proxy, or Keycloak Gatekeeper |
 | `DISABLE_SEARCH` | `false` | Hide the search bar and category filter |
 | `DISABLE_STATUS` | `false` | Hide the state and health badge on cards |
 | `DISABLE_AUTOMATIC_ICONS` | `false` | When `true`, do not auto-match icons. Cards without an icon show initials |
+| `DISABLE_BRANDING` | `false` | Hide the Dashmark logo next to the search bar |
 | `PORT` | `4321` | HTTP port Dashmark listens on |
 
 ### Docker labels
 
-Put labels on your containers to shape their cards. Every label starts with the prefix, which is `dashmark` by default.
+Put labels on your containers to shape their cards. Every label starts with the `dashmark.` prefix.
 
 | Label | What it does |
 | --- | --- |
@@ -145,7 +144,7 @@ Put labels on your containers to shape their cards. Every label starts with the 
 | `dashmark.url` | The URL the card links to. You can also set this in YAML or reuse an existing Traefik rule |
 | `dashmark.title` | The display title. Falls back to the container name |
 | `dashmark.description` | A short description shown in a tooltip |
-| `dashmark.icon` | A selfhst reference, a URL, a filename in `ICONS_DIR`, or `placeholder` |
+| `dashmark.icon` | A `selfhst:<slug>` reference, a URL, a filename in `ICONS_DIR`, or `placeholder` |
 | `dashmark.category` | The group name |
 | `dashmark.access_groups` | Comma-separated group allow-list |
 | `dashmark.search_aliases` | Comma-separated extra search terms |
@@ -192,31 +191,51 @@ docker compose up -d
 
 ### YAML config file
 
-The optional YAML file at `CONFIG_FILE` is keyed by container name. It lets you define cards by hand, or override labels for a container. YAML values beat Docker labels for the same container.
+The optional YAML file at `CONFIG_FILE` lets you define cards by hand, or override labels for a container. YAML values beat Docker labels for the same container.
+
+Each top-level key is a service, keyed by **container name or compose service name**. A key matching a running container overrides its `dashmark.*` labels; a key with no matching container still renders a card, just without a state badge. If you use Docker Compose, you can key by the service name (e.g. `plex`) instead of the generated container name (e.g. `stack_plex_1`).
 
 ```yaml
-services:
-  plex:
-    title: Plex
-    description: Media server
-    url: https://plex.example.com
-    icon: plex
-    category: Media
-    order: 1
-    search_aliases:
-      - movies
-      - watch later
-    access_groups:
-      - media
-      - admins
+plex:
+  title: Plex
+  description: Media server
+  url: https://plex.example.com
+  icon: selfhst:plex
+  category: Media
+  order: 1
+  search_aliases:
+    - movies
+    - watch later
+  access_groups:
+    - media
+    - admins
 
-  nzbget:
-    url: https://nzbget.example.com
-    category: Downloads
-    order: 2
+nzbget:
+  url: https://nzbget.example.com
+  category: Downloads
+  order: 2
 ```
 
 Each service accepts these fields: `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `access_groups`, and `search_aliases`.
+
+#### Custom cards
+
+A key that does not match any running container becomes a standalone card, as long as it has a `url`. These cards have no state badge, since there is no container behind them. Use any name you like:
+
+```yaml
+github:
+  title: GitHub
+  url: https://github.com
+  icon: selfhst:github
+  category: External
+
+router-admin:
+  title: Router
+  url: http://192.168.1.1
+  category: Network
+```
+
+If a container with the same name later starts, the key switches to overriding that container's labels instead.
 
 ### Icons
 
@@ -224,8 +243,8 @@ Dashmark resolves a card's icon in this order:
 
 1. `icon: placeholder` shows the title's initials. Use this to opt a single container out of auto-matching.
 2. An `http(s)` URL is used directly.
-3. A filename is looked up inside `ICONS_DIR`. A missing file shows initials and stops there.
-4. A selfhst reference is resolved against the CDN.
+3. A `selfhst:` reference (e.g. `selfhst:plex`) resolves the icon's bare slug against the selfhst CDN, matched case-insensitively.
+4. Any other value is a filename looked up inside `ICONS_DIR`. A missing file shows initials and stops there.
 5. With no icon set, Dashmark fuzzy-matches the image name against the selfhst index.
 6. If nothing matches, it falls back to initials.
 
@@ -235,11 +254,22 @@ The [selfhst](https://selfh.st/) index ships in the image. If it is missing, Das
 
 Turn on `ACCESS_GROUPS_ENABLED=true` to filter cards by group. Your reverse proxy must send a groups header with each request. Dashmark shows a card when the card's `access_groups` overlap with the user's groups. Cards with no `access_groups` are visible to everyone.
 
-Serve Dashmark behind a proxy that handles login, such as Authentik or Authelia, so the header is trustworthy. When the header is missing, Dashmark shows an error and sets the `Vary` header so shared caches key on the groups header.
+Serve Dashmark behind a proxy that handles login, so the header is trustworthy. When the header is missing, Dashmark shows an error and sets the `Vary` header so shared caches key on the groups header.
+
+`ACCESS_GROUPS_HEADER=auto` (the default) detects the groups header from these providers, in order:
+
+| Provider | Groups header |
+| --- | --- |
+| Authentik | `X-Authentik-Groups` |
+| Authelia | `Remote-Groups` |
+| oauth2-proxy (Keycloak, Pocket ID, Zitadel) | `X-Forwarded-Groups` |
+| Keycloak Gatekeeper (louketo) | `X-Auth-Groups` |
+
+Keycloak, Pocket ID, and Zitadel are OIDC providers that do not inject a groups header themselves. Put oauth2-proxy (or a proxy that sets `X-Forwarded-Groups`) in front of them. If your proxy sets a different header, set `ACCESS_GROUPS_HEADER` to that header name.
 
 ## Security
 
-If you host Dashmark on the public internet, add a login layer in front of it. We recommend Authentik or Authelia. Pair this with access groups to control who sees which cards.
+If you host Dashmark on the public internet, add a login layer in front of it. We recommend Authentik or Authelia, which work out of the box with `ACCESS_GROUPS_HEADER=auto`. Keycloak, Pocket ID, and Zitadel also work through oauth2-proxy. Pair this with access groups to control who sees which cards.
 
 Also expose Docker through a [socket proxy](https://github.com/wollomatic/socket-proxy) instead of mounting the raw socket. A socket proxy gives read-only, filtered access to the Docker API. It keeps the full Docker socket away from Dashmark and anything else that reaches the internet.
 

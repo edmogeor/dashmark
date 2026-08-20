@@ -6,7 +6,8 @@ export const logMessages = {
   },
   config: {
     invalidYamlService: 'ignoring invalid YAML service',
-    parseFailed: 'failed to parse config file'
+    parseFailed: 'failed to parse config file',
+    invalidAccessGroupsHeader: 'invalid access groups header, falling back to auto'
   },
   icons: {
     invalidPath: 'invalid custom icon path',

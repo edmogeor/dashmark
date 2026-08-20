@@ -181,6 +181,40 @@ describe('getCards', () => {
     expect(wrongGroup.cards).toHaveLength(0)
   })
 
+  it('auto-detects the groups header for oauth2-proxy and Keycloak Gatekeeper', async () => {
+    server.containers = [
+      {
+        Id: 'admin1',
+        Names: ['/admin-app'],
+        Image: 'nginx',
+        ImageID: 'sha256:admin',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: {
+          'dashmark.url': 'https://admin.home.local',
+          'dashmark.access_groups': 'admins'
+        }
+      }
+    ]
+
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.accessGroupsEnabled = true
+    config.accessGroupsHeader = 'auto'
+
+    const oauth2Proxy = await getCards(
+      config,
+      new Headers({ 'X-Forwarded-Groups': 'admins' })
+    )
+    expect(oauth2Proxy.cards).toHaveLength(1)
+
+    const keycloakGatekeeper = await getCards(
+      config,
+      new Headers({ 'X-Auth-Groups': 'admins' })
+    )
+    expect(keycloakGatekeeper.cards).toHaveLength(1)
+  })
+
   it('returns error when Docker is unreachable', async () => {
     await server.stop()
 
@@ -196,7 +230,7 @@ describe('getCards', () => {
   it('returns an error for a malformed YAML config', async () => {
     const config = getConfig()
     config.dockerHost = dockerHost
-    config.configFile = writeTempConfig('services: [unclosed\n')
+    config.configFile = writeTempConfig('bad: [unclosed\n')
 
     const { cards, error } = await getCards(config, new Headers())
     expect(cards).toHaveLength(0)
@@ -220,16 +254,43 @@ describe('getCards', () => {
 
     const config = getConfig()
     config.dockerHost = dockerHost
-    config.configFile = writeTempConfig('services: [unclosed\n')
+    config.configFile = writeTempConfig('bad: [unclosed\n')
 
     const first = await getCards(config, new Headers())
     expect(first.error?.code).toBe('CONFIG_INVALID')
 
-    fs.writeFileSync(config.configFile, 'services:\n  plex:\n    title: Plex\n')
+    fs.writeFileSync(config.configFile, 'plex:\n  title: Plex\n')
 
     const second = await getCards(config, new Headers())
     expect(second.error).toBeUndefined()
     expect(second.cards).toHaveLength(1)
+  })
+
+  it('matches YAML by compose service name without duplicating the card', async () => {
+    server.containers = [
+      {
+        Id: 'abc123',
+        Names: ['/stack_plex_1'],
+        Image: 'plexinc/pms-docker',
+        ImageID: 'sha256:abc',
+        State: 'running',
+        Status: 'Up 2 hours (healthy)',
+        Labels: {
+          'com.docker.compose.service': 'plex',
+          'dashmark.url': 'https://plex.home.local'
+        }
+      }
+    ]
+
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.configFile = writeTempConfig('plex:\n  title: Plex Media\n')
+
+    const { cards, error } = await getCards(config, new Headers())
+    expect(error).toBeUndefined()
+    expect(cards).toHaveLength(1)
+    expect(cards[0].title).toBe('Plex Media')
+    expect(cards[0].hasContainer).toBe(true)
   })
 })
 
@@ -346,7 +407,7 @@ describe('getContainerStatuses', () => {
   it('returns an error for a malformed YAML config', async () => {
     const config = getConfig()
     config.dockerHost = dockerHost
-    config.configFile = writeTempConfig('services: [unclosed\n')
+    config.configFile = writeTempConfig('bad: [unclosed\n')
 
     const { statuses, error } = await getContainerStatuses(config, new Headers())
     expect(Object.keys(statuses)).toHaveLength(0)

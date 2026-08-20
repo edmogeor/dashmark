@@ -13,7 +13,6 @@ vi.mock('node:fs', () => ({
 describe('resolveIcon', () => {
   const config = getConfig()
   config.iconsDir = '/app/icons'
-  config.iconsCdn = 'https://cdn.example.com/icons'
 
   beforeEach(() => {
     global.fetch = vi.fn().mockResolvedValue({
@@ -64,15 +63,31 @@ describe('resolveIcon', () => {
 
   it('resolves selfhst reference to CDN URL', async () => {
     const result = await resolveIcon(config, {
+      iconLabel: 'selfhst:plex',
+      title: 'Plex',
+      containerName: 'plex'
+    })
+    expect(result).toEqual({
+      type: 'image',
+      src: 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/plex.svg',
+      alt: 'Plex'
+    })
+  })
+
+  it('treats a bare name as a custom file, not a selfhst reference', async () => {
+    vi.mocked(fs.existsSync).mockReturnValue(true)
+
+    const result = await resolveIcon(config, {
       iconLabel: 'plex',
       title: 'Plex',
       containerName: 'plex'
     })
     expect(result).toEqual({
       type: 'image',
-      src: 'https://cdn.example.com/icons/svg/plex.svg',
+      src: '/icons/plex',
       alt: 'Plex'
     })
+    expect(global.fetch).not.toHaveBeenCalled()
   })
 
   it('resolves custom file icon when present', async () => {
@@ -109,7 +124,7 @@ describe('resolveIcon', () => {
     })
     expect(result).toEqual({
       type: 'image',
-      src: 'https://cdn.example.com/icons/svg/plex.svg',
+      src: 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/plex.svg',
       alt: 'Plex'
     })
   })

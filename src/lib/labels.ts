@@ -1,5 +1,3 @@
-import type { AppConfig } from './config'
-
 export type ParsedLabels = {
   hidden: boolean
   url?: string
@@ -12,13 +10,14 @@ export type ParsedLabels = {
   searchAliases: string[]
 }
 
+const LABEL_PREFIX = 'dashmark'
+
 function parseCommaSeparated(value: string | undefined): string[] {
   return value?.split(',').map(item => item.trim()).filter(Boolean) ?? []
 }
 
-export function parseLabels(config: AppConfig, labels: Record<string, string>): ParsedLabels {
-  const prefix = config.labelPrefix
-  const get = (key: string): string | undefined => labels[`${prefix}.${key}`]
+export function parseLabels(labels: Record<string, string>): ParsedLabels {
+  const get = (key: string): string | undefined => labels[`${LABEL_PREFIX}.${key}`]
 
   const hidden = get('hidden')?.toLowerCase() === 'true'
   const url = get('url')
