@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-alpha.4] - 2026-08-20
+
+### Added
+
+- `robots.txt` and a `noindex, nofollow` meta tag to keep the dashboard out of search results.
+- Open Graph share preview metadata (`og:title`, `og:description`, `og:image`, `og:url`) so shared links show a preview card on platforms like WhatsApp.
+
 ## [0.1.0-alpha.3] - 2026-08-20
 
 ### Added
