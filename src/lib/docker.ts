@@ -9,7 +9,7 @@ import { resolveIcon, type IconResult } from './icons'
 import { groupHeaderNames, readUserGroups } from './auth'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
-import { dashmarkError, type DashmarkError } from './errors'
+import { dashmarkError, errorMessage, type DashmarkError } from './errors'
 import { strings } from './strings'
 
 export type Card = {
@@ -142,7 +142,7 @@ async function getDockerApiVersion(dockerHost: string): Promise<string> {
     apiVersionCache.set(dockerHost, version)
     return version
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    const message = errorMessage(error)
     const fallback = '1.41'
     logger.warn('docker', logMessages.docker.apiVersionFallback, {
       dockerHost,
@@ -179,7 +179,7 @@ async function fetchContainers(config: AppConfig): Promise<{ containers: DockerC
     const containers = await getCachedContainers(config.dockerHost, STATUS_CACHE_TTL_MS)
     return { containers }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    const message = errorMessage(error)
     logger.error('docker', logMessages.docker.listContainersFailed, {
       dockerHost: config.dockerHost,
       error: message

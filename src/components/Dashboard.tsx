@@ -30,25 +30,18 @@ const fadeUp: Variants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } }
 }
 
+function categoryName(card: CardType): string {
+  return card.category?.trim() || UNCATEGORISED
+}
+
 function groupByCategory(cards: CardType[]): Record<string, CardType[]> {
   const groups: Record<string, CardType[]> = {}
   for (const card of cards) {
-    const category = card.category?.trim() || UNCATEGORISED
+    const category = categoryName(card)
     if (!groups[category]) groups[category] = []
     groups[category].push(card)
   }
   return groups
-}
-
-function getCategories(cards: CardType[]): string[] {
-  const categories = new Set<string>()
-  let hasUncategorised = false
-  for (const card of cards) {
-    const category = card.category?.trim()
-    if (category) categories.add(category)
-    else hasUncategorised = true
-  }
-  return [...categories].sort().concat(hasUncategorised ? [UNCATEGORISED] : [])
 }
 
 function sortCategories(a: string, b: string): number {
@@ -161,8 +154,7 @@ export function Dashboard({
   }, [error])
 
   const filtered = useMemo(() => {
-    const categoryOf = (card: CardType) =>
-      (card.category?.trim() || UNCATEGORISED).toLowerCase()
+    const categoryOf = (card: CardType) => categoryName(card).toLowerCase()
 
     const categoryFiltered = selectedCategory
       ? cards.filter(card => categoryOf(card) === selectedCategory.toLowerCase())
@@ -189,10 +181,12 @@ export function Dashboard({
   const categories = useMemo(() => {
     const counts: Record<string, number> = {}
     for (const card of cards) {
-      const category = card.category?.trim() || UNCATEGORISED
+      const category = categoryName(card)
       counts[category] = (counts[category] ?? 0) + 1
     }
-    return getCategories(cards).map(name => ({ name, count: counts[name] ?? 0 }))
+    return Object.keys(counts)
+      .sort(sortCategories)
+      .map(name => ({ name, count: counts[name] ?? 0 }))
   }, [cards])
 
   return (

@@ -18,3 +18,7 @@ export function dashmarkError(
 ): DashmarkError {
   return { code, message, retryable, detail }
 }
+
+export function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}

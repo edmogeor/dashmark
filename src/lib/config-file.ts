@@ -3,7 +3,7 @@ import yaml from 'js-yaml'
 import type { AppConfig } from './config'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
-import { dashmarkError, type DashmarkError } from './errors'
+import { dashmarkError, errorMessage, type DashmarkError } from './errors'
 import { strings } from './strings'
 
 export type YamlService = {
@@ -103,7 +103,7 @@ export function loadYamlConfig(config: AppConfig): YamlConfigResult {
     })
     return { config: parsed }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    const message = errorMessage(error)
     const dashmarkErr = dashmarkError('CONFIG_INVALID', strings.errors.configInvalid, false, message)
     const result: CachedConfig = {
       mtimeMs: stat.mtimeMs,

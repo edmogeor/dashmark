@@ -44,10 +44,14 @@ function parsePort(value: string | undefined, defaultValue: number): number {
   return Number.isInteger(port) && port > 0 && port <= 65_535 ? port : defaultValue
 }
 
+function optionalString(value: string | undefined): string | undefined {
+  return value?.trim() || undefined
+}
+
 export function getConfig(): AppConfig {
   const enableAccessGroups = parseBool(process.env.ENABLE_ACCESS_GROUPS, false)
   const accessGroupsHeader = parseAccessGroupsHeader(process.env.ACCESS_GROUPS_HEADER)
-  const customHeader = process.env.CUSTOM_HEADER?.trim() || undefined
+  const customHeader = optionalString(process.env.CUSTOM_HEADER)
 
   return {
     dockerHost: process.env.DOCKER_HOST || 'unix:///var/run/docker.sock',
@@ -64,8 +68,8 @@ export function getConfig(): AppConfig {
     showGroupTags: parseBool(process.env.SHOW_GROUP_TAGS, true),
     showThemeToggle: parseBool(process.env.SHOW_THEME_TOGGLE, true),
     customHeader,
-    greetingMorning: process.env.GREETING_MORNING?.trim() || undefined,
-    greetingAfternoon: process.env.GREETING_AFTERNOON?.trim() || undefined,
-    greetingEvening: process.env.GREETING_EVENING?.trim() || undefined
+    greetingMorning: optionalString(process.env.GREETING_MORNING),
+    greetingAfternoon: optionalString(process.env.GREETING_AFTERNOON),
+    greetingEvening: optionalString(process.env.GREETING_EVENING)
   }
 }

@@ -3,6 +3,7 @@ import path from 'node:path'
 import Fuse from 'fuse.js'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
+import { errorMessage } from './errors'
 
 export type SelfhstIcon = {
   reference: string
@@ -31,7 +32,7 @@ function loadLocalIcons(): SelfhstIcon[] | null {
     })
     return normalized.length > 0 ? normalized : null
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    const message = errorMessage(error)
     logger.warn('selfhst', logMessages.selfhst.localIndexFailed, { error: message })
     return null
   }
@@ -86,7 +87,7 @@ export async function fetchSelfhstIcons(): Promise<SelfhstIcon[]> {
     cache.set(SELFHST_CDN, icons)
     return icons
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    const message = errorMessage(error)
     logger.error('selfhst', logMessages.selfhst.fetchFailed, {
       cdnBase: SELFHST_CDN,
       error: message
