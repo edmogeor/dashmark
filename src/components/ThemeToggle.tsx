@@ -116,11 +116,11 @@ export function ThemeToggle() {
   }
 
   const isDark = resolved === 'dark'
-  const Icon = isDark ? Moon : Sun
+  const Icon = isDark ? Sun : Moon
   const ariaLabel = getAriaLabel(mounted, override, isDark)
   const glowBackground = isDark
-    ? 'radial-gradient(circle, rgba(180,220,255,0.5) 0%, rgba(130,170,255,0.28) 35%, rgba(140,130,255,0.12) 55%, transparent 70%)'
-    : 'radial-gradient(circle, rgba(255,214,130,0.6) 0%, rgba(255,150,80,0.35) 35%, rgba(255,100,90,0.15) 55%, transparent 70%)'
+    ? 'radial-gradient(circle, rgba(255,214,130,0.6) 0%, rgba(255,150,80,0.35) 35%, rgba(255,100,90,0.15) 55%, transparent 70%)'
+    : 'radial-gradient(circle, rgba(180,220,255,0.85) 0%, rgba(130,170,255,0.55) 35%, rgba(140,130,255,0.3) 55%, transparent 80%)'
 
   return (
     <button
