@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { MockDockerServer } from '../mocks/docker-server'
 import { getConfig } from '@/lib/config'
-import { getCards, getContainerStatuses, clearDockerApiVersionCache } from '@/lib/docker'
+import { getCards, getContainerStatuses, clearDockerCache } from '@/lib/docker'
 
 const tempDirectories: string[] = []
 
@@ -29,7 +29,7 @@ describe('getCards', () => {
   beforeEach(async () => {
     server = new MockDockerServer()
     dockerHost = await server.start()
-    clearDockerApiVersionCache()
+    clearDockerCache()
   })
 
   afterEach(async () => {
@@ -220,7 +220,7 @@ describe('getCards', () => {
 
     const config = getConfig()
     config.dockerHost = 'tcp://127.0.0.1:1'
-    clearDockerApiVersionCache()
+    clearDockerCache()
 
     const { cards, error } = await getCards(config, new Headers())
     expect(cards).toHaveLength(0)
@@ -301,7 +301,7 @@ describe('getContainerStatuses', () => {
   beforeEach(async () => {
     server = new MockDockerServer()
     dockerHost = await server.start()
-    clearDockerApiVersionCache()
+    clearDockerCache()
   })
 
   afterEach(async () => {
@@ -397,7 +397,7 @@ describe('getContainerStatuses', () => {
 
     const config = getConfig()
     config.dockerHost = 'tcp://127.0.0.1:1'
-    clearDockerApiVersionCache()
+    clearDockerCache()
 
     const { statuses, error } = await getContainerStatuses(config, new Headers())
     expect(Object.keys(statuses)).toHaveLength(0)

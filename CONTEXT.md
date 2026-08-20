@@ -164,7 +164,6 @@ Scripts are plain `.mjs` under `scripts/`: `fetch-icons`, `mock-docker-server`, 
 
 ## Flagged ambiguities
 
-- `clearDockerApiVersionCache` in `docker.ts` clears all caches, not just the API version cache; the name is misleading.
 - `GET /api/cards` exists and is tested but the client never calls it; only `GET /api/status` is polled.
 - Search matches title, category, and `search_aliases` by substring; it does not search descriptions and is not fuzzy.
 - `StatusBadge` colors `running`/`healthy` green and `unhealthy`/`exited`/`dead` red; other states (`paused`, `created`, `restarting`, `removing`) render with the muted default.

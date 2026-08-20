@@ -4,13 +4,6 @@ export type LogScope = 'docker' | 'config' | 'icons' | 'selfhst'
 
 type LogContext = Record<string, unknown>
 
-function serialize(value: unknown): string {
-  if (value instanceof Error) {
-    return value.message
-  }
-  return String(value)
-}
-
 function write(level: LogLevel, scope: LogScope, msg: string, context?: LogContext): void {
   const entry: Record<string, unknown> = {
     time: new Date().toISOString(),
@@ -21,8 +14,9 @@ function write(level: LogLevel, scope: LogScope, msg: string, context?: LogConte
   }
 
   for (const key of Object.keys(entry)) {
-    if (entry[key] instanceof Error) {
-      entry[key] = serialize(entry[key])
+    const value = entry[key]
+    if (value instanceof Error) {
+      entry[key] = value.message
     }
   }
 

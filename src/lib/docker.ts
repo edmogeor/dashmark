@@ -202,10 +202,6 @@ export function clearDockerCache() {
   allCardsCache.clear()
 }
 
-export function clearDockerApiVersionCache() {
-  clearDockerCache()
-}
-
 function parseHealth(status: string): string | undefined {
   if (status.includes('(healthy)')) return 'healthy'
   if (status.includes('(unhealthy)')) return 'unhealthy'
