@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { ChevronDown, ListFilter } from 'lucide-react'
+import { Check, ChevronDown, ListFilter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -38,9 +38,13 @@ export function CategoryFilter({ categories, selected, onSelect, disabled }: Cat
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[200px]">
-        <DropdownMenuItem onClick={() => onSelect(null)}>{strings.category.all}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onSelect(null)}>
+          <Check className={cn('opacity-0', selected === null && 'opacity-100')} />
+          {strings.category.all}
+        </DropdownMenuItem>
         {categories.map(category => (
           <DropdownMenuItem key={category} onClick={() => onSelect(category)}>
+            <Check className={cn('opacity-0', selected === category && 'opacity-100')} />
             {category}
           </DropdownMenuItem>
         ))}

@@ -74,7 +74,7 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, asCard =
                     <TooltipTrigger asChild>
                       <button
                         type="button"
-                        className="info-button shrink-0 cursor-pointer rounded-full p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
+                        className="info-button shrink-0 cursor-help rounded-full p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
                         onClick={e => e.preventDefault()}
                       >
                         <Info className="h-4 w-4" />

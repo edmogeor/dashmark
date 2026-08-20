@@ -1,0 +1,113 @@
+name: Bug Report
+description: Report a problem with Dashmark
+title: '[Bug]: '
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report! Please fill out the sections below so we can reproduce and fix the issue quickly.
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight checklist
+      options:
+        - label: I have searched existing issues and this has not already been reported.
+          required: true
+        - label: I am using a supported version of Dashmark.
+          required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Tell us how to reproduce the behavior.
+      placeholder: |
+        1. Deploy with '...'
+        2. Set labels '...'
+        3. Open the dashboard at '...'
+        4. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or screenshots
+      description: Paste any relevant log output or screenshots. This is automatically formatted into code, so no backticks are needed.
+      render: shell
+    validations:
+      required: false
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: 'Your `docker-compose.yml` (or `docker run` command), `config.yml`, and any `dashmark.*` labels. **Redact secrets.**'
+      render: yaml
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Dashmark version
+      placeholder: e.g. 0.1.0-alpha.2
+    validations:
+      required: true
+  - type: dropdown
+    id: docker-access
+    attributes:
+      label: How is Docker accessed?
+      options:
+        - Raw Docker socket mount
+        - Socket proxy (e.g. wollomatic/socket-proxy)
+        - Remote TCP (DOCKER_HOST)
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: proxy
+    attributes:
+      label: Reverse proxy
+      description: Which reverse proxy sits in front of Dashmark, if any?
+      options:
+        - Traefik
+        - nginx
+        - Caddy
+        - Cloudflare Tunnel
+        - None
+        - Other
+    validations:
+      required: false
+  - type: dropdown
+    id: auth
+    attributes:
+      label: Auth provider
+      description: Which identity provider or forward-auth proxy guards Dashmark, if any?
+      options:
+        - Authentik
+        - Authelia
+        - oauth2-proxy (Keycloak, Pocket ID, Zitadel)
+        - Keycloak Gatekeeper
+        - None
+        - Other
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add any other context about the problem here.
+    validations:
+      required: false

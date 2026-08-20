@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question / Discussion
+    url: https://github.com/edmogeor/dashmark/discussions
+    about: Ask questions and discuss usage of Dashmark here.
+  - name: Docker Documentation
+    url: https://docs.docker.com
+    about: General Docker questions are best answered in the official docs.

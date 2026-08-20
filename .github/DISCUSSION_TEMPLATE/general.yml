@@ -1,0 +1,14 @@
+name: General
+description: General discussion about Dashmark
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Discuss anything related to Dashmark, share your setup, or ask for advice.
+  - type: textarea
+    id: body
+    attributes:
+      label: Discussion
+      description: What's on your mind?
+    validations:
+      required: true

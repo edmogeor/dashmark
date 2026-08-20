@@ -1,0 +1,20 @@
+name: Q&A
+description: Ask a question about setting up or using Dashmark
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Dashmark version
+      placeholder: '0.1.0-alpha.2'
+  - type: input
+    id: proxy
+    attributes:
+      label: Reverse proxy / auth provider
+      placeholder: 'e.g. Traefik + Authentik'
+  - type: textarea
+    id: body
+    attributes:
+      label: Question
+      description: What do you need help with?
+    validations:
+      required: true
