@@ -27,39 +27,47 @@ export function groupHeaderNames(config: AppConfig): string[] {
 }
 
 export function parseUserGroups(headerValue: string | null | undefined): string[] {
-  if (!headerValue) return []
-  return headerValue
-    .split(/[,;|]/)
-    .map(g => g.trim())
-    .filter(Boolean)
+  const value = headerValue?.trim()
+  if (!value) return []
+
+  if (value.startsWith('[')) {
+    try {
+      const groups = JSON.parse(value)
+      if (Array.isArray(groups) && groups.every(group => typeof group === 'string')) {
+        return groups.map(group => group.trim()).filter(Boolean)
+      }
+    } catch {}
+  }
+
+  return value.split(/[,;|]/).map(group => group.trim()).filter(Boolean)
 }
 
-function firstHeader(headers: Headers, names: string[]): string | undefined {
-  for (const name of names) {
+function firstHeader(headers: Headers, names: string[], override?: string): string | undefined {
+  for (const name of override ? [override] : names) {
     const value = headers.get(name)?.trim()
     if (value) return value
   }
   return undefined
 }
 
-export function getUserName(headers: Headers): string | undefined {
-  return firstHeader(headers, AUTO_NAME_HEADERS)
+export function getUserName(headers: Headers, override?: string): string | undefined {
+  return firstHeader(headers, AUTO_NAME_HEADERS, override)
 }
 
-export function getUserFirstName(headers: Headers): string | undefined {
-  return firstHeader(headers, AUTO_FIRST_NAME_HEADERS)
+export function getUserFirstName(headers: Headers, override?: string): string | undefined {
+  return firstHeader(headers, AUTO_FIRST_NAME_HEADERS, override)
 }
 
-export function getUserLastName(headers: Headers): string | undefined {
-  return firstHeader(headers, AUTO_LAST_NAME_HEADERS)
+export function getUserLastName(headers: Headers, override?: string): string | undefined {
+  return firstHeader(headers, AUTO_LAST_NAME_HEADERS, override)
 }
 
-export function getUserUsername(headers: Headers): string | undefined {
-  return firstHeader(headers, AUTO_USERNAME_HEADERS)
+export function getUserUsername(headers: Headers, override?: string): string | undefined {
+  return firstHeader(headers, AUTO_USERNAME_HEADERS, override)
 }
 
-export function getUserEmail(headers: Headers): string | undefined {
-  return firstHeader(headers, AUTO_EMAIL_HEADERS)
+export function getUserEmail(headers: Headers, override?: string): string | undefined {
+  return firstHeader(headers, AUTO_EMAIL_HEADERS, override)
 }
 
 function splitName(name: string): { firstName?: string; lastName?: string } {
@@ -72,7 +80,7 @@ function splitName(name: string): { firstName?: string; lastName?: string } {
 
 export function readUserGroups(config: AppConfig, headers: Headers): { groups: string[]; found: boolean } {
   for (const name of groupHeaderNames(config)) {
-    const value = headers.get(name)
+    const value = headers.get(name)?.trim()
     if (value) return { groups: parseUserGroups(value), found: true }
   }
   return { groups: [], found: false }
@@ -86,15 +94,15 @@ export function isAuthorized(request: Request, authToken: string | undefined): b
 }
 
 export function getUser(config: AppConfig, headers: Headers): AuthUser {
-  const name = getUserName(headers)
+  const name = getUserName(headers, config.userNameHeader)
   const { firstName: splitFirst, lastName: splitLast } = name ? splitName(name) : {}
 
   return {
     name,
-    username: getUserUsername(headers),
-    email: getUserEmail(headers),
-    firstName: getUserFirstName(headers) ?? splitFirst,
-    lastName: getUserLastName(headers) ?? splitLast,
+    username: getUserUsername(headers, config.userUsernameHeader),
+    email: getUserEmail(headers, config.userEmailHeader),
+    firstName: getUserFirstName(headers, config.userFirstNameHeader) ?? splitFirst,
+    lastName: getUserLastName(headers, config.userLastNameHeader) ?? splitLast,
     groups: readUserGroups(config, headers).groups
   }
 }

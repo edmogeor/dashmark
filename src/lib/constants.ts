@@ -9,6 +9,7 @@ export const AUTH_TOKEN_HEADER = 'X-Dashmark-Token'
 export const AUTO_GROUP_HEADERS = [
   'X-Authentik-Groups',
   'Remote-Groups',
+  'X-Auth-Request-Groups',
   'X-Forwarded-Groups',
   'X-Auth-Groups'
 ]
@@ -16,6 +17,7 @@ export const AUTO_GROUP_HEADERS = [
 export const AUTO_NAME_HEADERS = [
   'X-Authentik-Name',
   'Remote-Name',
+  'X-Auth-Request-Preferred-Username',
   'X-Forwarded-Preferred-Username',
   'X-Auth-Name'
 ]
@@ -31,6 +33,7 @@ export const AUTO_LAST_NAME_HEADERS = [
 export const AUTO_USERNAME_HEADERS = [
   'X-Authentik-Username',
   'Remote-User',
+  'X-Auth-Request-User',
   'X-Forwarded-User',
   'X-Auth-Username'
 ]
@@ -38,6 +41,7 @@ export const AUTO_USERNAME_HEADERS = [
 export const AUTO_EMAIL_HEADERS = [
   'X-Authentik-Email',
   'Remote-Email',
+  'X-Auth-Request-Email',
   'X-Forwarded-Email',
   'X-Auth-Email'
 ]

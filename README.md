@@ -117,6 +117,11 @@ You can configure Dashmark with environment variables, Docker labels, or a YAML 
 | `ICONS_DIR` | `/app/icons` | Folder for custom icon files |
 | `ENABLE_ACCESS_GROUPS` | `false` | When `true`, filter cards by the groups header |
 | `ACCESS_GROUPS_HEADER` | `auto` | Group header. `auto` detects Authentik, Authelia, oauth2-proxy, or Keycloak Gatekeeper |
+| `USER_NAME_HEADER` | auto | Header for `{full_name}` |
+| `USER_FIRST_NAME_HEADER` | auto | Header for `{first_name}` |
+| `USER_LAST_NAME_HEADER` | auto | Header for `{last_name}` |
+| `USER_USERNAME_HEADER` | auto | Header for `{username}` |
+| `USER_EMAIL_HEADER` | auto | Header for `{email}` |
 | `SHOW_HEADER` | `true` | Show a greeting header with the user's name and group tags |
 | `SHOW_GROUP_TAGS` | `true` | Show the user's group tags in the header when a card uses access groups |
 | `SHOW_THEME_TOGGLE` | `true` | Show the light/dark toggle. When `false`, Dashmark always follows the system preference |
@@ -260,10 +265,10 @@ Serve Dashmark behind a proxy that handles login, so the header is trustworthy. 
 | --- | --- |
 | Authentik | `X-Authentik-Groups` |
 | Authelia | `Remote-Groups` |
-| oauth2-proxy (Keycloak, Pocket ID, Zitadel) | `X-Forwarded-Groups` |
+| oauth2-proxy (Keycloak, Pocket ID, Zitadel) | `X-Forwarded-Groups` or `X-Auth-Request-Groups` |
 | Keycloak Gatekeeper (louketo) | `X-Auth-Groups` |
 
-Keycloak, Pocket ID, and Zitadel are identity providers that do not add a groups header themselves. Put oauth2-proxy (or a proxy that sets `X-Forwarded-Groups`) in front of them. If your proxy sets a different header, set `ACCESS_GROUPS_HEADER` to that header name.
+Keycloak, Pocket ID, and Zitadel are identity providers that do not add a groups header themselves. Put oauth2-proxy (or a proxy that sets `X-Forwarded-Groups` or `X-Auth-Request-Groups`) in front of them. If your proxy sets a different header, set `ACCESS_GROUPS_HEADER` to that header name. Group values can be comma-, semicolon-, or pipe-separated, or a JSON array of strings.
 
 ### Greeting and header
 
@@ -288,9 +293,9 @@ The template is a plain string that supports these tags, each filled from an aut
 
 The time-of-day greeting itself can be customised with `GREETING_MORNING`, `GREETING_AFTERNOON`, and `GREETING_EVENING`. These replace `Good morning`, `Good afternoon`, and `Good evening`, both in the default greeting and in the `{greeting}` tag.
 
-A tag with no matching header shows as empty text. Dashmark detects the name, username, and email headers from Authentik (`X-Authentik-Name`, `X-Authentik-Username`, `X-Authentik-Email`), Authelia (`Remote-Name`, `Remote-User`, `Remote-Email`), oauth2-proxy (`X-Forwarded-Preferred-Username`, `X-Forwarded-User`, `X-Forwarded-Email`), and Keycloak Gatekeeper (`X-Auth-Name`, `X-Auth-Username`, `X-Auth-Email`).
+A tag with no matching header shows as empty text. Dashmark detects the name, username, and email headers from Authentik (`X-Authentik-Name`, `X-Authentik-Username`, `X-Authentik-Email`), Authelia (`Remote-Name`, `Remote-User`, `Remote-Email`), oauth2-proxy (`X-Forwarded-Preferred-Username` or `X-Auth-Request-Preferred-Username`, `X-Forwarded-User` or `X-Auth-Request-User`, `X-Forwarded-Email` or `X-Auth-Request-Email`), and Keycloak Gatekeeper (`X-Auth-Name`, `X-Auth-Username`, `X-Auth-Email`). For another proxy, set the matching `USER_*_HEADER` variable.
 
-`{first_name}` and `{last_name}` come from the dedicated Authentik headers `X-Authentik-Given-Name` and `X-Authentik-Family-Name` when they are present. Otherwise, Dashmark splits the full name on spaces: the first word is the first name and the last word is the last name. For example, `John Mary Doe` becomes `John` / `Doe`. A single-word name gives a first name only.
+`{first_name}` and `{last_name}` come from the dedicated Authentik headers `X-Authentik-Given-Name` and `X-Authentik-Family-Name` when they are present. Set `USER_FIRST_NAME_HEADER` and `USER_LAST_NAME_HEADER` for providers that expose dedicated fields under other names. Otherwise, Dashmark splits the full name on spaces: the first word is the first name and the last word is the last name. For example, `John Mary Doe` becomes `John` / `Doe`. A single-word name gives a first name only.
 
 Group tags appear next to the greeting from the groups header (the same one `ACCESS_GROUPS_HEADER` uses). Dashmark only shows them when at least one card has `access_groups` set. Set `SHOW_GROUP_TAGS=false` to hide them entirely.
 

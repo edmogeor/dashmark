@@ -22,6 +22,10 @@ describe('parseUserGroups', () => {
     expect(parseUserGroups('Admins|admins|users')).toEqual(['Admins', 'admins', 'users'])
   })
 
+  it('parses JSON arrays', () => {
+    expect(parseUserGroups('["admins", "media team"]')).toEqual(['admins', 'media team'])
+  })
+
   it('trims and drops empty entries', () => {
     expect(parseUserGroups(' admins , , media ')).toEqual(['admins', 'media'])
   })
@@ -30,6 +34,7 @@ describe('parseUserGroups', () => {
     expect(parseUserGroups(null)).toEqual([])
     expect(parseUserGroups(undefined)).toEqual([])
     expect(parseUserGroups('')).toEqual([])
+    expect(parseUserGroups('   ')).toEqual([])
   })
 })
 
@@ -40,6 +45,10 @@ describe('getUserName', () => {
 
   it('detects oauth2-proxy preferred username', () => {
     expect(getUserName(new Headers({ 'X-Forwarded-Preferred-Username': 'Jane' }))).toBe('Jane')
+  })
+
+  it('detects oauth2-proxy auth request preferred username', () => {
+    expect(getUserName(new Headers({ 'X-Auth-Request-Preferred-Username': 'Jane' }))).toBe('Jane')
   })
 
   it('returns undefined when no name header is present', () => {
@@ -55,6 +64,10 @@ describe('getUserUsername', () => {
   it('detects oauth2-proxy user header', () => {
     expect(getUserUsername(new Headers({ 'X-Forwarded-User': 'jane' }))).toBe('jane')
   })
+
+  it('detects oauth2-proxy auth request user header', () => {
+    expect(getUserUsername(new Headers({ 'X-Auth-Request-User': 'jane' }))).toBe('jane')
+  })
 })
 
 describe('getUserEmail', () => {
@@ -64,6 +77,10 @@ describe('getUserEmail', () => {
 
   it('returns undefined when no email header is present', () => {
     expect(getUserEmail(new Headers())).toBeUndefined()
+  })
+
+  it('detects oauth2-proxy auth request email header', () => {
+    expect(getUserEmail(new Headers({ 'X-Auth-Request-Email': 'jane@example.com' }))).toBe('jane@example.com')
   })
 })
 
@@ -151,6 +168,30 @@ describe('getUser', () => {
 
     expect(getUser(config, headers).groups).toEqual(['admins'])
   })
+
+  it('respects custom user field headers', () => {
+    const config = getConfig()
+    config.userNameHeader = 'X-User-Name'
+    config.userUsernameHeader = 'X-User-Id'
+    config.userEmailHeader = 'X-User-Mail'
+    config.userFirstNameHeader = 'X-User-Given-Name'
+    config.userLastNameHeader = 'X-User-Family-Name'
+    const headers = new Headers({
+      'X-User-Name': 'Ada Lovelace',
+      'X-User-Id': 'ada',
+      'X-User-Mail': 'ada@example.com',
+      'X-User-Given-Name': 'Ada',
+      'X-User-Family-Name': 'Lovelace'
+    })
+
+    expect(getUser(config, headers)).toMatchObject({
+      name: 'Ada Lovelace',
+      username: 'ada',
+      email: 'ada@example.com',
+      firstName: 'Ada',
+      lastName: 'Lovelace'
+    })
+  })
 })
 
 describe('groupHeaderNames', () => {
@@ -158,6 +199,7 @@ describe('groupHeaderNames', () => {
     const config = getConfig()
     config.accessGroupsHeader = 'auto'
     expect(groupHeaderNames(config)).toContain('X-Authentik-Groups')
+    expect(groupHeaderNames(config)).toContain('X-Auth-Request-Groups')
     expect(groupHeaderNames(config)).toContain('X-Forwarded-Groups')
   })
 
@@ -173,6 +215,24 @@ describe('readUserGroups', () => {
     const config = getConfig()
     expect(readUserGroups(config, new Headers()).found).toBe(false)
     expect(readUserGroups(config, new Headers({ 'Remote-Groups': 'admins' })).found).toBe(true)
+  })
+
+  it('treats whitespace-only headers as missing', () => {
+    const config = getConfig()
+    expect(readUserGroups(config, new Headers({ 'Remote-Groups': '   ' }))).toEqual({ groups: [], found: false })
+  })
+
+  it('treats an empty JSON array as a present groups header', () => {
+    const config = getConfig()
+    expect(readUserGroups(config, new Headers({ 'Remote-Groups': '[]' }))).toEqual({ groups: [], found: true })
+  })
+
+  it('detects oauth2-proxy auth request groups', () => {
+    const config = getConfig()
+    expect(readUserGroups(config, new Headers({ 'X-Auth-Request-Groups': 'admins' }))).toEqual({
+      groups: ['admins'],
+      found: true
+    })
   })
 })
 

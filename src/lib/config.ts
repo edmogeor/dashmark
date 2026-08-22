@@ -8,6 +8,11 @@ export type AppConfig = {
   iconsDir: string
   enableAccessGroups: boolean
   accessGroupsHeader: string
+  userNameHeader?: string
+  userUsernameHeader?: string
+  userEmailHeader?: string
+  userFirstNameHeader?: string
+  userLastNameHeader?: string
   port: number
   showSearch: boolean
   showStatus: boolean
@@ -39,6 +44,14 @@ function parseAccessGroupsHeader(value: string | undefined): string {
   return AUTO_ACCESS_GROUPS_HEADER
 }
 
+function parseUserHeader(value: string | undefined): string | undefined {
+  const header = optionalString(value)
+  if (!header) return undefined
+  if (isValidHeaderToken(header)) return header
+  logger.error('config', logMessages.config.invalidUserHeader, { header })
+  return undefined
+}
+
 function parsePort(value: string | undefined, defaultValue: number): number {
   const port = Number(value)
   return Number.isInteger(port) && port > 0 && port <= MAX_PORT ? port : defaultValue
@@ -59,6 +72,11 @@ export function getConfig(): AppConfig {
     iconsDir: process.env.ICONS_DIR || '/app/icons',
     enableAccessGroups,
     accessGroupsHeader,
+    userNameHeader: parseUserHeader(process.env.USER_NAME_HEADER),
+    userUsernameHeader: parseUserHeader(process.env.USER_USERNAME_HEADER),
+    userEmailHeader: parseUserHeader(process.env.USER_EMAIL_HEADER),
+    userFirstNameHeader: parseUserHeader(process.env.USER_FIRST_NAME_HEADER),
+    userLastNameHeader: parseUserHeader(process.env.USER_LAST_NAME_HEADER),
     port: parsePort(process.env.PORT, DEFAULT_PORT),
     showSearch: parseBool(process.env.SHOW_SEARCH, true),
     showStatus: parseBool(process.env.SHOW_STATUS, true),

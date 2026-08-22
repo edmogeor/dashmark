@@ -78,7 +78,12 @@ Selfhst icons are analysed for luminance when resolved. If an icon is dominated 
 | `CONFIG_FILE` | `/app/config.yml` | Optional YAML config file path |
 | `ICONS_DIR` | `/app/icons` | Directory for custom icon files |
 | `ENABLE_ACCESS_GROUPS` | `false` | When `true`, filter cards by the groups header |
-| `ACCESS_GROUPS_HEADER` | `auto` | Group header; `auto` detects `X-Authentik-Groups` (Authentik), `Remote-Groups` (Authelia), `X-Forwarded-Groups` (oauth2-proxy for Keycloak/Pocket ID/Zitadel), `X-Auth-Groups` (Keycloak Gatekeeper) |
+| `ACCESS_GROUPS_HEADER` | `auto` | Group header; `auto` detects `X-Authentik-Groups` (Authentik), `Remote-Groups` (Authelia), `X-Forwarded-Groups` or `X-Auth-Request-Groups` (oauth2-proxy for Keycloak/Pocket ID/Zitadel), `X-Auth-Groups` (Keycloak Gatekeeper) |
+| `USER_NAME_HEADER` | auto | Custom header for `{full_name}` |
+| `USER_FIRST_NAME_HEADER` | auto | Custom header for `{first_name}` |
+| `USER_LAST_NAME_HEADER` | auto | Custom header for `{last_name}` |
+| `USER_USERNAME_HEADER` | auto | Custom header for `{username}` |
+| `USER_EMAIL_HEADER` | auto | Custom header for `{email}` |
 | `SHOW_HEADER` | `true` | Show a greeting header with the user's name and group tags |
 | `SHOW_GROUP_TAGS` | `true` | Show the user's group tags in the header when at least one Card uses access groups |
 | `SHOW_THEME_TOGGLE` | `true` | Show the light/dark toggle; when `false`, always follow the system preference |
@@ -118,7 +123,7 @@ Optional flat file at `CONFIG_FILE`, where each top-level key is a service keyed
 
 ### Access groups
 
-When `ENABLE_ACCESS_GROUPS=true`, each request must carry a groups header. A card is visible when its `access_groups` intersect the user's groups; cards with no `access_groups` are visible to everyone. A missing header renders an error state (`MISSING_GROUPS_HEADER`), and the `Vary` response header is set so shared caches key on the groups header. `auto` mode checks candidate headers in order: `X-Authentik-Groups`, `Remote-Groups`, `X-Forwarded-Groups`, `X-Auth-Groups`. Keycloak, Pocket ID, and Zitadel are OIDC providers that do not set a groups header themselves; they need oauth2-proxy (or a proxy that sets `X-Forwarded-Groups`) in front.
+When `ENABLE_ACCESS_GROUPS=true`, each request must carry a groups header. A card is visible when its `access_groups` intersect the user's groups; cards with no `access_groups` are visible to everyone. A missing header renders an error state (`MISSING_GROUPS_HEADER`), and the `Vary` response header is set so shared caches key on the groups header. `auto` mode checks candidate headers in order: `X-Authentik-Groups`, `Remote-Groups`, `X-Auth-Request-Groups`, `X-Forwarded-Groups`, `X-Auth-Groups`. Group values can be comma-, semicolon-, or pipe-separated, or a JSON array of strings. Keycloak, Pocket ID, and Zitadel are OIDC providers that do not set a groups header themselves; they need oauth2-proxy (or a proxy that sets `X-Forwarded-Groups` or `X-Auth-Request-Groups`) in front.
 
 ## Deployment
 

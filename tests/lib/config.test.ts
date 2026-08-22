@@ -3,6 +3,11 @@ import { getConfig } from '@/lib/config'
 
 const trackedVars = [
   'ACCESS_GROUPS_HEADER',
+  'USER_NAME_HEADER',
+  'USER_USERNAME_HEADER',
+  'USER_EMAIL_HEADER',
+  'USER_FIRST_NAME_HEADER',
+  'USER_LAST_NAME_HEADER',
   'ENABLE_ACCESS_GROUPS',
   'SHOW_SEARCH',
   'SHOW_STATUS',
@@ -41,6 +46,29 @@ describe('getConfig accessGroupsHeader', () => {
   it('falls back to auto for an invalid header name', () => {
     process.env.ACCESS_GROUPS_HEADER = 'X Bad Header'
     expect(getConfig().accessGroupsHeader).toBe('auto')
+  })
+})
+
+describe('getConfig user headers', () => {
+  it('reads valid custom user headers', () => {
+    process.env.USER_NAME_HEADER = ' X-Custom-Name '
+    process.env.USER_USERNAME_HEADER = 'X-Custom-Username'
+    process.env.USER_EMAIL_HEADER = 'X-Custom-Email'
+    process.env.USER_FIRST_NAME_HEADER = 'X-Custom-Given-Name'
+    process.env.USER_LAST_NAME_HEADER = 'X-Custom-Family-Name'
+
+    expect(getConfig()).toMatchObject({
+      userNameHeader: 'X-Custom-Name',
+      userUsernameHeader: 'X-Custom-Username',
+      userEmailHeader: 'X-Custom-Email',
+      userFirstNameHeader: 'X-Custom-Given-Name',
+      userLastNameHeader: 'X-Custom-Family-Name'
+    })
+  })
+
+  it('ignores invalid custom user headers', () => {
+    process.env.USER_NAME_HEADER = 'X Invalid Header'
+    expect(getConfig().userNameHeader).toBeUndefined()
   })
 })
 
