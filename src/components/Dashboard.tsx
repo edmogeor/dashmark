@@ -1,5 +1,5 @@
-import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { motion, type Variants } from 'framer-motion'
+import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { motion, type Transition, type Variants } from 'framer-motion'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import type { Virtualizer } from '@tanstack/virtual-core'
 import Fuse from 'fuse.js'
@@ -23,6 +23,7 @@ const UNCATEGORISED = strings.category.uncategorised
 const COLUMN_WIDTH = 300
 const COLUMN_GUTTER = 24
 const MASONRY_OVERSCAN = 3
+const POSITION_TRANSITION: Transition = { duration: 0.25, ease: 'easeOut' }
 
 function measureElement<T extends Element>(
   element: T,
@@ -132,21 +133,50 @@ function ErrorPanel({ error }: { error: DashmarkError }) {
   )
 }
 
+type AnimatedGridItemProps = {
+  children: ReactNode
+  className?: string
+  style?: CSSProperties
+  dataIndex?: number
+  measureElement?: (element: HTMLDivElement | null) => void
+}
+
+function AnimatedGridItem({
+  children,
+  className,
+  style,
+  dataIndex,
+  measureElement
+}: AnimatedGridItemProps) {
+  return (
+    <motion.div
+      ref={measureElement}
+      data-index={dataIndex}
+      className={className}
+      style={style}
+      layout="position"
+      transition={POSITION_TRANSITION}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
 type CategoryItem = {
   category: string
   cards: CardType[]
-  showStatus: boolean
-  isLoading: boolean
 }
 
 type CategoryColumnProps = {
   data: CategoryItem
   twoColumn: boolean
+  showStatus: boolean
+  isLoading: boolean
   openInNewTab: boolean
 }
 
-function CategoryColumn({ data, twoColumn, openInNewTab }: CategoryColumnProps) {
-  const { category, cards, showStatus, isLoading } = data
+function CategoryColumn({ data, twoColumn, showStatus, isLoading, openInNewTab }: CategoryColumnProps) {
+  const { category, cards } = data
   return (
     <Card className="@container overflow-hidden">
       <CardHeader className="pb-3">
@@ -171,10 +201,12 @@ type MasonryGridProps = {
   items: CategoryItem[]
   onReady?: () => void
   animate?: boolean
+  showStatus: boolean
+  isLoading: boolean
   openInNewTab: boolean
 }
 
-function MasonryGrid({ items, onReady, animate, openInNewTab }: MasonryGridProps) {
+function MasonryGrid({ items, onReady, animate, showStatus, isLoading, openInNewTab }: MasonryGridProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const notifiedRef = useRef(false)
   const onReadyRef = useRef(onReady)
@@ -248,15 +280,15 @@ function MasonryGrid({ items, onReady, animate, openInNewTab }: MasonryGridProps
             if (!item) return null
             const delay = 0.08 + (visualRank.get(virtualItem.index) ?? 0) * 0.06
             return (
-              <div
+              <AnimatedGridItem
                 key={virtualItem.key}
-                data-index={virtualItem.index}
-                ref={virtualizer.measureElement}
-                className="absolute top-0"
+                measureElement={virtualizer.measureElement}
+                dataIndex={virtualItem.index}
+                className="absolute"
                 style={{
+                  top: virtualItem.start,
                   left: virtualItem.lane * (columnWidth + COLUMN_GUTTER),
-                  width: columnWidth,
-                  transform: `translateY(${virtualItem.start}px)`
+                  width: columnWidth
                 }}
               >
                 <motion.div
@@ -267,9 +299,15 @@ function MasonryGrid({ items, onReady, animate, openInNewTab }: MasonryGridProps
                     hasAnimatedRef.current = true
                   }}
                 >
-                  <CategoryColumn data={item} twoColumn={twoColumn} openInNewTab={openInNewTab} />
+                  <CategoryColumn
+                    data={item}
+                    twoColumn={twoColumn}
+                    showStatus={showStatus}
+                    isLoading={isLoading}
+                    openInNewTab={openInNewTab}
+                  />
                 </motion.div>
-              </div>
+              </AnimatedGridItem>
             )
           })}
         </div>
@@ -311,6 +349,28 @@ export function Dashboard({
   const [isLoading, setIsLoading] = useState(!initialError)
   const showLoading = useStableLoading(isLoading)
   const [statusUnavailable, setStatusUnavailable] = useState(false)
+  const [hasPageOverflow, setHasPageOverflow] = useState(false)
+
+  useLayoutEffect(() => {
+    const updateOverflow = () => {
+      const main = document.querySelector('main')
+      const hasOverflow = main
+        ? main.getBoundingClientRect().bottom + window.scrollY > window.innerHeight
+        : document.documentElement.scrollHeight > window.innerHeight
+      setHasPageOverflow(current => current === hasOverflow ? current : hasOverflow)
+    }
+
+    const observer = new ResizeObserver(updateOverflow)
+    const main = document.querySelector('main')
+    if (main) observer.observe(main)
+    window.addEventListener('resize', updateOverflow)
+    updateOverflow()
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', updateOverflow)
+    }
+  }, [])
 
   useStatusPolling({
     enabled: !error,
@@ -354,16 +414,10 @@ export function Dashboard({
   }, [willRenderMasonry])
 
   const categoryItems = useMemo<CategoryItem[]>(
-    () =>
-      Object.entries(grouped)
-        .sort(([a], [b]) => sortCategories(a, b))
-        .map(([category, cards]) => ({
-          category,
-          cards,
-          showStatus: initialShowStatus,
-          isLoading: showLoading || statusUnavailable
-        })),
-    [grouped, initialShowStatus, showLoading, statusUnavailable]
+    () => Object.entries(grouped)
+      .sort(([a], [b]) => sortCategories(a, b))
+      .map(([category, cards]) => ({ category, cards })),
+    [grouped]
   )
   const categories = useMemo(() => {
     const categoriesByName = groupByCategory(cards)
@@ -376,7 +430,7 @@ export function Dashboard({
     <>
       <Toaster />
       {(initialShowSearch || showHeader) && (
-        <div className="dashboard-search sticky top-0 z-10 mb-8">
+        <div className="dashboard-search sticky top-0 z-10 mb-8" data-overflow={hasPageOverflow || undefined}>
           <div className="pt-18">
             <motion.div
               layout="position"
@@ -434,19 +488,29 @@ export function Dashboard({
           </div>
         ) : !hasCategories ? (
           <motion.div
+            layout="position"
             variants={staggerContainer}
             initial="hidden"
             animate="show"
             className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
           >
             {uncategorised.map(card => (
-              <motion.div key={card.id} variants={fadeUp}>
-                <AppCard card={card} showStatus={initialShowStatus} asCard isLoading={showLoading || statusUnavailable} openInNewTab={initialOpenInNewTab} />
-              </motion.div>
+              <AnimatedGridItem key={card.id}>
+                <motion.div variants={fadeUp}>
+                  <AppCard card={card} showStatus={initialShowStatus} asCard isLoading={showLoading || statusUnavailable} openInNewTab={initialOpenInNewTab} />
+                </motion.div>
+              </AnimatedGridItem>
             ))}
           </motion.div>
         ) : (
-          <MasonryGrid items={categoryItems} onReady={() => setMasonryLayoutReady(true)} animate={searchBarDone} openInNewTab={initialOpenInNewTab} />
+          <MasonryGrid
+            items={categoryItems}
+            onReady={() => setMasonryLayoutReady(true)}
+            animate={searchBarDone}
+            showStatus={initialShowStatus}
+            isLoading={showLoading || statusUnavailable}
+            openInNewTab={initialOpenInNewTab}
+          />
             )}
           </>
         )}

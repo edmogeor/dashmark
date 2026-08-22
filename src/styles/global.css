@@ -137,6 +137,9 @@
 @layer components {
 .dashboard-search {
   isolation: isolate;
+}
+
+.dashboard-search[data-overflow] {
   background: var(--background);
 }
 
@@ -150,6 +153,12 @@
   content: '';
   pointer-events: none;
   background: linear-gradient(to bottom, var(--background) 0, var(--background) 8px, transparent 24px);
+  opacity: 0;
+  transition: opacity 0.2s ease-out;
+}
+
+.dashboard-search[data-overflow]::after {
+  opacity: 1;
 }
 
 .marquee-content {
