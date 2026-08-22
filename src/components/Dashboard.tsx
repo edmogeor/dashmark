@@ -333,15 +333,24 @@ type DashboardProps = {
   userGroups?: string[]
 }
 
-type DashboardSearchProps = {
-  showSearch: boolean
-  showHeader: boolean
-  showBranding: boolean
+type DashboardGreetingProps = {
   greeting?: string
   showGroups: boolean
   userGroups: string[]
-  hasPageOverflow: boolean
-  masonryLayoutReady: boolean
+  hasSearch: boolean
+}
+
+function DashboardGreeting({ greeting, showGroups, userGroups, hasSearch }: DashboardGreetingProps) {
+  return (
+    <div className={`dashmark-greeting-container flex items-center ${hasSearch ? 'mb-4' : ''}`}>
+      <h1 className="dashmark-greeting text-2xl font-semibold tracking-tight">{greeting}</h1>
+      {showGroups && userGroups.length > 0 && <UserGroupsBadge groups={userGroups} />}
+    </div>
+  )
+}
+
+type DashboardSearchPanelProps = {
+  showBranding: boolean
   search: string
   setSearch: (search: string) => void
   error: DashmarkError | null
@@ -350,6 +359,50 @@ type DashboardSearchProps = {
   totalCards: number
   selectedCategory: string | null
   setSelectedCategory: (category: string | null) => void
+}
+
+function DashboardSearchPanel({
+  showBranding,
+  search,
+  setSearch,
+  error,
+  categories,
+  hasCategories,
+  totalCards,
+  selectedCategory,
+  setSelectedCategory
+}: DashboardSearchPanelProps) {
+  return (
+    <Card className="dashmark-search-panel overflow-hidden bg-surface shadow-none">
+      <CardContent className="dashmark-search-panel-content flex flex-row items-center gap-4 py-6">
+        {showBranding && (
+          <img src="/brand/icon.svg" alt={strings.app.title} className="dashmark-brand h-8 w-8 shrink-0 rounded-lg" />
+        )}
+        <div className="min-w-0 flex-1">
+          <SearchBar value={search} onChange={setSearch} disabled={!!error} />
+        </div>
+        {hasCategories && (
+          <CategoryFilter
+            categories={categories}
+            total={totalCards}
+            selected={selectedCategory}
+            onSelect={setSelectedCategory}
+            disabled={!!error}
+          />
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+type DashboardSearchProps = DashboardSearchPanelProps & {
+  showSearch: boolean
+  showHeader: boolean
+  greeting?: string
+  showGroups: boolean
+  userGroups: string[]
+  hasPageOverflow: boolean
+  masonryLayoutReady: boolean
   onAnimationComplete: () => void
 }
 
@@ -386,31 +439,20 @@ function DashboardSearch({
           onAnimationComplete={onAnimationComplete}
         >
           {showHeader && (
-            <div className={`dashmark-greeting-container flex items-center ${showSearch ? 'mb-4' : ''}`}>
-              <h1 className="dashmark-greeting text-2xl font-semibold tracking-tight">{greeting}</h1>
-              {showGroups && userGroups.length > 0 && <UserGroupsBadge groups={userGroups} />}
-            </div>
+            <DashboardGreeting greeting={greeting} showGroups={showGroups} userGroups={userGroups} hasSearch={showSearch} />
           )}
           {showSearch && (
-            <Card className="dashmark-search-panel overflow-hidden bg-surface shadow-none">
-              <CardContent className="dashmark-search-panel-content flex flex-row items-center gap-4 py-6">
-                {showBranding && (
-                  <img src="/brand/icon.svg" alt={strings.app.title} className="dashmark-brand h-8 w-8 shrink-0 rounded-lg" />
-                )}
-                <div className="min-w-0 flex-1">
-                  <SearchBar value={search} onChange={setSearch} disabled={!!error} />
-                </div>
-                {hasCategories && (
-                  <CategoryFilter
-                    categories={categories}
-                    total={totalCards}
-                    selected={selectedCategory}
-                    onSelect={setSelectedCategory}
-                    disabled={!!error}
-                  />
-                )}
-              </CardContent>
-            </Card>
+            <DashboardSearchPanel
+              showBranding={showBranding}
+              search={search}
+              setSearch={setSearch}
+              error={error}
+              categories={categories}
+              hasCategories={hasCategories}
+              totalCards={totalCards}
+              selectedCategory={selectedCategory}
+              setSelectedCategory={setSelectedCategory}
+            />
           )}
         </motion.div>
       </div>

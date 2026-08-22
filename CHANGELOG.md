@@ -7,9 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-alpha.7] - 2026-08-22
+
+### Added
+
+- Custom stylesheet support through `CUSTOM_STYLESHEET` and semantic `dashmark-*` CSS classes.
+
+### Fixed
+
+- Included `lucide-react` in production dependencies for the standalone server bundle.
+
 ### Changed
 
 - Reworked the README for a clearer setup path and more concise configuration guidance.
+- Simplified dashboard rendering, status styling, and selfhst icon fetching.
 
 ## [0.1.0-alpha.6] - 2026-08-22
 

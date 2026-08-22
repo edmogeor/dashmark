@@ -9,25 +9,21 @@ type StatusBadgeProps = {
   asCard?: boolean
 }
 
+const STATUS_COLOR_CLASSES: Record<string, string> = {
+  running: 'bg-success/15 text-success',
+  healthy: 'bg-success/15 text-success',
+  starting: 'bg-warning/15 text-warning',
+  paused: 'bg-warning/15 text-warning',
+  created: 'bg-info/15 text-info',
+  restarting: 'bg-info/15 text-info',
+  unhealthy: 'bg-destructive/15 text-destructive',
+  exited: 'bg-destructive/15 text-destructive',
+  dead: 'bg-destructive/15 text-destructive',
+  removing: 'bg-destructive/15 text-destructive'
+}
+
 function getColorClass(status: string): string {
-  switch (status) {
-    case 'running':
-    case 'healthy':
-      return 'bg-success/15 text-success'
-    case 'starting':
-    case 'paused':
-      return 'bg-warning/15 text-warning'
-    case 'created':
-    case 'restarting':
-      return 'bg-info/15 text-info'
-    case 'unhealthy':
-    case 'exited':
-    case 'dead':
-    case 'removing':
-      return 'bg-destructive/15 text-destructive'
-    default:
-      return 'bg-muted text-muted-foreground'
-  }
+  return STATUS_COLOR_CLASSES[status] ?? 'bg-muted text-muted-foreground'
 }
 
 export function StatusBadge({ state, health, loading, asCard = false }: StatusBadgeProps) {

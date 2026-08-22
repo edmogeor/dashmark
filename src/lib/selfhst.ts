@@ -61,41 +61,49 @@ function loadLocalIcons(): SelfhstIcon[] | null {
   }
 }
 
+async function fetchIconPage(page: number): Promise<{ name: string }[]> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), SELFHST_FETCH_TIMEOUT_MS)
+
+  try {
+    const response = await fetch(
+      `${SELFHST_GITHUB_API_URL}?per_page=${SELFHST_PAGE_SIZE}&page=${page}`,
+      { signal: controller.signal }
+    )
+    if (!response.ok) throw new Error(`GitHub API responded with ${response.status}`)
+
+    const data: unknown = await response.json()
+    if (!Array.isArray(data) || !data.every(isGitHubIconFile)) {
+      throw new Error('GitHub API icon response had an invalid format')
+    }
+    return data
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
+function addSvgIcons(files: { name: string }[], icons: SelfhstIcon[]): void {
+  for (const { name } of files) {
+    if (!name.endsWith('.svg')) continue
+
+    const reference = name.replace(/\.svg$/, '')
+    if (/-(dark|light)$/.test(reference)) continue
+
+    icons.push({
+      reference,
+      name: reference.replace(/[-_]/g, ' '),
+      url: `${SELFHST_CDN}/svg/${name}`
+    })
+  }
+}
+
 async function fetchRemoteIcons(): Promise<SelfhstIcon[]> {
   const icons: SelfhstIcon[] = []
 
   for (let page = 1; page <= SELFHST_MAX_PAGES; page++) {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), SELFHST_FETCH_TIMEOUT_MS)
-    let data: unknown
-    try {
-      const response = await fetch(
-        `${SELFHST_GITHUB_API_URL}?per_page=${SELFHST_PAGE_SIZE}&page=${page}`,
-        { signal: controller.signal }
-      )
-      if (!response.ok) {
-        throw new Error(`GitHub API responded with ${response.status}`)
-      }
-      data = await response.json()
-    } finally {
-      clearTimeout(timeout)
-    }
-
-    if (!Array.isArray(data) || !data.every(isGitHubIconFile)) {
-      throw new Error('GitHub API icon response had an invalid format')
-    }
-    for (const item of data) {
-      if (item.name.endsWith('.svg')) {
-        const reference = item.name.replace(/\.svg$/, '')
-        if (/-(dark|light)$/.test(reference)) continue
-        icons.push({
-          reference,
-          name: reference.replace(/[-_]/g, ' '),
-          url: `${SELFHST_CDN}/svg/${item.name}`
-        })
-      }
-    }
-    if (data.length < SELFHST_PAGE_SIZE) return icons
+    const files = await fetchIconPage(page)
+    addSvgIcons(files, icons)
+    if (files.length < SELFHST_PAGE_SIZE) return icons
   }
 
   throw new Error(`GitHub API icon listing exceeded ${SELFHST_MAX_PAGES} pages`)
