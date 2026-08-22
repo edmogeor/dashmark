@@ -21,7 +21,8 @@ services:
       # - ENABLE_ACCESS_GROUPS=false
       # - ACCESS_GROUPS_HEADER=auto
       # - SHOW_SEARCH=true
-      # - SHOW_STATUS=true
+       # - SHOW_STATUS=true
+       # - STATUS_POLL_INTERVAL=30
       # - ENABLE_AUTOMATIC_ICONS=true
       # - SHOW_BRANDING=true
       # - SHOW_HEADER=true

@@ -1,6 +1,6 @@
 import { logger } from './logger'
 import { logMessages } from './log-messages'
-import { AUTO_ACCESS_GROUPS_HEADER, ACCESS_GROUPS_HEADER_TOKEN, DEFAULT_PORT, MAX_PORT } from './constants'
+import { AUTO_ACCESS_GROUPS_HEADER, ACCESS_GROUPS_HEADER_TOKEN, DEFAULT_PORT, MAX_PORT, STATUS_POLL_INTERVAL_MS } from './constants'
 
 export type AppConfig = {
   dockerHost: string
@@ -17,6 +17,7 @@ export type AppConfig = {
   port: number
   showSearch: boolean
   showStatus: boolean
+  statusPollIntervalMs: number
   enableAutomaticIcons: boolean
   showBranding: boolean
   showHeader: boolean
@@ -58,6 +59,11 @@ function parsePort(value: string | undefined, defaultValue: number): number {
   return Number.isInteger(port) && port > 0 && port <= MAX_PORT ? port : defaultValue
 }
 
+function parseInterval(value: string | undefined): number {
+  const seconds = Number(value)
+  return Number.isInteger(seconds) && seconds > 0 ? seconds * 1_000 : STATUS_POLL_INTERVAL_MS
+}
+
 function optionalString(value: string | undefined): string | undefined {
   return value?.trim() || undefined
 }
@@ -82,6 +88,7 @@ export function getConfig(): AppConfig {
     port: parsePort(process.env.PORT, DEFAULT_PORT),
     showSearch: parseBool(process.env.SHOW_SEARCH, true),
     showStatus: parseBool(process.env.SHOW_STATUS, true),
+    statusPollIntervalMs: parseInterval(process.env.STATUS_POLL_INTERVAL),
     enableAutomaticIcons: parseBool(process.env.ENABLE_AUTOMATIC_ICONS, true),
     showBranding: parseBool(process.env.SHOW_BRANDING, true),
     showHeader: parseBool(process.env.SHOW_HEADER, true),

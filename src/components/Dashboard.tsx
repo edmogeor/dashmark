@@ -328,6 +328,7 @@ type DashboardProps = {
   initialShowBranding?: boolean
   initialOpenInNewTab?: boolean
   enableStatusPolling?: boolean
+  statusPollIntervalMs?: number
   mockStatusPolling?: boolean
   showHeader?: boolean
   showGroups?: boolean
@@ -568,6 +569,7 @@ export function Dashboard({
   initialShowBranding = true,
   initialOpenInNewTab = false,
   enableStatusPolling = true,
+  statusPollIntervalMs = STATUS_POLL_INTERVAL_MS,
   mockStatusPolling = false,
   showHeader = false,
   showGroups = false,
@@ -606,6 +608,7 @@ export function Dashboard({
 
   useStatusPolling({
     enabled: !error && enableStatusPolling,
+    interval: statusPollIntervalMs,
     setCards,
     setUnavailable: setStatusUnavailable,
     setLoading: setIsLoading

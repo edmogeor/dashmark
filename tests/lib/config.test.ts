@@ -11,6 +11,7 @@ const trackedVars = [
   'ENABLE_ACCESS_GROUPS',
   'SHOW_SEARCH',
   'SHOW_STATUS',
+  'STATUS_POLL_INTERVAL',
   'ENABLE_AUTOMATIC_ICONS',
   'SHOW_BRANDING',
   'SHOW_HEADER',
@@ -143,6 +144,23 @@ describe('getConfig feature toggles', () => {
   it('can open links in a new tab', () => {
     process.env.NEW_TAB = 'true'
     expect(getConfig().openInNewTab).toBe(true)
+  })
+})
+
+describe('getConfig status polling', () => {
+  it('defaults to a 30-second interval', () => {
+    delete process.env.STATUS_POLL_INTERVAL
+    expect(getConfig().statusPollIntervalMs).toBe(30_000)
+  })
+
+  it('converts a configured interval from seconds to milliseconds', () => {
+    process.env.STATUS_POLL_INTERVAL = '60'
+    expect(getConfig().statusPollIntervalMs).toBe(60_000)
+  })
+
+  it('falls back to the default for an invalid interval', () => {
+    process.env.STATUS_POLL_INTERVAL = '0'
+    expect(getConfig().statusPollIntervalMs).toBe(30_000)
   })
 })
 

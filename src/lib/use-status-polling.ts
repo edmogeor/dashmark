@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import type { Card } from './docker'
 import { isStatusResponse, type ContainerStatus } from './status'
 import { strings } from './strings'
-import { STATUS_POLL_INTERVAL_MS, STATUS_TOAST_ID } from './constants'
+import { STATUS_TOAST_ID } from './constants'
 
 function mergeStatuses(cards: Card[], statuses: Record<string, ContainerStatus>): Card[] {
   return cards.map(card => {
@@ -20,11 +20,13 @@ function mergeStatuses(cards: Card[], statuses: Record<string, ContainerStatus>)
 
 export function useStatusPolling({
   enabled,
+  interval,
   setCards,
   setUnavailable,
   setLoading
 }: {
   enabled: boolean
+  interval: number
   setCards: (update: (prev: Card[]) => Card[]) => void
   setUnavailable: (unavailable: boolean) => void
   setLoading: (loading: boolean) => void
@@ -78,7 +80,7 @@ export function useStatusPolling({
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false)
-          timeout = setTimeout(pollStatus, STATUS_POLL_INTERVAL_MS)
+          timeout = setTimeout(pollStatus, interval)
         }
       }
     }
@@ -89,5 +91,5 @@ export function useStatusPolling({
       controller.abort()
       if (timeout) clearTimeout(timeout)
     }
-  }, [enabled, setCards, setUnavailable, setLoading])
+  }, [enabled, interval, setCards, setUnavailable, setLoading])
 }

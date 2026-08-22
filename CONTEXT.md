@@ -93,6 +93,7 @@ Selfhst icons are analysed for luminance when resolved. If an icon is dominated 
 | `GREETING_EVENING` | `Good evening` | Evening greeting |
 | `SHOW_SEARCH` | `true` | Show the search bar and category filter |
 | `SHOW_STATUS` | `true` | Show the state/health badge on cards |
+| `STATUS_POLL_INTERVAL` | `30` | Seconds between container status updates |
 | `ENABLE_AUTOMATIC_ICONS` | `true` | When `false`, skip auto-matching container images to icons; cards without an explicit icon fall back to a placeholder |
 | `SHOW_BRANDING` | `true` | Show the Dashmark logo next to the search bar |
 | `NEW_TAB` | `false` | When `true`, card links open in a new tab |

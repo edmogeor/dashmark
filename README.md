@@ -103,7 +103,7 @@ For an annotated Compose file with every option, see [`docker-compose.yml`](dock
 
 Dashmark reads container metadata through the Docker API. A container appears when it has a `dashmark.*` label and a link from `dashmark.url`, a matching YAML entry, or a supported Traefik host rule. Containers with only Traefik labels do not appear.
 
-Dashmark polls for container state and health every 30 seconds. A YAML entry can override a container's labels or create a standalone card for a service outside Docker.
+Dashmark polls for container state and health every 30 seconds by default. Set `STATUS_POLL_INTERVAL` to change the interval in seconds. A YAML entry can override a container's labels or create a standalone card for a service outside Docker.
 
 ## Configuration
 
@@ -134,6 +134,7 @@ Configure Dashmark with environment variables, Docker labels, and an optional YA
 | `GREETING_EVENING` | `Good evening` | Evening value for `{greeting}` |
 | `SHOW_SEARCH` | `true` | Show search and the category filter |
 | `SHOW_STATUS` | `true` | Show container state and health badges |
+| `STATUS_POLL_INTERVAL` | `30` | Seconds between container status updates |
 | `ENABLE_AUTOMATIC_ICONS` | `true` | Guess icons from image names when no icon is set |
 | `SHOW_BRANDING` | `true` | Show the Dashmark logo near search |
 | `NEW_TAB` | `false` | Open card links in a new tab |
