@@ -17,6 +17,7 @@ export type AppConfig = {
   port: number
   showSearch: boolean
   showStatus: boolean
+  statusBadgeGroups: string[]
   statusPollIntervalMs: number
   categoryOrder: string[]
   enableAutomaticIcons: boolean
@@ -76,6 +77,17 @@ function parseCategoryOrder(value: string | undefined): string[] {
   return [...categories.values()]
 }
 
+function parseStatusBadgeGroups(value: string | undefined): string[] {
+  const groups = new Map<string, string>()
+  for (const name of value?.split(',') ?? []) {
+    const group = name.trim()
+    if (group && !groups.has(group.toLowerCase())) {
+      groups.set(group.toLowerCase(), group)
+    }
+  }
+  return [...groups.values()]
+}
+
 function optionalString(value: string | undefined): string | undefined {
   return value?.trim() || undefined
 }
@@ -100,6 +112,7 @@ export function getConfig(): AppConfig {
     port: parsePort(process.env.PORT, DEFAULT_PORT),
     showSearch: parseBool(process.env.SHOW_SEARCH, true),
     showStatus: parseBool(process.env.SHOW_STATUS, true),
+    statusBadgeGroups: parseStatusBadgeGroups(process.env.STATUS_BADGE_GROUPS),
     statusPollIntervalMs: parseInterval(process.env.STATUS_POLL_INTERVAL),
     categoryOrder: parseCategoryOrder(process.env.CATEGORY_ORDER),
     enableAutomaticIcons: parseBool(process.env.ENABLE_AUTOMATIC_ICONS, true),

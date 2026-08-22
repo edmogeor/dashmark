@@ -11,6 +11,7 @@ const trackedVars = [
   'ENABLE_ACCESS_GROUPS',
   'SHOW_SEARCH',
   'SHOW_STATUS',
+  'STATUS_BADGE_GROUPS',
   'STATUS_POLL_INTERVAL',
   'CATEGORY_ORDER',
   'ENABLE_AUTOMATIC_ICONS',
@@ -149,6 +150,16 @@ describe('getConfig feature toggles', () => {
 })
 
 describe('getConfig status polling', () => {
+  it('defaults status badge groups to everyone', () => {
+    delete process.env.STATUS_BADGE_GROUPS
+    expect(getConfig().statusBadgeGroups).toEqual([])
+  })
+
+  it('reads unique, trimmed status badge groups', () => {
+    process.env.STATUS_BADGE_GROUPS = ' Admins, operators, admins '
+    expect(getConfig().statusBadgeGroups).toEqual(['Admins', 'operators'])
+  })
+
   it('defaults to a 30-second interval', () => {
     delete process.env.STATUS_POLL_INTERVAL
     expect(getConfig().statusPollIntervalMs).toBe(30_000)

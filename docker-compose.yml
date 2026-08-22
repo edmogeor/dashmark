@@ -22,6 +22,7 @@ services:
       # - ACCESS_GROUPS_HEADER=auto
       # - SHOW_SEARCH=true
       # - SHOW_STATUS=true
+      # - STATUS_BADGE_GROUPS=admins,operators
       # - STATUS_POLL_INTERVAL=30
       # - CATEGORY_ORDER=Media,Productivity,Home
       # - ENABLE_AUTOMATIC_ICONS=true

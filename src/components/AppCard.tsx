@@ -88,7 +88,7 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, asCard =
           <AppIcon icon={card.icon} title={card.title} asCard={asCard} />
           <div className="dashmark-app-details min-w-0 flex-1">
             <div className="dashmark-app-header flex min-w-0">
-              <MarqueeText className={cn('dashmark-app-title min-w-0 flex-1 font-semibold', card.description && 'pr-6')}>
+              <MarqueeText className={cn('dashmark-app-title min-w-0 flex-1 text-sm font-semibold sm:text-[0.9375rem] lg:text-base', card.description && 'pr-6')}>
                 {card.title}
               </MarqueeText>
             </div>

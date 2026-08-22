@@ -18,7 +18,8 @@ function startAstroDev(dockerHost) {
       MOCK_USER_NAME: 'John Doe',
       MOCK_USER_USERNAME: 'john',
       MOCK_USER_EMAIL: 'john@example.com',
-      MOCK_USER_GROUPS: 'admins,media,family'
+      MOCK_USER_GROUPS: process.env.MOCK_USER_GROUPS ?? 'admins,media,family',
+      STATUS_BADGE_GROUPS: process.env.STATUS_BADGE_GROUPS ?? 'admins'
     },
     stdio: 'inherit'
   })

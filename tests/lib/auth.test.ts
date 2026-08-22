@@ -8,6 +8,7 @@ import {
   getUserUsername,
   getUserEmail,
   parseUserGroups,
+  hasAllowedGroup,
   readUserGroups,
   groupHeaderNames,
   isAuthorized
@@ -35,6 +36,20 @@ describe('parseUserGroups', () => {
     expect(parseUserGroups(undefined)).toEqual([])
     expect(parseUserGroups('')).toEqual([])
     expect(parseUserGroups('   ')).toEqual([])
+  })
+})
+
+describe('hasAllowedGroup', () => {
+  it('allows everyone when no groups are configured', () => {
+    expect(hasAllowedGroup([], [])).toBe(true)
+  })
+
+  it('matches configured groups case-insensitively', () => {
+    expect(hasAllowedGroup(['Operators'], ['admins', 'operators'])).toBe(true)
+  })
+
+  it('rejects users without a configured group', () => {
+    expect(hasAllowedGroup(['media'], ['admins', 'operators'])).toBe(false)
   })
 })
 

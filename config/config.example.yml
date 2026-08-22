@@ -4,6 +4,9 @@
 # service name. A key matching a running container overrides that container's
 # `dashmark.*` labels; a key with no matching container becomes a standalone
 # card (it needs a `url` and has no status badge).
+#
+# Limit status badges by authenticated group with the environment variable
+# STATUS_BADGE_GROUPS=admins,operators. Group matching is case-insensitive.
 
 # Override the card for a container you run. Omitted fields fall back to the
 # container's labels or defaults.
@@ -29,7 +32,7 @@ github:
   category: External
 
 # Restrict a card to these groups when ENABLE_ACCESS_GROUPS=true. Cards with
-# no `access_groups` are visible to everyone.
+# no `access_groups` are visible to everyone. Group matching is case-insensitive.
 portainer:
   url: https://portainer.home.local
   category: Management

@@ -63,7 +63,7 @@ function GroupBadge({ group }: { group: string }) {
 
 function UserGroupsBadge({ groups }: { groups: string[] }) {
   return (
-    <div className="dashmark-user-groups ml-auto flex items-center gap-1.5">
+    <div className="dashmark-user-groups ml-3 flex items-center gap-1.5">
       <GroupBadge group={groups[0]} />
       {groups.length > 1 && (
         <TooltipProvider>
@@ -325,8 +325,8 @@ type DashboardGreetingProps = {
 
 function DashboardGreeting({ greeting, showGroups, userGroups, hasSearch }: DashboardGreetingProps) {
   return (
-    <div className={`dashmark-greeting-container flex items-start ${hasSearch ? 'mb-4' : ''}`}>
-      <h1 className="dashmark-greeting text-xl font-semibold tracking-tight sm:text-[1.375rem] lg:text-2xl">{greeting}</h1>
+    <div className={`dashmark-greeting-container flex items-end justify-between ${hasSearch ? 'mb-4' : ''}`}>
+      <h1 className="dashmark-greeting text-xl leading-[1.2] font-semibold tracking-tight sm:text-[1.375rem] lg:text-2xl">{greeting}</h1>
       {showGroups && userGroups.length > 0 && <UserGroupsBadge groups={userGroups} />}
     </div>
   )
@@ -359,7 +359,7 @@ function DashboardSearchPanel({
     <Card className="dashmark-search-panel overflow-hidden bg-surface shadow-none">
       <CardContent className="dashmark-search-panel-content flex flex-row items-center gap-4 p-5">
         {showBranding && (
-          <img src="/brand/icon.svg" alt={strings.app.title} className="dashmark-brand h-8 w-8 shrink-0 rounded-lg" />
+          <img src="/brand/icon.svg" alt={strings.app.title} className="dashmark-brand h-8 w-8 shrink-0 rounded-lg max-[359px]:hidden" />
         )}
         <div className="min-w-0 flex-1">
           <SearchBar value={search} onChange={setSearch} disabled={!!error} />

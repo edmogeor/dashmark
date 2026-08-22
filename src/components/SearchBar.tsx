@@ -18,7 +18,7 @@ export function SearchBar({ value, onChange, disabled }: SearchBarProps) {
         value={value}
         disabled={disabled}
         onChange={e => onChange(e.target.value)}
-        className="dashmark-search-input border-0 bg-card pl-10 pr-10 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50"
+        className="dashmark-search-input border-0 bg-card pl-10 pr-10 text-sm focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50 sm:text-[0.9375rem] md:text-[0.9375rem] lg:text-base"
       />
       {value && (
         <button

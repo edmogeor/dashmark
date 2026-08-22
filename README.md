@@ -130,7 +130,7 @@ Configure Dashmark with environment variables, Docker labels, and an optional YA
 | `USER_USERNAME_HEADER` | `auto` | Header for `{username}` |
 | `USER_EMAIL_HEADER` | `auto` | Header for `{email}` |
 | `SHOW_HEADER` | `true` | Show the greeting header |
-| `SHOW_GROUP_TAGS` | `true` | Show the user's group tags when access groups are used |
+| `SHOW_GROUP_TAGS` | `true` | Show the user's relevant access or status-badge group tags |
 | `SHOW_THEME_TOGGLE` | `true` | Show the light and dark theme toggle |
 | `CUSTOM_HEADER` | unset | Greeting template using the tags below |
 | `GREETING_MORNING` | `Good morning` | Morning value for `{greeting}` |
@@ -138,6 +138,7 @@ Configure Dashmark with environment variables, Docker labels, and an optional YA
 | `GREETING_EVENING` | `Good evening` | Evening value for `{greeting}` |
 | `SHOW_SEARCH` | `true` | Show search and the category filter |
 | `SHOW_STATUS` | `true` | Show container state and health badges |
+| `STATUS_BADGE_GROUPS` | unset | Comma-separated groups allowed to see status badges; unset shows them to everyone |
 | `STATUS_POLL_INTERVAL` | `30` | Seconds between container status updates |
 | `CATEGORY_ORDER` | unset | Comma-separated category order; unlisted categories follow alphabetically |
 | `ENABLE_AUTOMATIC_ICONS` | `true` | Guess icons from image names when no icon is set |
@@ -218,9 +219,13 @@ services:
 
 ### Access groups and greetings
 
-Set `ENABLE_ACCESS_GROUPS=true` to show a card only when its `access_groups` overlap with the groups supplied by your reverse proxy. Cards with no access groups remain visible to everyone. Dashmark returns an error when the required header is missing.
+Set `ENABLE_ACCESS_GROUPS=true` to show a card only when its `access_groups` overlap with the groups supplied by your reverse proxy. Cards with no access groups remain visible to everyone. Dashmark returns an error when the required header is missing. All group matching is case-insensitive.
 
 `ACCESS_GROUPS_HEADER=auto` checks these headers in order: Authentik (`X-Authentik-Groups`), Authelia (`Remote-Groups`), oauth2-proxy (`X-Forwarded-Groups` or `X-Auth-Request-Groups`), and Keycloak Gatekeeper (`X-Auth-Groups`). Set the variable to a header name for another proxy. Group values may be comma-, semicolon-, or pipe-separated, or a JSON array.
+
+Set `STATUS_BADGE_GROUPS=admins,operators` to show status badges only to users with one of those groups. The comparison is case-insensitive; leaving it unset shows badges to everyone.
+
+When group tags are enabled, Dashmark also shows a user's matching `STATUS_BADGE_GROUPS` values, even if no card uses that group for access control.
 
 The default header greets the authenticated user. Use `CUSTOM_HEADER`, for example `CUSTOM_HEADER={greeting}, {first_name}!`, to customise it. The available tags are `{greeting}`, `{full_name}`, `{first_name}`, `{last_name}`, `{username}`, and `{email}`. Set the corresponding `USER_*_HEADER` variables when automatic detection does not support your proxy.
 
@@ -244,7 +249,7 @@ npm run typecheck
 npm run build
 ```
 
-`npm run dev` uses a mock Docker API, sample cards, and sample authentication headers. It does not need a Docker daemon and supports hot reload.
+`npm run dev` uses a mock Docker API, sample cards, and sample authentication headers. It simulates the `admins`, `media`, and `family` groups, and limits status badges to `admins` by default. It does not need a Docker daemon and supports hot reload. Override either value to test other cases, for example `MOCK_USER_GROUPS=media STATUS_BADGE_GROUPS=admins npm run dev`.
 
 Contributions are welcome. Please open an issue or pull request with a clear description of the change.
 

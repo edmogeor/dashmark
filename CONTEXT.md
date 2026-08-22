@@ -85,7 +85,7 @@ Selfhst icons are analysed for luminance when resolved. If an icon is dominated 
 | `USER_USERNAME_HEADER` | auto | Custom header for `{username}` |
 | `USER_EMAIL_HEADER` | auto | Custom header for `{email}` |
 | `SHOW_HEADER` | `true` | Show a greeting header with the user's name and group tags |
-| `SHOW_GROUP_TAGS` | `true` | Show the user's group tags in the header when at least one Card uses access groups |
+| `SHOW_GROUP_TAGS` | `true` | Show the user's relevant access or status-badge group tags in the header |
 | `SHOW_THEME_TOGGLE` | `true` | Show the light/dark toggle; when `false`, always follow the system preference |
 | `CUSTOM_HEADER` | unset | Header greeting template with `{greeting}`, `{full_name}`, `{first_name}`, `{last_name}`, `{username}`, `{email}` tags |
 | `GREETING_MORNING` | `Good morning` | Morning greeting, used by `{greeting}` and the default greeting |
@@ -93,6 +93,7 @@ Selfhst icons are analysed for luminance when resolved. If an icon is dominated 
 | `GREETING_EVENING` | `Good evening` | Evening greeting |
 | `SHOW_SEARCH` | `true` | Show the search bar and category filter |
 | `SHOW_STATUS` | `true` | Show the state/health badge on cards |
+| `STATUS_BADGE_GROUPS` | unset | Comma-separated groups allowed to see status badges; unset shows them to everyone |
 | `STATUS_POLL_INTERVAL` | `30` | Seconds between container status updates |
 | `CATEGORY_ORDER` | unset | Comma-separated category order; unlisted categories follow alphabetically |
 | `ENABLE_AUTOMATIC_ICONS` | `true` | When `false`, skip auto-matching container images to icons; cards without an explicit icon fall back to a placeholder |
@@ -126,7 +127,11 @@ Optional flat file at `CONFIG_FILE`, where each top-level key is a service keyed
 
 ### Access groups
 
-When `ENABLE_ACCESS_GROUPS=true`, each request must carry a groups header. A card is visible when its `access_groups` intersect the user's groups; cards with no `access_groups` are visible to everyone. A missing header renders an error state (`MISSING_GROUPS_HEADER`), and the `Vary` response header is set so shared caches key on the groups header. `auto` mode checks candidate headers in order: `X-Authentik-Groups`, `Remote-Groups`, `X-Auth-Request-Groups`, `X-Forwarded-Groups`, `X-Auth-Groups`. Group values can be comma-, semicolon-, or pipe-separated, or a JSON array of strings. Keycloak, Pocket ID, and Zitadel are OIDC providers that do not set a groups header themselves; they need oauth2-proxy (or a proxy that sets `X-Forwarded-Groups` or `X-Auth-Request-Groups`) in front.
+When `ENABLE_ACCESS_GROUPS=true`, each request must carry a groups header. A card is visible when its `access_groups` intersect the user's groups; cards with no `access_groups` are visible to everyone. Group matching is case-insensitive. A missing header renders an error state (`MISSING_GROUPS_HEADER`), and the `Vary` response header is set so shared caches key on the groups header. `auto` mode checks candidate headers in order: `X-Authentik-Groups`, `Remote-Groups`, `X-Auth-Request-Groups`, `X-Forwarded-Groups`, `X-Auth-Groups`. Group values can be comma-, semicolon-, or pipe-separated, or a JSON array of strings. Keycloak, Pocket ID, and Zitadel are OIDC providers that do not set a groups header themselves; they need oauth2-proxy (or a proxy that sets `X-Forwarded-Groups` or `X-Auth-Request-Groups`) in front.
+
+`STATUS_BADGE_GROUPS` uses the same group header to control status badge visibility independently of card visibility. An unset value shows badges to everyone; a configured value requires a case-insensitive group match.
+
+When group tags are enabled, matching status-badge groups appear in the header even when no Card uses them for access control.
 
 ## Deployment
 
