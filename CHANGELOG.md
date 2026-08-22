@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-alpha.11] - 2026-08-22
+
+### Fixed
+
+- Account for the mobile software keyboard when calculating dashboard overflow in Chrome and Safari.
+
 ## [0.1.0-alpha.10] - 2026-08-22
 
 ### Added
