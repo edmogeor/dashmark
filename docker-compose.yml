@@ -24,6 +24,7 @@ services:
        # - SHOW_STATUS=true
        # - STATUS_POLL_INTERVAL=30
       # - ENABLE_AUTOMATIC_ICONS=true
+      # - ENABLE_AUTOMATIC_DESCRIPTIONS=true
       # - SHOW_BRANDING=true
       # - SHOW_HEADER=true
       # - SHOW_GROUP_TAGS=true

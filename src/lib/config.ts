@@ -18,6 +18,7 @@ export type AppConfig = {
   showSearch: boolean
   showStatus: boolean
   statusPollIntervalMs: number
+  enableAutomaticDescriptions: boolean
   enableAutomaticIcons: boolean
   showBranding: boolean
   showHeader: boolean
@@ -89,6 +90,7 @@ export function getConfig(): AppConfig {
     showSearch: parseBool(process.env.SHOW_SEARCH, true),
     showStatus: parseBool(process.env.SHOW_STATUS, true),
     statusPollIntervalMs: parseInterval(process.env.STATUS_POLL_INTERVAL),
+    enableAutomaticDescriptions: parseBool(process.env.ENABLE_AUTOMATIC_DESCRIPTIONS, true),
     enableAutomaticIcons: parseBool(process.env.ENABLE_AUTOMATIC_ICONS, true),
     showBranding: parseBool(process.env.SHOW_BRANDING, true),
     showHeader: parseBool(process.env.SHOW_HEADER, true),

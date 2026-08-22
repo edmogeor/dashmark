@@ -10,9 +10,9 @@ import {
   SELFHST_PAGE_SIZE,
   SELFHST_MAX_PAGES,
   SELFHST_FETCH_TIMEOUT_MS,
-  SELFHST_MATCH_THRESHOLD,
-  SELFHST_REFERENCE_WEIGHT,
-  SELFHST_NAME_WEIGHT
+  FUZZY_MATCH_THRESHOLD,
+  FUZZY_REFERENCE_WEIGHT,
+  FUZZY_NAME_WEIGHT
 } from './constants'
 
 export type SelfhstIcon = {
@@ -141,10 +141,10 @@ function getFuse(icons: SelfhstIcon[]): Fuse<SelfhstIcon> {
 
   const fuse = new Fuse(icons, {
     keys: [
-      { name: 'reference', weight: SELFHST_REFERENCE_WEIGHT },
-      { name: 'name', weight: SELFHST_NAME_WEIGHT }
+      { name: 'reference', weight: FUZZY_REFERENCE_WEIGHT },
+      { name: 'name', weight: FUZZY_NAME_WEIGHT }
     ],
-    threshold: SELFHST_MATCH_THRESHOLD,
+    threshold: FUZZY_MATCH_THRESHOLD,
     includeScore: true
   })
   fuseCache.set(icons, fuse)

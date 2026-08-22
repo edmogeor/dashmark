@@ -136,6 +136,7 @@ Configure Dashmark with environment variables, Docker labels, and an optional YA
 | `SHOW_STATUS` | `true` | Show container state and health badges |
 | `STATUS_POLL_INTERVAL` | `30` | Seconds between container status updates |
 | `ENABLE_AUTOMATIC_ICONS` | `true` | Guess icons from image names when no icon is set |
+| `ENABLE_AUTOMATIC_DESCRIPTIONS` | `true` | Match Awesome Selfhosted descriptions when no description is set |
 | `SHOW_BRANDING` | `true` | Show the Dashmark logo near search |
 | `NEW_TAB` | `false` | Open card links in a new tab |
 | `AUTH_TOKEN` | unset | Require `X-Dashmark-Token: <token>` on every request |
@@ -149,7 +150,7 @@ Add labels to opt a container in and configure its card.
 | `dashmark.hidden` | Set to `true` to hide the container |
 | `dashmark.url` | Card link. May be inferred from a Traefik rule |
 | `dashmark.title` | Display title. Defaults to the container name |
-| `dashmark.description` | Tooltip text |
+| `dashmark.description` | Tooltip text; set to `none` to suppress automatic descriptions |
 | `dashmark.icon` | `selfhst:<slug>`, an image URL, a path in `ICONS_DIR`, or `placeholder` |
 | `dashmark.category` | Category name |
 | `dashmark.access_groups` | Comma-separated group allow-list |
@@ -192,6 +193,10 @@ Dashmark resolves icons in this order:
 4. Any other value is a path inside `ICONS_DIR`, including subdirectories.
 5. With no icon value, Dashmark guesses from the container image name.
 6. If no icon is found, Dashmark shows initials.
+
+### Descriptions
+
+When `ENABLE_AUTOMATIC_DESCRIPTIONS` is enabled, Dashmark matches cards without a description against its bundled Awesome Selfhosted description index, including non-free applications. A `dashmark.description` label or YAML `description` always takes precedence; set either to `none` to suppress automatic descriptions. The generated index is derived from [Awesome Selfhosted](https://github.com/awesome-selfhosted/awesome-selfhosted) under CC-BY-SA-3.0; see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 ### Styling
 
@@ -239,6 +244,13 @@ npm run build
 `npm run dev` uses a mock Docker API, sample cards, and sample authentication headers. It does not need a Docker daemon and supports hot reload.
 
 Contributions are welcome. Please open an issue or pull request with a clear description of the change.
+
+## Thanks
+
+- [Awesome Selfhosted](https://github.com/awesome-selfhosted/awesome-selfhosted) for the bundled application descriptions, including its non-free catalog, under [CC-BY-SA-3.0](https://creativecommons.org/licenses/by-sa/3.0/).
+- [selfh.st/icons](https://github.com/selfhst/icons) for the bundled icon index under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/).
+
+See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for the shipped attribution details.
 
 ## License
 

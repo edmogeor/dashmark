@@ -6,5 +6,6 @@ dist
 .env
 .DS_Store
 src/data/icons.json
+src/data/descriptions.json
 .tmp-icons
 public/selfhst-icons

@@ -8,6 +8,7 @@ dist
 tests
 .fallow
 *.md
+!THIRD_PARTY_NOTICES.md
 docker-compose*.yml
 .gitignore
 vitest.config.ts

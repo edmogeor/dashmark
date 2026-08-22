@@ -1,10 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { MockDockerServer } from '../mocks/docker-server'
 import { getConfig } from '@/lib/config'
 import { getCards, getContainerStatuses, clearDockerCache } from '@/lib/docker'
+
+vi.mock('@/lib/descriptions', () => ({
+  resolveDescription: vi.fn(() => 'Automatic description')
+}))
 
 const tempDirectories: string[] = []
 
@@ -61,12 +65,59 @@ describe('getCards', () => {
     expect(cards).toHaveLength(1)
     expect(cards[0]).toMatchObject({
       title: 'Plex',
+      description: 'Automatic description',
       url: 'https://plex.home.local',
       category: 'Media',
       state: 'running',
       health: 'healthy',
       hasContainer: true
     })
+  })
+
+  it('keeps an explicit description instead of the automatic match', async () => {
+    server.containers = [
+      {
+        Id: 'custom-description',
+        Names: ['/plex'],
+        Image: 'plexinc/pms-docker',
+        ImageID: 'sha256:custom-description',
+        State: 'running',
+        Status: 'Up 2 hours',
+        Labels: {
+          'dashmark.url': 'https://plex.home.local',
+          'dashmark.description': 'My media server'
+        }
+      }
+    ]
+
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    const { cards } = await getCards(config, new Headers())
+
+    expect(cards[0]?.description).toBe('My media server')
+  })
+
+  it('lets an explicit none description disable automatic matching', async () => {
+    server.containers = [
+      {
+        Id: 'no-description',
+        Names: ['/plex'],
+        Image: 'plexinc/pms-docker',
+        ImageID: 'sha256:no-description',
+        State: 'running',
+        Status: 'Up 2 hours',
+        Labels: {
+          'dashmark.url': 'https://plex.home.local',
+          'dashmark.description': 'none'
+        }
+      }
+    ]
+
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    const { cards } = await getCards(config, new Headers())
+
+    expect(cards[0]?.description).toBeUndefined()
   })
 
   it('reports whether any card uses access groups', async () => {
@@ -380,6 +431,26 @@ describe('getCards', () => {
     fs.writeFileSync(config.configFile, 'plex:\n  title: Plex Media\n')
 
     expect((await getCards(config, new Headers())).cards[0]?.title).toBe('Plex Media')
+  })
+
+  it('lets a YAML none description disable automatic matching', async () => {
+    server.containers = [
+      {
+        Id: 'abc123',
+        Names: ['/plex'],
+        Image: 'plexinc/pms-docker',
+        ImageID: 'sha256:abc',
+        State: 'running',
+        Status: 'Up 2 hours',
+        Labels: { 'dashmark.url': 'https://plex.home.local' }
+      }
+    ]
+
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.configFile = writeTempConfig('plex:\n  description: none\n')
+
+    expect((await getCards(config, new Headers())).cards[0]?.description).toBeUndefined()
   })
 
   it('matches YAML by compose service name without duplicating the card', async () => {

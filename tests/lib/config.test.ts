@@ -12,6 +12,7 @@ const trackedVars = [
   'SHOW_SEARCH',
   'SHOW_STATUS',
   'STATUS_POLL_INTERVAL',
+  'ENABLE_AUTOMATIC_DESCRIPTIONS',
   'ENABLE_AUTOMATIC_ICONS',
   'SHOW_BRANDING',
   'SHOW_HEADER',
@@ -84,12 +85,14 @@ describe('getConfig feature toggles', () => {
     delete process.env.SHOW_SEARCH
     delete process.env.SHOW_STATUS
     delete process.env.ENABLE_AUTOMATIC_ICONS
+    delete process.env.ENABLE_AUTOMATIC_DESCRIPTIONS
     delete process.env.SHOW_BRANDING
 
     const cfg = getConfig()
     expect(cfg.showSearch).toBe(true)
     expect(cfg.showStatus).toBe(true)
     expect(cfg.enableAutomaticIcons).toBe(true)
+    expect(cfg.enableAutomaticDescriptions).toBe(true)
     expect(cfg.showBranding).toBe(true)
   })
 
@@ -98,12 +101,14 @@ describe('getConfig feature toggles', () => {
     process.env.SHOW_STATUS = 'false'
     process.env.SHOW_BRANDING = 'false'
     process.env.ENABLE_AUTOMATIC_ICONS = 'false'
+    process.env.ENABLE_AUTOMATIC_DESCRIPTIONS = 'false'
 
     const cfg = getConfig()
     expect(cfg.showSearch).toBe(false)
     expect(cfg.showStatus).toBe(false)
     expect(cfg.showBranding).toBe(false)
     expect(cfg.enableAutomaticIcons).toBe(false)
+    expect(cfg.enableAutomaticDescriptions).toBe(false)
   })
 
   it('defaults showHeader to true', () => {

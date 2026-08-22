@@ -7,48 +7,9 @@ import { isOutsideDirectory } from './paths'
 import { fetchSelfhstIcons, fuzzyMatchIcon, type SelfhstIcon } from './selfhst'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
-import { IMAGE_SUFFIXES, SELFHST_CDN, SELFHST_PREFIX } from './constants'
+import { SELFHST_CDN, SELFHST_PREFIX } from './constants'
 import { analyzeIconLuminance, type IconContrast } from './icon-luminance'
-
-function stripSuffix(name: string): string[] {
-  const results: string[] = []
-  for (const suffix of IMAGE_SUFFIXES) {
-    if (name.endsWith(suffix) && name.length > suffix.length) {
-      results.push(name.slice(0, -suffix.length))
-    }
-  }
-  return results
-}
-
-function normalizeCandidate(value: string): string {
-  return value.toLowerCase().replace(/[_.]/g, '-').replace(/[^a-z0-9-]/g, '')
-}
-
-function getImageCandidates(
-  imageName: string | undefined,
-  containerName: string,
-  title: string
-): string[] {
-  const candidates = new Set<string>()
-
-  const add = (value: string | undefined) => {
-    if (!value) return
-    const normalized = normalizeCandidate(value)
-    if (normalized) candidates.add(normalized)
-  }
-
-  if (imageName) {
-    const base = imageName.split('/').pop() ?? imageName
-    const withoutTag = base.split(':')[0]
-    add(withoutTag)
-    for (const variant of stripSuffix(withoutTag)) add(variant)
-  }
-
-  add(containerName)
-  add(title.split(/[^a-zA-Z0-9]+/)[0])
-
-  return [...candidates]
-}
+import { getServiceCandidates, normalizeServiceCandidate } from './service-candidates'
 
 function looksLikeUrl(value: string): boolean {
   return /^https?:\/\//i.test(value)
@@ -59,7 +20,7 @@ function isSelfhstReference(value: string): boolean {
 }
 
 function resolveSelfhstReference(value: string, icons: SelfhstIcon[]): string | null {
-  const reference = normalizeCandidate(value)
+  const reference = normalizeServiceCandidate(value)
   return icons.find(icon => icon.reference === reference)?.url ?? null
 }
 
@@ -131,7 +92,7 @@ export async function resolveIcon(
   }
 
   const icons = await fetchSelfhstIcons()
-  const candidates = getImageCandidates(imageName, containerName, title)
+  const candidates = getServiceCandidates(imageName, containerName, title)
   const match = fuzzyMatchIcon(candidates, icons)
   if (match) {
     return imageIcon(match.url, title)

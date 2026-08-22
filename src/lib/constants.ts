@@ -65,9 +65,9 @@ export const SELFHST_GITHUB_API_URL = 'https://api.github.com/repos/selfhst/icon
 export const SELFHST_PAGE_SIZE = 100
 export const SELFHST_MAX_PAGES = 100
 export const SELFHST_FETCH_TIMEOUT_MS = 10_000
-export const SELFHST_MATCH_THRESHOLD = 0.3
-export const SELFHST_REFERENCE_WEIGHT = 0.7
-export const SELFHST_NAME_WEIGHT = 0.3
+export const FUZZY_MATCH_THRESHOLD = 0.3
+export const FUZZY_REFERENCE_WEIGHT = 0.7
+export const FUZZY_NAME_WEIGHT = 0.3
 
 export const ICON_CACHE_MAX_AGE = 3600
 export const ICON_LUMINANCE_CACHE_MAX_ENTRIES = 500
