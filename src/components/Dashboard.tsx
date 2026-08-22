@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { AnimatePresence, motion, type Transition, type Variants } from 'framer-motion'
+import { AnimatePresence, LayoutGroup, motion, type Transition, type Variants } from 'framer-motion'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import type { Virtualizer } from '@tanstack/virtual-core'
 import Fuse from 'fuse.js'
@@ -162,7 +162,7 @@ function AnimatedGridItem({
       initial={hidden}
       animate={animate ? shown : hidden}
       exit={{ opacity: 0, transition: { duration: 0.15, ease: 'easeOut', delay: 0 } }}
-      transition={{ duration: 0.3, ease: 'easeOut', delay, layout: POSITION_TRANSITION }}
+      transition={{ duration: 0.3, ease: 'easeOut', delay: isReentry ? 0 : delay, layout: POSITION_TRANSITION }}
     >
       {children}
     </motion.div>
@@ -373,14 +373,14 @@ function DashboardSearch({
   if (!showSearch && !showHeader) return null
 
   return (
-    <div className="dashboard-search sticky top-0 z-10 mb-8" data-overflow={hasPageOverflow || undefined}>
+    <motion.div layout="position" className="dashboard-search sticky top-0 z-10 mb-8" data-overflow={hasPageOverflow || undefined}>
       <div className="pt-18">
         <motion.div
           layout="position"
           className="mx-auto w-full max-w-6xl px-6"
           initial={{ opacity: 0, y: 8 }}
           animate={masonryLayoutReady ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
-          transition={{ duration: 0.3, ease: 'easeOut' }}
+          transition={{ duration: 0.3, ease: 'easeOut', layout: POSITION_TRANSITION }}
           onAnimationComplete={onAnimationComplete}
         >
           {showHeader && (
@@ -412,7 +412,7 @@ function DashboardSearch({
           )}
         </motion.div>
       </div>
-    </div>
+    </motion.div>
   )
 }
 
@@ -611,41 +611,43 @@ export function Dashboard({
   return (
     <>
       <Toaster />
-      <DashboardSearch
-        showSearch={initialShowSearch}
-        showHeader={showHeader}
-        showBranding={initialShowBranding}
-        greeting={greeting}
-        showGroups={showGroups}
-        userGroups={userGroups}
-        hasPageOverflow={hasPageOverflow}
-        masonryLayoutReady={masonryLayoutReady}
-        search={search}
-        setSearch={setSearch}
-        error={error}
-        categories={categories}
-        cards={cards}
-        selectedCategory={selectedCategory}
-        setSelectedCategory={setSelectedCategory}
-        onAnimationComplete={() => setSearchBarDone(true)}
-      />
+      <LayoutGroup>
+        <DashboardSearch
+          showSearch={initialShowSearch}
+          showHeader={showHeader}
+          showBranding={initialShowBranding}
+          greeting={greeting}
+          showGroups={showGroups}
+          userGroups={userGroups}
+          hasPageOverflow={hasPageOverflow}
+          masonryLayoutReady={masonryLayoutReady}
+          search={search}
+          setSearch={setSearch}
+          error={error}
+          categories={categories}
+          cards={cards}
+          selectedCategory={selectedCategory}
+          setSelectedCategory={setSelectedCategory}
+          onAnimationComplete={() => setSearchBarDone(true)}
+        />
 
-      <div className={`mx-auto w-full max-w-6xl px-6 pb-12 ${initialShowSearch || showHeader ? '' : 'pt-12'}`}>
-        <div className="min-h-0">
-          <DashboardResults
-            error={error}
-            grouped={grouped}
-            hasCategories={hasCategories}
-            uncategorised={uncategorised}
-            categoryItems={categoryItems}
-            showStatus={initialShowStatus}
-            isLoading={showLoading || statusUnavailable}
-            openInNewTab={initialOpenInNewTab}
-            onMasonryReady={() => setMasonryLayoutReady(true)}
-            animateMasonry={searchBarDone}
-          />
+        <div className={`mx-auto w-full max-w-6xl px-6 pb-12 ${initialShowSearch || showHeader ? '' : 'pt-12'}`}>
+          <div className="min-h-0">
+            <DashboardResults
+              error={error}
+              grouped={grouped}
+              hasCategories={hasCategories}
+              uncategorised={uncategorised}
+              categoryItems={categoryItems}
+              showStatus={initialShowStatus}
+              isLoading={showLoading || statusUnavailable}
+              openInNewTab={initialOpenInNewTab}
+              onMasonryReady={() => setMasonryLayoutReady(true)}
+              animateMasonry={searchBarDone}
+            />
+          </div>
         </div>
-      </div>
+      </LayoutGroup>
     </>
   )
 }
