@@ -40,7 +40,7 @@ not-a-service: null
         valid: {
           url: 'https://valid.example.com',
           order: 2,
-          access_groups: ['admins']
+          accessGroups: ['admins']
         },
         invalid: {}
       }

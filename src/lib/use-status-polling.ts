@@ -1,18 +1,11 @@
 import { useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import type { Card } from './docker'
-import type { DashmarkError } from './errors'
+import { isStatusResponse, type ContainerStatus } from './status'
 import { strings } from './strings'
 import { STATUS_POLL_INTERVAL_MS, STATUS_TOAST_ID } from './constants'
 
-type StatusMap = Record<string, { state?: string; health?: string }>
-
-type StatusResponse = {
-  statuses?: StatusMap
-  error?: DashmarkError
-}
-
-function mergeStatuses(cards: Card[], statuses: StatusMap): Card[] {
+function mergeStatuses(cards: Card[], statuses: Record<string, ContainerStatus>): Card[] {
   return cards.map(card => {
     if (!card.hasContainer) return card
     const status = statuses[card.id]
@@ -58,23 +51,25 @@ export function useStatusPolling({
     if (!enabled) return
 
     const controller = new AbortController()
-    let interval: ReturnType<typeof setInterval> | null = null
+    let timeout: ReturnType<typeof setTimeout> | null = null
 
     async function pollStatus() {
       setLoading(true)
       try {
         const res = await fetch('/api/status', { signal: controller.signal })
-        const data = (await res.json()) as StatusResponse
+        if (!res.ok) throw new Error(`Status endpoint returned ${res.status}`)
+        const data: unknown = await res.json()
         if (controller.signal.aborted) return
-        if (data.error) {
+        if (!isStatusResponse(data)) throw new Error('Status endpoint returned an invalid response')
+        if ('error' in data) {
           setUnavailable(true)
           showStatusToast(data.error.message)
-        } else if (data.statuses) {
+        } else {
           setUnavailable(false)
           statusToastRecovering.current = true
           statusToastDismissed.current = false
           toast.dismiss(STATUS_TOAST_ID)
-          setCards(prev => mergeStatuses(prev, data.statuses!))
+          setCards(prev => mergeStatuses(prev, data.statuses))
         }
       } catch {
         if (controller.signal.aborted) return
@@ -82,15 +77,17 @@ export function useStatusPolling({
         showStatusToast(strings.errors.serverUnreachable)
       } finally {
         if (!controller.signal.aborted) setLoading(false)
+        if (!controller.signal.aborted) {
+          timeout = setTimeout(pollStatus, STATUS_POLL_INTERVAL_MS)
+        }
       }
     }
 
     pollStatus()
-    interval = setInterval(pollStatus, STATUS_POLL_INTERVAL_MS)
 
     return () => {
       controller.abort()
-      if (interval) clearInterval(interval)
+      if (timeout) clearTimeout(timeout)
     }
   }, [enabled, setCards, setUnavailable, setLoading])
 }

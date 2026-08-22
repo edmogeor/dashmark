@@ -50,7 +50,7 @@ The `Dashboard` island renders the cards and polls `GET /api/status` every 30 se
 
 ### Caching
 
-- `src/lib/docker.ts` keeps three caches, all cleared by `clearDockerCache()`: the negotiated Docker API version (per host), the container list (per host, 30s TTL), and the built card list (per config signature, stored as a promise and evicted on error).
+- `src/lib/docker.ts` keeps two caches, both cleared by `clearDockerCache()`: the negotiated Docker API version (per host) and the container list (per host, 30s TTL). Cards are rebuilt for each request so YAML edits are reflected immediately.
 - `src/lib/config-file.ts` caches parsed YAML keyed by file path, invalidated when `mtime` or `size` change.
 
 ### Icon resolution

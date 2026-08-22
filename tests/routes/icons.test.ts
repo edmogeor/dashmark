@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { GET } from '@/pages/icons/[...path]'
+import { serveIcon } from '@/pages/icons/[...path]'
 
 let rootDirectory: string
 let iconsDirectory: string
@@ -23,31 +23,31 @@ afterEach(() => {
 })
 
 function requestIcon(iconPath: string) {
-  return GET({ params: { path: iconPath } } as never)
+  return serveIcon(iconsDirectory, iconPath)
 }
 
 describe('GET /icons/[...path]', () => {
-  it('serves supported icon files with a safe content type', async () => {
+  it('serves supported icon files with a safe content type', () => {
     fs.writeFileSync(path.join(iconsDirectory, 'icon.svg'), '<svg />')
 
-    const response = await requestIcon('icon.svg')
+    const response = requestIcon('icon.svg')
 
     expect(response.status).toBe(200)
     expect(response.headers.get('Content-Type')).toBe('image/svg+xml')
     expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff')
   })
 
-  it('blocks traversal and symlinks that point outside the icon directory', async () => {
+  it('blocks traversal and symlinks that point outside the icon directory', () => {
     fs.writeFileSync(path.join(rootDirectory, 'secret.svg'), '<svg />')
     fs.symlinkSync(path.join(rootDirectory, 'secret.svg'), path.join(iconsDirectory, 'linked.svg'))
 
-    expect((await requestIcon('../secret.svg')).status).toBe(403)
-    expect((await requestIcon('linked.svg')).status).toBe(403)
+    expect(requestIcon('../secret.svg').status).toBe(403)
+    expect(requestIcon('linked.svg').status).toBe(403)
   })
 
-  it('does not serve unsupported file types', async () => {
+  it('does not serve unsupported file types', () => {
     fs.writeFileSync(path.join(iconsDirectory, 'secret.txt'), 'secret')
 
-    expect((await requestIcon('secret.txt')).status).toBe(404)
+    expect(requestIcon('secret.txt').status).toBe(404)
   })
 })

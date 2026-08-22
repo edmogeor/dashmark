@@ -55,7 +55,10 @@ export const strings = {
   }
 } as const
 
+function isKnownStatus(value: string): value is keyof typeof strings.status {
+  return value in strings.status
+}
+
 export function statusLabel(value: string): string {
-  const status = strings.status as Record<string, string>
-  return status[value] ?? value
+  return isKnownStatus(value) ? strings.status[value] : value
 }

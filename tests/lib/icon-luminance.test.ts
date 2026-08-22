@@ -69,7 +69,7 @@ describe('analyzeIconLuminance', () => {
 
   it('caches results per url', async () => {
     mockFetchWith(await makePng([10, 10, 10]), 'image/png')
-    const fetchSpy = global.fetch as ReturnType<typeof vi.fn>
+    const fetchSpy = vi.mocked(global.fetch)
 
     await analyzeIconLuminance('https://example.com/cached.png')
     await analyzeIconLuminance('https://example.com/cached.png')

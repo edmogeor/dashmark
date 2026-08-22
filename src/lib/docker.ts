@@ -2,15 +2,16 @@ import http from 'node:http'
 import https from 'node:https'
 import { URL } from 'node:url'
 import type { AppConfig } from './config'
-import type { YamlService } from './config-file'
+import type { ServiceOverrides } from './config-file'
 import { loadYamlConfig } from './config-file'
-import { parseLabels, isValidUrl, traefikUrl, hasDashmarkLabels } from './labels'
+import { parseLabels, isValidUrl, traefikUrl, hasDashmarkLabels, type ParsedLabels } from './labels'
 import { resolveIcon, type IconResult } from './icons'
 import { groupHeaderNames, readUserGroups } from './auth'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
 import { dashmarkError, errorMessage, type DashmarkError } from './errors'
 import { strings } from './strings'
+import type { ContainerStatus } from './status'
 import {
   DOCKER_REQUEST_TIMEOUT_MS,
   DOCKER_MAX_RESPONSE_BYTES,
@@ -53,6 +54,29 @@ type DockerHost = {
   secure?: boolean
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every(item => typeof item === 'string')
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  return isRecord(value) && Object.values(value).every(item => typeof item === 'string')
+}
+
+function isDockerContainer(value: unknown): value is DockerContainer {
+  return isRecord(value)
+    && typeof value.Id === 'string'
+    && (value.Names === undefined || isStringArray(value.Names))
+    && typeof value.Image === 'string'
+    && typeof value.ImageID === 'string'
+    && typeof value.State === 'string'
+    && typeof value.Status === 'string'
+    && (value.Labels === undefined || isStringRecord(value.Labels))
+}
+
 function parseDockerHost(dockerHost: string): DockerHost {
   if (dockerHost.startsWith('unix://')) {
     return { socketPath: dockerHost.slice('unix://'.length) }
@@ -76,17 +100,11 @@ const apiVersionCache = new Map<string, string>()
 
 type Timestamped<T> = { data: T; timestamp: number }
 const containerListCache = new Map<string, Timestamped<DockerContainer[]>>()
-const allCardsCache = new Map<string, Promise<{ cards: Card[]; error?: DashmarkError }>>()
-
-function allCardsCacheKey(config: AppConfig): string {
-  return [config.dockerHost, config.configFile, config.iconsDir].join('\0')
-}
-
-async function rawDockerRequest<T>(
+async function rawDockerRequest(
   dockerHost: string,
   path: string,
   apiVersion?: string
-): Promise<T> {
+): Promise<unknown> {
   const host = parseDockerHost(dockerHost)
 
   return new Promise((resolve, reject) => {
@@ -118,9 +136,9 @@ async function rawDockerRequest<T>(
       res.on('end', () => {
         if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
           try {
-            resolve(JSON.parse(data) as T)
+            resolve(JSON.parse(data))
           } catch {
-            resolve(data as unknown as T)
+            reject(new Error(`Docker API ${options.path} returned invalid JSON`))
           }
         } else {
           reject(new Error(`Docker API ${options.path} returned ${res.statusCode}: ${data}`))
@@ -141,8 +159,11 @@ async function getDockerApiVersion(dockerHost: string): Promise<string> {
   if (cachedVersion) return cachedVersion
 
   try {
-    const version = (await rawDockerRequest<{ ApiVersion: string }>(dockerHost, '/version'))
-      .ApiVersion
+    const data = await rawDockerRequest(dockerHost, '/version')
+    if (!isRecord(data) || typeof data.ApiVersion !== 'string') {
+      throw new Error('Docker API version response had an invalid format')
+    }
+    const version = data.ApiVersion
     apiVersionCache.set(dockerHost, version)
     return version
   } catch (error) {
@@ -158,13 +179,17 @@ async function getDockerApiVersion(dockerHost: string): Promise<string> {
   }
 }
 
-async function dockerRequest<T>(dockerHost: string, path: string): Promise<T> {
+async function dockerRequest(dockerHost: string, path: string): Promise<unknown> {
   const apiVersion = await getDockerApiVersion(dockerHost)
-  return rawDockerRequest<T>(dockerHost, path, apiVersion)
+  return rawDockerRequest(dockerHost, path, apiVersion)
 }
 
 async function listContainers(dockerHost: string): Promise<DockerContainer[]> {
-  return dockerRequest<DockerContainer[]>(dockerHost, '/containers/json?all=1')
+  const data = await dockerRequest(dockerHost, '/containers/json?all=1')
+  if (!Array.isArray(data) || !data.every(isDockerContainer)) {
+    throw new Error('Docker API containers response had an invalid format')
+  }
+  return data
 }
 
 async function getCachedContainers(dockerHost: string, ttlMs: number): Promise<DockerContainer[]> {
@@ -203,7 +228,6 @@ async function fetchContainers(config: AppConfig): Promise<{ containers: DockerC
 export function clearDockerCache() {
   apiVersionCache.clear()
   containerListCache.clear()
-  allCardsCache.clear()
 }
 
 function parseHealth(status: string): string | undefined {
@@ -219,9 +243,9 @@ function containerName(container: DockerContainer): string {
 }
 
 function lookupYamlService(
-  yamlServices: Record<string, YamlService>,
+  yamlServices: Record<string, ServiceOverrides>,
   container: DockerContainer
-): { key?: string; service?: YamlService } {
+): { key?: string; service?: ServiceOverrides } {
   const name = containerName(container)
   if (yamlServices[name]) return { key: name, service: yamlServices[name] }
 
@@ -235,7 +259,7 @@ function lookupYamlService(
 
 function mergeWithYaml(
   labels: ReturnType<typeof parseLabels>,
-  yamlService?: YamlService
+  yamlService?: ServiceOverrides
 ): ReturnType<typeof parseLabels> {
   if (!yamlService) return labels
 
@@ -247,8 +271,8 @@ function mergeWithYaml(
     icon: yamlService.icon ?? labels.icon,
     category: yamlService.category ?? labels.category,
     order: yamlService.order ?? labels.order,
-    accessGroups: yamlService.access_groups ?? labels.accessGroups,
-    searchAliases: yamlService.search_aliases ?? labels.searchAliases
+    accessGroups: yamlService.accessGroups ?? labels.accessGroups,
+    searchAliases: yamlService.searchAliases ?? labels.searchAliases
   }
 }
 
@@ -271,6 +295,35 @@ function resolveCardUrl(
   if (!useTraefikFallback) return undefined
   const derived = traefikUrl(labels)
   return derived && isValidUrl(derived) ? derived : undefined
+}
+
+type ResolvedContainer = {
+  container: DockerContainer
+  name: string
+  yamlKey?: string
+  labels: ParsedLabels
+  url?: string
+}
+
+function resolveContainer(
+  yamlServices: Record<string, ServiceOverrides>,
+  container: DockerContainer
+): ResolvedContainer {
+  const { key: yamlKey, service: yamlService } = lookupYamlService(yamlServices, container)
+  const rawLabels = container.Labels ?? {}
+  const labels = mergeWithYaml(parseLabels(rawLabels), yamlService)
+
+  return {
+    container,
+    name: containerName(container),
+    yamlKey,
+    labels,
+    url: resolveCardUrl(labels.url, rawLabels, yamlService !== undefined || hasDashmarkLabels(rawLabels))
+  }
+}
+
+function isVisibleContainer({ labels, url }: ResolvedContainer, userGroups: string[]): boolean {
+  return !labels.hidden && url !== undefined && groupsIntersect(labels.accessGroups, userGroups)
 }
 
 export function addAccessGroupVaryHeader(headers: Headers, config: AppConfig): void {
@@ -299,14 +352,9 @@ function getUserGroups(config: AppConfig, headers: Headers): { groups: string[];
 
 async function cardFromContainer(
   config: AppConfig,
-  container: DockerContainer,
-  yamlService: YamlService | undefined
+  resolved: ResolvedContainer
 ): Promise<Card | null> {
-  const name = containerName(container)
-  const rawLabels = container.Labels ?? {}
-  const labels = mergeWithYaml(parseLabels(rawLabels), yamlService)
-  const useTraefikFallback = yamlService !== undefined || hasDashmarkLabels(rawLabels)
-  const url = resolveCardUrl(labels.url, rawLabels, useTraefikFallback)
+  const { container, name, labels, url } = resolved
 
   if (labels.hidden || !url) return null
 
@@ -337,7 +385,7 @@ async function cardFromContainer(
 async function cardFromYaml(
   config: AppConfig,
   name: string,
-  service: YamlService
+  service: ServiceOverrides
 ): Promise<Card | null> {
   if (service.hidden || !service.url || !isValidUrl(service.url)) {
     return null
@@ -358,9 +406,9 @@ async function cardFromYaml(
     icon,
     category: service.category,
     order: service.order,
-    searchAliases: service.search_aliases ?? [],
+    searchAliases: service.searchAliases ?? [],
     hasContainer: false,
-    accessGroups: service.access_groups ?? []
+    accessGroups: service.accessGroups ?? []
   }
 }
 
@@ -378,13 +426,8 @@ function sortCards(cards: Card[]): Card[] {
   })
 }
 
-type ContainerStatus = {
-  state?: string
-  health?: string
-}
-
 type LoadedServices = {
-  yamlServices: Record<string, YamlService>
+  yamlServices: Record<string, ServiceOverrides>
   containers: DockerContainer[]
   error?: DashmarkError
 }
@@ -416,9 +459,8 @@ export async function getContainerStatuses(
 
   const statuses: Record<string, ContainerStatus> = {}
   for (const container of containers) {
-    const { service } = lookupYamlService(yamlServices, container)
-    const labels = mergeWithYaml(parseLabels(container.Labels ?? {}), service)
-    if (labels.hidden || !groupsIntersect(labels.accessGroups, userGroups)) continue
+    const resolved = resolveContainer(yamlServices, container)
+    if (!isVisibleContainer(resolved, userGroups)) continue
 
     statuses[container.Id] = {
       state: container.State,
@@ -437,11 +479,11 @@ async function buildAllCards(config: AppConfig): Promise<{ cards: Card[]; error?
   const cards: Card[] = []
 
   for (const container of containers) {
-    const { key, service } = lookupYamlService(yamlServices, container)
-    const card = await cardFromContainer(config, container, service)
+    const resolved = resolveContainer(yamlServices, container)
+    const card = await cardFromContainer(config, resolved)
     if (card) cards.push(card)
 
-    if (key) matchedKeys.add(key)
+    if (resolved.yamlKey) matchedKeys.add(resolved.yamlKey)
   }
 
   for (const [name, yamlService] of Object.entries(yamlServices)) {
@@ -453,19 +495,6 @@ async function buildAllCards(config: AppConfig): Promise<{ cards: Card[]; error?
   return { cards: sortCards(cards) }
 }
 
-function getAllCards(config: AppConfig): Promise<{ cards: Card[]; error?: DashmarkError }> {
-  const key = allCardsCacheKey(config)
-  let promise = allCardsCache.get(key)
-  if (!promise) {
-    promise = buildAllCards(config).then(result => {
-      if (result.error) allCardsCache.delete(key)
-      return result
-    })
-    allCardsCache.set(key, promise)
-  }
-  return promise
-}
-
 export async function getCards(
   config: AppConfig,
   headers: Headers
@@ -473,7 +502,7 @@ export async function getCards(
   const { groups: userGroups, error: userGroupsError } = getUserGroups(config, headers)
   if (userGroupsError) return { cards: [], usesAccessGroups: false, error: userGroupsError }
 
-  const { cards: allCards, error } = await getAllCards(config)
+  const { cards: allCards, error } = await buildAllCards(config)
   if (error) return { cards: [], usesAccessGroups: false, error }
 
   const usesAccessGroups = allCards.some(card => card.accessGroups.length > 0)

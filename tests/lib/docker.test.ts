@@ -358,6 +358,30 @@ describe('getCards', () => {
     expect(second.cards).toHaveLength(1)
   })
 
+  it('uses YAML changes after a successful card lookup', async () => {
+    server.containers = [
+      {
+        Id: 'abc123',
+        Names: ['/plex'],
+        Image: 'plexinc/pms-docker',
+        ImageID: 'sha256:abc',
+        State: 'running',
+        Status: 'Up 2 hours (healthy)',
+        Labels: { 'dashmark.url': 'https://plex.home.local' }
+      }
+    ]
+
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.configFile = writeTempConfig('plex:\n  title: Plex\n')
+
+    expect((await getCards(config, new Headers())).cards[0]?.title).toBe('Plex')
+
+    fs.writeFileSync(config.configFile, 'plex:\n  title: Plex Media\n')
+
+    expect((await getCards(config, new Headers())).cards[0]?.title).toBe('Plex Media')
+  })
+
   it('matches YAML by compose service name without duplicating the card', async () => {
     server.containers = [
       {
@@ -445,6 +469,26 @@ describe('getContainerStatuses', () => {
     config.dockerHost = dockerHost
     const { statuses } = await getContainerStatuses(config, new Headers())
     expect(Object.keys(statuses)).toHaveLength(0)
+  })
+
+  it('omits containers that cannot produce a card', async () => {
+    server.containers = [
+      {
+        Id: 'unlisted1',
+        Names: ['/unlisted'],
+        Image: 'nginx',
+        ImageID: 'sha256:unlisted',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: {}
+      }
+    ]
+
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    const { statuses } = await getContainerStatuses(config, new Headers())
+
+    expect(statuses).toEqual({})
   })
 
   it('filters by access groups when enabled', async () => {

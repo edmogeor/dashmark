@@ -8,6 +8,8 @@ import {
   SELFHST_CDN,
   SELFHST_GITHUB_API_URL,
   SELFHST_PAGE_SIZE,
+  SELFHST_MAX_PAGES,
+  SELFHST_FETCH_TIMEOUT_MS,
   SELFHST_MATCH_THRESHOLD,
   SELFHST_REFERENCE_WEIGHT,
   SELFHST_NAME_WEIGHT
@@ -21,12 +23,31 @@ export type SelfhstIcon = {
 
 const cache = new Map<string, SelfhstIcon[]>()
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isSelfhstIcon(value: unknown): value is SelfhstIcon {
+  return isRecord(value)
+    && typeof value.reference === 'string'
+    && typeof value.name === 'string'
+    && typeof value.url === 'string'
+}
+
+function isGitHubIconFile(value: unknown): value is { name: string } {
+  return isRecord(value)
+    && typeof value.name === 'string'
+}
+
 function loadLocalIcons(): SelfhstIcon[] | null {
   try {
     const filePath = path.resolve('src/data/icons.json')
     if (!fs.existsSync(filePath)) return null
     const content = fs.readFileSync(filePath, 'utf-8')
-    const icons = JSON.parse(content) as SelfhstIcon[]
+    const icons: unknown = JSON.parse(content)
+    if (!Array.isArray(icons) || !icons.every(isSelfhstIcon)) {
+      throw new Error('Local icon index had an invalid format')
+    }
     const normalized = icons.flatMap(icon => {
       try {
         const segments = new URL(icon.url).pathname.split('/').filter(Boolean)
@@ -46,19 +67,27 @@ function loadLocalIcons(): SelfhstIcon[] | null {
 
 async function fetchRemoteIcons(): Promise<SelfhstIcon[]> {
   const icons: SelfhstIcon[] = []
-  let page = 1
 
-  while (true) {
-    const response = await fetch(
-      `${SELFHST_GITHUB_API_URL}?per_page=${SELFHST_PAGE_SIZE}&page=${page}`
-    )
-    if (!response.ok) {
-      throw new Error(`GitHub API responded with ${response.status}`)
+  for (let page = 1; page <= SELFHST_MAX_PAGES; page++) {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), SELFHST_FETCH_TIMEOUT_MS)
+    let data: unknown
+    try {
+      const response = await fetch(
+        `${SELFHST_GITHUB_API_URL}?per_page=${SELFHST_PAGE_SIZE}&page=${page}`,
+        { signal: controller.signal }
+      )
+      if (!response.ok) {
+        throw new Error(`GitHub API responded with ${response.status}`)
+      }
+      data = await response.json()
+    } finally {
+      clearTimeout(timeout)
     }
 
-    const data = (await response.json()) as Array<{ name: string }>
-    if (!Array.isArray(data) || data.length === 0) break
-
+    if (!Array.isArray(data) || !data.every(isGitHubIconFile)) {
+      throw new Error('GitHub API icon response had an invalid format')
+    }
     for (const item of data) {
       if (item.name.endsWith('.svg')) {
         const reference = item.name.replace(/\.svg$/, '')
@@ -70,12 +99,10 @@ async function fetchRemoteIcons(): Promise<SelfhstIcon[]> {
         })
       }
     }
-
-    if (data.length < SELFHST_PAGE_SIZE) break
-    page++
+    if (data.length < SELFHST_PAGE_SIZE) return icons
   }
 
-  return icons
+  throw new Error(`GitHub API icon listing exceeded ${SELFHST_MAX_PAGES} pages`)
 }
 
 export async function fetchSelfhstIcons(): Promise<SelfhstIcon[]> {

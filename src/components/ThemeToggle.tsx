@@ -69,7 +69,7 @@ export function ThemeToggle() {
   useEffect(() => {
     if (!revealed || !isTouch.current) return
     const onPointerDown = (event: PointerEvent) => {
-      if (!(event.target as Element).closest('[data-theme-toggle]')) {
+      if (!(event.target instanceof Element) || !event.target.closest('[data-theme-toggle]')) {
         setRevealed(false)
       }
     }

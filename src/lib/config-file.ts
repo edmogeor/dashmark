@@ -1,24 +1,15 @@
 import fs from 'node:fs'
 import yaml from 'js-yaml'
 import type { AppConfig } from './config'
+import type { ParsedLabels } from './labels'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
 import { dashmarkError, errorMessage, type DashmarkError } from './errors'
 import { strings } from './strings'
 
-export type YamlService = {
-  title?: string
-  description?: string
-  url?: string
-  icon?: string
-  category?: string
-  order?: number
-  hidden?: boolean
-  access_groups?: string[]
-  search_aliases?: string[]
-}
+export type ServiceOverrides = Partial<ParsedLabels>
 
-export type YamlConfig = Record<string, YamlService>
+export type YamlConfig = Record<string, ServiceOverrides>
 
 export type YamlConfigResult = {
   config: YamlConfig
@@ -47,7 +38,7 @@ function stringArray(value: unknown): string[] | undefined {
   return value
 }
 
-function parseService(value: unknown): YamlService | null {
+function parseService(value: unknown): ServiceOverrides | null {
   if (!isRecord(value)) return null
 
   const order = typeof value.order === 'number' && Number.isFinite(value.order)
@@ -62,8 +53,8 @@ function parseService(value: unknown): YamlService | null {
     category: string(value.category),
     order,
     hidden: typeof value.hidden === 'boolean' ? value.hidden : undefined,
-    access_groups: stringArray(value.access_groups),
-    search_aliases: stringArray(value.search_aliases)
+    accessGroups: stringArray(value.access_groups),
+    searchAliases: stringArray(value.search_aliases)
   }
 }
 

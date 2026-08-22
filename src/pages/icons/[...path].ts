@@ -5,17 +5,14 @@ import { getConfig } from '@/lib/config'
 import { isOutsideDirectory } from '@/lib/paths'
 import { ICON_CACHE_MAX_AGE, ICON_MIME_TYPES } from '@/lib/constants'
 
-export const GET: APIRoute = async ({ params }) => {
-  const config = getConfig()
-  const relativePath = Array.isArray(params.path) ? params.path.join('/') : params.path
-
+export function serveIcon(iconsDir: string, relativePath: string | undefined): Response {
   if (!relativePath) {
     return new Response('Not found', { status: 404 })
   }
 
-  const iconsDir = path.resolve(config.iconsDir)
-  const filePath = path.resolve(iconsDir, relativePath)
-  if (isOutsideDirectory(iconsDir, filePath)) {
+  const resolvedIconsDir = path.resolve(iconsDir)
+  const filePath = path.resolve(resolvedIconsDir, relativePath)
+  if (isOutsideDirectory(resolvedIconsDir, filePath)) {
     return new Response('Forbidden', { status: 403 })
   }
 
@@ -25,17 +22,15 @@ export const GET: APIRoute = async ({ params }) => {
     return new Response('Not found', { status: 404 })
   }
 
-  let resolvedIconsDir: string
   let resolvedPath: string
   try {
-    resolvedIconsDir = fs.realpathSync(iconsDir)
+    const canonicalIconsDir = fs.realpathSync(resolvedIconsDir)
     resolvedPath = fs.realpathSync(filePath)
+    if (isOutsideDirectory(canonicalIconsDir, resolvedPath)) {
+      return new Response('Forbidden', { status: 403 })
+    }
   } catch {
     return new Response('Not found', { status: 404 })
-  }
-
-  if (isOutsideDirectory(resolvedIconsDir, resolvedPath)) {
-    return new Response('Forbidden', { status: 403 })
   }
 
   let content: Buffer
@@ -53,4 +48,10 @@ export const GET: APIRoute = async ({ params }) => {
       'X-Content-Type-Options': 'nosniff'
     }
   })
+}
+
+export const GET: APIRoute = ({ params }) => {
+  const config = getConfig()
+  const relativePath = Array.isArray(params.path) ? params.path.join('/') : params.path
+  return serveIcon(config.iconsDir, relativePath)
 }

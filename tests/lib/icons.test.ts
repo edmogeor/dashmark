@@ -15,13 +15,12 @@ describe('resolveIcon', () => {
   config.iconsDir = '/app/icons'
 
   beforeEach(() => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => [
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([
         { name: 'plex.svg' },
         { name: 'grafana.svg' }
-      ]
-    } as Response)
+      ]), { status: 200 })
+    )
   })
 
   afterEach(() => {

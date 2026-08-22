@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { GET } from '@/pages/api/status'
+import { getStatusResponse } from '@/pages/api/status'
 
 const originalEnableAccessGroups = process.env.ENABLE_ACCESS_GROUPS
 const originalAccessGroupsHeader = process.env.ACCESS_GROUPS_HEADER
@@ -16,7 +16,7 @@ describe('GET /api/status', () => {
     process.env.ENABLE_ACCESS_GROUPS = 'true'
     process.env.ACCESS_GROUPS_HEADER = 'X-Test-Groups'
 
-    const response = await GET({ request: new Request('http://dashmark.test/api/status') } as never)
+    const response = await getStatusResponse(new Request('http://dashmark.test/api/status'))
 
     expect(response.headers.get('Cache-Control')).toBe('private, no-store')
     expect(response.headers.get('Vary')).toBe('X-Test-Groups')

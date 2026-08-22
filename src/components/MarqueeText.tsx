@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, type ReactNode } from 'react'
+import { useRef, useState, useEffect, type CSSProperties, type ReactNode } from 'react'
 import { MARQUEE_SPEED, MARQUEE_FADE_WIDTH } from '@/lib/constants'
 
 export function MarqueeText({ children, className }: { children: ReactNode; className?: string }) {
@@ -8,6 +8,14 @@ export function MarqueeText({ children, className }: { children: ReactNode; clas
   const duration = offset ? Math.abs(offset) / MARQUEE_SPEED : 0
   const fadeDuration = Math.min(duration, MARQUEE_FADE_WIDTH / MARQUEE_SPEED)
   const fadeDelay = duration - fadeDuration
+  const parentStyle: CSSProperties & Record<'--marquee-fade-duration' | '--marquee-fade-delay', string> = {
+    '--marquee-fade-duration': `${fadeDuration}s`,
+    '--marquee-fade-delay': `${fadeDelay}s`
+  }
+  const innerStyle: CSSProperties & Record<'--marquee-offset' | '--marquee-duration', string> = {
+    '--marquee-offset': `${offset}px`,
+    '--marquee-duration': `${duration}s`
+  }
 
   useEffect(() => {
     const inner = innerRef.current
@@ -30,17 +38,11 @@ export function MarqueeText({ children, className }: { children: ReactNode; clas
       ref={parentRef}
       data-overflow={offset < 0 ? '' : undefined}
       className={`group/marquee block overflow-hidden whitespace-nowrap ${className ?? ''}`}
-      style={{
-        '--marquee-fade-duration': `${fadeDuration}s`,
-        '--marquee-fade-delay': `${fadeDelay}s`
-      } as React.CSSProperties}
+      style={parentStyle}
     >
       <span
         ref={innerRef}
-        style={{
-          '--marquee-offset': `${offset}px`,
-          '--marquee-duration': `${duration}s`
-        } as React.CSSProperties}
+        style={innerStyle}
         className={offset < 0 ? 'marquee-content' : 'block'}
       >
         {children}

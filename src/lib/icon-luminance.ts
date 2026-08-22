@@ -1,4 +1,5 @@
 import sharp from 'sharp'
+import { ICON_LUMINANCE_CACHE_MAX_ENTRIES } from './constants'
 
 export type IconContrast = 'dark' | 'light'
 
@@ -15,6 +16,10 @@ function relativeLuminance(r: number, g: number, b: number): number {
 }
 
 function cacheResult(url: string, contrast: IconContrast | null): IconContrast | null {
+  if (!luminanceCache.has(url) && luminanceCache.size >= ICON_LUMINANCE_CACHE_MAX_ENTRIES) {
+    const oldestUrl = luminanceCache.keys().next().value
+    if (oldestUrl) luminanceCache.delete(oldestUrl)
+  }
   luminanceCache.set(url, contrast)
   return contrast
 }
@@ -26,8 +31,12 @@ export async function analyzeIconLuminance(url: string): Promise<IconContrast | 
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
-    const response = await fetch(url, { signal: controller.signal })
-    clearTimeout(timeout)
+    let response: Response
+    try {
+      response = await fetch(url, { signal: controller.signal })
+    } finally {
+      clearTimeout(timeout)
+    }
 
     if (!response.ok) {
       return cacheResult(url, null)

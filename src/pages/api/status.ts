@@ -1,8 +1,9 @@
 import type { APIRoute } from 'astro'
 import { getConfig } from '@/lib/config'
 import { getContainerStatuses, addAccessGroupVaryHeader } from '@/lib/docker'
+import type { StatusResponse } from '@/lib/status'
 
-export const GET: APIRoute = async ({ request }) => {
+export async function getStatusResponse(request: Request): Promise<Response> {
   const config = getConfig()
   const { statuses, error } = await getContainerStatuses(config, request.headers)
 
@@ -12,9 +13,11 @@ export const GET: APIRoute = async ({ request }) => {
   })
   addAccessGroupVaryHeader(headers, config)
 
-  const body = error ? { error } : { statuses }
+  const body: StatusResponse = error ? { error } : { statuses }
   return new Response(JSON.stringify(body), {
     status: 200,
     headers
   })
 }
+
+export const GET: APIRoute = ({ request }) => getStatusResponse(request)
