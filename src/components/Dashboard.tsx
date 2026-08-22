@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils'
 import { STATUS_POLL_INTERVAL_MS } from '@/lib/constants'
 
 const COLUMN_WIDTH = 300
-const COLUMN_GUTTER = 24
+const COLUMN_GUTTER = 20
 const MASONRY_OVERSCAN = 3
 const POSITION_TRANSITION: Transition = { duration: 0.25, ease: 'easeOut' }
 
@@ -163,11 +163,11 @@ function CategoryColumn({ data, twoColumn, showStatus, isLoading, openInNewTab }
   const { category, cards } = data
   return (
     <Card className="dashmark-category @container overflow-hidden">
-      <CardHeader className="dashmark-category-header pb-3">
+      <CardHeader className="dashmark-category-header p-5 pb-3">
         <CardTitle className="dashmark-category-title text-xs uppercase tracking-widest text-muted-foreground">{category}</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className={cn('dashmark-category-apps grid grid-cols-1 gap-6', twoColumn && '@[520px]:grid-cols-2')}>
+      <CardContent className="p-5 pt-0">
+        <div className={cn('dashmark-category-apps grid grid-cols-1 gap-4', twoColumn && '@[520px]:grid-cols-2')}>
           {cards.map(card => (
             <motion.div key={card.id} layoutId={`card-${card.id}`} className="h-full" transition={{ layout: POSITION_TRANSITION }}>
               <AppCard card={card} showStatus={showStatus} isLoading={isLoading} openInNewTab={openInNewTab} />
@@ -325,8 +325,8 @@ type DashboardGreetingProps = {
 
 function DashboardGreeting({ greeting, showGroups, userGroups, hasSearch }: DashboardGreetingProps) {
   return (
-    <div className={`dashmark-greeting-container flex items-center ${hasSearch ? 'mb-4' : ''}`}>
-      <h1 className="dashmark-greeting text-2xl font-semibold tracking-tight">{greeting}</h1>
+    <div className={`dashmark-greeting-container flex items-start ${hasSearch ? 'mb-4' : ''}`}>
+      <h1 className="dashmark-greeting text-xl font-semibold tracking-tight sm:text-[1.375rem] lg:text-2xl">{greeting}</h1>
       {showGroups && userGroups.length > 0 && <UserGroupsBadge groups={userGroups} />}
     </div>
   )
@@ -357,7 +357,7 @@ function DashboardSearchPanel({
 }: DashboardSearchPanelProps) {
   return (
     <Card className="dashmark-search-panel overflow-hidden bg-surface shadow-none">
-      <CardContent className="dashmark-search-panel-content flex flex-row items-center gap-4 py-6">
+      <CardContent className="dashmark-search-panel-content flex flex-row items-center gap-4 p-5">
         {showBranding && (
           <img src="/brand/icon.svg" alt={strings.app.title} className="dashmark-brand h-8 w-8 shrink-0 rounded-lg" />
         )}
@@ -411,8 +411,8 @@ function DashboardSearch({
   if (!showSearch && !showHeader) return null
 
   return (
-    <motion.div layout="position" className="dashmark-header dashboard-search sticky top-0 z-10 mb-8" data-overflow={hasPageOverflow || undefined}>
-      <div className="pt-18">
+    <motion.div layout="position" className="dashmark-header dashboard-search sticky top-0 z-10 mb-6" data-overflow={hasPageOverflow || undefined}>
+      <div className="pt-12 sm:pt-14 lg:pt-16">
         <motion.div
           layout="position"
           className="mx-auto w-full max-w-6xl px-6"
@@ -513,7 +513,7 @@ function DashboardResults({
 
   if (!hasCategories) {
     return (
-      <div className="dashmark-app-grid grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="dashmark-app-grid grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <AnimatePresence>
           {uncategorised.map((card, index) => {
             const entry = cardEntries.get(card.id)

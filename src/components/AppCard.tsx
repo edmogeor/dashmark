@@ -26,7 +26,7 @@ type AppCardProps = {
 function InitialsPlaceholder({ title, asCard }: { title: string; asCard: boolean }) {
   return (
     <div className={cn(
-      'dashmark-app-icon dashmark-app-icon-placeholder flex h-10 w-10 items-center justify-center rounded-lg text-sm font-semibold text-foreground/50',
+      'dashmark-app-icon dashmark-app-icon-placeholder flex h-12 w-12 items-center justify-center rounded-lg pl-1 text-sm font-semibold text-foreground/50',
       asCard ? 'bg-surface dark:bg-background' : 'bg-card'
     )}>
       {getInitials(title)}
@@ -56,7 +56,7 @@ function AppIcon({ icon, title, asCard }: { icon: CardType['icon']; title: strin
       <img
         src={src}
         alt={icon.alt}
-        className="dashmark-app-icon h-10 w-10 object-contain"
+        className="dashmark-app-icon h-12 w-12 object-contain pl-1"
         loading="lazy"
         onError={() => setError(true)}
       />
@@ -81,35 +81,16 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, asCard =
       href={card.url}
       target={openInNewTab ? '_blank' : undefined}
       rel={openInNewTab ? 'noopener noreferrer' : undefined}
-      className="dashmark-app-link block rounded-lg"
+      className="dashmark-app-link block h-full rounded-lg"
     >
       <Card className={cardClassName}>
-        <CardContent className="dashmark-app-content flex items-start gap-4 p-4">
+        <CardContent className="dashmark-app-content relative flex min-h-24 items-center gap-5 p-3">
           <AppIcon icon={card.icon} title={card.title} asCard={asCard} />
           <div className="dashmark-app-details min-w-0 flex-1">
-            <div className="dashmark-app-header flex items-start justify-between gap-2">
-              <MarqueeText className="dashmark-app-title min-w-0 flex-1 font-semibold">
+            <div className="dashmark-app-header flex min-w-0">
+              <MarqueeText className={cn('dashmark-app-title min-w-0 flex-1 font-semibold', card.description && 'pr-6')}>
                 {card.title}
               </MarqueeText>
-              {card.description && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        className="dashmark-app-description-trigger info-button shrink-0 cursor-help rounded-full p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
-                        onClick={e => e.preventDefault()}
-                      >
-                        <Info className="h-4 w-4" />
-                        <span className="sr-only">{strings.card.description}</span>
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" align="center" collisionPadding={16} className="dashmark-app-description max-w-xs">
-                      <p>{card.description}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
             </div>
             <MarqueeText className="dashmark-app-url text-xs text-muted-foreground">
               {card.url}
@@ -125,6 +106,25 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, asCard =
               </div>
             )}
           </div>
+          {card.description && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="dashmark-app-description-trigger info-button absolute top-3 right-3 cursor-help rounded-full p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
+                    onClick={e => e.preventDefault()}
+                  >
+                    <Info className="h-4 w-4" />
+                    <span className="sr-only">{strings.card.description}</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" align="center" collisionPadding={16} className="dashmark-app-description max-w-xs">
+                  <p>{card.description}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </CardContent>
       </Card>
     </a>

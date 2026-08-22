@@ -52,6 +52,6 @@ services:
       - "-listenip=0.0.0.0"
       - "-allowfrom=dashmark"
       - "-allowGET=/version"
-      - "-allowGET=/v1\\..{1,2}/containers/.*"
+      - "-allowGET=/v1\\..{1,2}/containers/json"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
