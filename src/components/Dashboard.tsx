@@ -138,7 +138,13 @@ type CategoryItem = {
   isLoading: boolean
 }
 
-function CategoryColumn({ data, twoColumn, openInNewTab }: { data: CategoryItem; twoColumn: boolean; openInNewTab: boolean }) {
+type CategoryColumnProps = {
+  data: CategoryItem
+  twoColumn: boolean
+  openInNewTab: boolean
+}
+
+function CategoryColumn({ data, twoColumn, openInNewTab }: CategoryColumnProps) {
   const { category, cards, showStatus, isLoading } = data
   return (
     <Card className="@container overflow-hidden">
@@ -160,7 +166,14 @@ function itemsSignature(items: CategoryItem[]): string {
   return items.map(item => `${item.category}:${item.cards.length}`).join('\0')
 }
 
-function MasonryGrid({ items, onReady, animate, openInNewTab }: { items: CategoryItem[]; onReady?: () => void; animate?: boolean; openInNewTab: boolean }) {
+type MasonryGridProps = {
+  items: CategoryItem[]
+  onReady?: () => void
+  animate?: boolean
+  openInNewTab: boolean
+}
+
+function MasonryGrid({ items, onReady, animate, openInNewTab }: MasonryGridProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const notifiedRef = useRef(false)
   const onReadyRef = useRef(onReady)
@@ -265,6 +278,19 @@ function MasonryGrid({ items, onReady, animate, openInNewTab }: { items: Categor
   )
 }
 
+type DashboardProps = {
+  initialCards: CardType[]
+  initialError?: DashmarkError
+  initialShowSearch?: boolean
+  initialShowStatus?: boolean
+  initialShowBranding?: boolean
+  initialOpenInNewTab?: boolean
+  showHeader?: boolean
+  showGroups?: boolean
+  greeting?: string
+  userGroups?: string[]
+}
+
 export function Dashboard({
   initialCards,
   initialError,
@@ -276,26 +302,11 @@ export function Dashboard({
   showGroups = false,
   greeting,
   userGroups = []
-}: {
-  initialCards: CardType[]
-  initialError?: DashmarkError
-  initialShowSearch?: boolean
-  initialShowStatus?: boolean
-  initialShowBranding?: boolean
-  initialOpenInNewTab?: boolean
-  showHeader?: boolean
-  showGroups?: boolean
-  greeting?: string
-  userGroups?: string[]
-}) {
+}: DashboardProps) {
   const [cards, setCards] = useState<CardType[]>(initialCards)
   const [error] = useState<DashmarkError | null>(initialError ?? null)
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const showSearch = initialShowSearch
-  const showStatus = initialShowStatus
-  const showBranding = initialShowBranding
-  const openInNewTab = initialOpenInNewTab
   const [isLoading, setIsLoading] = useState(!initialError)
   const showLoading = useStableLoading(isLoading)
   const [statusUnavailable, setStatusUnavailable] = useState(false)
@@ -348,26 +359,22 @@ export function Dashboard({
         .map(([category, cards]) => ({
           category,
           cards,
-          showStatus,
+          showStatus: initialShowStatus,
           isLoading: showLoading || statusUnavailable
         })),
-    [grouped, showStatus, showLoading, statusUnavailable]
+    [grouped, initialShowStatus, showLoading, statusUnavailable]
   )
   const categories = useMemo(() => {
-    const counts: Record<string, number> = {}
-    for (const card of cards) {
-      const category = categoryName(card)
-      counts[category] = (counts[category] ?? 0) + 1
-    }
-    return Object.keys(counts)
-      .sort(sortCategories)
-      .map(name => ({ name, count: counts[name] ?? 0 }))
+    const categoriesByName = groupByCategory(cards)
+    return Object.entries(categoriesByName)
+      .sort(([a], [b]) => sortCategories(a, b))
+      .map(([name, categoryCards]) => ({ name, count: categoryCards.length }))
   }, [cards])
 
   return (
     <>
       <Toaster />
-      {(showSearch || showHeader) && (
+      {(initialShowSearch || showHeader) && (
         <div className="dashboard-search sticky top-0 z-10 mb-8">
           <div className="pt-18">
             <motion.div
@@ -379,7 +386,7 @@ export function Dashboard({
               onAnimationComplete={() => setSearchBarDone(true)}
             >
               {showHeader && (
-                <div className={`flex items-center ${showSearch ? 'mb-4' : ''}`}>
+                <div className={`flex items-center ${initialShowSearch ? 'mb-4' : ''}`}>
                   <h1 className="text-2xl font-semibold tracking-tight">
                     {greeting}
                   </h1>
@@ -388,10 +395,10 @@ export function Dashboard({
                   )}
                 </div>
               )}
-              {showSearch && (
+              {initialShowSearch && (
                 <Card className="overflow-hidden bg-surface shadow-none">
                   <CardContent className="flex flex-row items-center gap-4 py-6">
-                    {showBranding && (
+                    {initialShowBranding && (
                       <img src="/brand/icon.svg" alt={strings.app.title} className="h-8 w-8 shrink-0 rounded-lg" />
                     )}
                     <div className="min-w-0 flex-1">
@@ -414,7 +421,7 @@ export function Dashboard({
         </div>
       )}
 
-      <div className={`mx-auto w-full max-w-6xl px-6 pb-12 ${showSearch || showHeader ? '' : 'pt-12'}`}>
+      <div className={`mx-auto w-full max-w-6xl px-6 pb-12 ${initialShowSearch || showHeader ? '' : 'pt-12'}`}>
         <div className="min-h-0">
         {error ? (
           <ErrorPanel error={error} />
@@ -433,12 +440,12 @@ export function Dashboard({
           >
             {uncategorised.map(card => (
               <motion.div key={card.id} variants={fadeUp}>
-                <AppCard card={card} showStatus={showStatus} asCard isLoading={showLoading || statusUnavailable} openInNewTab={openInNewTab} />
+                <AppCard card={card} showStatus={initialShowStatus} asCard isLoading={showLoading || statusUnavailable} openInNewTab={initialOpenInNewTab} />
               </motion.div>
             ))}
           </motion.div>
         ) : (
-          <MasonryGrid items={categoryItems} onReady={() => setMasonryLayoutReady(true)} animate={searchBarDone} openInNewTab={openInNewTab} />
+          <MasonryGrid items={categoryItems} onReady={() => setMasonryLayoutReady(true)} animate={searchBarDone} openInNewTab={initialOpenInNewTab} />
             )}
           </>
         )}

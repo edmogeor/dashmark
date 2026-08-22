@@ -137,9 +137,8 @@ async function rawDockerRequest<T>(
 }
 
 async function getDockerApiVersion(dockerHost: string): Promise<string> {
-  if (apiVersionCache.has(dockerHost)) {
-    return apiVersionCache.get(dockerHost)!
-  }
+  const cachedVersion = apiVersionCache.get(dockerHost)
+  if (cachedVersion) return cachedVersion
 
   try {
     const version = (await rawDockerRequest<{ ApiVersion: string }>(dockerHost, '/version'))

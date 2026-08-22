@@ -14,6 +14,11 @@ function relativeLuminance(r: number, g: number, b: number): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b
 }
 
+function cacheResult(url: string, contrast: IconContrast | null): IconContrast | null {
+  luminanceCache.set(url, contrast)
+  return contrast
+}
+
 export async function analyzeIconLuminance(url: string): Promise<IconContrast | null> {
   const cached = luminanceCache.get(url)
   if (cached !== undefined) return cached
@@ -25,8 +30,7 @@ export async function analyzeIconLuminance(url: string): Promise<IconContrast | 
     clearTimeout(timeout)
 
     if (!response.ok) {
-      luminanceCache.set(url, null)
-      return null
+      return cacheResult(url, null)
     }
 
     const buffer = Buffer.from(await response.arrayBuffer())
@@ -52,26 +56,21 @@ export async function analyzeIconLuminance(url: string): Promise<IconContrast | 
     }
 
     if (opaquePixels === 0) {
-      luminanceCache.set(url, null)
-      return null
+      return cacheResult(url, null)
     }
 
     const average = totalLuminance / opaquePixels
 
     if (average < DARK_LUMINANCE_THRESHOLD) {
-      luminanceCache.set(url, 'dark')
-      return 'dark'
+      return cacheResult(url, 'dark')
     }
 
     if (average > LIGHT_LUMINANCE_THRESHOLD) {
-      luminanceCache.set(url, 'light')
-      return 'light'
+      return cacheResult(url, 'light')
     }
 
-    luminanceCache.set(url, null)
-    return null
+    return cacheResult(url, null)
   } catch {
-    luminanceCache.set(url, null)
-    return null
+    return cacheResult(url, null)
   }
 }

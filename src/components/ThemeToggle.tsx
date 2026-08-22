@@ -25,6 +25,19 @@ function getAriaLabel(mounted: boolean, override: Theme | null, isDark: boolean)
   return isDark ? strings.theme.switchToLight : strings.theme.switchToDark
 }
 
+function getRevealTransform(mounted: boolean, revealed: boolean): string {
+  if (!mounted) return 'translate(100%, -100%)'
+  if (revealed) return 'translate(0, 0)'
+  return 'translate(25%, -25%)'
+}
+
+function getGlowBackground(isDark: boolean): string {
+  if (isDark) {
+    return 'radial-gradient(circle, rgba(255,214,130,0.6) 0%, rgba(255,150,80,0.35) 35%, rgba(255,100,90,0.15) 55%, transparent 70%)'
+  }
+  return 'radial-gradient(circle, rgba(180,220,255,0.85) 0%, rgba(130,170,255,0.55) 35%, rgba(140,130,255,0.3) 55%, transparent 80%)'
+}
+
 export function ThemeToggle() {
   const [resolved, setResolved] = useState<Theme>('dark')
   const [override, setOverride] = useState<Theme | null>(null)
@@ -118,9 +131,7 @@ export function ThemeToggle() {
   const isDark = resolved === 'dark'
   const Icon = isDark ? Sun : Moon
   const ariaLabel = getAriaLabel(mounted, override, isDark)
-  const glowBackground = isDark
-    ? 'radial-gradient(circle, rgba(255,214,130,0.6) 0%, rgba(255,150,80,0.35) 35%, rgba(255,100,90,0.15) 55%, transparent 70%)'
-    : 'radial-gradient(circle, rgba(180,220,255,0.85) 0%, rgba(130,170,255,0.55) 35%, rgba(140,130,255,0.3) 55%, transparent 80%)'
+  const glowBackground = getGlowBackground(isDark)
 
   return (
     <button
@@ -152,11 +163,7 @@ export function ThemeToggle() {
         className="absolute top-0 right-0 flex h-16 w-16 items-start justify-end transition-[transform,opacity] duration-300 ease-out"
         style={{
           clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
-          transform: !mounted
-            ? 'translate(100%, -100%)'
-            : revealed
-              ? 'translate(0, 0)'
-              : 'translate(25%, -25%)',
+          transform: getRevealTransform(mounted, revealed),
           opacity: mounted ? 1 : 0
         }}
       >
