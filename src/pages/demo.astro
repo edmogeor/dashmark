@@ -6,6 +6,7 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 import { getConfig } from '@/lib/config'
 import { THEME_STORAGE_KEY } from '@/lib/constants'
 import { demoServices } from '@/lib/demo'
+import { resolveDescription } from '@/lib/descriptions'
 import { resolveGreeting } from '@/lib/greeting'
 import { resolveIcon } from '@/lib/icons'
 import { strings } from '@/lib/strings'
@@ -14,8 +15,9 @@ import '@/styles/global.css'
 
 const config = getConfig()
 const demoUser = { firstName: 'John', groups: ['admins', 'media', 'family'] }
-const demoCards: Card[] = await Promise.all(demoServices.map(async ({ imageName, ...card }) => ({
+const demoCards: Card[] = await Promise.all(demoServices.map(async ({ imageName, description: fallbackDescription, ...card }) => ({
   ...card,
+  description: resolveDescription(config, { imageName, title: card.title, containerName: card.id }) ?? fallbackDescription,
   accessGroups: card.accessGroups ?? [],
   state: card.state ?? 'running',
   health: card.health ?? 'healthy',
