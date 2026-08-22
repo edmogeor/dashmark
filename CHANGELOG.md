@@ -7,9 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-alpha.6] - 2026-08-22
+
 ### Added
 
 - `selfhst:<slug>` icon references for explicit selfhst icon selection.
+
+### Changed
+
+- Simplified the dashboard search and result rendering into focused components.
+- Declared `@tanstack/virtual-core` as a direct dependency.
 
 ## [0.1.0-alpha.5] - 2026-08-20
 

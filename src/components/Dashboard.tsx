@@ -338,6 +338,158 @@ type DashboardProps = {
   userGroups?: string[]
 }
 
+type DashboardSearchProps = {
+  showSearch: boolean
+  showHeader: boolean
+  showBranding: boolean
+  greeting?: string
+  showGroups: boolean
+  userGroups: string[]
+  hasPageOverflow: boolean
+  masonryLayoutReady: boolean
+  search: string
+  setSearch: (search: string) => void
+  error: DashmarkError | null
+  categories: { name: string; count: number }[]
+  cards: CardType[]
+  selectedCategory: string | null
+  setSelectedCategory: (category: string | null) => void
+  onAnimationComplete: () => void
+}
+
+function DashboardSearch({
+  showSearch,
+  showHeader,
+  showBranding,
+  greeting,
+  showGroups,
+  userGroups,
+  hasPageOverflow,
+  masonryLayoutReady,
+  search,
+  setSearch,
+  error,
+  categories,
+  cards,
+  selectedCategory,
+  setSelectedCategory,
+  onAnimationComplete
+}: DashboardSearchProps) {
+  if (!showSearch && !showHeader) return null
+
+  return (
+    <div className="dashboard-search sticky top-0 z-10 mb-8" data-overflow={hasPageOverflow || undefined}>
+      <div className="pt-18">
+        <motion.div
+          layout="position"
+          className="mx-auto w-full max-w-6xl px-6"
+          initial={{ opacity: 0, y: 8 }}
+          animate={masonryLayoutReady ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
+          onAnimationComplete={onAnimationComplete}
+        >
+          {showHeader && (
+            <div className={`flex items-center ${showSearch ? 'mb-4' : ''}`}>
+              <h1 className="text-2xl font-semibold tracking-tight">{greeting}</h1>
+              {showGroups && userGroups.length > 0 && <UserGroupsBadge groups={userGroups} />}
+            </div>
+          )}
+          {showSearch && (
+            <Card className="overflow-hidden bg-surface shadow-none">
+              <CardContent className="flex flex-row items-center gap-4 py-6">
+                {showBranding && (
+                  <img src="/brand/icon.svg" alt={strings.app.title} className="h-8 w-8 shrink-0 rounded-lg" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <SearchBar value={search} onChange={setSearch} disabled={!!error} />
+                </div>
+                {categories.some(category => category.name !== UNCATEGORISED) && (
+                  <CategoryFilter
+                    categories={categories}
+                    total={cards.length}
+                    selected={selectedCategory}
+                    onSelect={setSelectedCategory}
+                    disabled={!!error}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </motion.div>
+      </div>
+    </div>
+  )
+}
+
+type DashboardResultsProps = {
+  error: DashmarkError | null
+  grouped: Record<string, CardType[]>
+  hasCategories: boolean
+  uncategorised: CardType[]
+  categoryItems: CategoryItem[]
+  showStatus: boolean
+  isLoading: boolean
+  openInNewTab: boolean
+  onMasonryReady: () => void
+  animateMasonry: boolean
+}
+
+function DashboardResults({
+  error,
+  grouped,
+  hasCategories,
+  uncategorised,
+  categoryItems,
+  showStatus,
+  isLoading,
+  openInNewTab,
+  onMasonryReady,
+  animateMasonry
+}: DashboardResultsProps) {
+  if (error) return <ErrorPanel error={error} />
+
+  if (Object.keys(grouped).length === 0) {
+    return (
+      <div className="flex items-center justify-center py-4">
+        <p className="whitespace-nowrap text-muted-foreground">{strings.dashboard.noServices}</p>
+      </div>
+    )
+  }
+
+  if (!hasCategories) {
+    return (
+      <motion.div
+        layout="position"
+        variants={staggerContainer}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+      >
+        <AnimatePresence>
+          {uncategorised.map(card => (
+            <AnimatedGridItem key={card.id}>
+              <motion.div variants={fadeUp}>
+                <AppCard card={card} showStatus={showStatus} asCard isLoading={isLoading} openInNewTab={openInNewTab} />
+              </motion.div>
+            </AnimatedGridItem>
+          ))}
+        </AnimatePresence>
+      </motion.div>
+    )
+  }
+
+  return (
+    <MasonryGrid
+      items={categoryItems}
+      onReady={onMasonryReady}
+      animate={animateMasonry}
+      showStatus={showStatus}
+      isLoading={isLoading}
+      openInNewTab={openInNewTab}
+    />
+  )
+}
+
 export function Dashboard({
   initialCards,
   initialError,
@@ -437,93 +589,39 @@ export function Dashboard({
   return (
     <>
       <Toaster />
-      {(initialShowSearch || showHeader) && (
-        <div className="dashboard-search sticky top-0 z-10 mb-8" data-overflow={hasPageOverflow || undefined}>
-          <div className="pt-18">
-            <motion.div
-              layout="position"
-              className="mx-auto w-full max-w-6xl px-6"
-              initial={{ opacity: 0, y: 8 }}
-              animate={masonryLayoutReady ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
-              transition={{ duration: 0.3, ease: 'easeOut' }}
-              onAnimationComplete={() => setSearchBarDone(true)}
-            >
-              {showHeader && (
-                <div className={`flex items-center ${initialShowSearch ? 'mb-4' : ''}`}>
-                  <h1 className="text-2xl font-semibold tracking-tight">
-                    {greeting}
-                  </h1>
-                  {showGroups && userGroups.length > 0 && (
-                    <UserGroupsBadge groups={userGroups} />
-                  )}
-                </div>
-              )}
-              {initialShowSearch && (
-                <Card className="overflow-hidden bg-surface shadow-none">
-                  <CardContent className="flex flex-row items-center gap-4 py-6">
-                    {initialShowBranding && (
-                      <img src="/brand/icon.svg" alt={strings.app.title} className="h-8 w-8 shrink-0 rounded-lg" />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <SearchBar value={search} onChange={setSearch} disabled={!!error} />
-                    </div>
-                    {categories.some(c => c.name !== UNCATEGORISED) && (
-                      <CategoryFilter
-                        categories={categories}
-                        total={cards.length}
-                        selected={selectedCategory}
-                        onSelect={setSelectedCategory}
-                        disabled={!!error}
-                      />
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-            </motion.div>
-          </div>
-        </div>
-      )}
+      <DashboardSearch
+        showSearch={initialShowSearch}
+        showHeader={showHeader}
+        showBranding={initialShowBranding}
+        greeting={greeting}
+        showGroups={showGroups}
+        userGroups={userGroups}
+        hasPageOverflow={hasPageOverflow}
+        masonryLayoutReady={masonryLayoutReady}
+        search={search}
+        setSearch={setSearch}
+        error={error}
+        categories={categories}
+        cards={cards}
+        selectedCategory={selectedCategory}
+        setSelectedCategory={setSelectedCategory}
+        onAnimationComplete={() => setSearchBarDone(true)}
+      />
 
       <div className={`mx-auto w-full max-w-6xl px-6 pb-12 ${initialShowSearch || showHeader ? '' : 'pt-12'}`}>
         <div className="min-h-0">
-        {error ? (
-          <ErrorPanel error={error} />
-        ) : (
-          <>
-            {Object.keys(grouped).length === 0 ? (
-          <div className="flex items-center justify-center py-4">
-            <p className="whitespace-nowrap text-muted-foreground">{strings.dashboard.noServices}</p>
-          </div>
-        ) : !hasCategories ? (
-          <motion.div
-            layout="position"
-            variants={staggerContainer}
-            initial="hidden"
-            animate="show"
-            className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-          >
-            <AnimatePresence>
-              {uncategorised.map(card => (
-                <AnimatedGridItem key={card.id}>
-                  <motion.div variants={fadeUp}>
-                    <AppCard card={card} showStatus={initialShowStatus} asCard isLoading={showLoading || statusUnavailable} openInNewTab={initialOpenInNewTab} />
-                  </motion.div>
-                </AnimatedGridItem>
-              ))}
-            </AnimatePresence>
-          </motion.div>
-        ) : (
-          <MasonryGrid
-            items={categoryItems}
-            onReady={() => setMasonryLayoutReady(true)}
-            animate={searchBarDone}
+          <DashboardResults
+            error={error}
+            grouped={grouped}
+            hasCategories={hasCategories}
+            uncategorised={uncategorised}
+            categoryItems={categoryItems}
             showStatus={initialShowStatus}
             isLoading={showLoading || statusUnavailable}
             openInNewTab={initialOpenInNewTab}
+            onMasonryReady={() => setMasonryLayoutReady(true)}
+            animateMasonry={searchBarDone}
           />
-            )}
-          </>
-        )}
         </div>
       </div>
     </>
