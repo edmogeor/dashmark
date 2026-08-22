@@ -38,6 +38,7 @@ jobs:
         run: npm run build
         env:
           ASTRO_BASE: /${{ github.event.repository.name }}
+          ASTRO_SITE: https://${{ github.repository_owner }}.github.io
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

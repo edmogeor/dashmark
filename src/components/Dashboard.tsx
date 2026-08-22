@@ -16,7 +16,7 @@ import { useStableLoading } from '@/lib/use-stable-loading'
 import { useStatusPolling } from '@/lib/use-status-polling'
 import { strings } from '@/lib/strings'
 import { cn } from '@/lib/utils'
-import { SEARCH_FUZZY_THRESHOLD } from '@/lib/constants'
+import { SEARCH_FUZZY_THRESHOLD, STATUS_POLL_INTERVAL_MS } from '@/lib/constants'
 
 const UNCATEGORISED = strings.category.uncategorised
 
@@ -328,6 +328,7 @@ type DashboardProps = {
   initialShowBranding?: boolean
   initialOpenInNewTab?: boolean
   enableStatusPolling?: boolean
+  mockStatusPolling?: boolean
   showHeader?: boolean
   showGroups?: boolean
   greeting?: string
@@ -567,6 +568,7 @@ export function Dashboard({
   initialShowBranding = true,
   initialOpenInNewTab = false,
   enableStatusPolling = true,
+  mockStatusPolling = false,
   showHeader = false,
   showGroups = false,
   greeting,
@@ -608,6 +610,21 @@ export function Dashboard({
     setUnavailable: setStatusUnavailable,
     setLoading: setIsLoading
   })
+
+  useEffect(() => {
+    if (!mockStatusPolling) return
+
+    let timeout = setTimeout(refreshStatus, STATUS_POLL_INTERVAL_MS)
+    function refreshStatus() {
+      setIsLoading(true)
+      timeout = setTimeout(() => {
+        setIsLoading(false)
+        timeout = setTimeout(refreshStatus, STATUS_POLL_INTERVAL_MS)
+      }, 1_000)
+    }
+
+    return () => clearTimeout(timeout)
+  }, [mockStatusPolling])
 
   const filtered = useMemo(() => {
     const selected = selectedCategory?.toLowerCase()
