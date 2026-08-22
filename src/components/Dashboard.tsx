@@ -75,7 +75,7 @@ function sortCategories(a: string, b: string): number {
 
 function GroupBadge({ group }: { group: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+    <span className="dashmark-group-badge inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
       <User className="h-3.5 w-3.5" />
       {group}
     </span>
@@ -84,13 +84,13 @@ function GroupBadge({ group }: { group: string }) {
 
 function UserGroupsBadge({ groups }: { groups: string[] }) {
   return (
-    <div className="ml-auto flex items-center gap-1.5">
+    <div className="dashmark-user-groups ml-auto flex items-center gap-1.5">
       <GroupBadge group={groups[0]} />
       {groups.length > 1 && (
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="inline-flex cursor-help items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+              <span className="dashmark-group-badge dashmark-group-badge-overflow inline-flex cursor-help items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
                 +{groups.length - 1}
               </span>
             </TooltipTrigger>
@@ -109,12 +109,12 @@ function UserGroupsBadge({ groups }: { groups: string[] }) {
 function ErrorPanel({ error }: { error: DashmarkError }) {
   return (
     <motion.div
-      className="flex items-center justify-center py-12"
+      className="dashmark-error flex items-center justify-center py-12"
       variants={fadeUp}
       initial="hidden"
       animate="show"
     >
-      <div className="mx-auto flex w-full max-w-xl gap-4 rounded-lg border border-error-border bg-error-bg p-6 text-error-text">
+      <div className="dashmark-error-panel mx-auto flex w-full max-w-xl gap-4 rounded-lg border border-error-border bg-error-bg p-6 text-error-text">
         <CircleAlert className="mt-0.5 h-5 w-5 shrink-0" />
         <div className="min-w-0">
           <p className="font-semibold">{strings.errors.unableToLoadServices}</p>
@@ -185,12 +185,12 @@ type CategoryColumnProps = {
 function CategoryColumn({ data, twoColumn, showStatus, isLoading, openInNewTab }: CategoryColumnProps) {
   const { category, cards } = data
   return (
-    <Card className="@container overflow-hidden">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-xs uppercase tracking-widest text-muted-foreground">{category}</CardTitle>
+    <Card className="dashmark-category @container overflow-hidden">
+      <CardHeader className="dashmark-category-header pb-3">
+        <CardTitle className="dashmark-category-title text-xs uppercase tracking-widest text-muted-foreground">{category}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className={cn('grid grid-cols-1 gap-6', twoColumn && '@[520px]:grid-cols-2')}>
+        <div className={cn('dashmark-category-apps grid grid-cols-1 gap-6', twoColumn && '@[520px]:grid-cols-2')}>
           {cards.map(card => (
             <AppCard key={card.id} card={card} showStatus={showStatus} isLoading={isLoading} openInNewTab={openInNewTab} />
           ))}
@@ -279,9 +279,9 @@ function MasonryGrid({ items, entries, onReady, animate, showStatus, isLoading, 
   const showGrid = width > 0
 
   return (
-    <div ref={containerRef}>
+    <div ref={containerRef} className="dashmark-category-grid">
       {showGrid && (
-        <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+        <div className="dashmark-category-grid-items relative w-full" style={{ height: virtualizer.getTotalSize() }}>
           <AnimatePresence>
             {virtualItems.map(virtualItem => {
               const item = items[virtualItem.index]
@@ -373,7 +373,7 @@ function DashboardSearch({
   if (!showSearch && !showHeader) return null
 
   return (
-    <motion.div layout="position" className="dashboard-search sticky top-0 z-10 mb-8" data-overflow={hasPageOverflow || undefined}>
+    <motion.div layout="position" className="dashmark-header dashboard-search sticky top-0 z-10 mb-8" data-overflow={hasPageOverflow || undefined}>
       <div className="pt-18">
         <motion.div
           layout="position"
@@ -384,16 +384,16 @@ function DashboardSearch({
           onAnimationComplete={onAnimationComplete}
         >
           {showHeader && (
-            <div className={`flex items-center ${showSearch ? 'mb-4' : ''}`}>
-              <h1 className="text-2xl font-semibold tracking-tight">{greeting}</h1>
+            <div className={`dashmark-greeting-container flex items-center ${showSearch ? 'mb-4' : ''}`}>
+              <h1 className="dashmark-greeting text-2xl font-semibold tracking-tight">{greeting}</h1>
               {showGroups && userGroups.length > 0 && <UserGroupsBadge groups={userGroups} />}
             </div>
           )}
           {showSearch && (
-            <Card className="overflow-hidden bg-surface shadow-none">
-              <CardContent className="flex flex-row items-center gap-4 py-6">
+            <Card className="dashmark-search-panel overflow-hidden bg-surface shadow-none">
+              <CardContent className="dashmark-search-panel-content flex flex-row items-center gap-4 py-6">
                 {showBranding && (
-                  <img src="/brand/icon.svg" alt={strings.app.title} className="h-8 w-8 shrink-0 rounded-lg" />
+                  <img src="/brand/icon.svg" alt={strings.app.title} className="dashmark-brand h-8 w-8 shrink-0 rounded-lg" />
                 )}
                 <div className="min-w-0 flex-1">
                   <SearchBar value={search} onChange={setSearch} disabled={!!error} />
@@ -476,15 +476,15 @@ function DashboardResults({
 
   if (Object.keys(grouped).length === 0) {
     return (
-      <div className="flex items-center justify-center py-4">
-        <p className="whitespace-nowrap text-muted-foreground">{strings.dashboard.noServices}</p>
+      <div className="dashmark-empty-state flex items-center justify-center py-4">
+        <p className="dashmark-empty-state-message whitespace-nowrap text-muted-foreground">{strings.dashboard.noServices}</p>
       </div>
     )
   }
 
   if (!hasCategories) {
     return (
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="dashmark-app-grid grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <AnimatePresence>
           {uncategorised.map((card, index) => {
             const entry = cardEntries.get(card.id)
@@ -631,8 +631,8 @@ export function Dashboard({
           onAnimationComplete={() => setSearchBarDone(true)}
         />
 
-        <div className={`mx-auto w-full max-w-6xl px-6 pb-12 ${initialShowSearch || showHeader ? '' : 'pt-12'}`}>
-          <div className="min-h-0">
+        <div className={`dashmark-content mx-auto w-full max-w-6xl px-6 pb-12 ${initialShowSearch || showHeader ? '' : 'pt-12'}`}>
+          <div className="dashmark-results min-h-0">
             <DashboardResults
               error={error}
               grouped={grouped}

@@ -26,6 +26,7 @@ Dashmark reads your Docker daemon and turns each labeled container into a link o
 - [How it works](#how-it-works)
 - [Configuration](#configuration)
   - [Environment variables](#environment-variables)
+  - [Styling hooks](#styling-hooks)
   - [Docker labels](#docker-labels)
   - [YAML config file](#yaml-config-file)
   - [Icons](#icons)
@@ -115,6 +116,7 @@ You can configure Dashmark with environment variables, Docker labels, or a YAML 
 | `DOCKER_HOST` | `unix:///var/run/docker.sock` | Docker socket or TCP endpoint |
 | `CONFIG_FILE` | `/app/config.yml` | Optional YAML config file path |
 | `ICONS_DIR` | `/app/icons` | Folder for custom icon files |
+| `CUSTOM_STYLESHEET` | unset | Absolute path to a CSS file mounted into the container. Dashmark serves it at `/custom.css` and loads it after its built-in styles. |
 | `ENABLE_ACCESS_GROUPS` | `false` | When `true`, filter cards by the groups header |
 | `ACCESS_GROUPS_HEADER` | `auto` | Group header. `auto` detects Authentik, Authelia, oauth2-proxy, or Keycloak Gatekeeper |
 | `USER_NAME_HEADER` | auto | Header for `{full_name}` |
@@ -136,6 +138,34 @@ You can configure Dashmark with environment variables, Docker labels, or a YAML 
 | `NEW_TAB` | `false` | When `true`, card links open in a new tab |
 | `PORT` | `4321` | HTTP port Dashmark listens on |
 | `AUTH_TOKEN` | unset | Optional shared secret. When set, Dashmark only serves requests that include `X-Dashmark-Token: <token>`. Set the same token in your reverse proxy, and have it overwrite the header. Off by default |
+
+### Styling hooks
+
+Mount a stylesheet into the container and set `CUSTOM_STYLESHEET` to its absolute path. Dashmark serves it at `/custom.css` and loads it after its built-in styles, so selectors with equal specificity override the built-in Tailwind styles.
+
+[`config/custom.css.example`](config/custom.css.example) contains a complete copyable stylesheet using every supported class below.
+
+```yaml
+services:
+  dashmark:
+    volumes:
+      - ./custom.css:/app/custom.css:ro
+    environment:
+      - CUSTOM_STYLESHEET=/app/custom.css
+```
+
+Use the stable, semantic `dashmark-*` classes below rather than Tailwind utility classes or DOM position.
+
+| Area | Classes |
+| --- | --- |
+| Page | `dashmark`, `dashmark-main`, `dashmark-content`, `dashmark-results` |
+| Header | `dashmark-header`, `dashmark-greeting`, `dashmark-user-groups`, `dashmark-group-badge` |
+| Search | `dashmark-search-panel`, `dashmark-brand`, `dashmark-search`, `dashmark-search-input`, `dashmark-search-clear` |
+| Category filter | `dashmark-category-filter`, `dashmark-category-filter-menu`, `dashmark-category-filter-option` |
+| Categories | `dashmark-category-grid`, `dashmark-category`, `dashmark-category-header`, `dashmark-category-title`, `dashmark-category-apps` |
+| App cards | `dashmark-app-grid`, `dashmark-app-link`, `dashmark-app-card`, `dashmark-app-content`, `dashmark-app-icon`, `dashmark-app-title`, `dashmark-app-url`, `dashmark-app-status` |
+| States | `dashmark-empty-state`, `dashmark-error`, `dashmark-error-panel` |
+| Theme toggle | `dashmark-theme-toggle`, `dashmark-theme-toggle-control`, `dashmark-theme-toggle-icon` |
 
 ### Docker labels
 

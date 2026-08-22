@@ -20,7 +20,8 @@ const trackedVars = [
   'CUSTOM_HEADER',
   'GREETING_MORNING',
   'GREETING_AFTERNOON',
-  'GREETING_EVENING'
+  'GREETING_EVENING',
+  'CUSTOM_STYLESHEET'
 ]
 
 const originals = trackedVars.map(name => ({ name, value: process.env[name] }))
@@ -169,5 +170,17 @@ describe('getConfig greeting values', () => {
   it('reads and trims custom period greetings', () => {
     process.env.GREETING_AFTERNOON = '  G\'day  '
     expect(getConfig().greetingAfternoon).toBe('G\'day')
+  })
+})
+
+describe('getConfig custom stylesheet', () => {
+  it('defaults customStylesheet to undefined', () => {
+    delete process.env.CUSTOM_STYLESHEET
+    expect(getConfig().customStylesheet).toBeUndefined()
+  })
+
+  it('trims and reads the custom stylesheet path', () => {
+    process.env.CUSTOM_STYLESHEET = '  /app/custom.css  '
+    expect(getConfig().customStylesheet).toBe('/app/custom.css')
   })
 })

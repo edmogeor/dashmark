@@ -145,13 +145,13 @@ export function ThemeToggle() {
         if (!isTouch.current) hide()
       }}
       onBlur={hide}
-      className="group fixed top-0 right-0 z-50 h-18 w-18 cursor-pointer bg-transparent p-0"
+      className="dashmark-theme-toggle group fixed top-0 right-0 z-50 h-18 w-18 cursor-pointer bg-transparent p-0"
       aria-label={ariaLabel}
       aria-expanded={revealed}
     >
       <span
         aria-hidden
-        className="pointer-events-none absolute -top-16 -right-16 h-32 w-32 transition-[opacity,transform] duration-500 ease-out"
+        className="dashmark-theme-toggle-glow pointer-events-none absolute -top-16 -right-16 h-32 w-32 transition-[opacity,transform] duration-500 ease-out"
         style={{
           background: glowBackground,
           filter: 'blur(18px)',
@@ -160,15 +160,15 @@ export function ThemeToggle() {
         }}
       />
       <span
-        className="absolute top-0 right-0 flex h-16 w-16 items-start justify-end transition-[transform,opacity] duration-300 ease-out"
+        className="dashmark-theme-toggle-control absolute top-0 right-0 flex h-16 w-16 items-start justify-end transition-[transform,opacity] duration-300 ease-out"
         style={{
           clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
           transform: getRevealTransform(mounted, revealed),
           opacity: mounted ? 1 : 0
         }}
       >
-        <span className="absolute inset-0 bg-surface-hover transition-colors group-hover:bg-surface-active dark:bg-card dark:group-hover:bg-secondary" />
-        <Icon className="relative z-10 mr-2 mt-2 h-6 w-6 text-foreground/40 transition-colors group-hover:text-foreground/60" />
+        <span className="dashmark-theme-toggle-background absolute inset-0 bg-surface-hover transition-colors group-hover:bg-surface-active dark:bg-card dark:group-hover:bg-secondary" />
+        <Icon className="dashmark-theme-toggle-icon relative z-10 mr-2 mt-2 h-6 w-6 text-foreground/40 transition-colors group-hover:text-foreground/60" />
       </span>
     </button>
   )

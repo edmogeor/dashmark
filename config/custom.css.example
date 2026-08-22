@@ -1,0 +1,144 @@
+/*
+ * Copy this file to custom.css, mount it into the container, and set
+ * CUSTOM_STYLESHEET=/app/custom.css.
+ */
+
+.dashmark {
+  /* The document body and overall dashboard theme. */
+}
+
+.dashmark-main {
+  /* The main page area containing the dashboard. */
+}
+
+.dashmark-content {
+  /* The centered content container. */
+}
+
+.dashmark-results {
+  /* The area containing dashboard results and states. */
+}
+
+.dashmark-header {
+  /* The sticky header containing the greeting and search panel. */
+}
+
+.dashmark-greeting {
+  /* The greeting heading. */
+}
+
+.dashmark-user-groups {
+  /* The container for the current user's group badges. */
+}
+
+.dashmark-group-badge {
+  /* An individual user group badge. */
+}
+
+.dashmark-search-panel {
+  /* The card surrounding search and filters. */
+}
+
+.dashmark-brand {
+  /* The Dashmark brand icon in the search panel. */
+}
+
+.dashmark-search {
+  /* The search field container. */
+}
+
+.dashmark-search-input {
+  /* The search text input. */
+}
+
+.dashmark-search-clear {
+  /* The button that clears the search query. */
+}
+
+.dashmark-category-filter {
+  /* The category filter trigger button. */
+}
+
+.dashmark-category-filter-menu {
+  /* The category filter dropdown menu. */
+}
+
+.dashmark-category-filter-option {
+  /* An option in the category filter menu. */
+}
+
+.dashmark-category-grid {
+  /* The masonry layout containing category cards. */
+}
+
+.dashmark-category {
+  /* An individual category card. */
+}
+
+.dashmark-category-header {
+  /* The header area of a category card. */
+}
+
+.dashmark-category-title {
+  /* The category name. */
+}
+
+.dashmark-category-apps {
+  /* The grid of app cards within a category. */
+}
+
+.dashmark-app-grid {
+  /* The app card grid when no categories are assigned. */
+}
+
+.dashmark-app-link {
+  /* The link wrapping an app card. */
+}
+
+.dashmark-app-card {
+  /* An individual app card. */
+}
+
+.dashmark-app-content {
+  /* The content area inside an app card. */
+}
+
+.dashmark-app-icon {
+  /* An app image icon or initials placeholder. */
+}
+
+.dashmark-app-title {
+  /* The app title. */
+}
+
+.dashmark-app-url {
+  /* The app URL shown below the title. */
+}
+
+.dashmark-app-status {
+  /* The app status badge or loading indicator. */
+}
+
+.dashmark-empty-state {
+  /* The state shown when no apps match. */
+}
+
+.dashmark-error {
+  /* The area containing a dashboard loading error. */
+}
+
+.dashmark-error-panel {
+  /* The error message panel. */
+}
+
+.dashmark-theme-toggle {
+  /* The fixed theme toggle button. */
+}
+
+.dashmark-theme-toggle-control {
+  /* The visible triangular control in the toggle. */
+}
+
+.dashmark-theme-toggle-icon {
+  /* The sun or moon icon in the toggle. */
+}

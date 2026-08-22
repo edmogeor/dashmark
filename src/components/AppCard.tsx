@@ -26,7 +26,7 @@ type AppCardProps = {
 function InitialsPlaceholder({ title, asCard }: { title: string; asCard: boolean }) {
   return (
     <div className={cn(
-      'flex h-10 w-10 items-center justify-center rounded-lg text-sm font-semibold text-foreground/50',
+      'dashmark-app-icon dashmark-app-icon-placeholder flex h-10 w-10 items-center justify-center rounded-lg text-sm font-semibold text-foreground/50',
       asCard ? 'bg-surface dark:bg-background' : 'bg-card'
     )}>
       {getInitials(title)}
@@ -56,7 +56,7 @@ function AppIcon({ icon, title, asCard }: { icon: CardType['icon']; title: strin
       <img
         src={src}
         alt={icon.alt}
-        className="h-10 w-10 object-contain"
+        className="dashmark-app-icon h-10 w-10 object-contain"
         loading="lazy"
         onError={() => setError(true)}
       />
@@ -68,7 +68,7 @@ function AppIcon({ icon, title, asCard }: { icon: CardType['icon']; title: strin
 
 export const AppCard = memo(function AppCard({ card, showStatus = true, asCard = false, isLoading = false, openInNewTab = false }: AppCardProps) {
   const cardClassName = cn(
-    'group/card h-full overflow-hidden transition-[background-color,translate] not-has-[.info-button:hover]:hover:-translate-y-0.5',
+    'dashmark-app-card group/card h-full overflow-hidden transition-[background-color,translate] not-has-[.info-button:hover]:hover:-translate-y-0.5',
     asCard
       ? 'min-w-0 bg-card not-has-[.info-button:hover]:hover:bg-surface-hover dark:not-has-[.info-button:hover]:hover:bg-accent'
       : 'min-w-0 border-0 bg-surface shadow-none not-has-[.info-button:hover]:hover:bg-surface-hover'
@@ -79,14 +79,14 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, asCard =
       href={card.url}
       target={openInNewTab ? '_blank' : undefined}
       rel={openInNewTab ? 'noopener noreferrer' : undefined}
-      className="block rounded-lg"
+      className="dashmark-app-link block rounded-lg"
     >
       <Card className={cardClassName}>
-        <CardContent className="flex items-start gap-4 p-4">
+        <CardContent className="dashmark-app-content flex items-start gap-4 p-4">
           <AppIcon icon={card.icon} title={card.title} asCard={asCard} />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-2">
-              <MarqueeText className="min-w-0 flex-1 font-semibold">
+          <div className="dashmark-app-details min-w-0 flex-1">
+            <div className="dashmark-app-header flex items-start justify-between gap-2">
+              <MarqueeText className="dashmark-app-title min-w-0 flex-1 font-semibold">
                 {card.title}
               </MarqueeText>
               {card.description && (
@@ -95,25 +95,25 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, asCard =
                     <TooltipTrigger asChild>
                       <button
                         type="button"
-                        className="info-button shrink-0 cursor-help rounded-full p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
+                        className="dashmark-app-description-trigger info-button shrink-0 cursor-help rounded-full p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
                         onClick={e => e.preventDefault()}
                       >
                         <Info className="h-4 w-4" />
                         <span className="sr-only">{strings.card.description}</span>
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="top" align="center" collisionPadding={16} className="max-w-xs">
+                    <TooltipContent side="top" align="center" collisionPadding={16} className="dashmark-app-description max-w-xs">
                       <p>{card.description}</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               )}
             </div>
-            <MarqueeText className="text-xs text-muted-foreground">
+            <MarqueeText className="dashmark-app-url text-xs text-muted-foreground">
               {card.url}
             </MarqueeText>
             {showStatus && (
-              <div className="mt-2">
+              <div className="dashmark-app-status-container mt-2">
                 <StatusBadge
                   state={card.state}
                   health={card.health}

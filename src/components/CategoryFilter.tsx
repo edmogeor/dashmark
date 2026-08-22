@@ -28,24 +28,24 @@ export function CategoryFilter({ categories, total, selected, onSelect, disabled
           variant="outline"
           disabled={disabled}
           className={cn(
-            'h-10 w-10 cursor-pointer justify-center gap-0 border-0 px-0 shadow-none hover:bg-surface-hover focus-visible:ring-0 aria-expanded:bg-surface-hover dark:hover:bg-surface-hover dark:aria-expanded:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50 sm:w-[200px] sm:justify-start sm:gap-2 sm:px-3',
+            'dashmark-category-filter h-10 w-10 cursor-pointer justify-center gap-0 border-0 px-0 shadow-none hover:bg-surface-hover focus-visible:ring-0 aria-expanded:bg-surface-hover dark:hover:bg-surface-hover dark:aria-expanded:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50 sm:w-[200px] sm:justify-start sm:gap-2 sm:px-3',
             open ? 'bg-surface-hover dark:bg-surface-hover' : 'bg-card dark:bg-card'
           )}
         >
           <ListFilter className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <span className="hidden min-w-0 truncate sm:inline">{selected ?? strings.category.all}</span>
+          <span className="dashmark-category-filter-label hidden min-w-0 truncate sm:inline">{selected ?? strings.category.all}</span>
           <span className="hidden flex-1 sm:inline" />
           <ChevronDown className="hidden h-4 w-4 shrink-0 sm:inline" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[200px]">
-        <DropdownMenuItem onClick={() => onSelect(null)}>
+      <DropdownMenuContent align="end" className="dashmark-category-filter-menu w-[200px]">
+        <DropdownMenuItem className="dashmark-category-filter-option" onClick={() => onSelect(null)}>
           <Check className={cn('opacity-0', selected === null && 'opacity-100')} />
           <span className="flex-1">{strings.category.all}</span>
           <span className="text-xs text-muted-foreground">{total}</span>
         </DropdownMenuItem>
         {categories.map(({ name, count }) => (
-          <DropdownMenuItem key={name} onClick={() => onSelect(name)}>
+          <DropdownMenuItem key={name} className="dashmark-category-filter-option" onClick={() => onSelect(name)}>
             <Check className={cn('opacity-0', selected === name && 'opacity-100')} />
             <span className="flex-1">{name}</span>
             <span className="text-xs text-muted-foreground">{count}</span>

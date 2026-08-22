@@ -7,6 +7,7 @@ services:
     volumes:
       - ./config/config.example.yml:/app/config.yml:ro
       - ./icons:/app/icons:ro
+      # - ./custom.css:/app/custom.css:ro
     environment:
       # Points Dashmark at the socket-proxy sidecar below. The default is the
       # Docker socket at unix:///var/run/docker.sock.
@@ -16,6 +17,7 @@ services:
       # - PORT=4321
       # - CONFIG_FILE=/app/config.yml
       # - ICONS_DIR=/app/icons
+      # - CUSTOM_STYLESHEET=/app/custom.css
       # - ENABLE_ACCESS_GROUPS=false
       # - ACCESS_GROUPS_HEADER=auto
       # - SHOW_SEARCH=true

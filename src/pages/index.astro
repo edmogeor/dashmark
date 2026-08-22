@@ -41,6 +41,7 @@ const greeting = resolveGreeting(config, user)
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content={strings.app.title} />
+    {config.customStylesheet && <link rel="stylesheet" href="/custom.css" />}
     <script is:inline define:vars={{ themeStorageKey: THEME_STORAGE_KEY }}>
       (function () {
         const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -51,10 +52,10 @@ const greeting = resolveGreeting(config, user)
       })()
     </script>
   </head>
-  <body class="flex min-h-screen flex-col bg-background text-foreground">
+  <body class="dashmark flex min-h-screen flex-col bg-background text-foreground">
     {config.showThemeToggle && <ThemeToggle client:load />}
 
-    <main class="my-auto w-full">
+    <main class="dashmark-main my-auto w-full">
       <Dashboard
         client:load
         initialCards={initialCards}

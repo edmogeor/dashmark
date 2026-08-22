@@ -6,6 +6,7 @@ export type AppConfig = {
   dockerHost: string
   configFile: string
   iconsDir: string
+  customStylesheet?: string
   enableAccessGroups: boolean
   accessGroupsHeader: string
   userNameHeader?: string
@@ -70,6 +71,7 @@ export function getConfig(): AppConfig {
     dockerHost: process.env.DOCKER_HOST || 'unix:///var/run/docker.sock',
     configFile: process.env.CONFIG_FILE || '/app/config.yml',
     iconsDir: process.env.ICONS_DIR || '/app/icons',
+    customStylesheet: optionalString(process.env.CUSTOM_STYLESHEET),
     enableAccessGroups,
     accessGroupsHeader,
     userNameHeader: parseUserHeader(process.env.USER_NAME_HEADER),

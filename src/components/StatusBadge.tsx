@@ -35,7 +35,7 @@ export function StatusBadge({ state, health, loading, asCard = false }: StatusBa
     return (
       <span
         className={cn(
-          'inline-flex h-5 w-5 items-center justify-center rounded-full',
+          'dashmark-app-status dashmark-app-status-loading inline-flex h-5 w-5 items-center justify-center rounded-full',
           asCard ? 'bg-muted' : 'bg-surface-active'
         )}
         aria-busy="true"
@@ -55,7 +55,7 @@ export function StatusBadge({ state, health, loading, asCard = false }: StatusBa
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+        'dashmark-app-status inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
         colorClass
       )}
     >
