@@ -113,6 +113,7 @@ All labels use the `dashmark.` prefix:
 | `dashmark.description` | Short description shown in a tooltip |
 | `dashmark.icon` | `selfhst:<slug>` reference, URL, path inside `ICONS_DIR`, or `placeholder` (unset auto-matches) |
 | `dashmark.category` | Group name |
+| `dashmark.show_status` | `"false"` hides the status badge for this card |
 | `dashmark.access_groups` | Comma-separated group allow-list |
 | `dashmark.search_aliases` | Comma-separated extra search terms |
 | `dashmark.order` | Numeric sort priority within a category |
@@ -121,7 +122,7 @@ With no `dashmark.url` (and no YAML URL), the URL is derived from a Traefik labe
 
 ### YAML config
 
-Optional flat file at `CONFIG_FILE`, where each top-level key is a service keyed by container name or compose service name (from the `com.docker.compose.service` label; container name wins on conflict). Per-service fields: `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `access_groups`, `search_aliases`. YAML values override Docker labels for a matching container; entries with no matching container still produce cards (no state badge). See `config/config.example.yml`.
+Optional flat file at `CONFIG_FILE`, where each top-level key is a service keyed by container name or compose service name (from the `com.docker.compose.service` label; container name wins on conflict). Per-service fields: `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `show_status`, `access_groups`, `search_aliases`. YAML values override Docker labels for a matching container; entries with no matching container still produce cards (no state badge). See `config/config.example.yml`.
 
 ### Access groups
 

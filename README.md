@@ -157,6 +157,7 @@ Add labels to opt a container in and configure its card.
 | `dashmark.description` | Tooltip text; set to `none` to hide it |
 | `dashmark.icon` | `selfhst:<slug>`, an image URL, a path in `ICONS_DIR`, or `placeholder` |
 | `dashmark.category` | Category name; matching is case-insensitive |
+| `dashmark.show_status` | Set to `false` to hide the status badge for this card |
 | `dashmark.access_groups` | Comma-separated group allow-list |
 | `dashmark.search_aliases` | Comma-separated additional search terms |
 | `dashmark.order` | Sort order within a category, lower values first; cards without an order follow alphabetically by title |
@@ -187,7 +188,7 @@ github:
   category: External
 ```
 
-Available fields are `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `access_groups`, and `search_aliases`. See [`config/config.example.yml`](config/config.example.yml) for a commented example.
+Available fields are `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `show_status`, `access_groups`, and `search_aliases`. See [`config/config.example.yml`](config/config.example.yml) for a commented example.
 
 ### Icons
 

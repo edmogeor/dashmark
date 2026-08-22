@@ -30,6 +30,7 @@ export type Card = {
   icon: IconResult
   category?: string
   order?: number
+  showStatus?: boolean
   state?: string
   health?: string
   searchAliases: string[]
@@ -267,6 +268,7 @@ function mergeWithYaml(
     icon: yamlService.icon ?? labels.icon,
     category: yamlService.category ?? labels.category,
     order: yamlService.order ?? labels.order,
+    showStatus: yamlService.showStatus ?? labels.showStatus,
     accessGroups: yamlService.accessGroups ?? labels.accessGroups,
     searchAliases: yamlService.searchAliases ?? labels.searchAliases
   }
@@ -377,6 +379,7 @@ async function cardFromContainer(
     icon,
     category: labels.category,
     order: labels.order,
+    showStatus: labels.showStatus,
     state: container.State,
     health: parseHealth(container.Status),
     searchAliases: labels.searchAliases,
@@ -409,6 +412,7 @@ async function cardFromYaml(
     icon,
     category: service.category,
     order: service.order,
+    showStatus: service.showStatus,
     searchAliases: service.searchAliases ?? [],
     hasContainer: false,
     accessGroups: service.accessGroups ?? []

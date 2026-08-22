@@ -79,8 +79,10 @@ const demoContainers = [
     Status: 'Up 10 minutes',
     Labels: {
       'dashmark.title': 'Watchtower',
+      'dashmark.description': 'Keeps Docker images up to date.',
       'dashmark.url': 'http://localhost:8086',
-      'dashmark.category': 'Management'
+      'dashmark.category': 'Management',
+      'dashmark.show_status': 'false'
     }
   },
   {

@@ -48,7 +48,8 @@ describe('getCards', () => {
         Labels: {
           'dashmark.title': 'Plex',
           'dashmark.url': 'https://plex.home.local',
-          'dashmark.category': 'Media'
+          'dashmark.category': 'Media',
+          'dashmark.show_status': 'false'
         }
       }
     ]
@@ -63,6 +64,7 @@ describe('getCards', () => {
       title: 'Plex',
       url: 'https://plex.home.local',
       category: 'Media',
+      showStatus: false,
       state: 'running',
       health: 'healthy',
       hasContainer: true

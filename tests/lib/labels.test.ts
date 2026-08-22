@@ -11,6 +11,7 @@ describe('parseLabels', () => {
       'dashmark.category': 'Media',
       'dashmark.order': '1',
       'dashmark.hidden': 'true',
+      'dashmark.show_status': 'false',
       'dashmark.access_groups': 'media, admins'
     }
 
@@ -22,6 +23,7 @@ describe('parseLabels', () => {
       icon: 'plex',
       category: 'Media',
       order: 1,
+      showStatus: false,
       accessGroups: ['media', 'admins'],
       searchAliases: []
     })
@@ -36,6 +38,7 @@ describe('parseLabels', () => {
       icon: undefined,
       category: undefined,
       order: undefined,
+      showStatus: undefined,
       accessGroups: [],
       searchAliases: []
     })

@@ -14,6 +14,8 @@ plex:
   icon: selfhst:plex
   category: Media
   order: 1
+  # Set false to hide this card's status badge.
+  show_status: false
   search_aliases:
     - movies
     - watch later

@@ -28,6 +28,7 @@ describe('loadYamlConfig', () => {
 valid:
   url: https://valid.example.com
   order: 2
+  show_status: false
   access_groups: [admins]
 invalid:
   hidden: "false"
@@ -40,6 +41,7 @@ not-a-service: null
         valid: {
           url: 'https://valid.example.com',
           order: 2,
+          showStatus: false,
           accessGroups: ['admins']
         },
         invalid: {}

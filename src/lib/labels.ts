@@ -8,12 +8,19 @@ export type ParsedLabels = {
   icon?: string
   category?: string
   order?: number
+  showStatus?: boolean
   accessGroups: string[]
   searchAliases: string[]
 }
 
 function parseCommaSeparated(value: string | undefined): string[] {
   return value?.split(',').map(item => item.trim()).filter(Boolean) ?? []
+}
+
+function parseOptionalBool(value: string | undefined): boolean | undefined {
+  if (value?.toLowerCase() === 'true') return true
+  if (value?.toLowerCase() === 'false') return false
+  return undefined
 }
 
 export function parseLabels(labels: Record<string, string>): ParsedLabels {
@@ -27,6 +34,7 @@ export function parseLabels(labels: Record<string, string>): ParsedLabels {
   const category = get('category')
   const orderRaw = get('order')
   const order = orderRaw !== undefined ? Number(orderRaw) : undefined
+  const showStatus = parseOptionalBool(get('show_status'))
   const accessGroups = parseCommaSeparated(get('access_groups'))
   const searchAliases = parseCommaSeparated(get('search_aliases'))
 
@@ -38,6 +46,7 @@ export function parseLabels(labels: Record<string, string>): ParsedLabels {
     icon,
     category,
     order: Number.isFinite(order) ? order : undefined,
+    showStatus,
     accessGroups,
     searchAliases
   }

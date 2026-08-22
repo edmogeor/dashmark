@@ -49,6 +49,7 @@ function parseService(value: unknown): ServiceOverrides | null {
     category: string(value.category),
     order,
     hidden: typeof value.hidden === 'boolean' ? value.hidden : undefined,
+    showStatus: typeof value.show_status === 'boolean' ? value.show_status : undefined,
     accessGroups: stringArray(value.access_groups),
     searchAliases: stringArray(value.search_aliases)
   }
