@@ -14,9 +14,6 @@ export default defineConfig({
   integrations: [react()],
   vite: {
     plugins: [tailwindcss()],
-    ssr: {
-      noExternal: ['lucide-react']
-    },
     resolve: {
       alias: {
         '@': '/src'

@@ -11,9 +11,9 @@ function startAstroDev(dockerHost) {
     env: {
       ...process.env,
       DOCKER_HOST: dockerHost,
-      // Force foreground mode. Astro otherwise auto-backgrounds when it detects an
-      // AI agent environment, which detaches the process and breaks cleanup here.
-      ASTRO_DEV_BACKGROUND: '1',
+      // Keep Astro attached so this wrapper retains the mock Docker server until
+      // the development server exits.
+      ASTRO_DEV_BACKGROUND: '0',
       MOCK_AUTH: 'true',
       MOCK_USER_NAME: 'John Doe',
       MOCK_USER_USERNAME: 'john',
