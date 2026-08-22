@@ -1,0 +1,63 @@
+---
+export const prerender = true
+
+import { Dashboard } from '@/components/Dashboard'
+import { ThemeToggle } from '@/components/ThemeToggle'
+import { THEME_STORAGE_KEY } from '@/lib/constants'
+import { strings } from '@/lib/strings'
+import type { Card } from '@/lib/docker'
+import '@/styles/global.css'
+
+const icon = (name: string) => `https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/${name}.svg`
+const cards = [
+  { id: 'plex', title: 'Plex', description: 'Your media library', url: 'https://plex.example.com', icon: { type: 'image', src: icon('plex'), alt: 'Plex' }, category: 'Media', searchAliases: ['movies', 'tv'], hasContainer: true },
+  { id: 'jellyfin', title: 'Jellyfin', description: 'Open-source media streaming', url: 'https://jellyfin.example.com', icon: { type: 'image', src: icon('jellyfin'), alt: 'Jellyfin' }, category: 'Media', searchAliases: ['movies', 'music'], hasContainer: true },
+  { id: 'radarr', title: 'Radarr', description: 'Movie collection manager', url: 'https://radarr.example.com', icon: { type: 'image', src: icon('radarr'), alt: 'Radarr' }, category: 'Media', searchAliases: ['movies'], hasContainer: true },
+  { id: 'sonarr', title: 'Sonarr', description: 'TV series manager', url: 'https://sonarr.example.com', icon: { type: 'image', src: icon('sonarr'), alt: 'Sonarr' }, category: 'Media', searchAliases: ['television'], hasContainer: true },
+  { id: 'home-assistant', title: 'Home Assistant', description: 'Home automation', url: 'https://home.example.com', icon: { type: 'image', src: icon('home-assistant'), alt: 'Home Assistant' }, category: 'Home', searchAliases: ['smart home'], hasContainer: true },
+  { id: 'adguard', title: 'AdGuard Home', description: 'Network-wide ad blocking', url: 'https://dns.example.com', icon: { type: 'image', src: icon('adguard-home'), alt: 'AdGuard Home' }, category: 'Home', searchAliases: ['dns', 'adblock'], hasContainer: true },
+  { id: 'nextcloud', title: 'Nextcloud', description: 'Files, calendars, and contacts', url: 'https://cloud.example.com', icon: { type: 'image', src: icon('nextcloud'), alt: 'Nextcloud' }, category: 'Productivity', searchAliases: ['files', 'calendar'], hasContainer: true },
+  { id: 'paperless', title: 'Paperless-ngx', description: 'Document archive', url: 'https://documents.example.com', icon: { type: 'image', src: icon('paperless-ngx'), alt: 'Paperless-ngx' }, category: 'Productivity', searchAliases: ['documents', 'archive'], hasContainer: true },
+  { id: 'vaultwarden', title: 'Vaultwarden', description: 'Password manager', url: 'https://vault.example.com', icon: { type: 'image', src: icon('vaultwarden'), alt: 'Vaultwarden' }, category: 'Security', searchAliases: ['passwords'], hasContainer: true },
+  { id: 'grafana', title: 'Grafana', description: 'Metrics dashboards', url: 'https://grafana.example.com', icon: { type: 'image', src: icon('grafana'), alt: 'Grafana' }, category: 'Monitoring', searchAliases: ['metrics'], hasContainer: true },
+  { id: 'uptime-kuma', title: 'Uptime Kuma', description: 'Service availability', url: 'https://status.example.com', icon: { type: 'image', src: icon('uptime-kuma'), alt: 'Uptime Kuma' }, category: 'Monitoring', searchAliases: ['status'], hasContainer: true },
+  { id: 'portainer', title: 'Portainer', description: 'Container management', url: 'https://containers.example.com', icon: { type: 'image', src: icon('portainer'), alt: 'Portainer' }, category: 'Infrastructure', searchAliases: ['docker'], hasContainer: true },
+  { id: 'proxmox', title: 'Proxmox', description: 'Virtualisation management', url: 'https://proxmox.example.com', icon: { type: 'image', src: icon('proxmox'), alt: 'Proxmox' }, category: 'Infrastructure', searchAliases: ['virtual machines'], hasContainer: true },
+  { id: 'traefik', title: 'Traefik', description: 'Reverse proxy', url: 'https://proxy.example.com', icon: { type: 'image', src: icon('traefik'), alt: 'Traefik' }, category: 'Infrastructure', searchAliases: ['proxy'], hasContainer: true },
+  { id: 'immich', title: 'Immich', description: 'Photo backup', url: 'https://photos.example.com', icon: { type: 'image', src: icon('immich'), alt: 'Immich' }, category: 'Photos', searchAliases: ['images'], hasContainer: true },
+  { id: 'syncthing', title: 'Syncthing', description: 'Private file synchronisation', url: 'https://sync.example.com', icon: { type: 'placeholder', initials: 'S' }, category: 'Productivity', searchAliases: ['sync'], hasContainer: true },
+  { id: 'mealie', title: 'Mealie', description: 'Recipe manager', url: 'https://recipes.example.com', icon: { type: 'placeholder', initials: 'M' }, category: 'Home', searchAliases: ['recipes'], hasContainer: true },
+  { id: 'actual', title: 'Actual Budget', description: 'Personal finance', url: 'https://budget.example.com', icon: { type: 'placeholder', initials: 'AB' }, category: 'Productivity', searchAliases: ['finance'], hasContainer: true }
+] satisfies Omit<Card, 'accessGroups'>[]
+const demoCards: Card[] = cards.map(card => ({ ...card, accessGroups: [] }))
+
+const baseUrl = import.meta.env.BASE_URL
+---
+
+<!doctype html>
+<html lang={strings.meta.lang} class="dark" data-theme-toggle-enabled="true">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Dashmark demo</title>
+    <meta name="description" content="An interactive Dashmark example dashboard." />
+    <link rel="icon" type="image/svg+xml" href={`${baseUrl}/brand/icon.svg`} />
+    <script is:inline define:vars={{ themeStorageKey: THEME_STORAGE_KEY }}>
+      const stored = localStorage.getItem(themeStorageKey)
+      document.documentElement.classList.toggle('dark', stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches)
+    </script>
+  </head>
+  <body class="dashmark flex min-h-screen flex-col bg-background text-foreground">
+    <ThemeToggle client:load />
+    <main class="dashmark-main w-full">
+      <Dashboard
+        client:load
+        initialCards={demoCards}
+        initialShowStatus={false}
+        initialShowBranding={false}
+        enableStatusPolling={false}
+        showHeader={false}
+      />
+    </main>
+  </body>
+</html>

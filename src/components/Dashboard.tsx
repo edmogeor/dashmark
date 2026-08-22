@@ -327,6 +327,7 @@ type DashboardProps = {
   initialShowStatus?: boolean
   initialShowBranding?: boolean
   initialOpenInNewTab?: boolean
+  enableStatusPolling?: boolean
   showHeader?: boolean
   showGroups?: boolean
   greeting?: string
@@ -565,6 +566,7 @@ export function Dashboard({
   initialShowStatus = true,
   initialShowBranding = true,
   initialOpenInNewTab = false,
+  enableStatusPolling = true,
   showHeader = false,
   showGroups = false,
   greeting,
@@ -575,7 +577,7 @@ export function Dashboard({
   const [search, setSearch] = useState('')
   const deferredSearch = useDeferredValue(search)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(!initialError)
+  const [isLoading, setIsLoading] = useState(!initialError && enableStatusPolling)
   const showLoading = useStableLoading(isLoading)
   const [statusUnavailable, setStatusUnavailable] = useState(false)
   const [hasPageOverflow, setHasPageOverflow] = useState(false)
@@ -601,7 +603,7 @@ export function Dashboard({
   }, [])
 
   useStatusPolling({
-    enabled: !error,
+    enabled: !error && enableStatusPolling,
     setCards,
     setUnavailable: setStatusUnavailable,
     setLoading: setIsLoading

@@ -10,6 +10,7 @@ const port = Number.isInteger(parsedPort) && parsedPort > 0 && parsedPort <= 65_
 
 export default defineConfig({
   output: 'server',
+  base: process.env.ASTRO_BASE,
   adapter: node({ mode: 'standalone' }),
   integrations: [react()],
   vite: {
