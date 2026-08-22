@@ -12,6 +12,7 @@ const demoContainers = [
       'dashmark.title': 'Plex',
       'dashmark.description': 'Media server',
       'dashmark.url': 'http://localhost:8081',
+      'dashmark.category': 'Media',
       'dashmark.order': '1'
     }
   },
@@ -26,6 +27,7 @@ const demoContainers = [
       'dashmark.title': 'Jellyfin',
       'dashmark.description': 'Open source media server',
       'dashmark.url': 'http://localhost:8082',
+      'dashmark.category': 'Media',
       'dashmark.order': '2'
     }
   },
@@ -40,6 +42,7 @@ const demoContainers = [
       'dashmark.title': 'Grafana',
       'dashmark.description': 'Monitoring dashboards',
       'dashmark.url': 'http://localhost:8083',
+      'dashmark.category': 'Monitoring',
       'dashmark.order': '1'
     }
   },
@@ -54,6 +57,7 @@ const demoContainers = [
       'dashmark.title': 'Uptime Kuma',
       'dashmark.description': 'Uptime monitor',
       'dashmark.url': 'http://localhost:8084',
+      'dashmark.category': 'Monitoring',
       'dashmark.order': '2'
     }
   },
@@ -68,6 +72,7 @@ const demoContainers = [
       'dashmark.title': 'Portainer',
       'dashmark.description': 'Docker management UI',
       'dashmark.url': 'http://localhost:8085',
+      'dashmark.category': 'Management'
     }
   },
   {
@@ -80,6 +85,7 @@ const demoContainers = [
     Labels: {
       'dashmark.title': 'Watchtower',
       'dashmark.url': 'http://localhost:8086',
+      'dashmark.category': 'Management'
     }
   },
   {
@@ -93,6 +99,7 @@ const demoContainers = [
       'dashmark.title': 'NZBGet',
       'dashmark.description': 'Usenet downloader',
       'dashmark.url': 'http://localhost:8087',
+      'dashmark.category': 'Media'
     }
   }
 ]

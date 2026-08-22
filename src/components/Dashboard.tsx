@@ -464,6 +464,7 @@ type DashboardResultsProps = {
   error: DashmarkError | null
   grouped: Record<string, CardType[]>
   hasCategories: boolean
+  isSearching: boolean
   uncategorised: CardType[]
   categoryItems: CategoryItem[]
   showStatus: boolean
@@ -505,6 +506,7 @@ function DashboardResults({
   error,
   grouped,
   hasCategories,
+  isSearching,
   uncategorised,
   categoryItems,
   showStatus,
@@ -533,7 +535,7 @@ function DashboardResults({
           {uncategorised.map((card, index) => {
             const entry = cardEntries.get(card.id)
             return (
-              <AnimatedGridItem key={entry?.key} isReentry={entry?.isReentry} delay={0.08 + index * 0.06}>
+              <AnimatedGridItem key={entry?.key} isReentry={isSearching || entry?.isReentry} delay={0.08 + index * 0.06}>
                 <AppCard card={card} showStatus={showStatus} asCard isLoading={isLoading} openInNewTab={openInNewTab} />
               </AnimatedGridItem>
             )
@@ -629,7 +631,12 @@ export function Dashboard({
     () => cards.some(card => Boolean(card.category?.trim())),
     [cards]
   )
-  const willRenderMasonry = !error && Object.keys(grouped).length > 0 && hasCategories
+  const isCategoryFiltered = selectedCategory !== null
+  const isSearching = deferredSearch.trim().length > 0
+  const categoryCount = Object.keys(grouped).length
+  const shouldUseCategoryContainers = hasCategories && !isCategoryFiltered && (!isSearching || categoryCount > 1)
+  const flatCards = shouldUseCategoryContainers ? uncategorised : filtered
+  const willRenderMasonry = !error && Object.keys(grouped).length > 0 && shouldUseCategoryContainers
 
   const [masonryLayoutReady, setMasonryLayoutReady] = useState(false)
   const [searchBarDone, setSearchBarDone] = useState(false)
@@ -680,8 +687,9 @@ export function Dashboard({
             <DashboardResults
               error={error}
               grouped={grouped}
-              hasCategories={hasCategories}
-              uncategorised={uncategorised}
+              hasCategories={shouldUseCategoryContainers}
+              isSearching={isSearching}
+              uncategorised={flatCards}
               categoryItems={categoryItems}
               showStatus={initialShowStatus}
               isLoading={showLoading || statusUnavailable}

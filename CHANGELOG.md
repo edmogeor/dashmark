@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-alpha.8] - 2026-08-22
+
+### Changed
+
+- Category-filtered cards and single-category search results now use the flat card grid.
+- Flat search-result cards fade in without vertical motion.
+- Restored categories to the development mock services.
+
 ## [0.1.0-alpha.7] - 2026-08-22
 
 ### Added
