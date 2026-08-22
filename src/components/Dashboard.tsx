@@ -161,7 +161,7 @@ function AnimatedGridItem({
       layout="position"
       initial={hidden}
       animate={animate ? shown : hidden}
-      exit={{ opacity: 0 }}
+      exit={{ opacity: 0, transition: { duration: 0.15, ease: 'easeOut', delay: 0 } }}
       transition={{ duration: 0.3, ease: 'easeOut', delay, layout: POSITION_TRANSITION }}
     >
       {children}
