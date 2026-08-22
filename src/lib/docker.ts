@@ -6,7 +6,6 @@ import type { ServiceOverrides } from './config-file'
 import { loadYamlConfig } from './config-file'
 import { parseLabels, isValidUrl, traefikUrl, hasDashmarkLabels, type ParsedLabels } from './labels'
 import { resolveIcon, type IconResult } from './icons'
-import { resolveDescription } from './descriptions'
 import { groupHeaderNames, readUserGroups } from './auth'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
@@ -280,12 +279,10 @@ function groupsIntersect(cardGroups: string[], userGroups: string[]): boolean {
 }
 
 function resolveCardDescription(
-  config: AppConfig,
-  description: string | undefined,
-  options: Parameters<typeof resolveDescription>[1]
+  description: string | undefined
 ): string | undefined {
   if (description?.trim().toLowerCase() === 'none') return undefined
-  return description ?? resolveDescription(config, options)
+  return description
 }
 
 function filterCardsByAccessGroups(cards: Card[], userGroups: string[]): Card[] {
@@ -365,20 +362,17 @@ async function cardFromContainer(
   if (labels.hidden || !url) return null
 
   const title = labels.title || name
-  const [icon, description] = await Promise.all([
-    resolveIcon(config, {
-      iconLabel: labels.icon,
-      imageName: container.Image,
-      title,
-      containerName: name
-    }),
-    resolveCardDescription(config, labels.description, { imageName: container.Image, title, containerName: name })
-  ])
+  const icon = await resolveIcon(config, {
+    iconLabel: labels.icon,
+    imageName: container.Image,
+    title,
+    containerName: name
+  })
 
   return {
     id: container.Id,
     title,
-    description,
+    description: resolveCardDescription(labels.description),
     url,
     icon,
     category: labels.category,
@@ -401,19 +395,16 @@ async function cardFromYaml(
   }
 
   const title = service.title || name
-  const [icon, description] = await Promise.all([
-    resolveIcon(config, {
-      iconLabel: service.icon,
-      title,
-      containerName: name
-    }),
-    resolveCardDescription(config, service.description, { title, containerName: name })
-  ])
+  const icon = await resolveIcon(config, {
+    iconLabel: service.icon,
+    title,
+    containerName: name
+  })
 
   return {
     id: `yaml-${name}`,
     title,
-    description,
+    description: resolveCardDescription(service.description),
     url: service.url,
     icon,
     category: service.category,

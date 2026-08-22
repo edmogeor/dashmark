@@ -1,14 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { MockDockerServer } from '../mocks/docker-server'
 import { getConfig } from '@/lib/config'
 import { getCards, getContainerStatuses, clearDockerCache } from '@/lib/docker'
-
-vi.mock('@/lib/descriptions', () => ({
-  resolveDescription: vi.fn(() => 'Automatic description')
-}))
 
 const tempDirectories: string[] = []
 
@@ -65,16 +61,16 @@ describe('getCards', () => {
     expect(cards).toHaveLength(1)
     expect(cards[0]).toMatchObject({
       title: 'Plex',
-      description: 'Automatic description',
       url: 'https://plex.home.local',
       category: 'Media',
       state: 'running',
       health: 'healthy',
       hasContainer: true
     })
+    expect(cards[0]?.description).toBeUndefined()
   })
 
-  it('keeps an explicit description instead of the automatic match', async () => {
+  it('keeps an explicit description', async () => {
     server.containers = [
       {
         Id: 'custom-description',
@@ -97,7 +93,7 @@ describe('getCards', () => {
     expect(cards[0]?.description).toBe('My media server')
   })
 
-  it('lets an explicit none description disable automatic matching', async () => {
+  it('lets an explicit none description hide the tooltip', async () => {
     server.containers = [
       {
         Id: 'no-description',
@@ -433,7 +429,7 @@ describe('getCards', () => {
     expect((await getCards(config, new Headers())).cards[0]?.title).toBe('Plex Media')
   })
 
-  it('lets a YAML none description disable automatic matching', async () => {
+  it('lets a YAML none description hide the tooltip', async () => {
     server.containers = [
       {
         Id: 'abc123',

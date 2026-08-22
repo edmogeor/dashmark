@@ -25,7 +25,6 @@ services:
       # - STATUS_POLL_INTERVAL=30
       # - CATEGORY_ORDER=Media,Productivity,Home
       # - ENABLE_AUTOMATIC_ICONS=true
-      # - ENABLE_AUTOMATIC_DESCRIPTIONS=true
       # - SHOW_BRANDING=true
       # - SHOW_HEADER=true
       # - SHOW_GROUP_TAGS=true
