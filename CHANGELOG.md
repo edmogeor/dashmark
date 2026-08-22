@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-alpha.13] - 2026-08-22
+
+### Fixed
+
+- Include the Astro Node adapter and its standalone server dependencies in the production image.
+
 ## [0.1.0-alpha.12] - 2026-08-22
 
 ### Added
