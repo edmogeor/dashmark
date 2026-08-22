@@ -33,6 +33,7 @@ export function useStatusPolling({
 }): void {
   const statusToastDismissed = useRef(false)
   const statusToastRecovering = useRef(false)
+  const statusToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   function showStatusToast(description: string) {
     statusToastRecovering.current = false
@@ -49,11 +50,26 @@ export function useStatusPolling({
     })
   }
 
+  function clearStatusToastTimer() {
+    if (!statusToastTimer.current) return
+    clearTimeout(statusToastTimer.current)
+    statusToastTimer.current = null
+  }
+
+  function scheduleStatusToast(description: string) {
+    clearStatusToastTimer()
+    statusToastTimer.current = setTimeout(() => {
+      statusToastTimer.current = null
+      showStatusToast(description)
+    }, 1_000)
+  }
+
   useEffect(() => {
     if (!enabled) return
 
     const controller = new AbortController()
     let timeout: ReturnType<typeof setTimeout> | null = null
+    toast.dismiss(STATUS_TOAST_ID)
 
     async function pollStatus() {
       setLoading(true)
@@ -65,9 +81,10 @@ export function useStatusPolling({
         if (!isStatusResponse(data)) throw new Error('Status endpoint returned an invalid response')
         if ('error' in data) {
           setUnavailable(true)
-          showStatusToast(data.error.message)
+          scheduleStatusToast(data.error.message)
         } else {
           setUnavailable(false)
+          clearStatusToastTimer()
           statusToastRecovering.current = true
           statusToastDismissed.current = false
           toast.dismiss(STATUS_TOAST_ID)
@@ -76,7 +93,7 @@ export function useStatusPolling({
       } catch {
         if (controller.signal.aborted) return
         setUnavailable(true)
-        showStatusToast(strings.errors.serverUnreachable)
+        scheduleStatusToast(strings.errors.serverUnreachable)
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false)
@@ -90,6 +107,7 @@ export function useStatusPolling({
     return () => {
       controller.abort()
       if (timeout) clearTimeout(timeout)
+      clearStatusToastTimer()
     }
   }, [enabled, interval, setCards, setUnavailable, setLoading])
 }
