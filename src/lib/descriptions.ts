@@ -11,7 +11,7 @@ type ServiceDescription = {
   description: string
 }
 
-let cachedDescriptions: ServiceDescription[] | null | undefined
+let cachedDescriptions: ServiceDescription[] | undefined
 let cachedFuse: Fuse<ServiceDescription> | null = null
 
 export function clearDescriptionCache(): void {
@@ -20,20 +20,18 @@ export function clearDescriptionCache(): void {
 }
 
 function loadDescriptions(): ServiceDescription[] {
-  if (cachedDescriptions !== undefined) return cachedDescriptions ?? []
+  if (cachedDescriptions) return cachedDescriptions
 
   try {
     const content = fs.readFileSync(path.resolve('src/data/descriptions.json'), 'utf-8')
     const parsed: unknown = JSON.parse(content)
-    if (!Array.isArray(parsed)) return cachedDescriptions = []
-
-    cachedDescriptions = parsed.filter((item): item is ServiceDescription => {
+    cachedDescriptions = Array.isArray(parsed) ? parsed.filter((item): item is ServiceDescription => {
       return typeof item === 'object'
         && item !== null
         && typeof item.reference === 'string'
         && typeof item.name === 'string'
         && typeof item.description === 'string'
-    })
+    }) : []
   } catch {
     cachedDescriptions = []
   }

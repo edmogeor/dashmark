@@ -1,6 +1,6 @@
 import type { Card } from './docker'
 
-export type DemoService = Omit<Card, 'accessGroups' | 'icon'> & { imageName: string; accessGroups?: string[] }
+type DemoService = Omit<Card, 'accessGroups' | 'icon'> & { imageName: string; accessGroups?: string[] }
 
 export const demoServices = [
   { id: 'plex', title: 'Plex', description: 'Your media library', url: 'https://plex.example.com', imageName: 'plexinc/pms-docker:latest', category: 'Media', searchAliases: ['movies', 'tv'], hasContainer: true, accessGroups: ['media'] },

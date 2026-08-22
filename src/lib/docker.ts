@@ -284,8 +284,8 @@ function resolveCardDescription(
   description: string | undefined,
   options: Parameters<typeof resolveDescription>[1]
 ): string | undefined {
-  if (description === undefined) return resolveDescription(config, options)
-  return description.trim().toLowerCase() === 'none' ? undefined : description
+  if (description?.trim().toLowerCase() === 'none') return undefined
+  return description ?? resolveDescription(config, options)
 }
 
 function filterCardsByAccessGroups(cards: Card[], userGroups: string[]): Card[] {

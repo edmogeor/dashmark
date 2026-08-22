@@ -1,11 +1,11 @@
-import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useDeferredValue, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, LayoutGroup, motion, type Transition, type Variants } from 'framer-motion'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import type { Virtualizer } from '@tanstack/virtual-core'
-import Fuse from 'fuse.js'
 import { SearchBar } from './SearchBar'
 import { CategoryFilter } from './CategoryFilter'
 import { AppCard } from './AppCard'
+import { useDashboardViewModel, type CategoryItem } from './use-dashboard-view-model'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { CircleAlert, User } from 'lucide-react'
@@ -14,11 +14,10 @@ import type { Card as CardType } from '@/lib/docker'
 import type { DashmarkError } from '@/lib/errors'
 import { useStableLoading } from '@/lib/use-stable-loading'
 import { useStatusPolling } from '@/lib/use-status-polling'
+import { usePageOverflow } from '@/lib/use-page-overflow'
 import { strings } from '@/lib/strings'
 import { cn } from '@/lib/utils'
-import { SEARCH_FUZZY_THRESHOLD, STATUS_POLL_INTERVAL_MS } from '@/lib/constants'
-
-const UNCATEGORISED = strings.category.uncategorised
+import { STATUS_POLL_INTERVAL_MS } from '@/lib/constants'
 
 const COLUMN_WIDTH = 300
 const COLUMN_GUTTER = 24
@@ -51,26 +50,6 @@ function estimateCategoryHeight(index: number, items: CategoryItem[]): number {
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 12 },
   show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } }
-}
-
-function categoryName(card: CardType): string {
-  return card.category?.trim() || UNCATEGORISED
-}
-
-function groupByCategory(cards: CardType[]): Record<string, CardType[]> {
-  const groups: Record<string, CardType[]> = {}
-  for (const card of cards) {
-    const category = categoryName(card)
-    if (!groups[category]) groups[category] = []
-    groups[category].push(card)
-  }
-  return groups
-}
-
-function sortCategories(a: string, b: string): number {
-  if (a === UNCATEGORISED) return 1
-  if (b === UNCATEGORISED) return -1
-  return a.localeCompare(b)
 }
 
 function GroupBadge({ group }: { group: string }) {
@@ -167,11 +146,6 @@ function AnimatedGridItem({
       {children}
     </motion.div>
   )
-}
-
-type CategoryItem = {
-  category: string
-  cards: CardType[]
 }
 
 type CategoryColumnProps = {
@@ -584,27 +558,7 @@ export function Dashboard({
   const [isLoading, setIsLoading] = useState(!initialError && enableStatusPolling)
   const showLoading = useStableLoading(isLoading)
   const [statusUnavailable, setStatusUnavailable] = useState(false)
-  const [hasPageOverflow, setHasPageOverflow] = useState(false)
-
-  useLayoutEffect(() => {
-    const main = document.querySelector('main')
-    const updateOverflow = () => {
-      const hasOverflow = main
-        ? main.getBoundingClientRect().bottom + window.scrollY > window.innerHeight
-        : document.documentElement.scrollHeight > window.innerHeight
-      setHasPageOverflow(current => current === hasOverflow ? current : hasOverflow)
-    }
-
-    const observer = new ResizeObserver(updateOverflow)
-    if (main) observer.observe(main)
-    window.addEventListener('resize', updateOverflow)
-    updateOverflow()
-
-    return () => {
-      observer.disconnect()
-      window.removeEventListener('resize', updateOverflow)
-    }
-  }, [])
+  const hasPageOverflow = usePageOverflow()
 
   useStatusPolling({
     enabled: !error && enableStatusPolling,
@@ -629,36 +583,16 @@ export function Dashboard({
     return () => clearTimeout(timeout)
   }, [mockStatusPolling])
 
-  const filtered = useMemo(() => {
-    const selected = selectedCategory?.toLowerCase()
-    const categoryFiltered = selected
-      ? cards.filter(card => categoryName(card).toLowerCase() === selected)
-      : cards
-
-    const query = deferredSearch.trim()
-    if (!query) return categoryFiltered
-
-    const fuse = new Fuse(categoryFiltered, {
-      keys: ['title', 'category', 'searchAliases'],
-      threshold: SEARCH_FUZZY_THRESHOLD,
-      ignoreLocation: true,
-      shouldSort: false
-    })
-    return fuse.search(query).map(result => result.item)
-  }, [cards, deferredSearch, selectedCategory])
-
-  const grouped = useMemo(() => groupByCategory(filtered), [filtered])
-  const uncategorised = grouped[UNCATEGORISED] ?? []
-  const hasCategories = useMemo(
-    () => cards.some(card => Boolean(card.category?.trim())),
-    [cards]
-  )
-  const isCategoryFiltered = selectedCategory !== null
-  const isSearching = deferredSearch.trim().length > 0
-  const categoryCount = Object.keys(grouped).length
-  const shouldUseCategoryContainers = hasCategories && !isCategoryFiltered && (!isSearching || categoryCount > 1)
-  const flatCards = shouldUseCategoryContainers ? uncategorised : filtered
-  const willRenderMasonry = !error && Object.keys(grouped).length > 0 && shouldUseCategoryContainers
+  const {
+    grouped,
+    hasCategories,
+    isSearching,
+    shouldUseCategoryContainers,
+    flatCards,
+    willRenderMasonry,
+    categoryItems,
+    categories
+  } = useDashboardViewModel(cards, deferredSearch, selectedCategory, Boolean(error))
 
   const [masonryLayoutReady, setMasonryLayoutReady] = useState(false)
   const [searchBarDone, setSearchBarDone] = useState(false)
@@ -666,19 +600,6 @@ export function Dashboard({
   useEffect(() => {
     if (!willRenderMasonry) setMasonryLayoutReady(true)
   }, [willRenderMasonry])
-
-  const categoryItems = useMemo<CategoryItem[]>(
-    () => Object.entries(grouped)
-      .sort(([a], [b]) => sortCategories(a, b))
-      .map(([category, cards]) => ({ category, cards })),
-    [grouped]
-  )
-  const categories = useMemo(() => {
-    const categoriesByName = groupByCategory(cards)
-    return Object.entries(categoriesByName)
-      .sort(([a], [b]) => sortCategories(a, b))
-      .map(([name, categoryCards]) => ({ name, count: categoryCards.length }))
-  }, [cards])
 
   return (
     <>
