@@ -72,8 +72,8 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, asCard =
   const cardClassName = cn(
     'dashmark-app-card group/card h-full overflow-hidden transition-[background-color,translate] not-has-[.info-button:hover]:hover:-translate-y-0.5',
     asCard
-      ? 'min-w-0 bg-card not-has-[.info-button:hover]:hover:bg-surface-hover dark:not-has-[.info-button:hover]:hover:bg-accent'
-      : 'min-w-0 border-0 bg-surface shadow-none not-has-[.info-button:hover]:hover:bg-surface-hover'
+      ? 'min-w-0 bg-card not-has-[.info-button:hover]:hover:bg-surface-hover active:bg-surface-hover dark:not-has-[.info-button:hover]:hover:bg-accent dark:active:bg-accent'
+      : 'min-w-0 border-0 bg-surface shadow-none not-has-[.info-button:hover]:hover:bg-surface-hover active:bg-surface-hover'
   )
 
   return (

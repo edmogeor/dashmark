@@ -145,7 +145,7 @@ export function ThemeToggle() {
         if (!isTouch.current) hide()
       }}
       onBlur={hide}
-      className="dashmark-theme-toggle group fixed top-0 right-0 z-50 h-18 w-18 cursor-pointer bg-transparent p-0"
+      className="dashmark-theme-toggle group fixed top-0 right-0 z-50 h-12 w-12 cursor-pointer bg-transparent p-0 sm:h-18 sm:w-18"
       aria-label={ariaLabel}
       aria-expanded={revealed}
     >
