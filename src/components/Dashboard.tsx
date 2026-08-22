@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { motion, type Variants } from 'framer-motion'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import type { Virtualizer } from '@tanstack/virtual-core'
@@ -22,6 +22,7 @@ const UNCATEGORISED = strings.category.uncategorised
 
 const COLUMN_WIDTH = 300
 const COLUMN_GUTTER = 24
+const MASONRY_OVERSCAN = 3
 
 function measureElement<T extends Element>(
   element: T,
@@ -212,7 +213,7 @@ function MasonryGrid({ items, onReady, animate, openInNewTab }: MasonryGridProps
     count: items.length,
     lanes,
     gap: COLUMN_GUTTER,
-    overscan: 6,
+    overscan: MASONRY_OVERSCAN,
     estimateSize: index => estimateCategoryHeight(index, items),
     getItemKey: index => items[index]?.category ?? index,
     measureElement
@@ -262,7 +263,6 @@ function MasonryGrid({ items, onReady, animate, openInNewTab }: MasonryGridProps
                   initial={hasAnimatedRef.current ? false : { opacity: 0, y: 12 }}
                   animate={animate ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
                   transition={{ duration: 0.3, ease: 'easeOut', delay }}
-                  style={{ willChange: 'transform, opacity' }}
                   onAnimationComplete={() => {
                     hasAnimatedRef.current = true
                   }}
@@ -306,6 +306,7 @@ export function Dashboard({
   const [cards, setCards] = useState<CardType[]>(initialCards)
   const [error] = useState<DashmarkError | null>(initialError ?? null)
   const [search, setSearch] = useState('')
+  const deferredSearch = useDeferredValue(search)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(!initialError)
   const showLoading = useStableLoading(isLoading)
@@ -325,7 +326,7 @@ export function Dashboard({
       ? cards.filter(card => categoryOf(card) === selectedCategory.toLowerCase())
       : cards
 
-    const query = search.trim()
+    const query = deferredSearch.trim()
     if (!query) return categoryFiltered
 
     const fuse = new Fuse(categoryFiltered, {
@@ -335,7 +336,7 @@ export function Dashboard({
       shouldSort: false
     })
     return fuse.search(query).map(result => result.item)
-  }, [cards, search, selectedCategory])
+  }, [cards, deferredSearch, selectedCategory])
 
   const grouped = useMemo(() => groupByCategory(filtered), [filtered])
   const uncategorised = grouped[UNCATEGORISED] ?? []
