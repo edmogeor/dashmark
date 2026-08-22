@@ -9,7 +9,7 @@ import { resolveIcon, type IconResult } from './icons'
 import { groupHeaderNames, readUserGroups } from './auth'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
-import { dashmarkError, errorMessage, type DashmarkError } from './errors'
+import { dashmarkError, errorMessage, isRecord, type DashmarkError } from './errors'
 import { strings } from './strings'
 import type { ContainerStatus } from './status'
 import {
@@ -52,10 +52,6 @@ type DockerHost = {
   hostname?: string
   port?: number
   secure?: boolean
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function isStringArray(value: unknown): value is string[] {

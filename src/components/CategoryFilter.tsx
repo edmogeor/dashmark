@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Check, ChevronDown, ListFilter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -19,18 +18,13 @@ type CategoryFilterProps = {
 }
 
 export function CategoryFilter({ categories, total, selected, onSelect, disabled }: CategoryFilterProps) {
-  const [open, setOpen] = useState(false)
-
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
+    <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
           disabled={disabled}
-          className={cn(
-            'dashmark-category-filter h-10 w-10 cursor-pointer justify-center gap-0 border-0 px-0 shadow-none hover:bg-surface-hover focus-visible:ring-0 aria-expanded:bg-surface-hover dark:hover:bg-surface-hover dark:aria-expanded:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50 sm:w-[200px] sm:justify-start sm:gap-2 sm:px-3',
-            open ? 'bg-surface-hover dark:bg-surface-hover' : 'bg-card dark:bg-card'
-          )}
+          className="dashmark-category-filter h-10 w-10 cursor-pointer justify-center gap-0 border-0 bg-card px-0 shadow-none hover:bg-surface-hover focus-visible:ring-0 data-[state=open]:bg-surface-hover dark:bg-card dark:hover:bg-surface-hover dark:data-[state=open]:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50 sm:w-[200px] sm:justify-start sm:gap-2 sm:px-3"
         >
           <ListFilter className="h-4 w-4 shrink-0 text-muted-foreground" />
           <span className="dashmark-category-filter-label hidden min-w-0 truncate sm:inline">{selected ?? strings.category.all}</span>

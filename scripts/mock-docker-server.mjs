@@ -103,7 +103,7 @@ export function startMockDocker(containers = demoContainers) {
       res.setHeader('Content-Type', 'application/json')
 
       const send = (statusCode, body) => {
-        if (statusCode !== 200) res.writeHead(statusCode)
+        res.statusCode = statusCode
         res.end(body)
       }
 

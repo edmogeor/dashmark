@@ -161,7 +161,7 @@ function AnimatedGridItem({
       layout="position"
       initial={hidden}
       animate={animate ? shown : hidden}
-      exit={{ opacity: 0, transition: { duration: 0.15, ease: 'easeOut', delay: 0 } }}
+      exit={{ opacity: 0, transition: { duration: 0.15, ease: 'easeOut' } }}
       transition={{ duration: 0.3, ease: 'easeOut', delay: isReentry ? 0 : delay, layout: POSITION_TRANSITION }}
     >
       {children}
@@ -346,7 +346,8 @@ type DashboardSearchProps = {
   setSearch: (search: string) => void
   error: DashmarkError | null
   categories: { name: string; count: number }[]
-  cards: CardType[]
+  hasCategories: boolean
+  totalCards: number
   selectedCategory: string | null
   setSelectedCategory: (category: string | null) => void
   onAnimationComplete: () => void
@@ -365,7 +366,8 @@ function DashboardSearch({
   setSearch,
   error,
   categories,
-  cards,
+  hasCategories,
+  totalCards,
   selectedCategory,
   setSelectedCategory,
   onAnimationComplete
@@ -398,10 +400,10 @@ function DashboardSearch({
                 <div className="min-w-0 flex-1">
                   <SearchBar value={search} onChange={setSearch} disabled={!!error} />
                 </div>
-                {categories.some(category => category.name !== UNCATEGORISED) && (
+                {hasCategories && (
                   <CategoryFilter
                     categories={categories}
-                    total={cards.length}
+                    total={totalCards}
                     selected={selectedCategory}
                     onSelect={setSelectedCategory}
                     disabled={!!error}
@@ -562,10 +564,9 @@ export function Dashboard({
   })
 
   const filtered = useMemo(() => {
-    const categoryOf = (card: CardType) => categoryName(card).toLowerCase()
-
-    const categoryFiltered = selectedCategory
-      ? cards.filter(card => categoryOf(card) === selectedCategory.toLowerCase())
+    const selected = selectedCategory?.toLowerCase()
+    const categoryFiltered = selected
+      ? cards.filter(card => categoryName(card).toLowerCase() === selected)
       : cards
 
     const query = deferredSearch.trim()
@@ -625,7 +626,8 @@ export function Dashboard({
           setSearch={setSearch}
           error={error}
           categories={categories}
-          cards={cards}
+          hasCategories={hasCategories}
+          totalCards={cards.length}
           selectedCategory={selectedCategory}
           setSelectedCategory={setSelectedCategory}
           onAnimationComplete={() => setSearchBarDone(true)}

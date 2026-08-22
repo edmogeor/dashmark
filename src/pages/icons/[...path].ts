@@ -5,40 +5,40 @@ import { getConfig } from '@/lib/config'
 import { isOutsideDirectory } from '@/lib/paths'
 import { ICON_CACHE_MAX_AGE, ICON_MIME_TYPES } from '@/lib/constants'
 
+function notFound(): Response {
+  return new Response('Not found', { status: 404 })
+}
+
+function forbidden(): Response {
+  return new Response('Forbidden', { status: 403 })
+}
+
 export function serveIcon(iconsDir: string, relativePath: string | undefined): Response {
-  if (!relativePath) {
-    return new Response('Not found', { status: 404 })
-  }
+  if (!relativePath) return notFound()
 
   const resolvedIconsDir = path.resolve(iconsDir)
   const filePath = path.resolve(resolvedIconsDir, relativePath)
-  if (isOutsideDirectory(resolvedIconsDir, filePath)) {
-    return new Response('Forbidden', { status: 403 })
-  }
+  if (isOutsideDirectory(resolvedIconsDir, filePath)) return forbidden()
 
   const ext = path.extname(filePath).toLowerCase()
   const mimeType = ICON_MIME_TYPES[ext]
-  if (!mimeType || !fs.existsSync(filePath)) {
-    return new Response('Not found', { status: 404 })
-  }
+  if (!mimeType || !fs.existsSync(filePath)) return notFound()
 
   let resolvedPath: string
   try {
     const canonicalIconsDir = fs.realpathSync(resolvedIconsDir)
     resolvedPath = fs.realpathSync(filePath)
-    if (isOutsideDirectory(canonicalIconsDir, resolvedPath)) {
-      return new Response('Forbidden', { status: 403 })
-    }
+    if (isOutsideDirectory(canonicalIconsDir, resolvedPath)) return forbidden()
   } catch {
-    return new Response('Not found', { status: 404 })
+    return notFound()
   }
 
   let content: Buffer
   try {
-    if (!fs.statSync(resolvedPath).isFile()) return new Response('Not found', { status: 404 })
+    if (!fs.statSync(resolvedPath).isFile()) return notFound()
     content = fs.readFileSync(resolvedPath)
   } catch {
-    return new Response('Not found', { status: 404 })
+    return notFound()
   }
 
   return new Response(new Uint8Array(content), {

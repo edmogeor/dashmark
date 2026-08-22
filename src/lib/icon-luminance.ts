@@ -69,16 +69,15 @@ export async function analyzeIconLuminance(url: string): Promise<IconContrast | 
     }
 
     const average = totalLuminance / opaquePixels
+    let contrast: IconContrast | null = null
 
     if (average < DARK_LUMINANCE_THRESHOLD) {
-      return cacheResult(url, 'dark')
+      contrast = 'dark'
+    } else if (average > LIGHT_LUMINANCE_THRESHOLD) {
+      contrast = 'light'
     }
 
-    if (average > LIGHT_LUMINANCE_THRESHOLD) {
-      return cacheResult(url, 'light')
-    }
-
-    return cacheResult(url, null)
+    return cacheResult(url, contrast)
   } catch {
     return cacheResult(url, null)
   }

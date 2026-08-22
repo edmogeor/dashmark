@@ -4,7 +4,7 @@ import type { AppConfig } from './config'
 import type { ParsedLabels } from './labels'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
-import { dashmarkError, errorMessage, type DashmarkError } from './errors'
+import { dashmarkError, errorMessage, isRecord, type DashmarkError } from './errors'
 import { strings } from './strings'
 
 export type ServiceOverrides = Partial<ParsedLabels>
@@ -24,10 +24,6 @@ type CachedConfig = {
 }
 
 const configCache = new Map<string, CachedConfig>()
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
 
 function string(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined

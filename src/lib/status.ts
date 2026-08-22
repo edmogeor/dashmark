@@ -1,4 +1,4 @@
-import { isDashmarkError, type DashmarkError } from './errors'
+import { isDashmarkError, isRecord, type DashmarkError } from './errors'
 
 export type ContainerStatus = {
   state?: string
@@ -8,10 +8,6 @@ export type ContainerStatus = {
 export type StatusResponse =
   | { statuses: Record<string, ContainerStatus> }
   | { error: DashmarkError }
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
 
 function isContainerStatus(value: unknown): value is ContainerStatus {
   return isRecord(value)

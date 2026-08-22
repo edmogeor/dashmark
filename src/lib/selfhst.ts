@@ -3,7 +3,7 @@ import path from 'node:path'
 import Fuse from 'fuse.js'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
-import { errorMessage } from './errors'
+import { errorMessage, isRecord } from './errors'
 import {
   SELFHST_CDN,
   SELFHST_GITHUB_API_URL,
@@ -22,10 +22,6 @@ export type SelfhstIcon = {
 }
 
 const cache = new Map<string, SelfhstIcon[]>()
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
 
 function isSelfhstIcon(value: unknown): value is SelfhstIcon {
   return isRecord(value)

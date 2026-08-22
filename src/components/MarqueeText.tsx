@@ -5,7 +5,7 @@ export function MarqueeText({ children, className }: { children: ReactNode; clas
   const innerRef = useRef<HTMLSpanElement>(null)
   const parentRef = useRef<HTMLSpanElement>(null)
   const [offset, setOffset] = useState(0)
-  const duration = offset ? Math.abs(offset) / MARQUEE_SPEED : 0
+  const duration = Math.abs(offset) / MARQUEE_SPEED
   const fadeDuration = Math.min(duration, MARQUEE_FADE_WIDTH / MARQUEE_SPEED)
   const fadeDelay = duration - fadeDuration
   const parentStyle: CSSProperties & Record<'--marquee-fade-duration' | '--marquee-fade-delay', string> = {

@@ -76,8 +76,8 @@ export function useStatusPolling({
         setUnavailable(true)
         showStatusToast(strings.errors.serverUnreachable)
       } finally {
-        if (!controller.signal.aborted) setLoading(false)
         if (!controller.signal.aborted) {
+          setLoading(false)
           timeout = setTimeout(pollStatus, STATUS_POLL_INTERVAL_MS)
         }
       }
