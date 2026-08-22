@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { motion, type Transition, type Variants } from 'framer-motion'
+import { AnimatePresence, motion, type Transition, type Variants } from 'framer-motion'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import type { Virtualizer } from '@tanstack/virtual-core'
 import Fuse from 'fuse.js'
@@ -24,6 +24,10 @@ const COLUMN_WIDTH = 300
 const COLUMN_GUTTER = 24
 const MASONRY_OVERSCAN = 3
 const POSITION_TRANSITION: Transition = { duration: 0.25, ease: 'easeOut' }
+const GRID_ITEM_TRANSITION: Transition = {
+  layout: POSITION_TRANSITION,
+  opacity: { duration: 0.15, ease: 'easeOut' }
+}
 
 function measureElement<T extends Element>(
   element: T,
@@ -155,7 +159,10 @@ function AnimatedGridItem({
       className={className}
       style={style}
       layout="position"
-      transition={POSITION_TRANSITION}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={GRID_ITEM_TRANSITION}
     >
       {children}
     </motion.div>
@@ -275,41 +282,43 @@ function MasonryGrid({ items, onReady, animate, showStatus, isLoading, openInNew
     <div ref={containerRef}>
       {showGrid && (
         <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-          {virtualItems.map(virtualItem => {
-            const item = items[virtualItem.index]
-            if (!item) return null
-            const delay = 0.08 + (visualRank.get(virtualItem.index) ?? 0) * 0.06
-            return (
-              <AnimatedGridItem
-                key={virtualItem.key}
-                measureElement={virtualizer.measureElement}
-                dataIndex={virtualItem.index}
-                className="absolute"
-                style={{
-                  top: virtualItem.start,
-                  left: virtualItem.lane * (columnWidth + COLUMN_GUTTER),
-                  width: columnWidth
-                }}
-              >
-                <motion.div
-                  initial={hasAnimatedRef.current ? false : { opacity: 0, y: 12 }}
-                  animate={animate ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
-                  transition={{ duration: 0.3, ease: 'easeOut', delay }}
-                  onAnimationComplete={() => {
-                    hasAnimatedRef.current = true
+          <AnimatePresence>
+            {virtualItems.map(virtualItem => {
+              const item = items[virtualItem.index]
+              if (!item) return null
+              const delay = 0.08 + (visualRank.get(virtualItem.index) ?? 0) * 0.06
+              return (
+                <AnimatedGridItem
+                  key={virtualItem.key}
+                  measureElement={virtualizer.measureElement}
+                  dataIndex={virtualItem.index}
+                  className="absolute"
+                  style={{
+                    top: virtualItem.start,
+                    left: virtualItem.lane * (columnWidth + COLUMN_GUTTER),
+                    width: columnWidth
                   }}
                 >
-                  <CategoryColumn
-                    data={item}
-                    twoColumn={twoColumn}
-                    showStatus={showStatus}
-                    isLoading={isLoading}
-                    openInNewTab={openInNewTab}
-                  />
-                </motion.div>
-              </AnimatedGridItem>
-            )
-          })}
+                  <motion.div
+                    initial={hasAnimatedRef.current ? false : { opacity: 0, y: 12 }}
+                    animate={animate ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
+                    transition={{ duration: 0.3, ease: 'easeOut', delay }}
+                    onAnimationComplete={() => {
+                      hasAnimatedRef.current = true
+                    }}
+                  >
+                    <CategoryColumn
+                      data={item}
+                      twoColumn={twoColumn}
+                      showStatus={showStatus}
+                      isLoading={isLoading}
+                      openInNewTab={openInNewTab}
+                    />
+                  </motion.div>
+                </AnimatedGridItem>
+              )
+            })}
+          </AnimatePresence>
         </div>
       )}
     </div>
@@ -352,8 +361,8 @@ export function Dashboard({
   const [hasPageOverflow, setHasPageOverflow] = useState(false)
 
   useLayoutEffect(() => {
+    const main = document.querySelector('main')
     const updateOverflow = () => {
-      const main = document.querySelector('main')
       const hasOverflow = main
         ? main.getBoundingClientRect().bottom + window.scrollY > window.innerHeight
         : document.documentElement.scrollHeight > window.innerHeight
@@ -361,7 +370,6 @@ export function Dashboard({
     }
 
     const observer = new ResizeObserver(updateOverflow)
-    const main = document.querySelector('main')
     if (main) observer.observe(main)
     window.addEventListener('resize', updateOverflow)
     updateOverflow()
@@ -494,13 +502,15 @@ export function Dashboard({
             animate="show"
             className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
           >
-            {uncategorised.map(card => (
-              <AnimatedGridItem key={card.id}>
-                <motion.div variants={fadeUp}>
-                  <AppCard card={card} showStatus={initialShowStatus} asCard isLoading={showLoading || statusUnavailable} openInNewTab={initialOpenInNewTab} />
-                </motion.div>
-              </AnimatedGridItem>
-            ))}
+            <AnimatePresence>
+              {uncategorised.map(card => (
+                <AnimatedGridItem key={card.id}>
+                  <motion.div variants={fadeUp}>
+                    <AppCard card={card} showStatus={initialShowStatus} asCard isLoading={showLoading || statusUnavailable} openInNewTab={initialOpenInNewTab} />
+                  </motion.div>
+                </AnimatedGridItem>
+              ))}
+            </AnimatePresence>
           </motion.div>
         ) : (
           <MasonryGrid
