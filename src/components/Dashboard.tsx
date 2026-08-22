@@ -271,7 +271,7 @@ function MasonryGrid({ items, entries, onReady, animate, showStatus, isLoading, 
   const virtualItems = virtualizer.getVirtualItems()
   const visualRank = new Map(
     [...virtualItems]
-      .sort((a, b) => a.start - b.start || a.lane - b.lane)
+      .sort((a, b) => a.lane - b.lane || a.start - b.start)
       .map((item, rank) => [item.index, rank])
   )
 

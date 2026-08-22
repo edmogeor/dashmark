@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-alpha.9] - 2026-08-22
+
+### Changed
+
+- Category containers now fade in lane by lane, from top to bottom.
+- User group tags now only show groups configured in accessible link controls.
+
 ## [0.1.0-alpha.8] - 2026-08-22
 
 ### Changed

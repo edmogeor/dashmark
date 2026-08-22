@@ -14,6 +14,8 @@ const origin = Astro.url.origin
 const imageUrl = `${origin}/brand/og-image.png`
 const { cards: initialCards, error: initialError, usesAccessGroups } = await getCards(config, Astro.request.headers)
 const user = getUser(config, Astro.request.headers)
+const linkAccessGroups = new Set(initialCards.flatMap(card => card.accessGroups.map(group => group.toLowerCase())))
+const displayedUserGroups = user.groups.filter(group => linkAccessGroups.has(group.toLowerCase()))
 const greeting = resolveGreeting(config, user)
 ---
 
@@ -66,7 +68,7 @@ const greeting = resolveGreeting(config, user)
         showHeader={config.showHeader}
         showGroups={config.showGroupTags && usesAccessGroups}
         greeting={greeting}
-        userGroups={user.groups}
+        userGroups={displayedUserGroups}
         initialOpenInNewTab={config.openInNewTab}
       />
     </main>
