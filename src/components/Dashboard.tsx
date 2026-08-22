@@ -412,7 +412,7 @@ function DashboardSearch({
 
   return (
     <motion.div layout="position" className="dashmark-header dashboard-search sticky top-0 z-10 mb-6" data-overflow={hasPageOverflow || undefined}>
-      <div className="pt-12 sm:pt-14 lg:pt-16">
+      <div className="pt-14 lg:pt-16">
         <motion.div
           layout="position"
           className="mx-auto w-full max-w-6xl px-6"
