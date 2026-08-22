@@ -11,7 +11,7 @@ plex:
   title: Plex
   description: Media server
   url: https://plex.home.local
-  icon: plex.svg
+  icon: selfhst:plex
   category: Media
   order: 1
   search_aliases:
@@ -23,7 +23,7 @@ plex:
 github:
   title: GitHub
   url: https://github.com
-  icon: github.svg
+  icon: selfhst:github
   category: External
 
 # Restrict a card to these groups when ENABLE_ACCESS_GROUPS=true. Cards with

@@ -4,10 +4,10 @@ import type { AppConfig } from './config'
 import { getInitials } from './initials'
 import { isValidUrl } from './labels'
 import { isOutsideDirectory } from './paths'
-import { fetchSelfhstIcons, fuzzyMatchIcon } from './selfhst'
+import { fetchSelfhstIcons, fuzzyMatchIcon, type SelfhstIcon } from './selfhst'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
-import { IMAGE_SUFFIXES, SELFHST_CDN } from './constants'
+import { IMAGE_SUFFIXES, SELFHST_CDN, SELFHST_PREFIX } from './constants'
 import { analyzeIconLuminance, type IconContrast } from './icon-luminance'
 
 function stripSuffix(name: string): string[] {
@@ -54,6 +54,15 @@ function looksLikeUrl(value: string): boolean {
   return /^https?:\/\//i.test(value)
 }
 
+function isSelfhstReference(value: string): boolean {
+  return value.toLowerCase().startsWith(SELFHST_PREFIX)
+}
+
+function resolveSelfhstReference(value: string, icons: SelfhstIcon[]): string | null {
+  const reference = normalizeCandidate(value)
+  return icons.find(icon => icon.reference === reference)?.url ?? null
+}
+
 function resolveFileIcon(config: AppConfig, value: string): string | null {
   const iconsDir = path.resolve(config.iconsDir)
   const filePath = path.resolve(iconsDir, value)
@@ -98,6 +107,16 @@ export async function resolveIcon(
   if (iconLabel) {
     if (looksLikeUrl(iconLabel) && isValidUrl(iconLabel)) {
       return imageIcon(iconLabel, title)
+    }
+
+    if (isSelfhstReference(iconLabel)) {
+      const reference = iconLabel.slice(SELFHST_PREFIX.length)
+      const icons = await fetchSelfhstIcons()
+      const selfhstUrl = resolveSelfhstReference(reference, icons)
+      if (selfhstUrl) return imageIcon(selfhstUrl, title)
+
+      logger.warn('icons', logMessages.icons.selfhstReferenceNotFound, { iconLabel })
+      return makePlaceholder(title)
     }
 
     const src = resolveFileIcon(config, iconLabel)

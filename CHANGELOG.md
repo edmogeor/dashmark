@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Removed
+### Added
 
-- `selfhst:<slug>` icon references. Icons are now set with an `http(s)` URL, a path inside `ICONS_DIR`, or `placeholder`; leave `icon` unset to auto-match.
+- `selfhst:<slug>` icon references for explicit selfhst icon selection.
 
 ## [0.1.0-alpha.5] - 2026-08-20
 

@@ -61,6 +61,28 @@ describe('resolveIcon', () => {
     })
   })
 
+  it('resolves a selfhst reference to a CDN URL', async () => {
+    const result = await resolveIcon(config, {
+      iconLabel: 'selfhst:PlEx',
+      title: 'Plex',
+      containerName: 'plex'
+    })
+    expect(result).toEqual({
+      type: 'image',
+      src: 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/plex.svg',
+      alt: 'Plex'
+    })
+  })
+
+  it('returns a placeholder for an unknown selfhst reference', async () => {
+    const result = await resolveIcon(config, {
+      iconLabel: 'selfhst:unknown',
+      title: 'Plex',
+      containerName: 'plex'
+    })
+    expect(result).toEqual({ type: 'placeholder', initials: 'P' })
+  })
+
   it('treats a bare name as a path inside ICONS_DIR', async () => {
     vi.mocked(fs.existsSync).mockReturnValue(true)
 
