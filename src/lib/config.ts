@@ -18,6 +18,7 @@ export type AppConfig = {
   showSearch: boolean
   showStatus: boolean
   statusPollIntervalMs: number
+  categoryOrder: string[]
   enableAutomaticDescriptions: boolean
   enableAutomaticIcons: boolean
   showBranding: boolean
@@ -65,6 +66,17 @@ function parseInterval(value: string | undefined): number {
   return Number.isInteger(seconds) && seconds > 0 ? seconds * 1_000 : STATUS_POLL_INTERVAL_MS
 }
 
+function parseCategoryOrder(value: string | undefined): string[] {
+  const categories = new Map<string, string>()
+  for (const name of value?.split(',') ?? []) {
+    const category = name.trim()
+    if (category && !categories.has(category.toLowerCase())) {
+      categories.set(category.toLowerCase(), category)
+    }
+  }
+  return [...categories.values()]
+}
+
 function optionalString(value: string | undefined): string | undefined {
   return value?.trim() || undefined
 }
@@ -90,6 +102,7 @@ export function getConfig(): AppConfig {
     showSearch: parseBool(process.env.SHOW_SEARCH, true),
     showStatus: parseBool(process.env.SHOW_STATUS, true),
     statusPollIntervalMs: parseInterval(process.env.STATUS_POLL_INTERVAL),
+    categoryOrder: parseCategoryOrder(process.env.CATEGORY_ORDER),
     enableAutomaticDescriptions: parseBool(process.env.ENABLE_AUTOMATIC_DESCRIPTIONS, true),
     enableAutomaticIcons: parseBool(process.env.ENABLE_AUTOMATIC_ICONS, true),
     showBranding: parseBool(process.env.SHOW_BRANDING, true),

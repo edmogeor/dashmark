@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-alpha.12] - 2026-08-22
+
+### Added
+
+- `CATEGORY_ORDER` for explicitly ordering categories.
+
+### Changed
+
+- Category names now match case-insensitively, preventing separate categories that differ only by casing.
+
+### Fixed
+
+- Remove excess bottom spacing from cards without a status badge.
+
 ## [0.1.0-alpha.11] - 2026-08-22
 
 ### Fixed

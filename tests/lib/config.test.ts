@@ -12,6 +12,7 @@ const trackedVars = [
   'SHOW_SEARCH',
   'SHOW_STATUS',
   'STATUS_POLL_INTERVAL',
+  'CATEGORY_ORDER',
   'ENABLE_AUTOMATIC_DESCRIPTIONS',
   'ENABLE_AUTOMATIC_ICONS',
   'SHOW_BRANDING',
@@ -166,6 +167,13 @@ describe('getConfig status polling', () => {
   it('falls back to the default for an invalid interval', () => {
     process.env.STATUS_POLL_INTERVAL = '0'
     expect(getConfig().statusPollIntervalMs).toBe(30_000)
+  })
+})
+
+describe('getConfig category order', () => {
+  it('reads unique, trimmed category names', () => {
+    process.env.CATEGORY_ORDER = ' Media, Home, media, Monitoring '
+    expect(getConfig().categoryOrder).toEqual(['Media', 'Home', 'Monitoring'])
   })
 })
 

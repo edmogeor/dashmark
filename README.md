@@ -139,6 +139,7 @@ Configure Dashmark with environment variables, Docker labels, and an optional YA
 | `SHOW_SEARCH` | `true` | Show search and the category filter |
 | `SHOW_STATUS` | `true` | Show container state and health badges |
 | `STATUS_POLL_INTERVAL` | `30` | Seconds between container status updates |
+| `CATEGORY_ORDER` | unset | Comma-separated category order; unlisted categories follow alphabetically |
 | `ENABLE_AUTOMATIC_ICONS` | `true` | Guess icons from image names when no icon is set |
 | `ENABLE_AUTOMATIC_DESCRIPTIONS` | `true` | Match Awesome Selfhosted descriptions when no description is set |
 | `SHOW_BRANDING` | `true` | Show the Dashmark logo near search |
@@ -156,10 +157,12 @@ Add labels to opt a container in and configure its card.
 | `dashmark.title` | Display title. Defaults to the container name |
 | `dashmark.description` | Tooltip text; set to `none` to suppress automatic descriptions |
 | `dashmark.icon` | `selfhst:<slug>`, an image URL, a path in `ICONS_DIR`, or `placeholder` |
-| `dashmark.category` | Category name |
+| `dashmark.category` | Category name; matching is case-insensitive |
 | `dashmark.access_groups` | Comma-separated group allow-list |
 | `dashmark.search_aliases` | Comma-separated additional search terms |
-| `dashmark.order` | Sort order within a category, lower values first |
+| `dashmark.order` | Sort order within a category, lower values first; cards without an order follow alphabetically by title |
+
+`CATEGORY_ORDER=Media,Productivity,Home` sets the display order for listed categories. Category names are matched case-insensitively; configured names set their display spelling, while unlisted categories use the first spelling found after cards are sorted. Uncategorized cards always appear last.
 
 When `dashmark.url` is absent, Dashmark can derive an HTTPS URL from a Traefik router label such as `traefik.http.routers.plex.rule=Host(\`plex.example.com\`)`. Add another `dashmark.*` label to opt the container in.
 

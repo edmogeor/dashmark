@@ -180,7 +180,7 @@ function CategoryColumn({ data, twoColumn, showStatus, isLoading, openInNewTab }
 }
 
 function itemsSignature(items: CategoryItem[]): string {
-  return items.map(item => `${item.category}:${item.cards.length}`).join('\0')
+  return items.map(item => `${item.key}:${item.cards.length}`).join('\0')
 }
 
 type MasonryGridProps = {
@@ -233,7 +233,7 @@ function MasonryGrid({ items, entries, onReady, animate, showStatus, isLoading, 
     gap: COLUMN_GUTTER,
     overscan: MASONRY_OVERSCAN,
     estimateSize: index => estimateCategoryHeight(index, items),
-    getItemKey: index => items[index]?.category ?? index,
+    getItemKey: index => items[index]?.key ?? index,
     measureElement
   })
 
@@ -265,7 +265,7 @@ function MasonryGrid({ items, entries, onReady, animate, showStatus, isLoading, 
             {virtualItems.map(virtualItem => {
               const item = items[virtualItem.index]
               if (!item) return null
-              const entry = entries.get(item.category)
+              const entry = entries.get(item.key)
               const delay = 0.08 + (visualRank.get(virtualItem.index) ?? 0) * 0.06
               return (
                 <AnimatedGridItem
@@ -308,6 +308,7 @@ type DashboardProps = {
   initialOpenInNewTab?: boolean
   enableStatusPolling?: boolean
   statusPollIntervalMs?: number
+  categoryOrder?: string[]
   mockStatusPolling?: boolean
   showHeader?: boolean
   showGroups?: boolean
@@ -444,7 +445,7 @@ function DashboardSearch({
 
 type DashboardResultsProps = {
   error: DashmarkError | null
-  grouped: Record<string, CardType[]>
+  hasResults: boolean
   hasCategories: boolean
   isSearching: boolean
   uncategorised: CardType[]
@@ -486,7 +487,7 @@ function useItemEntries(ids: string[]): Map<string, ItemEntry> {
 
 function DashboardResults({
   error,
-  grouped,
+  hasResults,
   hasCategories,
   isSearching,
   uncategorised,
@@ -498,11 +499,11 @@ function DashboardResults({
   animateMasonry
 }: DashboardResultsProps) {
   const cardEntries = useItemEntries(uncategorised.map(card => card.id))
-  const categoryEntries = useItemEntries(categoryItems.map(item => item.category))
+  const categoryEntries = useItemEntries(categoryItems.map(item => item.key))
 
   if (error) return <ErrorPanel error={error} />
 
-  if (Object.keys(grouped).length === 0) {
+  if (!hasResults) {
     return (
       <div className="dashmark-empty-state flex items-center justify-center py-4">
         <p className="dashmark-empty-state-message whitespace-nowrap text-muted-foreground">{strings.dashboard.noServices}</p>
@@ -549,6 +550,7 @@ export function Dashboard({
   initialOpenInNewTab = false,
   enableStatusPolling = true,
   statusPollIntervalMs = STATUS_POLL_INTERVAL_MS,
+  categoryOrder = [],
   mockStatusPolling = false,
   showHeader = false,
   showGroups = false,
@@ -589,7 +591,7 @@ export function Dashboard({
   }, [mockStatusPolling])
 
   const {
-    grouped,
+    hasResults,
     hasCategories,
     isSearching,
     shouldUseCategoryContainers,
@@ -597,7 +599,7 @@ export function Dashboard({
     willRenderMasonry,
     categoryItems,
     categories
-  } = useDashboardViewModel(cards, deferredSearch, selectedCategory, Boolean(error))
+  } = useDashboardViewModel(cards, deferredSearch, selectedCategory, Boolean(error), categoryOrder)
 
   const [masonryLayoutReady, setMasonryLayoutReady] = useState(false)
   const [searchBarDone, setSearchBarDone] = useState(false)
@@ -634,7 +636,7 @@ export function Dashboard({
           <div className="dashmark-results min-h-0">
             <DashboardResults
               error={error}
-              grouped={grouped}
+              hasResults={hasResults}
               hasCategories={shouldUseCategoryContainers}
               isSearching={isSearching}
               uncategorised={flatCards}

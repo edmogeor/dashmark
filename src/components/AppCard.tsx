@@ -67,6 +67,8 @@ function AppIcon({ icon, title, asCard }: { icon: CardType['icon']; title: strin
 }
 
 export const AppCard = memo(function AppCard({ card, showStatus = true, asCard = false, isLoading = false, openInNewTab = false }: AppCardProps) {
+  const hasStatus = card.health === 'starting' || card.health === 'unhealthy' || Boolean(card.state)
+  const showStatusBadge = showStatus && (hasStatus || (isLoading && card.hasContainer))
   const cardClassName = cn(
     'dashmark-app-card group/card h-full overflow-hidden transition-[background-color,translate] not-has-[.info-button:hover]:hover:-translate-y-0.5',
     asCard
@@ -112,7 +114,7 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, asCard =
             <MarqueeText className="dashmark-app-url text-xs text-muted-foreground">
               {card.url}
             </MarqueeText>
-            {showStatus && (
+            {showStatusBadge && (
               <div className="dashmark-app-status-container mt-2">
                 <StatusBadge
                   state={card.state}

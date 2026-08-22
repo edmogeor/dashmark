@@ -21,8 +21,9 @@ services:
       # - ENABLE_ACCESS_GROUPS=false
       # - ACCESS_GROUPS_HEADER=auto
       # - SHOW_SEARCH=true
-       # - SHOW_STATUS=true
-       # - STATUS_POLL_INTERVAL=30
+      # - SHOW_STATUS=true
+      # - STATUS_POLL_INTERVAL=30
+      # - CATEGORY_ORDER=Media,Productivity,Home
       # - ENABLE_AUTOMATIC_ICONS=true
       # - ENABLE_AUTOMATIC_DESCRIPTIONS=true
       # - SHOW_BRANDING=true
