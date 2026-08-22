@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-alpha.10] - 2026-08-22
+
+### Added
+
+- Interactive GitHub Pages demo with mock services, simulated status updates, and share-preview metadata.
+- `STATUS_POLL_INTERVAL` to configure container status refresh timing.
+- Automatic service descriptions from the bundled Awesome Selfhosted index, controlled by `ENABLE_AUTOMATIC_DESCRIPTIONS`.
+
+### Changed
+
+- Search results now collapse category containers into animated individual cards.
+- Development mock services use automatic descriptions when an Awesome Selfhosted match exists.
+
 ## [0.1.0-alpha.9] - 2026-08-22
 
 ### Changed

@@ -19,7 +19,9 @@ Dashmark discovers labeled Docker containers and turns them into dashboard cards
 
 ![Dashmark dashboard](assets/screenshot.png)
 
-[View the live demo](https://edmogeor.github.io/dashmark/demo/)
+<p align="center">
+  <a href="https://edmogeor.github.io/dashmark/demo/">View the live demo</a>
+</p>
 
 ## Contents
 

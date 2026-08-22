@@ -74,7 +74,7 @@ export function useDashboardViewModel(
   )
   const isSearching = search.trim().length > 0
   const categoryCount = Object.keys(grouped).length
-  const shouldUseCategoryContainers = hasCategories && selectedCategory === null && (!isSearching || categoryCount > 1)
+  const shouldUseCategoryContainers = hasCategories && selectedCategory === null && !isSearching
   const flatCards = shouldUseCategoryContainers ? uncategorised : filtered
   const willRenderMasonry = !hasError && categoryCount > 0 && shouldUseCategoryContainers
   const categoryItems = useMemo<CategoryItem[]>(

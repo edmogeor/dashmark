@@ -111,6 +111,7 @@ type AnimatedGridItemProps = {
   children: ReactNode
   className?: string
   style?: CSSProperties
+  layoutId?: string
   dataIndex?: number
   measureElement?: (element: HTMLDivElement | null) => void
   isReentry?: boolean
@@ -122,6 +123,7 @@ function AnimatedGridItem({
   children,
   className,
   style,
+  layoutId,
   dataIndex,
   measureElement,
   isReentry = false,
@@ -134,6 +136,7 @@ function AnimatedGridItem({
   return (
     <motion.div
       ref={measureElement}
+      layoutId={layoutId}
       data-index={dataIndex}
       className={className}
       style={style}
@@ -166,7 +169,9 @@ function CategoryColumn({ data, twoColumn, showStatus, isLoading, openInNewTab }
       <CardContent>
         <div className={cn('dashmark-category-apps grid grid-cols-1 gap-6', twoColumn && '@[520px]:grid-cols-2')}>
           {cards.map(card => (
-            <AppCard key={card.id} card={card} showStatus={showStatus} isLoading={isLoading} openInNewTab={openInNewTab} />
+            <motion.div key={card.id} layoutId={`card-${card.id}`} className="h-full" transition={{ layout: POSITION_TRANSITION }}>
+              <AppCard card={card} showStatus={showStatus} isLoading={isLoading} openInNewTab={openInNewTab} />
+            </motion.div>
           ))}
         </div>
       </CardContent>
@@ -512,7 +517,7 @@ function DashboardResults({
           {uncategorised.map((card, index) => {
             const entry = cardEntries.get(card.id)
             return (
-              <AnimatedGridItem key={entry?.key} isReentry={isSearching || entry?.isReentry} delay={0.08 + index * 0.06}>
+              <AnimatedGridItem key={entry?.key} layoutId={`card-${card.id}`} isReentry={isSearching || entry?.isReentry} delay={0.08 + index * 0.06}>
                 <AppCard card={card} showStatus={showStatus} asCard isLoading={isLoading} openInNewTab={openInNewTab} />
               </AnimatedGridItem>
             )
