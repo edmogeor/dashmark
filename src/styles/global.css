@@ -132,6 +132,11 @@
   html {
     @apply font-sans;
   }
+
+  /* Fall back to the visual viewport where virtual keyboards overlay content. */
+  body.dashmark {
+    min-height: var(--dashmark-viewport-height, 100dvh);
+  }
 }
 
 @layer components {

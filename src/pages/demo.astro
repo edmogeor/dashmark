@@ -33,7 +33,7 @@ const pageUrl = new URL(`${baseUrl}/demo/`, origin).href
 <html lang={strings.meta.lang} class="dark" data-theme-toggle-enabled="true">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content" />
     <title>Dashmark - Demo</title>
     <meta name="description" content={strings.meta.description} />
     <meta property="og:type" content="website" />
@@ -54,7 +54,7 @@ const pageUrl = new URL(`${baseUrl}/demo/`, origin).href
       document.documentElement.classList.toggle('dark', stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches)
     </script>
   </head>
-  <body class="dashmark flex min-h-screen flex-col bg-background text-foreground">
+  <body class="dashmark flex min-h-dvh flex-col bg-background text-foreground">
     <ThemeToggle client:load />
     <main class="dashmark-main w-full">
       <Dashboard

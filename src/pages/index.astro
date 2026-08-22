@@ -23,7 +23,7 @@ const greeting = resolveGreeting(config, user)
 <html lang={strings.meta.lang} class="dark" data-theme-toggle-enabled={config.showThemeToggle ? 'true' : 'false'}>
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content" />
     <title>{strings.app.title}</title>
     <meta name="description" content={strings.meta.description} />
     <meta name="robots" content="noindex, nofollow" />
@@ -54,7 +54,7 @@ const greeting = resolveGreeting(config, user)
       })()
     </script>
   </head>
-  <body class="dashmark flex min-h-screen flex-col bg-background text-foreground">
+  <body class="dashmark flex min-h-dvh flex-col bg-background text-foreground">
     {config.showThemeToggle && <ThemeToggle client:load />}
 
     <main class="dashmark-main my-auto w-full">
