@@ -24,10 +24,6 @@ const COLUMN_WIDTH = 300
 const COLUMN_GUTTER = 24
 const MASONRY_OVERSCAN = 3
 const POSITION_TRANSITION: Transition = { duration: 0.25, ease: 'easeOut' }
-const GRID_ITEM_TRANSITION: Transition = {
-  layout: POSITION_TRANSITION,
-  opacity: { duration: 0.15, ease: 'easeOut' }
-}
 
 function measureElement<T extends Element>(
   element: T,
@@ -55,11 +51,6 @@ function estimateCategoryHeight(index: number, items: CategoryItem[]): number {
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 12 },
   show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } }
-}
-
-const staggerContainer: Variants = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.06, delayChildren: 0.08 } }
 }
 
 function categoryName(card: CardType): string {
@@ -143,6 +134,9 @@ type AnimatedGridItemProps = {
   style?: CSSProperties
   dataIndex?: number
   measureElement?: (element: HTMLDivElement | null) => void
+  isReentry?: boolean
+  delay?: number
+  animate?: boolean
 }
 
 function AnimatedGridItem({
@@ -150,8 +144,14 @@ function AnimatedGridItem({
   className,
   style,
   dataIndex,
-  measureElement
+  measureElement,
+  isReentry = false,
+  delay = 0,
+  animate = true
 }: AnimatedGridItemProps) {
+  const hidden = isReentry ? { opacity: 0 } : { opacity: 0, y: 12 }
+  const shown = isReentry ? { opacity: 1 } : { opacity: 1, y: 0 }
+
   return (
     <motion.div
       ref={measureElement}
@@ -159,10 +159,10 @@ function AnimatedGridItem({
       className={className}
       style={style}
       layout="position"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      initial={hidden}
+      animate={animate ? shown : hidden}
       exit={{ opacity: 0 }}
-      transition={GRID_ITEM_TRANSITION}
+      transition={{ duration: 0.3, ease: 'easeOut', delay, layout: POSITION_TRANSITION }}
     >
       {children}
     </motion.div>
@@ -206,6 +206,7 @@ function itemsSignature(items: CategoryItem[]): string {
 
 type MasonryGridProps = {
   items: CategoryItem[]
+  entries: Map<string, ItemEntry>
   onReady?: () => void
   animate?: boolean
   showStatus: boolean
@@ -213,11 +214,10 @@ type MasonryGridProps = {
   openInNewTab: boolean
 }
 
-function MasonryGrid({ items, onReady, animate, showStatus, isLoading, openInNewTab }: MasonryGridProps) {
+function MasonryGrid({ items, entries, onReady, animate, showStatus, isLoading, openInNewTab }: MasonryGridProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const notifiedRef = useRef(false)
   const onReadyRef = useRef(onReady)
-  const hasAnimatedRef = useRef(false)
   const [width, setWidth] = useState(0)
 
   useEffect(() => {
@@ -286,35 +286,30 @@ function MasonryGrid({ items, onReady, animate, showStatus, isLoading, openInNew
             {virtualItems.map(virtualItem => {
               const item = items[virtualItem.index]
               if (!item) return null
+              const entry = entries.get(item.category)
               const delay = 0.08 + (visualRank.get(virtualItem.index) ?? 0) * 0.06
               return (
                 <AnimatedGridItem
-                  key={virtualItem.key}
+                  key={entry?.key}
                   measureElement={virtualizer.measureElement}
                   dataIndex={virtualItem.index}
                   className="absolute"
+                  isReentry={entry?.isReentry}
+                  delay={delay}
+                  animate={animate}
                   style={{
                     top: virtualItem.start,
                     left: virtualItem.lane * (columnWidth + COLUMN_GUTTER),
                     width: columnWidth
                   }}
                 >
-                  <motion.div
-                    initial={hasAnimatedRef.current ? false : { opacity: 0, y: 12 }}
-                    animate={animate ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
-                    transition={{ duration: 0.3, ease: 'easeOut', delay }}
-                    onAnimationComplete={() => {
-                      hasAnimatedRef.current = true
-                    }}
-                  >
-                    <CategoryColumn
-                      data={item}
-                      twoColumn={twoColumn}
-                      showStatus={showStatus}
-                      isLoading={isLoading}
-                      openInNewTab={openInNewTab}
-                    />
-                  </motion.div>
+                  <CategoryColumn
+                    data={item}
+                    twoColumn={twoColumn}
+                    showStatus={showStatus}
+                    isLoading={isLoading}
+                    openInNewTab={openInNewTab}
+                  />
                 </AnimatedGridItem>
               )
             })}
@@ -434,6 +429,34 @@ type DashboardResultsProps = {
   animateMasonry: boolean
 }
 
+type ItemEntry = {
+  key: string
+  isReentry: boolean
+}
+
+function useItemEntries(ids: string[]): Map<string, ItemEntry> {
+  const visibleIdsRef = useRef(new Set<string>())
+  const versionsRef = useRef(new Map<string, number>())
+  const entries = new Map<string, ItemEntry>()
+
+  for (const id of ids) {
+    const wasVisible = visibleIdsRef.current.has(id)
+    if (!wasVisible) {
+      versionsRef.current.set(id, (versionsRef.current.get(id) ?? 0) + 1)
+    }
+    entries.set(id, {
+      key: `${id}-${versionsRef.current.get(id)}`,
+      isReentry: visibleIdsRef.current.size > 0 && !wasVisible
+    })
+  }
+
+  useLayoutEffect(() => {
+    visibleIdsRef.current = new Set(ids)
+  }, [ids])
+
+  return entries
+}
+
 function DashboardResults({
   error,
   grouped,
@@ -446,6 +469,9 @@ function DashboardResults({
   onMasonryReady,
   animateMasonry
 }: DashboardResultsProps) {
+  const cardEntries = useItemEntries(uncategorised.map(card => card.id))
+  const categoryEntries = useItemEntries(categoryItems.map(item => item.category))
+
   if (error) return <ErrorPanel error={error} />
 
   if (Object.keys(grouped).length === 0) {
@@ -458,29 +484,25 @@ function DashboardResults({
 
   if (!hasCategories) {
     return (
-      <motion.div
-        layout="position"
-        variants={staggerContainer}
-        initial="hidden"
-        animate="show"
-        className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-      >
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <AnimatePresence>
-          {uncategorised.map(card => (
-            <AnimatedGridItem key={card.id}>
-              <motion.div variants={fadeUp}>
+          {uncategorised.map((card, index) => {
+            const entry = cardEntries.get(card.id)
+            return (
+              <AnimatedGridItem key={entry?.key} isReentry={entry?.isReentry} delay={0.08 + index * 0.06}>
                 <AppCard card={card} showStatus={showStatus} asCard isLoading={isLoading} openInNewTab={openInNewTab} />
-              </motion.div>
-            </AnimatedGridItem>
-          ))}
+              </AnimatedGridItem>
+            )
+          })}
         </AnimatePresence>
-      </motion.div>
+      </div>
     )
   }
 
   return (
     <MasonryGrid
       items={categoryItems}
+      entries={categoryEntries}
       onReady={onMasonryReady}
       animate={animateMasonry}
       showStatus={showStatus}
