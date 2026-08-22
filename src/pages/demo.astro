@@ -3,33 +3,46 @@ export const prerender = true
 
 import { Dashboard } from '@/components/Dashboard'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { getConfig } from '@/lib/config'
 import { THEME_STORAGE_KEY } from '@/lib/constants'
+import { resolveGreeting } from '@/lib/greeting'
+import { resolveIcon } from '@/lib/icons'
 import { strings } from '@/lib/strings'
 import type { Card } from '@/lib/docker'
 import '@/styles/global.css'
 
-const icon = (name: string) => `https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/${name}.svg`
+type DemoCard = Omit<Card, 'accessGroups' | 'icon'> & { imageName: string; accessGroups?: string[] }
+
 const cards = [
-  { id: 'plex', title: 'Plex', description: 'Your media library', url: 'https://plex.example.com', icon: { type: 'image', src: icon('plex'), alt: 'Plex' }, category: 'Media', searchAliases: ['movies', 'tv'], hasContainer: true },
-  { id: 'jellyfin', title: 'Jellyfin', description: 'Open-source media streaming', url: 'https://jellyfin.example.com', icon: { type: 'image', src: icon('jellyfin'), alt: 'Jellyfin' }, category: 'Media', searchAliases: ['movies', 'music'], hasContainer: true },
-  { id: 'radarr', title: 'Radarr', description: 'Movie collection manager', url: 'https://radarr.example.com', icon: { type: 'image', src: icon('radarr'), alt: 'Radarr' }, category: 'Media', searchAliases: ['movies'], hasContainer: true },
-  { id: 'sonarr', title: 'Sonarr', description: 'TV series manager', url: 'https://sonarr.example.com', icon: { type: 'image', src: icon('sonarr'), alt: 'Sonarr' }, category: 'Media', searchAliases: ['television'], hasContainer: true },
-  { id: 'home-assistant', title: 'Home Assistant', description: 'Home automation', url: 'https://home.example.com', icon: { type: 'image', src: icon('home-assistant'), alt: 'Home Assistant' }, category: 'Home', searchAliases: ['smart home'], hasContainer: true },
-  { id: 'adguard', title: 'AdGuard Home', description: 'Network-wide ad blocking', url: 'https://dns.example.com', icon: { type: 'image', src: icon('adguard-home'), alt: 'AdGuard Home' }, category: 'Home', searchAliases: ['dns', 'adblock'], hasContainer: true },
-  { id: 'nextcloud', title: 'Nextcloud', description: 'Files, calendars, and contacts', url: 'https://cloud.example.com', icon: { type: 'image', src: icon('nextcloud'), alt: 'Nextcloud' }, category: 'Productivity', searchAliases: ['files', 'calendar'], hasContainer: true },
-  { id: 'paperless', title: 'Paperless-ngx', description: 'Document archive', url: 'https://documents.example.com', icon: { type: 'image', src: icon('paperless-ngx'), alt: 'Paperless-ngx' }, category: 'Productivity', searchAliases: ['documents', 'archive'], hasContainer: true },
-  { id: 'vaultwarden', title: 'Vaultwarden', description: 'Password manager', url: 'https://vault.example.com', icon: { type: 'image', src: icon('vaultwarden'), alt: 'Vaultwarden' }, category: 'Security', searchAliases: ['passwords'], hasContainer: true },
-  { id: 'grafana', title: 'Grafana', description: 'Metrics dashboards', url: 'https://grafana.example.com', icon: { type: 'image', src: icon('grafana'), alt: 'Grafana' }, category: 'Monitoring', searchAliases: ['metrics'], hasContainer: true },
-  { id: 'uptime-kuma', title: 'Uptime Kuma', description: 'Service availability', url: 'https://status.example.com', icon: { type: 'image', src: icon('uptime-kuma'), alt: 'Uptime Kuma' }, category: 'Monitoring', searchAliases: ['status'], hasContainer: true },
-  { id: 'portainer', title: 'Portainer', description: 'Container management', url: 'https://containers.example.com', icon: { type: 'image', src: icon('portainer'), alt: 'Portainer' }, category: 'Infrastructure', searchAliases: ['docker'], hasContainer: true },
-  { id: 'proxmox', title: 'Proxmox', description: 'Virtualisation management', url: 'https://proxmox.example.com', icon: { type: 'image', src: icon('proxmox'), alt: 'Proxmox' }, category: 'Infrastructure', searchAliases: ['virtual machines'], hasContainer: true },
-  { id: 'traefik', title: 'Traefik', description: 'Reverse proxy', url: 'https://proxy.example.com', icon: { type: 'image', src: icon('traefik'), alt: 'Traefik' }, category: 'Infrastructure', searchAliases: ['proxy'], hasContainer: true },
-  { id: 'immich', title: 'Immich', description: 'Photo backup', url: 'https://photos.example.com', icon: { type: 'image', src: icon('immich'), alt: 'Immich' }, category: 'Photos', searchAliases: ['images'], hasContainer: true },
-  { id: 'syncthing', title: 'Syncthing', description: 'Private file synchronisation', url: 'https://sync.example.com', icon: { type: 'placeholder', initials: 'S' }, category: 'Productivity', searchAliases: ['sync'], hasContainer: true },
-  { id: 'mealie', title: 'Mealie', description: 'Recipe manager', url: 'https://recipes.example.com', icon: { type: 'placeholder', initials: 'M' }, category: 'Home', searchAliases: ['recipes'], hasContainer: true },
-  { id: 'actual', title: 'Actual Budget', description: 'Personal finance', url: 'https://budget.example.com', icon: { type: 'placeholder', initials: 'AB' }, category: 'Productivity', searchAliases: ['finance'], hasContainer: true }
-] satisfies Omit<Card, 'accessGroups'>[]
-const demoCards: Card[] = cards.map(card => ({ ...card, accessGroups: [] }))
+  { id: 'plex', title: 'Plex', description: 'Your media library', url: 'https://plex.example.com', imageName: 'plexinc/pms-docker:latest', category: 'Media', searchAliases: ['movies', 'tv'], hasContainer: true, accessGroups: ['media'] },
+  { id: 'jellyfin', title: 'Jellyfin', description: 'Open-source media streaming', url: 'https://jellyfin.example.com', imageName: 'jellyfin/jellyfin:latest', category: 'Media', searchAliases: ['movies', 'music'], hasContainer: true },
+  { id: 'radarr', title: 'Radarr', description: 'Movie collection manager', url: 'https://radarr.example.com', imageName: 'linuxserver/radarr:latest', category: 'Media', searchAliases: ['movies'], hasContainer: true, state: 'paused' },
+  { id: 'sonarr', title: 'Sonarr', description: 'TV series manager', url: 'https://sonarr.example.com', imageName: 'linuxserver/sonarr:latest', category: 'Media', searchAliases: ['television'], hasContainer: true },
+  { id: 'home-assistant', title: 'Home Assistant', description: 'Home automation', url: 'https://home.example.com', imageName: 'ghcr.io/home-assistant/home-assistant:stable', category: 'Home', searchAliases: ['smart home'], hasContainer: true, accessGroups: ['family'] },
+  { id: 'adguard', title: 'AdGuard Home', description: 'Network-wide ad blocking', url: 'https://dns.example.com', imageName: 'adguard/adguardhome:latest', category: 'Home', searchAliases: ['dns', 'adblock'], hasContainer: true },
+  { id: 'nextcloud', title: 'Nextcloud', description: 'Files, calendars, and contacts', url: 'https://cloud.example.com', imageName: 'nextcloud:latest', category: 'Productivity', searchAliases: ['files', 'calendar'], hasContainer: true },
+  { id: 'paperless', title: 'Paperless-ngx', description: 'Document archive', url: 'https://documents.example.com', imageName: 'ghcr.io/paperless-ngx/paperless-ngx:latest', category: 'Productivity', searchAliases: ['documents', 'archive'], hasContainer: true },
+  { id: 'vaultwarden', title: 'Vaultwarden', description: 'Password manager', url: 'https://vault.example.com', imageName: 'vaultwarden/server:latest', category: 'Security', searchAliases: ['passwords'], hasContainer: true },
+  { id: 'grafana', title: 'Grafana', description: 'Metrics dashboards', url: 'https://grafana.example.com', imageName: 'grafana/grafana:latest', category: 'Monitoring', searchAliases: ['metrics'], hasContainer: true, health: 'unhealthy', accessGroups: ['admins', 'operators'] },
+  { id: 'uptime-kuma', title: 'Uptime Kuma', description: 'Service availability', url: 'https://status.example.com', imageName: 'louislam/uptime-kuma:latest', category: 'Monitoring', searchAliases: ['status'], hasContainer: true, health: 'starting' },
+  { id: 'portainer', title: 'Portainer', description: 'Container management', url: 'https://containers.example.com', imageName: 'portainer/portainer-ce:latest', category: 'Infrastructure', searchAliases: ['docker'], hasContainer: true, accessGroups: ['admins'] },
+  { id: 'proxmox', title: 'Proxmox', description: 'Virtualisation management', url: 'https://proxmox.example.com', imageName: 'proxmox:latest', category: 'Infrastructure', searchAliases: ['virtual machines'], hasContainer: true },
+  { id: 'traefik', title: 'Traefik', description: 'Reverse proxy', url: 'https://proxy.example.com', imageName: 'traefik:v3', category: 'Infrastructure', searchAliases: ['proxy'], hasContainer: true },
+  { id: 'immich', title: 'Immich', description: 'Photo backup', url: 'https://photos.example.com', imageName: 'ghcr.io/immich-app/immich-server:latest', category: 'Photos', searchAliases: ['images'], hasContainer: true },
+  { id: 'syncthing', title: 'Syncthing', description: 'Private file synchronisation', url: 'https://sync.example.com', imageName: 'syncthing/syncthing:latest', category: 'Productivity', searchAliases: ['sync'], hasContainer: true },
+  { id: 'mealie', title: 'Mealie', description: 'Recipe manager', url: 'https://recipes.example.com', imageName: 'ghcr.io/mealie-recipes/mealie:v2', category: 'Home', searchAliases: ['recipes'], hasContainer: true },
+  { id: 'actual', title: 'Actual Budget', description: 'Personal finance', url: 'https://budget.example.com', imageName: 'actualbudget/actual-server:latest', category: 'Productivity', searchAliases: ['finance'], hasContainer: true }
+] satisfies DemoCard[]
+const config = getConfig()
+const demoUser = { firstName: 'John', groups: ['admins', 'media', 'family'] }
+const demoCards: Card[] = await Promise.all(cards.map(async ({ imageName, ...card }) => ({
+  ...card,
+  accessGroups: card.accessGroups ?? [],
+  state: card.state ?? 'running',
+  health: card.health ?? 'healthy',
+  icon: await resolveIcon(config, { imageName, title: card.title, containerName: card.id })
+})))
+const greeting = resolveGreeting(config, demoUser)
 
 const baseUrl = import.meta.env.BASE_URL
 ---
@@ -53,10 +66,13 @@ const baseUrl = import.meta.env.BASE_URL
       <Dashboard
         client:load
         initialCards={demoCards}
-        initialShowStatus={false}
+        initialShowStatus
         initialShowBranding={false}
         enableStatusPolling={false}
-        showHeader={false}
+        showHeader
+        showGroups
+        greeting={greeting}
+        userGroups={demoUser.groups}
       />
     </main>
   </body>
