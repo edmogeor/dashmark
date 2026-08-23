@@ -31,6 +31,7 @@ Dashmark discovers labeled Docker containers and turns them into dashboard cards
 - [Configuration](#configuration)
 - [Security](#security)
 - [Development](#development)
+- [Donations](#donations)
 - [License](#license)
 
 ## Features
@@ -252,6 +253,12 @@ npm run build
 `npm run dev` uses a mock Docker API, sample cards, and sample authentication headers. It simulates the `admins`, `media`, and `family` groups, and limits status badges to `admins` by default. It does not need a Docker daemon and supports hot reload. Override either value to test other cases, for example `MOCK_USER_GROUPS=media STATUS_BADGE_GROUPS=admins npm run dev`.
 
 Contributions are welcome. Please open an issue or pull request with a clear description of the change.
+
+## Donations
+
+Feel free to donate if you'd like to support the development of Dashmark.
+
+<a href="https://www.buymeacoffee.com/edmogeor" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;"></a>
 
 ## Thanks
 
