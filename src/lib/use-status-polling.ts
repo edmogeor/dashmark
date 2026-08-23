@@ -33,8 +33,6 @@ export function useStatusPolling({
 }): void {
   const statusToastDismissed = useRef(false)
   const statusToastRecovering = useRef(false)
-  const statusToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const skipNextFailure = useRef(false)
 
   function showStatusToast(description: string) {
     statusToastRecovering.current = false
@@ -51,69 +49,63 @@ export function useStatusPolling({
     })
   }
 
-  function clearStatusToastTimer() {
-    if (!statusToastTimer.current) return
-    clearTimeout(statusToastTimer.current)
-    statusToastTimer.current = null
-  }
-
-  function scheduleStatusToast(description: string) {
-    clearStatusToastTimer()
-    statusToastTimer.current = setTimeout(() => {
-      statusToastTimer.current = null
-      if (document.visibilityState !== 'visible') return
-      showStatusToast(description)
-    }, 1_000)
-  }
-
   useEffect(() => {
     if (!enabled) return
 
-    const controller = new AbortController()
     let timeout: ReturnType<typeof setTimeout> | null = null
+    let requestController: AbortController | null = null
+    let refreshWhenIdle = false
+    let stopped = false
     toast.dismiss(STATUS_TOAST_ID)
 
     function handleVisibilityChange() {
       if (document.visibilityState === 'hidden') {
-        clearStatusToastTimer()
         toast.dismiss(STATUS_TOAST_ID)
+        if (timeout) clearTimeout(timeout)
+        timeout = null
+        requestController?.abort()
         return
       }
 
-      // A request that was delayed while the page was backgrounded can fail as
-      // the connection wakes up. Let the next scheduled poll confirm it first.
-      skipNextFailure.current = true
+      // Background fetches may be throttled or have a stale connection. Abort
+      // them on hide and get a fresh status only after the page is visible.
+      refreshWhenIdle = true
+      pollStatus()
     }
 
     async function pollStatus() {
+      if (stopped || document.visibilityState !== 'visible' || requestController) return
+
+      refreshWhenIdle = false
+      const controller = new AbortController()
+      requestController = controller
       setLoading(true)
       try {
         const res = await fetch('/api/status', { signal: controller.signal })
         if (!res.ok) throw new Error(`Status endpoint returned ${res.status}`)
         const data: unknown = await res.json()
-        if (controller.signal.aborted) return
+        if (controller.signal.aborted || stopped) return
         if (!isStatusResponse(data)) throw new Error('Status endpoint returned an invalid response')
         if ('error' in data) {
           setUnavailable(true)
-          if (skipNextFailure.current) skipNextFailure.current = false
-          else scheduleStatusToast(data.error.message)
+          showStatusToast(data.error.message)
         } else {
           setUnavailable(false)
-          clearStatusToastTimer()
           statusToastRecovering.current = true
           statusToastDismissed.current = false
           toast.dismiss(STATUS_TOAST_ID)
           setCards(prev => mergeStatuses(prev, data.statuses))
         }
       } catch {
-        if (controller.signal.aborted) return
+        if (controller.signal.aborted || stopped) return
         setUnavailable(true)
-        if (skipNextFailure.current) skipNextFailure.current = false
-        else scheduleStatusToast(strings.errors.serverUnreachable)
+        showStatusToast(strings.errors.serverUnreachable)
       } finally {
-        if (!controller.signal.aborted) {
+        requestController = null
+        if (!stopped && document.visibilityState === 'visible') {
           setLoading(false)
-          timeout = setTimeout(pollStatus, interval)
+          if (refreshWhenIdle) pollStatus()
+          else timeout = setTimeout(pollStatus, interval)
         }
       }
     }
@@ -122,9 +114,9 @@ export function useStatusPolling({
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
-      controller.abort()
+      stopped = true
+      requestController?.abort()
       if (timeout) clearTimeout(timeout)
-      clearStatusToastTimer()
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [enabled, interval, setCards, setUnavailable, setLoading])
