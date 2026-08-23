@@ -46,7 +46,7 @@ const greeting = resolveGreeting(config, user)
     <link rel="icon" type="image/png" sizes="192x192" href={assetPath('/brand/icon-192.png')} />
     <link rel="icon" type="image/png" sizes="512x512" href={assetPath('/brand/icon-512.png')} />
     <link rel="apple-touch-icon" sizes="180x180" href={assetPath('/brand/apple-touch-icon.png')} />
-    <link rel="manifest" href={assetPath('/site.webmanifest')} />
+    <link rel="manifest" crossorigin="use-credentials" href={assetPath('/site.webmanifest')} />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />

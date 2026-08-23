@@ -2,12 +2,12 @@ import { useDeferredValue, useEffect, useLayoutEffect, useRef, useState, type CS
 import { AnimatePresence, LayoutGroup, motion, type Transition } from 'framer-motion'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import type { Virtualizer } from '@tanstack/virtual-core'
+import { Popover } from 'radix-ui'
 import { SearchBar } from './SearchBar'
 import { CategoryFilter } from './CategoryFilter'
 import { AppCard } from './AppCard'
 import { useDashboardViewModel, type CategoryItem } from './use-dashboard-view-model'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { CircleAlert, User } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 import type { Card as CardType } from '@/lib/docker'
@@ -57,31 +57,28 @@ function GroupBadge({ group }: { group: string }) {
 }
 
 function UserGroupsBadge({ groups }: { groups: string[] }) {
-  const [open, setOpen] = useState(false)
-
   return (
     <div className="dashmark-user-groups ml-3 flex items-center gap-1.5">
       <GroupBadge group={groups[0]} />
       {groups.length > 1 && (
-        <TooltipProvider>
-          <Tooltip open={open} onOpenChange={setOpen}>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                aria-label={`Show ${groups.length - 1} more groups`}
-                className="dashmark-group-badge dashmark-group-badge-overflow inline-flex cursor-pointer items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                onClick={() => setOpen(true)}
-              >
-                +{groups.length - 1}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" align="end" collisionPadding={16} className="flex flex-col items-start gap-1.5">
+        <Popover.Root>
+          <Popover.Trigger asChild>
+            <button
+              type="button"
+              aria-label={`Show ${groups.length - 1} more groups`}
+              className="dashmark-group-badge dashmark-group-badge-overflow inline-flex cursor-pointer items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              +{groups.length - 1}
+            </button>
+          </Popover.Trigger>
+          <Popover.Portal>
+            <Popover.Content side="bottom" align="end" sideOffset={4} collisionPadding={16} className="z-50 flex flex-col items-start gap-1.5 overflow-hidden rounded-md border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-popover-content-transform-origin]">
               {groups.slice(1).map(group => (
                 <GroupBadge key={group} group={group} />
               ))}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+            </Popover.Content>
+          </Popover.Portal>
+        </Popover.Root>
       )}
     </div>
   )
