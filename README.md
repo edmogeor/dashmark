@@ -15,7 +15,7 @@
   </p>
 </div>
 
-Dashmark discovers labeled Docker containers and turns them into dashboard cards. Use `dashmark.*` labels to set each card's link, title, icon, category, and access. It is a small self-hosted Node.js service with no database.
+Dashmark discovers labeled Docker containers and turns them into dashboard cards. Use `dashmark.*` labels to set each card's link, title, icon, category, and access. It is a small astro based self-hosted Node.js service with no database.
 
 ![Dashmark dashboard](assets/screenshot.png)
 
