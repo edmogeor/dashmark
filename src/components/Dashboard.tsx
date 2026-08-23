@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { AnimatePresence, LayoutGroup, motion, type Transition, type Variants } from 'framer-motion'
+import { AnimatePresence, LayoutGroup, motion, type Transition } from 'framer-motion'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import type { Virtualizer } from '@tanstack/virtual-core'
 import { SearchBar } from './SearchBar'
@@ -47,11 +47,6 @@ function estimateCategoryHeight(index: number, items: CategoryItem[]): number {
   return CARD_ESTIMATE_BASE + cardCount * CARD_ESTIMATE_DELTA
 }
 
-const fadeUp: Variants = {
-  hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } }
-}
-
 function GroupBadge({ group }: { group: string }) {
   return (
     <span className="dashmark-group-badge inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
@@ -62,16 +57,23 @@ function GroupBadge({ group }: { group: string }) {
 }
 
 function UserGroupsBadge({ groups }: { groups: string[] }) {
+  const [open, setOpen] = useState(false)
+
   return (
     <div className="dashmark-user-groups ml-3 flex items-center gap-1.5">
       <GroupBadge group={groups[0]} />
       {groups.length > 1 && (
         <TooltipProvider>
-          <Tooltip>
+          <Tooltip open={open} onOpenChange={setOpen}>
             <TooltipTrigger asChild>
-              <span className="dashmark-group-badge dashmark-group-badge-overflow inline-flex cursor-help items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+              <button
+                type="button"
+                aria-label={`Show ${groups.length - 1} more groups`}
+                className="dashmark-group-badge dashmark-group-badge-overflow inline-flex cursor-pointer items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                onClick={() => setOpen(true)}
+              >
                 +{groups.length - 1}
-              </span>
+              </button>
             </TooltipTrigger>
             <TooltipContent side="bottom" align="end" collisionPadding={16} className="flex flex-col items-start gap-1.5">
               {groups.slice(1).map(group => (
@@ -87,11 +89,9 @@ function UserGroupsBadge({ groups }: { groups: string[] }) {
 
 function ErrorPanel({ error }: { error: DashmarkError }) {
   return (
-    <motion.div
-      className="dashmark-error flex items-center justify-center py-12"
-      variants={fadeUp}
-      initial="hidden"
-      animate="show"
+    <AnimatedGridItem
+      className="dashmark-error flex items-center justify-center"
+      delay={0.08}
     >
       <div className="dashmark-error-panel mx-auto flex w-full max-w-xl gap-4 rounded-lg border border-error-border bg-error-bg p-6 text-error-text">
         <CircleAlert className="mt-0.5 h-5 w-5 shrink-0" />
@@ -103,7 +103,7 @@ function ErrorPanel({ error }: { error: DashmarkError }) {
           )}
         </div>
       </div>
-    </motion.div>
+    </AnimatedGridItem>
   )
 }
 

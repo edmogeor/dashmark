@@ -72,8 +72,8 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, asCard =
   const cardClassName = cn(
     'dashmark-app-card group/card h-full overflow-hidden transition-[background-color,translate] not-has-[.info-button:hover]:hover:-translate-y-0.5',
     asCard
-      ? 'min-w-0 bg-card not-has-[.info-button:hover]:hover:bg-surface-hover active:bg-surface-hover dark:not-has-[.info-button:hover]:hover:bg-accent dark:active:bg-accent'
-      : 'min-w-0 border-0 bg-surface shadow-none not-has-[.info-button:hover]:hover:bg-surface-hover active:bg-surface-hover'
+      ? 'min-w-0 bg-card not-has-[.info-button:hover]:hover:bg-surface-hover not-has-[.info-button:active]:active:bg-surface-hover dark:not-has-[.info-button:hover]:hover:bg-accent dark:not-has-[.info-button:active]:active:bg-accent'
+      : 'min-w-0 border-0 bg-surface shadow-none not-has-[.info-button:hover]:hover:bg-surface-hover not-has-[.info-button:active]:active:bg-surface-hover'
   )
 
   return (
@@ -114,6 +114,7 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, asCard =
                     type="button"
                     className="dashmark-app-description-trigger info-button absolute top-3 right-3 cursor-help rounded-full p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
                     onClick={e => e.preventDefault()}
+                    onPointerDown={e => e.stopPropagation()}
                   >
                     <Info className="h-4 w-4" />
                     <span className="sr-only">{strings.card.description}</span>

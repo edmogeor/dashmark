@@ -34,6 +34,7 @@ export function useStatusPolling({
   const statusToastDismissed = useRef(false)
   const statusToastRecovering = useRef(false)
   const statusToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const skipNextFailure = useRef(false)
 
   function showStatusToast(description: string) {
     statusToastRecovering.current = false
@@ -60,6 +61,7 @@ export function useStatusPolling({
     clearStatusToastTimer()
     statusToastTimer.current = setTimeout(() => {
       statusToastTimer.current = null
+      if (document.visibilityState !== 'visible') return
       showStatusToast(description)
     }, 1_000)
   }
@@ -71,6 +73,18 @@ export function useStatusPolling({
     let timeout: ReturnType<typeof setTimeout> | null = null
     toast.dismiss(STATUS_TOAST_ID)
 
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'hidden') {
+        clearStatusToastTimer()
+        toast.dismiss(STATUS_TOAST_ID)
+        return
+      }
+
+      // A request that was delayed while the page was backgrounded can fail as
+      // the connection wakes up. Let the next scheduled poll confirm it first.
+      skipNextFailure.current = true
+    }
+
     async function pollStatus() {
       setLoading(true)
       try {
@@ -81,7 +95,8 @@ export function useStatusPolling({
         if (!isStatusResponse(data)) throw new Error('Status endpoint returned an invalid response')
         if ('error' in data) {
           setUnavailable(true)
-          scheduleStatusToast(data.error.message)
+          if (skipNextFailure.current) skipNextFailure.current = false
+          else scheduleStatusToast(data.error.message)
         } else {
           setUnavailable(false)
           clearStatusToastTimer()
@@ -93,7 +108,8 @@ export function useStatusPolling({
       } catch {
         if (controller.signal.aborted) return
         setUnavailable(true)
-        scheduleStatusToast(strings.errors.serverUnreachable)
+        if (skipNextFailure.current) skipNextFailure.current = false
+        else scheduleStatusToast(strings.errors.serverUnreachable)
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false)
@@ -103,11 +119,13 @@ export function useStatusPolling({
     }
 
     pollStatus()
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
       controller.abort()
       if (timeout) clearTimeout(timeout)
       clearStatusToastTimer()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [enabled, interval, setCards, setUnavailable, setLoading])
 }
