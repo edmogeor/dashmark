@@ -19,7 +19,7 @@ import { strings } from '@/lib/strings'
 import { cn } from '@/lib/utils'
 import { STATUS_POLL_INTERVAL_MS } from '@/lib/constants'
 
-const brandIconPath = `${import.meta.env.BASE_URL}brand/icon.svg`
+const brandIconPath = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/brand/icon.svg`
 const COLUMN_WIDTH = 300
 const COLUMN_GUTTER = 20
 const MASONRY_OVERSCAN = 3
