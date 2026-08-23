@@ -7,6 +7,10 @@ import { strings } from '@/lib/strings'
 const UNCATEGORISED = strings.category.uncategorised
 const UNCATEGORISED_KEY = ''
 
+function normalizeUrlSearch(value: string): string {
+  return value.replace(/^https?:\/\/(?:www\.)?/i, '')
+}
+
 function categoryName(card: Card): string {
   return card.category?.trim() || UNCATEGORISED
 }
@@ -90,11 +94,11 @@ export function useDashboardViewModel(
       ? cards.filter(card => categoryKey(card.category) === selected)
       : cards
 
-    const query = search.trim()
+    const query = normalizeUrlSearch(search.trim())
     if (!query) return categoryFiltered
 
     const fuse = new Fuse(categoryFiltered, {
-      keys: ['title', 'category', 'searchAliases'],
+      keys: ['title', 'url', 'category', 'searchAliases'],
       threshold: SEARCH_FUZZY_THRESHOLD,
       ignoreLocation: true,
       shouldSort: false
