@@ -10,8 +10,10 @@ import { THEME_STORAGE_KEY } from '@/lib/constants'
 import '@/styles/global.css'
 
 const config = getConfig()
+const basePath = import.meta.env.BASE_URL === '/' ? '' : import.meta.env.BASE_URL.replace(/\/$/, '')
+const assetPath = (path: string) => `${basePath}${path}`
 const origin = Astro.url.origin
-const imageUrl = `${origin}/brand/og-image.png`
+const imageUrl = `${origin}${assetPath('/brand/og-image.png')}`
 const { cards: initialCards, error: initialError } = await getCards(config, Astro.request.headers)
 const user = getUser(config, Astro.request.headers)
 const showStatusBadges = config.showStatus && hasAllowedGroup(user.groups, config.statusBadgeGroups)
@@ -40,10 +42,11 @@ const greeting = resolveGreeting(config, user)
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="theme-color" content="#FF5A5F" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/brand/icon-192.png" />
-    <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
-    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href={assetPath('/favicon.svg')} />
+    <link rel="icon" type="image/png" sizes="192x192" href={assetPath('/brand/icon-192.png')} />
+    <link rel="icon" type="image/png" sizes="512x512" href={assetPath('/brand/icon-512.png')} />
+    <link rel="apple-touch-icon" sizes="180x180" href={assetPath('/brand/apple-touch-icon.png')} />
+    <link rel="manifest" href={assetPath('/site.webmanifest')} />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -58,9 +61,9 @@ const greeting = resolveGreeting(config, user)
         document.documentElement.classList.toggle('dark', dark)
       })()
     </script>
-    <script>
+    <script is:inline define:vars={{ serviceWorkerPath: assetPath('/service-worker.js') }}>
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/service-worker.js')
+        navigator.serviceWorker.register(serviceWorkerPath)
       }
     </script>
   </head>
