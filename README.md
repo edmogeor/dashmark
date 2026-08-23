@@ -124,15 +124,15 @@ Configure Dashmark with environment variables, Docker labels, and an optional YA
 | `CUSTOM_STYLESHEET` | unset | Absolute path to a mounted CSS file, served as `/custom.css` |
 | `ENABLE_ACCESS_GROUPS` | `false` | Filter cards using a groups request header |
 | `ACCESS_GROUPS_HEADER` | `auto` | Groups header name, or automatic provider detection |
+| `SHOW_HEADER` | `true` | Show the greeting header |
+| `SHOW_GROUP_TAGS` | `true` | Show the user's relevant access or status-badge group tags |
+| `SHOW_THEME_TOGGLE` | `true` | Show the light and dark theme toggle |
+| `CUSTOM_HEADER` | unset | Greeting template using the tags below |
 | `USER_NAME_HEADER` | `auto` | Header for `{full_name}` |
 | `USER_FIRST_NAME_HEADER` | `auto` | Header for `{first_name}` |
 | `USER_LAST_NAME_HEADER` | `auto` | Header for `{last_name}` |
 | `USER_USERNAME_HEADER` | `auto` | Header for `{username}` |
 | `USER_EMAIL_HEADER` | `auto` | Header for `{email}` |
-| `SHOW_HEADER` | `true` | Show the greeting header |
-| `SHOW_GROUP_TAGS` | `true` | Show the user's relevant access or status-badge group tags |
-| `SHOW_THEME_TOGGLE` | `true` | Show the light and dark theme toggle |
-| `CUSTOM_HEADER` | unset | Greeting template using the tags below |
 | `GREETING_MORNING` | `Good morning` | Morning value for `{greeting}` |
 | `GREETING_AFTERNOON` | `Good afternoon` | Afternoon value for `{greeting}` |
 | `GREETING_EVENING` | `Good evening` | Evening value for `{greeting}` |
