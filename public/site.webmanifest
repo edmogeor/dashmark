@@ -8,7 +8,7 @@
   "display": "standalone",
   "display_override": ["standalone"],
   "background_color": "#0a0a0a",
-  "theme_color": "#FF5A5F",
+  "theme_color": "#000000",
   "prefer_related_applications": false,
   "icons": [
     {
