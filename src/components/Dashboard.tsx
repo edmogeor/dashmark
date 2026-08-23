@@ -19,6 +19,7 @@ import { strings } from '@/lib/strings'
 import { cn } from '@/lib/utils'
 import { STATUS_POLL_INTERVAL_MS } from '@/lib/constants'
 
+const brandIconPath = `${import.meta.env.BASE_URL}brand/icon.svg`
 const COLUMN_WIDTH = 300
 const COLUMN_GUTTER = 20
 const MASONRY_OVERSCAN = 3
@@ -356,7 +357,7 @@ function DashboardSearchPanel({
     <Card className="dashmark-search-panel overflow-hidden bg-surface shadow-none">
       <CardContent className="dashmark-search-panel-content flex flex-row items-center gap-4 p-5">
         {showBranding && (
-          <img src="/brand/icon.svg" alt={strings.app.title} className="dashmark-brand h-8 w-8 shrink-0 rounded-lg max-[359px]:hidden" />
+          <img src={brandIconPath} alt={strings.app.title} className="dashmark-brand h-8 w-8 shrink-0 rounded-lg max-[359px]:hidden" />
         )}
         <div className="min-w-0 flex-1">
           <SearchBar value={search} onChange={setSearch} disabled={!!error} />
