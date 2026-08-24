@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-08-24
+
+### Fixed
+
+- Prevent card links from opening when dismissing an open tooltip.
+- Omit network rates for host-networked containers, where Docker does not expose per-container counters.
+- Redirect unmatched live-server routes to the dashboard.
+
+### Changed
+
+- Show static resource metrics on every container in the GitHub Pages demo.
+- Label network rates as receiving and sending.
+
 ## [0.2.1] - 2026-08-24
 
 ### Changed

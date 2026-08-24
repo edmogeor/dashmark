@@ -170,9 +170,10 @@ type CategoryColumnProps = {
   showResourceUsage: boolean
   isLoading: boolean
   openInNewTab: boolean
+  enableCardLayout: boolean
 }
 
-function CategoryColumn({ data, twoColumn, showStatus, showResourceUsage, isLoading, openInNewTab }: CategoryColumnProps) {
+function CategoryColumn({ data, twoColumn, showStatus, showResourceUsage, isLoading, openInNewTab, enableCardLayout }: CategoryColumnProps) {
   const { category, cards } = data
   return (
     <Card className="dashmark-category @container overflow-hidden">
@@ -182,7 +183,14 @@ function CategoryColumn({ data, twoColumn, showStatus, showResourceUsage, isLoad
       <CardContent className="p-5 pt-0">
         <div className={cn('dashmark-category-apps grid grid-cols-1 gap-4', twoColumn && '@[520px]:grid-cols-2')}>
           {cards.map(card => (
-            <motion.div key={card.id} layoutId={`card-${card.id}`} className="h-full" transition={{ layout: POSITION_TRANSITION }}>
+            <motion.div
+              key={`${card.id}-${enableCardLayout ? 'layout' : 'static'}`}
+              initial={false}
+              layout={enableCardLayout}
+              layoutId={enableCardLayout ? `card-${card.id}` : undefined}
+              className="h-full"
+              transition={{ layout: POSITION_TRANSITION }}
+            >
                 <AppCard card={card} showStatus={showStatus} showResourceUsage={showResourceUsage} isLoading={isLoading} openInNewTab={openInNewTab} />
             </motion.div>
           ))}
@@ -205,9 +213,10 @@ type MasonryGridProps = {
   showResourceUsage: boolean
   isLoading: boolean
   openInNewTab: boolean
+  enableCardLayout: boolean
 }
 
-function MasonryGrid({ items, entries, onReady, animate, showStatus, showResourceUsage, isLoading, openInNewTab }: MasonryGridProps) {
+function MasonryGrid({ items, entries, onReady, animate, showStatus, showResourceUsage, isLoading, openInNewTab, enableCardLayout }: MasonryGridProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const notifiedRef = useRef(false)
   const onReadyRef = useRef(onReady)
@@ -303,6 +312,7 @@ function MasonryGrid({ items, entries, onReady, animate, showStatus, showResourc
                     showResourceUsage={showResourceUsage}
                     isLoading={isLoading}
                     openInNewTab={openInNewTab}
+                    enableCardLayout={enableCardLayout}
                   />
                 </AnimatedGridItem>
               )
@@ -475,6 +485,7 @@ type DashboardResultsProps = {
   openInNewTab: boolean
   onMasonryReady: () => void
   animateMasonry: boolean
+  enableCardLayout: boolean
 }
 
 type ItemEntry = {
@@ -517,7 +528,8 @@ function DashboardResults({
   isLoading,
   openInNewTab,
   onMasonryReady,
-  animateMasonry
+  animateMasonry,
+  enableCardLayout
 }: DashboardResultsProps) {
   const cardEntries = useItemEntries(uncategorised.map(card => card.id))
   const categoryEntries = useItemEntries(categoryItems.map(item => item.key))
@@ -555,6 +567,7 @@ function DashboardResults({
       entries={categoryEntries}
       onReady={onMasonryReady}
       animate={animateMasonry}
+      enableCardLayout={enableCardLayout}
       showStatus={showStatus}
       showResourceUsage={showResourceUsage}
       isLoading={isLoading}
@@ -627,10 +640,21 @@ function DashboardContent({
 
   const [masonryLayoutReady, setMasonryLayoutReady] = useState(false)
   const [searchBarDone, setSearchBarDone] = useState(false)
+  const [cardLayoutEnabled, setCardLayoutEnabled] = useState(false)
 
   useEffect(() => {
     if (!willRenderMasonry) setMasonryLayoutReady(true)
   }, [willRenderMasonry])
+
+  useEffect(() => {
+    if (!masonryLayoutReady || !searchBarDone) return
+    const timeout = setTimeout(() => setCardLayoutEnabled(true), 300)
+    return () => clearTimeout(timeout)
+  }, [masonryLayoutReady, searchBarDone])
+
+  function handleMasonryReady() {
+    setMasonryLayoutReady(true)
+  }
 
   return (
     <>
@@ -670,8 +694,9 @@ function DashboardContent({
               showResourceUsage={initialShowResourceUsage}
               isLoading={showLoading || statusUnavailable}
               openInNewTab={initialOpenInNewTab}
-              onMasonryReady={() => setMasonryLayoutReady(true)}
+              onMasonryReady={handleMasonryReady}
               animateMasonry={searchBarDone}
+              enableCardLayout={cardLayoutEnabled}
             />
           </div>
         </div>

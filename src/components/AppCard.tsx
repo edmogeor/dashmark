@@ -1,4 +1,4 @@
-import { memo, useEffect, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { memo, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -135,7 +135,7 @@ function ResourceUsageTooltip({ card, resources, loading }: { card: CardType; re
     : undefined
   const showCpu = card.resourceStats?.includes('cpu')
   const showMemory = card.resourceStats?.includes('memory')
-  const showNetwork = card.resourceStats?.includes('network')
+  const showNetwork = card.resourceStats?.includes('network') && !card.usesHostNetwork
   const hasUsage = resources?.cpuPercent !== undefined || resources?.memoryUsage !== undefined
     || resources?.receivedBytesPerSecond !== undefined || resources?.sentBytesPerSecond !== undefined || (resources !== null && showNetwork)
 
@@ -240,6 +240,7 @@ function useResourceUsage(
 
 export const AppCard = memo(function AppCard({ card, showStatus = true, showResourceUsage = true, asCard = false, isLoading = false, openInNewTab = false }: AppCardProps) {
   const { activeTooltip, setActiveTooltip } = useTooltipController()
+  const dismissesTooltip = useRef(false)
   const hasStatus = card.health === 'starting' || card.health === 'unhealthy' || Boolean(card.state)
   const showStatusBadge = showStatus && card.showStatus !== false && (hasStatus || (isLoading && card.hasContainer))
   const showResourceUsageTooltip = showResourceUsage && card.showStatus !== false && card.hasContainer && card.resourceStats !== undefined && card.resourceStats.length > 0
@@ -272,7 +273,16 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showReso
     if (!activeTooltip || (event.target instanceof Element && event.target.closest('.card-action-button'))) return
 
     event.preventDefault()
+    dismissesTooltip.current = true
     setActiveTooltip(null)
+  }
+
+  function handleCardClickCapture(event: ReactMouseEvent<HTMLAnchorElement>) {
+    if (!dismissesTooltip.current) return
+
+    event.preventDefault()
+    event.stopPropagation()
+    dismissesTooltip.current = false
   }
 
   const cardClassName = cn(
@@ -291,6 +301,7 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showReso
       onPointerEnter={showResourceUsageTooltip ? () => setResourceCardHovered(true) : undefined}
       onPointerLeave={showResourceUsageTooltip ? () => setResourceCardHovered(false) : undefined}
       onPointerDownCapture={handleCardPointerDownCapture}
+      onClickCapture={handleCardClickCapture}
     >
       <Card className={cardClassName}>
         <CardContent className="dashmark-app-content relative flex min-h-24 items-center gap-5 p-3">

@@ -76,6 +76,25 @@ describe('getCards', () => {
     })
   })
 
+  it('marks host-networked containers', async () => {
+    server.containers = [{
+      Id: 'host-network',
+      Names: ['/home-assistant'],
+      Image: 'ghcr.io/home-assistant/home-assistant',
+      ImageID: 'sha256:home-assistant',
+      State: 'running',
+      Status: 'Up 2 hours',
+      Labels: { 'dashmark.url': 'https://hass.example.com' },
+      HostConfig: { NetworkMode: 'host' }
+    }]
+
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    const { cards } = await getCards(config, new Headers())
+
+    expect(cards[0]?.usesHostNetwork).toBe(true)
+  })
+
   it('combines cards and namespaces statuses from multiple Docker hosts', async () => {
     const secondServer = new MockDockerServer()
     const secondHost = await secondServer.start()

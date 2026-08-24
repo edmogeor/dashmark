@@ -41,6 +41,7 @@ export type Card = {
   access: string[]
   host?: string
   hostColor?: number
+  usesHostNetwork?: boolean
 }
 
 type DockerContainer = {
@@ -51,6 +52,9 @@ type DockerContainer = {
   State: string
   Status: string
   Labels?: Record<string, string>
+  HostConfig?: {
+    NetworkMode?: string
+  }
 }
 
 type DockerHost = {
@@ -99,6 +103,7 @@ function isDockerContainer(value: unknown): value is DockerContainer {
     && typeof value.State === 'string'
     && typeof value.Status === 'string'
     && (value.Labels === undefined || isStringRecord(value.Labels))
+    && (value.HostConfig === undefined || (isRecord(value.HostConfig) && (value.HostConfig.NetworkMode === undefined || typeof value.HostConfig.NetworkMode === 'string')))
 }
 
 function number(value: unknown): number | undefined {
@@ -526,6 +531,7 @@ async function cardFromContainer(
     access: labels.access,
     host: showHost ? hostId : undefined,
     hostColor: showHost ? hostColor : undefined,
+    usesHostNetwork: container.HostConfig?.NetworkMode === 'host',
     resourceStats: labels.resourceStats ?? [...RESOURCE_STATS]
   }
 }

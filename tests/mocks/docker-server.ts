@@ -8,6 +8,9 @@ export type MockContainer = {
   State: string
   Status: string
   Labels?: Record<string, string>
+  HostConfig?: {
+    NetworkMode?: string
+  }
 }
 
 export class MockDockerServer {

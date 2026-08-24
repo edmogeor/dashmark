@@ -24,8 +24,8 @@ export const strings = {
     resourceUsage: 'Resources',
     cpu: 'CPU',
     memory: 'Memory',
-    received: 'Received',
-    sent: 'Sent',
+    received: 'Receiving',
+    sent: 'Sending',
     loadingResourceUsage: 'Loading resource usage',
     waitingForNetwork: 'Waiting for next refresh',
     unavailable: 'Usage unavailable'
