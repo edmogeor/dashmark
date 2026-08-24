@@ -1,7 +1,7 @@
 {
   "name": "dashmark",
   "type": "module",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "description": "A lightweight dashboard of links to your Docker services",
   "scripts": {
     "dev": "node scripts/dev-with-demo.mjs",
