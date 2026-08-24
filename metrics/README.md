@@ -80,6 +80,7 @@ Each entry under `custom_metrics` needs:
 | `json` or `prometheus` | Yes | Exactly one extractor. |
 | `unit` | Numeric only | Display unit, defaults to `number`. |
 | `chart` | Numeric only | `step` (default), `line`, `area`, or `none`. |
+| `chart_group` | Numeric only | Lowercase group ID that combines compatible selected metrics into one chart. |
 | `value_type` | No | `number` (default) or `string`. |
 
 Do not put literal credentials in YAML. Use one secret reference per header:
@@ -203,6 +204,35 @@ custom_metrics:
     json:
       path: /queue/depth
 ```
+
+### Multi-series charts
+
+Give compatible selected numeric metrics the same `chart_group` to display them
+together. Each metric keeps its own current value, source, and history;
+selecting either metric opens the shared chart. All members of a group must use
+the same `unit` and `chart`, and `chart` cannot be `none`.
+
+```yaml
+custom_metrics:
+  read_rate:
+    label: Read
+    unit: bytes_per_second
+    chart: line
+    chart_group: disk_io
+    source: { url: http://service:8080/stats }
+    json: { path: /disk/read_bytes_per_second }
+  write_rate:
+    label: Write
+    unit: bytes_per_second
+    chart: line
+    chart_group: disk_io
+    source: { url: http://service:8080/stats }
+    json: { path: /disk/write_bytes_per_second }
+```
+
+Chart series use Dashmark's separate `--dashmark-chart-color-0` through
+`--dashmark-chart-color-7` CSS variables. Override those variables in a custom
+stylesheet to change the palette without affecting badge colors.
 
 ## Units
 

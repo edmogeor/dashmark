@@ -128,6 +128,14 @@
   --dashmark-badge-color-9: oklch(0.58 0.2 300);
   --dashmark-badge-color-10: oklch(0.69 0.15 235);
   --dashmark-badge-color-11: oklch(0.6 0.02 255);
+  --dashmark-chart-color-0: oklch(0.55 0.2 260);
+  --dashmark-chart-color-1: oklch(0.55 0.15 155);
+  --dashmark-chart-color-2: oklch(0.62 0.17 55);
+  --dashmark-chart-color-3: oklch(0.58 0.22 330);
+  --dashmark-chart-color-4: oklch(0.55 0.13 210);
+  --dashmark-chart-color-5: oklch(0.55 0.19 290);
+  --dashmark-chart-color-6: oklch(0.5 0.16 25);
+  --dashmark-chart-color-7: oklch(0.5 0.04 255);
 }
 
 .dark {
@@ -162,6 +170,14 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
+  --dashmark-chart-color-0: oklch(0.72 0.16 260);
+  --dashmark-chart-color-1: oklch(0.72 0.14 155);
+  --dashmark-chart-color-2: oklch(0.8 0.16 80);
+  --dashmark-chart-color-3: oklch(0.72 0.18 330);
+  --dashmark-chart-color-4: oklch(0.72 0.12 210);
+  --dashmark-chart-color-5: oklch(0.72 0.16 290);
+  --dashmark-chart-color-6: oklch(0.7 0.15 25);
+  --dashmark-chart-color-7: oklch(0.7 0.03 255);
 }
 
 ::view-transition-old(root),

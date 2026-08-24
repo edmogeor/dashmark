@@ -796,6 +796,40 @@ radarr:
     }
   })
 
+  it('validates metric access without collecting live values', async () => {
+    server.containers = [{
+      Id: 'cached-metrics', Names: ['/radarr'], Image: 'radarr', ImageID: 'sha256:radarr',
+      State: 'running', Status: 'Up 1 hour', Labels: {
+        'dashmark.url': 'https://radarr.example.com',
+        'dashmark.metrics': 'active_downloads'
+      }
+    }]
+    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"totalRecords":4}'))
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.configFile = writeTempConfig(`
+radarr:
+  custom_metrics:
+    active_downloads:
+      label: Active downloads
+      unit: count
+      source: { url: https://metrics.example.test/radarr }
+      json: { path: /totalRecords }
+`)
+
+    try {
+      await expect(getContainerMetricUsage(config, new Headers(), 'default:cached-metrics', false)).resolves.toEqual({
+        historyPeriodMs: config.metricsHistoryPeriodMs,
+        customMetrics: [],
+        metricErrors: []
+      })
+      expect(fetch).not.toHaveBeenCalled()
+      expect(server.statsRequests).toBe(0)
+    } finally {
+      fetch.mockRestore()
+    }
+  })
+
   it('rejects custom metrics from a different provider', async () => {
     server.containers = [{
       Id: 'provider-metrics', Names: ['/radarr'], Image: 'radarr', ImageID: 'sha256:radarr',

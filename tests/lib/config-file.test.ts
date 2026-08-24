@@ -200,6 +200,61 @@ service:
     })
   })
 
+  it('groups compatible numeric metrics into a shared chart', () => {
+    const config = getConfig()
+    config.configFile = writeConfig(`
+service:
+  custom_metrics:
+    read_rate:
+      label: Read
+      unit: bytes_per_second
+      chart: line
+      chart_group: disk_io
+      source: { url: https://metrics.example.internal/stats }
+      json: { path: /read }
+    write_rate:
+      label: Write
+      unit: bytes_per_second
+      chart: line
+      chart_group: disk_io
+      source: { url: https://metrics.example.internal/stats }
+      json: { path: /write }
+`)
+
+    const service = loadYamlConfig(config).config.service
+    expect(service?.customMetrics).toMatchObject({
+      read_rate: { chartGroup: 'disk_io' },
+      write_rate: { chartGroup: 'disk_io' }
+    })
+  })
+
+  it('rejects incompatible chart group members', () => {
+    const config = getConfig()
+    config.configFile = writeConfig(`
+service:
+  custom_metrics:
+    requests:
+      label: Requests
+      unit: count
+      chart: line
+      chart_group: traffic
+      source: { url: https://metrics.example.internal/stats }
+      json: { path: /requests }
+    bytes:
+      label: Bytes
+      unit: bytes
+      chart: line
+      chart_group: traffic
+      source: { url: https://metrics.example.internal/stats }
+      json: { path: /bytes }
+`)
+
+    const service = loadYamlConfig(config).config.service
+    expect(service?.customMetrics).toBeUndefined()
+    expect(service?.customMetricErrors?.requests).toBe('chart_group traffic metrics must use the same unit and chart')
+    expect(service?.customMetricErrors?.bytes).toBe('chart_group traffic metrics must use the same unit and chart')
+  })
+
   it('clears the error after the file is fixed', () => {
     const config = getConfig()
     const configPath = writeConfig('bad: [unclosed\n')

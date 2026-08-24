@@ -26,7 +26,6 @@ export const strings = {
     memory: 'Memory',
     received: 'Network in',
     sent: 'Network out',
-    loadingResourceUsage: 'Loading resource usage',
     waitingForNetwork: 'Waiting for next refresh',
     unavailable: 'Usage unavailable'
   },

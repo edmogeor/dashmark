@@ -3,6 +3,33 @@
  * CUSTOM_STYLESHEET=/app/custom.css.
  */
 
+:root {
+  /* Badge variables:
+   * --dashmark-badge-color-0
+   * --dashmark-badge-color-1
+   * --dashmark-badge-color-2
+   * --dashmark-badge-color-3
+   * --dashmark-badge-color-4
+   * --dashmark-badge-color-5
+   * --dashmark-badge-color-6
+   * --dashmark-badge-color-7
+   * --dashmark-badge-color-8
+   * --dashmark-badge-color-9
+   * --dashmark-badge-color-10
+   * --dashmark-badge-color-11
+   */
+  /* Chart variables:
+   * --dashmark-chart-color-0
+   * --dashmark-chart-color-1
+   * --dashmark-chart-color-2
+   * --dashmark-chart-color-3
+   * --dashmark-chart-color-4
+   * --dashmark-chart-color-5
+   * --dashmark-chart-color-6
+   * --dashmark-chart-color-7
+   */
+}
+
 .dashmark {
   /* The document body and overall dashboard theme. */
 }
@@ -117,6 +144,118 @@
 
 .dashmark-app-status {
   /* The app status badge or loading indicator. */
+}
+
+.dashmark-app-resources {
+  /* The resource metrics tooltip. */
+}
+
+.dashmark-app-resources-header {
+  /* The tooltip header. */
+}
+
+.dashmark-app-resources-title {
+  /* The resource metrics heading. */
+}
+
+.dashmark-app-resource-host {
+  /* The Docker host badge in the resource tooltip. */
+}
+
+.dashmark-app-resources-list {
+  /* The list of resource and custom metric rows. */
+}
+
+.dashmark-app-resource-metric {
+  /* An individual metric row. Use [data-metric-key="cpu"] for a specific metric. */
+}
+
+.dashmark-app-resource-metric-label {
+  /* An individual metric row label. */
+}
+
+.dashmark-app-resource-metric-value {
+  /* The value container for an individual metric row. */
+}
+
+.dashmark-app-resource-metric-number {
+  /* The displayed value or loading indicator. */
+}
+
+.dashmark-metric-dialog {
+  /* The metric chart modal. */
+}
+
+.dashmark-metric-dialog-header {
+  /* The metric chart modal header. */
+}
+
+.dashmark-metric-dialog-title {
+  /* The metric chart modal title. */
+}
+
+.dashmark-metric-dialog-close {
+  /* The metric chart modal close button. */
+}
+
+.dashmark-metric-dialog-body {
+  /* The metric chart modal body. */
+}
+
+.dashmark-metric-chart {
+  /* The responsive metric chart container. */
+}
+
+.dashmark-metric-chart-svg {
+  /* The rendered SVG chart. */
+}
+
+.dashmark-metric-chart-x-axis {
+  /* The chart time axis. */
+}
+
+.dashmark-metric-chart-y-axis {
+  /* The chart value axis. */
+}
+
+.dashmark-metric-chart-series {
+  /* A rendered chart series. */
+}
+
+.dashmark-metric-chart-end-label {
+  /* The current-value label attached to a series endpoint. */
+}
+
+.dashmark-metric-chart-tooltip {
+  /* The chart hover tooltip. */
+}
+
+.dashmark-metric-chart-tooltip-time {
+  /* The timestamp in the chart hover tooltip. */
+}
+
+.dashmark-metric-chart-tooltip-value {
+  /* A series value in the chart hover tooltip. Use [data-series-key] for a specific series. */
+}
+
+.dashmark-metric-chart-tooltip-label {
+  /* The series label in the chart hover tooltip. */
+}
+
+.dashmark-metric-chart-tooltip-number {
+  /* The numeric value in the chart hover tooltip. */
+}
+
+.dashmark-metric-chart-legend {
+  /* The multi-series chart legend. */
+}
+
+.dashmark-metric-chart-legend-item {
+  /* A multi-series chart legend item. Use [data-series-key] for a specific series. */
+}
+
+.dashmark-metric-chart-legend-swatch {
+  /* The color swatch in a chart legend item. */
 }
 
 .dashmark-empty-state {

@@ -3,6 +3,7 @@ import { dirname } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import type { AppConfig } from './config'
 import { collectContainerResourceUsage } from './docker'
+import type { ContainerMetricUsage } from './docker'
 import type { ContainerResources, ResourceMetricSample } from './status'
 
 type DatabaseState = { path: string; database: DatabaseSync }
@@ -19,7 +20,9 @@ type GenericMetricRow = { timestamp: number; value: number }
 
 let state: DatabaseState | undefined
 let collectionStarted = false
+let collectionInProgress = false
 const lastMetricCollection = new Map<string, number>()
+const latestMetricUsage = new Map<string, ContainerMetricUsage>()
 
 function database(path: string): DatabaseSync {
   if (state?.path === path) return state.database
@@ -89,7 +92,6 @@ export function getResourceMetricHistory(
 ): ResourceMetricSample[] {
   const db = database(config.metricsDatabasePath)
   const cutoff = now - historyPeriodMs
-  db.prepare('DELETE FROM resource_metrics WHERE card_id = ? AND timestamp < ?').run(cardId, cutoff)
   const rows = db.prepare(`
     SELECT
       timestamp,
@@ -137,8 +139,6 @@ export function getMetricHistory(
 ): GenericMetricRow[] {
   const cutoff = now - historyPeriodMs
   const db = database(config.metricsDatabasePath)
-  db.prepare('DELETE FROM metric_samples WHERE card_id = ? AND metric_key = ? AND timestamp < ?')
-    .run(cardId, metricKey, cutoff)
   return db.prepare(`
     SELECT timestamp, value
     FROM metric_samples
@@ -155,12 +155,14 @@ function pruneMetricHistory(config: AppConfig, timestamp: number): void {
 }
 
 async function collectAndSave(config: AppConfig): Promise<void> {
-  const samples = await collectContainerResourceUsage(config)
+  const samples = await collectContainerResourceUsage(config, (cardId, pollIntervalMs) => {
+    const previous = lastMetricCollection.get(cardId)
+    return previous === undefined || Date.now() - previous >= pollIntervalMs
+  })
   const timestamp = Date.now()
   pruneMetricHistory(config, timestamp)
-  for (const { cardId, resource, customMetrics, metricsPollIntervalMs, metricsHistoryPeriodMs } of samples) {
-    const previous = lastMetricCollection.get(cardId)
-    if (previous !== undefined && timestamp - previous < metricsPollIntervalMs) continue
+  for (const { cardId, resource, customMetrics, metricErrors, metricsHistoryPeriodMs } of samples) {
+    latestMetricUsage.set(cardId, { resource, customMetrics, metricErrors, historyPeriodMs: metricsHistoryPeriodMs })
     if (resource) saveResourceMetric(config, cardId, resource, metricsHistoryPeriodMs, timestamp)
     for (const metric of customMetrics) {
       if (typeof metric.value === 'number') saveMetricSample(config, cardId, metric.key, metric.value, metricsHistoryPeriodMs, timestamp)
@@ -170,7 +172,15 @@ async function collectAndSave(config: AppConfig): Promise<void> {
 }
 
 function collectInBackground(config: AppConfig): void {
-  void collectAndSave(config).catch(() => undefined)
+  if (collectionInProgress) return
+  collectionInProgress = true
+  void collectAndSave(config)
+    .catch(() => undefined)
+    .finally(() => { collectionInProgress = false })
+}
+
+export function getLatestMetricUsage(cardId: string): ContainerMetricUsage | undefined {
+  return latestMetricUsage.get(cardId)
 }
 
 export function startMetricsCollection(config: AppConfig): void {
@@ -185,5 +195,7 @@ export function clearMetricsDatabase(): void {
   state?.database.close()
   state = undefined
   collectionStarted = false
+  collectionInProgress = false
   lastMetricCollection.clear()
+  latestMetricUsage.clear()
 }

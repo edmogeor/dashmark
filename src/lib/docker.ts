@@ -660,7 +660,7 @@ export async function getContainerStatuses(
 }
 
 export type CollectedCustomMetric =
-  | { key: string; label: string; unit: Extract<MetricOverride, { valueType: 'number' }>['unit']; chart: Extract<MetricOverride, { valueType: 'number' }>['chart']; value: number }
+  | { key: string; label: string; unit: Extract<MetricOverride, { valueType: 'number' }>['unit']; chart: Extract<MetricOverride, { valueType: 'number' }>['chart']; chartGroup?: string; value: number }
   | { key: string; label: string; value: string }
 
 export type ContainerMetricUsage = {
@@ -675,6 +675,7 @@ type ContainerMetricSample = {
   cardId: string
   resource: ContainerResources | undefined
   customMetrics: CollectedCustomMetric[]
+  metricErrors: ContainerMetricUsage['metricErrors']
   metricsPollIntervalMs: number
   metricsHistoryPeriodMs: number
 }
@@ -704,6 +705,14 @@ function selectedCustomMetricErrors(resolved: ResolvedContainer): { key: string;
   })
 }
 
+function collectedCustomMetric(key: string, metric: MetricOverride, value: number | string): CollectedCustomMetric | undefined {
+  if (metric.valueType === 'string' && typeof value === 'string') return { key, label: metric.label, value }
+  if (metric.valueType === 'number' && typeof value === 'number') {
+    return { key, label: metric.label, unit: metric.unit, chart: metric.chart, ...(metric.chartGroup === undefined ? {} : { chartGroup: metric.chartGroup }), value }
+  }
+  return undefined
+}
+
 async function collectSelectedCustomMetrics(
   metrics: SelectedCustomMetric[],
   metricErrors: ContainerMetricUsage['metricErrors']
@@ -713,8 +722,8 @@ async function collectSelectedCustomMetrics(
   const collectedErrors = [...metricErrors]
   for (const { key, metric, result } of results) {
     if ('value' in result) {
-      if (metric.valueType === 'string' && typeof result.value === 'string') customMetrics.push({ key, label: metric.label, value: result.value })
-      if (metric.valueType === 'number' && typeof result.value === 'number') customMetrics.push({ key, label: metric.label, unit: metric.unit, chart: metric.chart, value: result.value })
+      const collected = collectedCustomMetric(key, metric, result.value)
+      if (collected) customMetrics.push(collected)
     }
     else collectedErrors.push({ key, message: result.error })
   }
@@ -724,7 +733,8 @@ async function collectSelectedCustomMetrics(
 export async function getContainerMetricUsage(
   config: AppConfig,
   headers: Headers,
-  cardId: string
+  cardId: string,
+  collect = true
 ): Promise<ContainerMetricUsage | undefined> {
   if (!canViewResourceUsage(config, headers)) return undefined
 
@@ -747,13 +757,15 @@ export async function getContainerMetricUsage(
     const selectedMetrics = selectedCustomMetrics(resolved)
     const metricErrors = selectedCustomMetricErrors(resolved)
     if (resourceStats.length === 0 && selectedMetrics.length === 0 && metricErrors.length === 0) return undefined
+    const historyPeriodMs = resolved.labels.metricsHistoryPeriodMs ?? config.metricsHistoryPeriodMs
+    if (!collect) return { historyPeriodMs, customMetrics: [], metricErrors }
 
     const [resource, collected] = await Promise.all([
       resourceStats.length > 0 ? getContainerResources(host.dockerHost, container.Id, resourceStats) : undefined,
       collectSelectedCustomMetrics(selectedMetrics, metricErrors)
     ])
     if (!resource && collected.customMetrics.length === 0 && collected.metricErrors.length === 0) return undefined
-    return { resource, ...collected, historyPeriodMs: resolved.labels.metricsHistoryPeriodMs ?? config.metricsHistoryPeriodMs }
+    return { resource, ...collected, historyPeriodMs }
   } catch {
     return undefined
   }
@@ -768,7 +780,8 @@ export async function getContainerResourceUsage(
 }
 
 export async function collectContainerResourceUsage(
-  config: AppConfig
+  config: AppConfig,
+  isDue: (cardId: string, pollIntervalMs: number) => boolean = () => true
 ): Promise<ContainerMetricSample[]> {
   if (!config.showResourceUsage) return []
 
@@ -786,16 +799,20 @@ export async function collectContainerResourceUsage(
         const resourceStats = resolved.labels.resourceStats ?? RESOURCE_STATS
         const selectedMetrics = selectedCustomMetrics(resolved)
         if (resourceStats.length === 0 && selectedMetrics.length === 0) return undefined
+        const cardId = `${host.id}:${container.Id}`
+        const metricsPollIntervalMs = resolved.labels.metricsPollIntervalMs ?? config.metricsPollIntervalMs
+        if (!isDue(cardId, metricsPollIntervalMs)) return undefined
         const [resource, collected] = await Promise.all([
           resourceStats.length > 0 ? getContainerResources(host.dockerHost, container.Id, resourceStats) : undefined,
           collectSelectedCustomMetrics(selectedMetrics, [])
         ])
-        if (!resource && collected.customMetrics.length === 0) return undefined
+        if (!resource && collected.customMetrics.length === 0 && collected.metricErrors.length === 0) return undefined
         return {
-          cardId: `${host.id}:${container.Id}`,
+          cardId,
           resource,
           customMetrics: collected.customMetrics,
-          metricsPollIntervalMs: resolved.labels.metricsPollIntervalMs ?? config.metricsPollIntervalMs,
+          metricErrors: collected.metricErrors,
+          metricsPollIntervalMs,
           metricsHistoryPeriodMs: resolved.labels.metricsHistoryPeriodMs ?? config.metricsHistoryPeriodMs
         }
       }))

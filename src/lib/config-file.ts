@@ -53,6 +53,7 @@ export type NumericMetricOverride = MetricCommon & {
   valueType: 'number'
   unit: MetricUnit
   chart: CustomMetricChart
+  chartGroup?: string
 } & ({ json: JsonMetricExtractor; prometheus?: never } | { prometheus: PrometheusMetricExtractor; json?: never })
 
 export type TextMetricOverride = MetricCommon & {
@@ -197,6 +198,7 @@ function parseMetricOverrides(value: unknown): { metrics?: ServiceMetricOverride
     const valueType = metric.value_type === undefined ? 'number' : string(metric.value_type)
     const unit = metric.unit === undefined ? 'number' : parseUnit(metric.unit)
     const chart = metric.chart === undefined ? 'step' : parseChart(metric.chart)
+    const chartGroup = metric.chart_group === undefined ? undefined : string(metric.chart_group)
     const source = isRecord(metric.source) ? metric.source : undefined
     const url = string(source?.url)
     const json = parseJsonExtractor(metric.json)
@@ -233,12 +235,18 @@ function parseMetricOverrides(value: unknown): { metrics?: ServiceMetricOverride
       invalid('chart must be step, line, area, or none')
       continue
     }
-    if (valueType === 'string' && (metric.unit !== undefined || metric.chart !== undefined || json?.valuePath !== undefined || json?.reduce !== undefined || prometheus?.reduce !== undefined || (prometheus && !prometheus.valueLabel))) {
+    if (metric.chart_group !== undefined && (!chartGroup || !/^[a-z][a-z0-9_-]*$/.test(chartGroup))) {
+      invalid('chart_group must be a lowercase identifier')
+      continue
+    }
+    if (valueType === 'string' && (metric.unit !== undefined || metric.chart !== undefined || metric.chart_group !== undefined || json?.valuePath !== undefined || json?.reduce !== undefined || prometheus?.reduce !== undefined || (prometheus && !prometheus.valueLabel))) {
       invalid('string metrics cannot use units, reductions, or charts')
       continue
     }
-    if (valueType === 'number' && (!unit || prometheus?.valueLabel !== undefined)) {
-      invalid('numeric metrics require a valid unit and cannot use value_label')
+    if (valueType === 'number' && (!unit || prometheus?.valueLabel !== undefined || (chartGroup !== undefined && chart === 'none'))) {
+      invalid(chartGroup !== undefined && chart === 'none'
+        ? 'chart_group requires a visible chart'
+        : 'numeric metrics require a valid unit and cannot use value_label')
       continue
     }
 
@@ -250,7 +258,30 @@ function parseMetricOverrides(value: unknown): { metrics?: ServiceMetricOverride
 
     const common = { label, source: headers ? { url, headers } : { url } }
     if (valueType === 'string') metrics[key] = json ? { ...common, valueType, json } : { ...common, valueType, prometheus: prometheus! }
-    else metrics[key] = json ? { ...common, valueType, unit: unit!, chart, json } : { ...common, valueType, unit: unit!, chart, prometheus: prometheus! }
+    else {
+      const numeric = { ...common, valueType: 'number' as const, unit: unit!, chart, ...(chartGroup === undefined ? {} : { chartGroup }) }
+      metrics[key] = json ? { ...numeric, json } : { ...numeric, prometheus: prometheus! }
+    }
+  }
+
+  const metricGroups = new Map<string, [string, NumericMetricOverride][]>()
+  for (const [key, metric] of Object.entries(metrics)) {
+    if (metric.valueType !== 'number' || !metric.chartGroup) continue
+    const group = metricGroups.get(metric.chartGroup) ?? []
+    group.push([key, metric])
+    metricGroups.set(metric.chartGroup, group)
+  }
+  for (const [group, entries] of metricGroups) {
+    const [first] = entries
+    if (!first) continue
+    const signature = `${first[1].chart}:${JSON.stringify(first[1].unit)}`
+    if (entries.every(([, metric]) => `${metric.chart}:${JSON.stringify(metric.unit)}` === signature)) continue
+    for (const [key] of entries) {
+      const reason = `chart_group ${group} metrics must use the same unit and chart`
+      errors[key] = reason
+      logger.warn('config', 'ignoring invalid custom metric', { key, reason })
+      delete metrics[key]
+    }
   }
 
   return {

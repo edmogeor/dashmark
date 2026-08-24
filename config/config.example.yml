@@ -37,10 +37,17 @@ plex:
   #       url: http://metrics.example.internal/radarr
   #       headers:
   #         X-Api-Key: { env: RADARR_API_KEY }
-  #     json:
-  #       path: /queue
-  #       value_path: /records
-  #       reduce: count
+   #     json:
+   #       path: /queue
+   #       value_path: /records
+   #       reduce: count
+   #   read_rate:
+   #     label: Read
+   #     unit: bytes_per_second
+   #     chart: line
+   #     chart_group: disk_io
+   #     source: { url: http://metrics.example.internal/io }
+   #     json: { path: /read_bytes_per_second }
   #   version:
   #     label: Version
   #     value_type: string

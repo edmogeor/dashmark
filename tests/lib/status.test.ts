@@ -21,6 +21,7 @@ describe('isStatusResponse', () => {
         receivedBytesPerSecond: 512,
         sentBytesPerSecond: 256
       },
+      pending: true,
       customMetrics: [],
       metricErrors: []
     })).toBe(true)
@@ -36,6 +37,7 @@ describe('isStatusResponse', () => {
       resource: null,
       customMetrics: [
         { key: 'rpm', label: 'RPM', unit: { suffix: 'rpm' }, chart: 'none', value: 900, history: [], historyPeriodMs: 60_000 },
+        { key: 'read', label: 'Read', unit: 'bytes_per_second', chart: 'line', chartGroup: 'disk_io', value: 900, history: [], historyPeriodMs: 60_000 },
         { key: 'version', label: 'Version', value: '1.2.3' }
       ],
       metricErrors: [{ key: 'failed', message: 'Metric is unavailable' }]

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Group compatible custom metrics into multi-series charts with `chart_group`.
+- Expose semantic CSS hooks for metric tooltips and charts, plus separate chart color variables.
+
+### Changed
+
+- Collect live metrics only in the background and serve tooltip data from the latest collected sample.
+- Preserve metric labels while showing per-row loading and unavailable states.
+
+### Fixed
+
+- Prevent metric chart Y-axes from displaying `NaN` for padded network-rate domains.
+- Render chart data with the metric dialog instead of deferring it after the dialog opens.
+
 ## [0.3.0-alpha.3] - 2026-08-24
 
 ### Fixed

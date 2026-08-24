@@ -29,6 +29,7 @@ export type NumericCustomMetric = {
   label: string
   unit: CustomMetricUnit
   chart: CustomMetricChart
+  chartGroup?: string
   value: number
   history: CustomMetricSample[]
   historyPeriodMs: number
@@ -45,6 +46,7 @@ export type ResourceUsageResponse = {
   resource: ContainerResources | null
   history?: ResourceMetricSample[]
   historyPeriodMs?: number
+  pending?: boolean
   customMetrics: CustomMetric[]
   metricErrors: MetricError[]
 }
@@ -78,6 +80,7 @@ export function isResourceUsageResponse(value: unknown): value is ResourceUsageR
     && (value.resource === null || isContainerResources(value.resource))
     && (value.history === undefined || (Array.isArray(value.history) && value.history.every(isResourceMetricSample)))
     && (value.historyPeriodMs === undefined || (typeof value.historyPeriodMs === 'number' && value.historyPeriodMs > 0))
+    && (value.pending === undefined || typeof value.pending === 'boolean')
     && Array.isArray(value.customMetrics) && value.customMetrics.every(isCustomMetric)
     && Array.isArray(value.metricErrors) && value.metricErrors.every(isMetricError)
 }
@@ -93,6 +96,7 @@ function isCustomMetric(value: unknown): value is CustomMetric {
       typeof value.value === 'number' && Number.isFinite(value.value)
       && isCustomMetricUnit(value.unit)
       && isCustomMetricChart(value.chart)
+      && (value.chartGroup === undefined || typeof value.chartGroup === 'string')
       && Array.isArray(value.history) && value.history.every(isCustomMetricSample)
       && typeof value.historyPeriodMs === 'number' && value.historyPeriodMs > 0
     ))

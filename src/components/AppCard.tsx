@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -7,7 +7,7 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from '@/components/ui/tooltip'
-import { Gauge, Info, LoaderCircle, Server } from 'lucide-react'
+import { Gauge, Info, LoaderCircle, Server, X } from 'lucide-react'
 import { Area, AreaChart, CartesianGrid, LabelList, Line, LineChart, XAxis, YAxis } from 'recharts'
 import { StatusBadge } from './StatusBadge'
 import { MarqueeText } from './MarqueeText'
@@ -17,10 +17,10 @@ import { strings } from '@/lib/strings'
 import { useIsDark } from '@/lib/use-is-dark'
 import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { isResourceUsageResponse, type ContainerResources, type CustomMetric, type CustomMetricChart, type CustomMetricSample, type CustomMetricUnit, type ResourceMetricSample } from '@/lib/status'
+import { isResourceUsageResponse, type ContainerResources, type CustomMetric, type CustomMetricChart, type CustomMetricUnit, type NumericCustomMetric, type ResourceMetricSample } from '@/lib/status'
 import { RESOURCE_USAGE_POLL_INTERVAL_MS, TOOLTIP_DELAY_MS } from '@/lib/constants'
 import { useTooltipController } from './tooltip-controller'
-import { badgeColor } from '@/lib/badge-color'
+import { badgeColor, chartColorVariable } from '@/lib/badge-color'
 import { toast } from 'sonner'
 
 type AppCardProps = {
@@ -75,10 +75,17 @@ function AppIcon({ icon, title, asCard }: { icon: CardType['icon']; title: strin
   return <InitialsPlaceholder title={title} asCard={asCard} />
 }
 
+const units = ['B', 'KB', 'MB', 'GB', 'TB']
+
+function byteParts(value: number): { amount: number; index: number } {
+  const normalizedValue = Math.max(0, value)
+  const index = normalizedValue === 0 ? 0 : Math.min(Math.floor(Math.log(normalizedValue) / Math.log(1_024)), units.length - 1)
+  const amount = normalizedValue / 1_024 ** index
+  return { amount, index }
+}
+
 function formatBytes(value: number): string {
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  const index = value === 0 ? 0 : Math.min(Math.floor(Math.log(value) / Math.log(1_024)), units.length - 1)
-  const amount = value / 1_024 ** index
+  const { amount, index } = byteParts(value)
   return `${amount >= 10 || index === 0 ? amount.toFixed(0) : amount.toFixed(1)} ${units[index]}`
 }
 
@@ -91,9 +98,7 @@ function formatAxisPercent(value: number): string {
 }
 
 function formatAxisBytes(value: number): string {
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  const index = value === 0 ? 0 : Math.min(Math.floor(Math.log(value) / Math.log(1_024)), units.length - 1)
-  const amount = value / 1_024 ** index
+  const { amount, index } = byteParts(value)
   const rounded = amount >= 10 ? Math.round(amount / 5) * 5 : Math.round(amount * 10) / 10
   return `${rounded} ${units[index]}`
 }
@@ -145,51 +150,142 @@ const tickerConfig = {
   sent: { color: 'var(--success)' }
 } satisfies ChartConfig
 
-type MetricKey = 'cpu' | 'memory' | 'received' | 'sent'
-type ChartPoint = { timestamp: number } & Partial<Record<MetricKey, number>> & Partial<Record<`${MetricKey}Label`, string>>
+type MetricSample = { timestamp: number } & Partial<Record<string, number>>
+type ChartPoint = { timestamp: number; [key: string]: number | string | undefined }
 
 type MetricSeries = {
-  key: MetricKey
+  key: string
   label: string
-  value: (sample: ResourceMetricSample) => number | undefined
+  color: string
+  value: (sample: MetricSample) => number | undefined
 }
 
 type MetricDetail = {
   label: string
-  history: ResourceMetricSample[]
+  history: MetricSample[]
   historyPeriodMs: number
   series: MetricSeries[]
   formatValue: (value: number) => string
   formatAxisValue?: (value: number) => string
   chart?: Exclude<CustomMetricChart, 'none'>
-  customMetricKey?: string
+  customMetricKeys?: string[]
 }
 
-function metricData(history: ResourceMetricSample[], series: MetricSeries[]): ChartPoint[] {
-  return history.map(sample => {
+const MAX_CHART_POINTS = 600
+const timestampFormatter = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' })
+const exactTimestampFormatter = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' })
+
+function metricData(history: MetricSample[], series: MetricSeries[]): ChartPoint[] {
+  return history.flatMap(sample => {
+    if (!Number.isFinite(sample.timestamp)) return []
     const point: ChartPoint = { timestamp: sample.timestamp }
     for (const item of series) {
       const value = item.value(sample)
-      if (value !== undefined) point[item.key] = value
+      if (Number.isFinite(value)) point[item.key] = value
     }
-    return point
-  }).filter(sample => series.some(item => sample[item.key] !== undefined))
+    return series.some(item => point[item.key] !== undefined) ? [point] : []
+  })
 }
 
-function customMetricHistory(history: CustomMetricSample[]): ResourceMetricSample[] {
-  return history.map(sample => ({ timestamp: sample.timestamp, cpuPercent: sample.value }))
+function finiteChartValue(data: ChartPoint[], index: number, key: string): number | undefined {
+  const value = data[index]?.[key]
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+type ChartExtrema = { minimum?: number; maximum?: number }
+
+function smallestIndex(data: ChartPoint[], key: string, current: number | undefined, index: number, value: number): number {
+  const currentValue = current === undefined ? undefined : finiteChartValue(data, current, key)
+  return currentValue === undefined || value < currentValue ? index : current!
+}
+
+function largestIndex(data: ChartPoint[], key: string, current: number | undefined, index: number, value: number): number {
+  const currentValue = current === undefined ? undefined : finiteChartValue(data, current, key)
+  return currentValue === undefined || value > currentValue ? index : current!
+}
+
+function updateBucketExtrema(data: ChartPoint[], key: string, index: number, value: number, extrema: ChartExtrema): void {
+  extrema.minimum = smallestIndex(data, key, extrema.minimum, index, value)
+  extrema.maximum = largestIndex(data, key, extrema.maximum, index, value)
+}
+
+function bucketExtrema(data: ChartPoint[], key: string, start: number, end: number): number[] {
+  const extrema: ChartExtrema = {}
+  for (let index = start; index < end; index++) {
+    const value = finiteChartValue(data, index, key)
+    if (value === undefined) continue
+    updateBucketExtrema(data, key, index, value, extrema)
+  }
+  return [extrema.minimum, extrema.maximum].filter((index): index is number => index !== undefined)
+}
+
+function addBucketExtrema(data: ChartPoint[], series: MetricSeries[], selected: Set<number>, start: number, end: number): void {
+  for (const item of series) {
+    for (const index of bucketExtrema(data, item.key, start, end)) selected.add(index)
+  }
+}
+
+function downsampleChartData(data: ChartPoint[], series: MetricSeries[]): ChartPoint[] {
+  if (data.length <= MAX_CHART_POINTS) return data
+
+  const selected = new Set([0, data.length - 1])
+  const bucketCount = Math.max(1, Math.floor((MAX_CHART_POINTS - 2) / (series.length * 2)))
+  const bucketSize = Math.ceil((data.length - 2) / bucketCount)
+  for (let start = 1; start < data.length - 1; start += bucketSize) {
+    addBucketExtrema(data, series, selected, start, Math.min(start + bucketSize, data.length - 1))
+  }
+  return [...selected].sort((left, right) => left - right).map(index => data[index]!)
+}
+
+function chartDomain(values: number[]): [number, number] {
+  const finiteValues = values.filter(Number.isFinite)
+  if (finiteValues.length === 0) return [0, 1]
+  const minimum = Math.min(...finiteValues)
+  const maximum = Math.max(...finiteValues)
+  const padding = Math.max((maximum - minimum) * 0.1, Math.abs(maximum) * 0.05, 1)
+  const domain: [number, number] = [minimum - padding, maximum + padding]
+  return domain.every(Number.isFinite) ? domain : [0, 1]
+}
+
+function resourceMetricHistory(history: ResourceMetricSample[]): MetricSample[] {
+  return history.map(sample => ({
+    timestamp: sample.timestamp,
+    cpu: sample.cpuPercent,
+    memory: sample.memoryUsage,
+    received: sample.receivedBytesPerSecond,
+    sent: sample.sentBytesPerSecond
+  }))
+}
+
+function customMetricsHistory(metrics: Extract<CustomMetric, { unit: CustomMetricUnit }>[]): MetricSample[] {
+  const samples = new Map<number, MetricSample>()
+  for (const metric of metrics) {
+    for (const sample of metric.history) {
+      const point = samples.get(sample.timestamp) ?? { timestamp: sample.timestamp }
+      point[metric.key] = sample.value
+      samples.set(sample.timestamp, point)
+    }
+  }
+  return [...samples.values()].sort((left, right) => left.timestamp - right.timestamp)
 }
 
 function formatTimestamp(timestamp: unknown): string {
   const value = Number(timestamp)
   if (!Number.isFinite(value)) return ''
-  return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(value)
+  return timestampFormatter.format(value)
 }
 
 function formatExactTimestamp(timestamp: unknown): string {
   const value = Number(timestamp)
   if (!Number.isFinite(value)) return ''
-  return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(value)
+  return exactTimestampFormatter.format(value)
+}
+
+function formatAxisValue(formatValue: (value: number) => string): (value: unknown) => string {
+  return value => {
+    const numericValue = Number(value)
+    return Number.isFinite(numericValue) ? formatValue(numericValue) : ''
+  }
 }
 
 function demoResourceUsage(cardId: string, timestamp: number): ResourceMetricSample {
@@ -205,32 +301,16 @@ function demoResourceUsage(cardId: string, timestamp: number): ResourceMetricSam
   }
 }
 
-function MetricDetailDialog({ detail, onOpen, onOpenChange }: { detail: MetricDetail | null; onOpen: () => void; onOpenChange: (open: boolean) => void }) {
+const MetricDetailDialog = memo(function MetricDetailDialog({ detail, onOpen, onOpenChange }: { detail: MetricDetail | null; onOpen: () => void; onOpenChange: (open: boolean) => void }) {
   const [displayedDetail, setDisplayedDetail] = useState(detail)
-  const [chartRoot, setChartRoot] = useState<HTMLDivElement | null>(null)
-  const [chartDimensions, setChartDimensions] = useState<{ width: number; height: number } | null>(null)
-  const isOpen = detail !== null
   useEffect(() => {
     if (detail) setDisplayedDetail(detail)
   }, [detail])
-  useEffect(() => {
-    if (!isOpen || !chartRoot) return
-    setChartDimensions(null)
-    const measure = () => {
-      const { width, height } = chartRoot.getBoundingClientRect()
-      if (width > 0 && height > 0) setChartDimensions({ width: Math.round(width), height: Math.round(height) })
-    }
-    measure()
-    const observer = new ResizeObserver(([entry]) => {
-      const { width, height } = entry.contentRect
-      if (width > 0 && height > 0) setChartDimensions({ width: Math.round(width), height: Math.round(height) })
-    })
-    observer.observe(chartRoot)
-    return () => observer.disconnect()
-  }, [chartRoot, isOpen])
   const currentDetail = detail ?? displayedDetail
-  const data = currentDetail
-    ? metricData(currentDetail.history, currentDetail.series).map((point, index, points) => {
+  const data = useMemo(() => {
+    if (!currentDetail) return []
+    const chartData = downsampleChartData(metricData(currentDetail.history, currentDetail.series), currentDetail.series)
+    return chartData.map((point, index, points) => {
       const pointWithLabels: ChartPoint = { ...point }
       for (const item of currentDetail.series) {
         const value = point[item.key]
@@ -240,24 +320,27 @@ function MetricDetailDialog({ detail, onOpen, onOpenChange }: { detail: MetricDe
       }
       return pointWithLabels
     })
-    : []
+  }, [currentDetail])
   const values = currentDetail ? data.flatMap(point => currentDetail.series.flatMap(item => {
     const value = point[item.key]
     return typeof value === 'number' ? [value] : []
   })) : []
-  const minimum = Math.min(...values)
-  const maximum = Math.max(...values)
-  const padding = Math.max((maximum - minimum) * 0.1, Math.abs(maximum) * 0.05, 1)
-  const domain: [number, number] = [minimum - padding, maximum + padding]
+  const domain = chartDomain(values)
   const end = data.at(-1)?.timestamp ?? Date.now()
   const start = end - (currentDetail?.historyPeriodMs ?? 5 * 60_000)
   const timeTicks = Array.from({ length: 4 }, (_, index) => start + ((end - start) * index) / 3)
   const chart = currentDetail?.chart ?? 'step'
   const Chart = chart === 'area' ? AreaChart : LineChart
+  const axisFormatter = useMemo(
+    () => currentDetail ? formatAxisValue(currentDetail.formatAxisValue ?? currentDetail.formatValue) : () => '',
+    [currentDetail]
+  )
 
   return (
     <Dialog open={detail !== null} onOpenChange={onOpenChange}>
       <DialogContent
+        showCloseButton={false}
+        className="dashmark-metric-dialog"
         onOpenAutoFocus={onOpen}
         onAnimationEnd={event => {
           if (event.target === event.currentTarget && event.currentTarget.dataset.state === 'closed') setDisplayedDetail(null)
@@ -265,16 +348,25 @@ function MetricDetailDialog({ detail, onOpen, onOpenChange }: { detail: MetricDe
       >
         {currentDetail && (
           <>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-sm font-medium tracking-[0.16em] text-muted-foreground uppercase">
-                <Gauge className="h-4 w-4" aria-hidden="true" />
+            <DialogHeader className="dashmark-metric-dialog-header !flex-row !items-center !justify-between !space-y-0">
+              <DialogTitle className="dashmark-metric-dialog-title flex h-4 items-center gap-2 text-sm leading-none font-medium tracking-[0.16em] text-muted-foreground uppercase">
+                <Gauge className="h-4 w-4 shrink-0" aria-hidden="true" />
                 {currentDetail.label}
               </DialogTitle>
+              <button
+                type="button"
+                className="dashmark-metric-dialog-close cursor-pointer rounded-sm p-1 opacity-70 transition-opacity hover:bg-accent hover:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+                onClick={() => onOpenChange(false)}
+              >
+                <X className="h-4 w-4" />
+                <span className="sr-only">Close</span>
+              </button>
               <DialogDescription className="sr-only">Live {currentDetail.label.toLowerCase()} details</DialogDescription>
             </DialogHeader>
-            <div ref={setChartRoot} className="h-80 w-full">
-            {chartDimensions && <ChartContainer config={tickerConfig} initialDimension={chartDimensions} className="h-full w-full aspect-auto" aria-label={`${currentDetail.label} chart`}>
-              <Chart data={data} margin={{ top: 12, right: 4, bottom: 4, left: 0 }} accessibilityLayer={false}>
+            <div className="dashmark-metric-dialog-body flex h-80 w-full flex-col">
+              <div className="min-h-0 flex-1">
+              <ChartContainer config={tickerConfig} className="dashmark-metric-chart h-full w-full aspect-auto" aria-label={`${currentDetail.label} chart`}>
+              <Chart className="dashmark-metric-chart-svg" data={data} margin={{ top: 12, right: 4, bottom: 4, left: 0 }} accessibilityLayer={false} throttleDelay={50}>
                 <CartesianGrid vertical={false} />
                 <XAxis
                   dataKey="timestamp"
@@ -282,16 +374,18 @@ function MetricDetailDialog({ detail, onOpen, onOpenChange }: { detail: MetricDe
                   scale="time"
                   domain={[start, end]}
                   allowDataOverflow
+                  className="dashmark-metric-chart-x-axis"
                   tickFormatter={formatTimestamp}
                   tickLine={false}
                   axisLine={false}
                   ticks={timeTicks}
                 />
                 <YAxis
-                  tickFormatter={currentDetail.formatAxisValue ?? currentDetail.formatValue}
+                  tickFormatter={axisFormatter}
                   tickLine={false}
                   axisLine={false}
-                  width={60}
+                  width={72}
+                  className="dashmark-metric-chart-y-axis"
                   tick={{ fontSize: 10 }}
                   domain={domain}
                 />
@@ -305,25 +399,27 @@ function MetricDetailDialog({ detail, onOpen, onOpenChange }: { detail: MetricDe
                     }) ?? []
                     if (!active || values.length === 0) return null
                     return (
-                      <div className="grid gap-1 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
-                        <span className="text-muted-foreground">{formatExactTimestamp(label)}</span>
+                      <div className="dashmark-metric-chart-tooltip grid gap-1 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
+                        <span className="dashmark-metric-chart-tooltip-time text-muted-foreground">{formatExactTimestamp(label)}</span>
                         {values.map(([series, value]) => (
-                          <div key={series.key} className="flex items-center justify-between gap-4 font-mono font-medium tabular-nums">
-                            {currentDetail.series.length > 1 && <span className="text-muted-foreground">{series.label}</span>}
-                            <span>{currentDetail.formatValue(value)}</span>
+                          <div key={series.key} className="dashmark-metric-chart-tooltip-value flex items-center justify-between gap-4 font-mono font-medium tabular-nums" data-series-key={series.key}>
+                            {currentDetail.series.length > 1 && <span className="dashmark-metric-chart-tooltip-label text-muted-foreground">{series.label}</span>}
+                            <span className="dashmark-metric-chart-tooltip-number">{currentDetail.formatValue(value)}</span>
                           </div>
                         ))}
                       </div>
                     )
                   }}
                 />
-                {currentDetail.series.map(series => {
+                {currentDetail.series.map((series, seriesIndex) => {
+                  const color = series.color
                   const props = {
                     dataKey: series.key,
                     type: chart === 'line' ? 'linear' : 'stepAfter',
-                    stroke: `var(--color-${series.key})`,
+                    stroke: color,
                     strokeWidth: 2,
                     dot: false,
+                    activeDot: { r: 4, fill: color, stroke: color, strokeWidth: 2 },
                     isAnimationActive: false
                   } as const
                   const label = <LabelList
@@ -335,31 +431,44 @@ function MetricDetailDialog({ detail, onOpen, onOpenChange }: { detail: MetricDe
                       const label = props.value === undefined ? '' : String(props.value)
                       if (!Number.isFinite(x) || !Number.isFinite(y) || !label) return null
                       const width = label.length * 9 + 8
+                      const labelOffset = (seriesIndex - (currentDetail.series.length - 1) / 2) * 28
                       return (
-                        <g transform={`translate(${x - width - 4} ${y - 12})`}>
+                        <g className="dashmark-metric-chart-end-label" transform={`translate(${x - width - 4} ${y - 12 + labelOffset})`}>
                           <rect width={width} height={24} rx={8} fill="var(--background)" />
-                          <text x={4} y={16} fill={`var(--color-${series.key})`} fontSize={16} fontWeight={700}>{label}</text>
+                          <text x={4} y={16} fill={series.color} fontSize={16} fontWeight={700}>{label}</text>
                         </g>
                       )
                     }}
                   />
                   return chart === 'area'
-                    ? <Area key={series.key} {...props} fill={`var(--color-${series.key})`} fillOpacity={0.2}>{label}</Area>
-                    : <Line key={series.key} {...props}>{label}</Line>
+                    ? <Area key={series.key} className="dashmark-metric-chart-series" {...props} fill={series.color} fillOpacity={0.2}>{label}</Area>
+                    : <Line key={series.key} className="dashmark-metric-chart-series" {...props}>{label}</Line>
                 })}
               </Chart>
-            </ChartContainer>}
+              </ChartContainer>
+              </div>
+              {currentDetail.series.length > 1 && (
+                <div className="dashmark-metric-chart-legend flex shrink-0 justify-center gap-4 pt-2 text-xs leading-none font-medium text-muted-foreground normal-case">
+                  {currentDetail.series.map(series => (
+                    <span key={series.key} className="dashmark-metric-chart-legend-item flex items-center gap-1.5" data-series-key={series.key}>
+                      <span className="dashmark-metric-chart-legend-swatch h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: series.color }} />
+                      {series.label}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </>
         )}
       </DialogContent>
     </Dialog>
   )
-}
+})
 
-function ResourceMetric({ label, value, pending = false, onSelect }: {
+function ResourceMetric({ label, value, metricKey, pending = false, onSelect }: {
   label: string
   value: ReactNode
+  metricKey?: string
   pending?: boolean
   onSelect?: () => void
 }) {
@@ -368,11 +477,12 @@ function ResourceMetric({ label, value, pending = false, onSelect }: {
   return (
     <div
       className={cn(
-        'flex min-h-8 items-center gap-3 rounded-md px-1.5 text-xs',
+        'dashmark-app-resource-metric flex min-h-8 items-center gap-3 rounded-md px-1.5 text-xs',
         pending && 'opacity-50',
         interactive && 'card-action-button cursor-pointer hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'
       )}
       role={interactive ? 'button' : undefined}
+      data-metric-key={metricKey}
       tabIndex={interactive ? 0 : undefined}
       onClick={interactive ? event => {
         event.preventDefault()
@@ -386,26 +496,31 @@ function ResourceMetric({ label, value, pending = false, onSelect }: {
         onSelect()
       } : undefined}
     >
-      <span className="text-muted-foreground">{label}</span>
-      <div className="ml-auto min-w-0">
-        <span className="font-medium tabular-nums">{value}</span>
+      <span className="dashmark-app-resource-metric-label text-muted-foreground">{label}</span>
+      <div className="dashmark-app-resource-metric-value ml-auto min-w-0">
+        <span className="dashmark-app-resource-metric-number font-medium tabular-nums">{value}</span>
       </div>
     </div>
   )
 }
 
-function NetworkMetric({ label, value, onSelect }: {
+function NetworkMetric({ label, value, metricKey, pending, onSelect }: {
   label: string
   value: number | undefined
+  metricKey: string
+  pending: boolean
   onSelect: () => void
 }) {
   if (value !== undefined) {
-    return <ResourceMetric label={label} value={`${formatBytes(value)}/s`} onSelect={onSelect} />
+    return <ResourceMetric label={label} value={`${formatBytes(value)}/s`} metricKey={metricKey} onSelect={onSelect} />
   }
+
+  if (!pending) return <UnavailableResourceMetric label={label} metricKey={metricKey} />
 
   return (
     <ResourceMetric
       label={label}
+      metricKey={metricKey}
       value={(
         <span role="status">
           <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -417,19 +532,24 @@ function NetworkMetric({ label, value, onSelect }: {
   )
 }
 
-function LoadingResourceMetric({ label }: { label: string }) {
+function LoadingResourceMetric({ label, metricKey }: { label: string; metricKey?: string }) {
   return (
     <ResourceMetric
       label={label}
+      metricKey={metricKey}
       value={(
         <span role="status">
           <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-          <span className="sr-only">{strings.card.loadingResourceUsage}</span>
+          <span className="sr-only">Loading {label}</span>
         </span>
       )}
       pending
     />
   )
+}
+
+function UnavailableResourceMetric({ label, metricKey }: { label: string; metricKey?: string }) {
+  return <ResourceMetric label={label} metricKey={metricKey} value={strings.card.unavailable} pending />
 }
 
 function ResourceUsageTooltip({ card, resources, history, historyPeriodMs, customMetrics, loading, onDetailSelect }: {
@@ -447,24 +567,43 @@ function ResourceUsageTooltip({ card, resources, history, historyPeriodMs, custo
   const selectedCustomMetrics = card.customMetricLabels ?? card.metrics
     ?.filter(key => !['cpu', 'memory', 'network', 'none'].includes(key))
     .map(key => ({ key, label: key })) ?? []
-  const hasUsage = customMetrics.length > 0 || resources?.cpuPercent !== undefined || resources?.memoryUsage !== undefined
-    || resources?.receivedBytesPerSecond !== undefined || resources?.sentBytesPerSecond !== undefined || (resources !== null && showNetwork)
   const showNetworkDetails = () => onDetailSelect({
     label: 'Network usage',
-    history,
+    history: resourceMetricHistory(history),
     historyPeriodMs,
     series: [
-      { key: 'received', label: strings.card.received, value: sample => sample.receivedBytesPerSecond },
-      { key: 'sent', label: strings.card.sent, value: sample => sample.sentBytesPerSecond }
+      { key: 'received', label: strings.card.received, color: tickerConfig.received.color, value: sample => sample.received },
+      { key: 'sent', label: strings.card.sent, color: tickerConfig.sent.color, value: sample => sample.sent }
     ],
     formatValue: value => `${formatBytes(value)}/s`,
-    formatAxisValue: value => `${formatAxisBytes(value)}/s`
+    formatAxisValue: value => `${formatAxisBytes(value)}/s`,
+    chart: 'step'
   })
+  const showCustomMetricDetails = (metric: NumericCustomMetric) => {
+    const chartMetrics = metric.chartGroup === undefined
+      ? [metric]
+      : customMetrics.filter((candidate): candidate is NumericCustomMetric => 'unit' in candidate && candidate.chartGroup === metric.chartGroup)
+    onDetailSelect({
+      label: metric.label,
+      history: customMetricsHistory(chartMetrics),
+      historyPeriodMs: metric.historyPeriodMs,
+      series: chartMetrics.map((candidate, index) => ({
+        key: candidate.key,
+        label: candidate.label,
+        color: chartColorVariable(index),
+        value: sample => sample[candidate.key]
+      })),
+      formatValue: value => formatCustomMetric(value, metric.unit),
+      formatAxisValue: value => formatAxisCustomMetric(value, metric.unit),
+      chart: metric.chart === 'none' ? 'step' : metric.chart,
+      customMetricKeys: chartMetrics.map(candidate => candidate.key)
+    })
+  }
 
   return (
-    <TooltipContent side="top" align="center" collisionPadding={16} className="dashmark-app-resources w-60 p-3">
-      <div className="mb-3 flex items-baseline justify-between gap-3 border-b pb-2">
-        <span className="text-[0.6875rem] leading-none font-medium tracking-[0.16em] text-muted-foreground uppercase">{strings.card.resourceUsage}</span>
+    <TooltipContent side="top" align="center" collisionPadding={16} className="dashmark-app-resources w-60 p-3" data-card-id={card.id}>
+      <div className="dashmark-app-resources-header mb-3 flex items-baseline justify-between gap-3 border-b pb-2">
+        <span className="dashmark-app-resources-title text-[0.6875rem] leading-none font-medium tracking-[0.16em] text-muted-foreground uppercase">{strings.card.resourceUsage}</span>
         {card.host && (
           <span className={cn('dashmark-app-resource-host inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', badgeColor(card.hostColor ?? 0))}>
             <Server className="h-3 w-3" aria-hidden="true" />
@@ -473,90 +612,89 @@ function ResourceUsageTooltip({ card, resources, history, historyPeriodMs, custo
         )}
       </div>
       {loading && resources === null ? (
-        <div className="grid gap-1">
-          {showCpu && <LoadingResourceMetric label={strings.card.cpu} />}
-          {showMemory && <LoadingResourceMetric label={strings.card.memory} />}
+          <div className="dashmark-app-resources-list grid gap-1">
+          {showCpu && <LoadingResourceMetric label={strings.card.cpu} metricKey="cpu" />}
+          {showMemory && <LoadingResourceMetric label={strings.card.memory} metricKey="memory" />}
           {showNetwork && (
             <>
-              <LoadingResourceMetric label={strings.card.received} />
-              <LoadingResourceMetric label={strings.card.sent} />
+              <LoadingResourceMetric label={strings.card.received} metricKey="received" />
+              <LoadingResourceMetric label={strings.card.sent} metricKey="sent" />
             </>
           )}
-          {selectedCustomMetrics.map(metric => <LoadingResourceMetric key={metric.key} label={metric.label} />)}
+          {selectedCustomMetrics.map(metric => <LoadingResourceMetric key={metric.key} label={metric.label} metricKey={metric.key} />)}
         </div>
-      ) : hasUsage ? (
-        <div className="grid gap-1">
-          {resources?.cpuPercent !== undefined && (
+      ) : (
+        <div className="dashmark-app-resources-list grid gap-1">
+          {showCpu && (resources?.cpuPercent !== undefined ? (
             <ResourceMetric
               label={strings.card.cpu}
+              metricKey="cpu"
               value={formatPercent(resources.cpuPercent)}
               onSelect={() => onDetailSelect({
                 label: strings.card.cpu,
-                history,
+                history: resourceMetricHistory(history),
                 historyPeriodMs,
-                series: [{ key: 'cpu', label: strings.card.cpu, value: sample => sample.cpuPercent }],
+                series: [{ key: 'cpu', label: strings.card.cpu, color: tickerConfig.cpu.color, value: sample => sample.cpu }],
                 formatValue: formatPercent,
-                formatAxisValue: formatAxisPercent
+                formatAxisValue: formatAxisPercent,
+                chart: 'line'
               })}
             />
-          )}
-          {resources?.memoryUsage !== undefined && (
+          ) : <UnavailableResourceMetric label={strings.card.cpu} metricKey="cpu" />)}
+          {showMemory && (resources?.memoryUsage !== undefined ? (
             <ResourceMetric
               label={strings.card.memory}
+              metricKey="memory"
               value={resources.memoryLimit ? `${formatBytes(resources.memoryUsage)} / ${formatBytes(resources.memoryLimit)}` : formatBytes(resources.memoryUsage)}
               onSelect={() => onDetailSelect({
                 label: strings.card.memory,
-                history,
+                history: resourceMetricHistory(history),
                 historyPeriodMs,
-                series: [{ key: 'memory', label: strings.card.memory, value: sample => sample.memoryUsage }],
+                series: [{ key: 'memory', label: strings.card.memory, color: tickerConfig.memory.color, value: sample => sample.memory }],
                 formatValue: formatBytes,
-                formatAxisValue: formatAxisBytes
+                formatAxisValue: formatAxisBytes,
+                chart: 'line'
               })}
             />
-          )}
-          {resources !== null && showNetwork && (
+          ) : <UnavailableResourceMetric label={strings.card.memory} metricKey="memory" />)}
+          {showNetwork && (
             <>
               <NetworkMetric
                 label={strings.card.received}
-                value={resources.receivedBytesPerSecond}
+                metricKey="received"
+                value={resources?.receivedBytesPerSecond}
+                pending={loading}
                 onSelect={showNetworkDetails}
               />
               <NetworkMetric
                 label={strings.card.sent}
-                value={resources.sentBytesPerSecond}
+                metricKey="sent"
+                value={resources?.sentBytesPerSecond}
+                pending={loading}
                 onSelect={showNetworkDetails}
               />
             </>
           )}
-          {customMetrics.map(metric => {
+          {selectedCustomMetrics.map(selectedMetric => {
+            const metric = customMetrics.find(candidate => candidate.key === selectedMetric.key)
+            if (!metric) return <UnavailableResourceMetric key={selectedMetric.key} label={selectedMetric.label} metricKey={selectedMetric.key} />
             if (!('unit' in metric)) {
-              return <ResourceMetric key={metric.key} label={metric.label} value={metric.value} />
+              return <ResourceMetric key={metric.key} label={metric.label} metricKey={metric.key} value={metric.value} />
             }
             if (metric.chart === 'none') {
-              return <ResourceMetric key={metric.key} label={metric.label} value={formatCustomMetric(metric.value, metric.unit)} />
+              return <ResourceMetric key={metric.key} label={metric.label} metricKey={metric.key} value={formatCustomMetric(metric.value, metric.unit)} />
             }
-            const chart = metric.chart
             return (
               <ResourceMetric
                 key={metric.key}
                 label={metric.label}
+                metricKey={metric.key}
                 value={formatCustomMetric(metric.value, metric.unit)}
-                onSelect={() => onDetailSelect({
-                  label: metric.label,
-                  history: customMetricHistory(metric.history),
-                  historyPeriodMs: metric.historyPeriodMs,
-                  series: [{ key: 'cpu', label: metric.label, value: sample => sample.cpuPercent }],
-                  formatValue: value => formatCustomMetric(value, metric.unit),
-                  formatAxisValue: value => formatAxisCustomMetric(value, metric.unit),
-                  chart,
-                  customMetricKey: metric.key
-                })}
+                onSelect={() => showCustomMetricDetails(metric)}
               />
             )
           })}
         </div>
-      ) : (
-        <p className="text-xs text-muted-foreground">{strings.card.unavailable}</p>
       )}
     </TooltipContent>
   )
@@ -610,6 +748,7 @@ function useResourceUsage(
     let stopped = false
     let timeout: ReturnType<typeof setTimeout> | undefined
     let controller: AbortController | undefined
+    let pending = false
 
     async function poll() {
       controller = new AbortController()
@@ -617,6 +756,7 @@ function useResourceUsage(
         const response = await fetch(`/api/resources?id=${encodeURIComponent(cardId)}`, { signal: controller.signal })
         const data: unknown = await response.json()
         if (!stopped && response.ok && isResourceUsageResponse(data)) {
+          pending = data.pending === true
           setResources(data.resource)
           setHistory(data.history ?? [])
           setCustomMetrics(data.customMetrics)
@@ -625,6 +765,7 @@ function useResourceUsage(
         }
       } catch {
         if (!stopped) {
+          pending = false
           setResources(null)
           setHistory([])
           setCustomMetrics([])
@@ -633,7 +774,7 @@ function useResourceUsage(
       } finally {
         controller = undefined
         if (!stopped) {
-          setLoading(false)
+          setLoading(pending)
           timeout = setTimeout(poll, RESOURCE_USAGE_POLL_INTERVAL_MS)
         }
       }
@@ -660,6 +801,10 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showReso
     && ((card.resourceStats !== undefined && card.resourceStats.length > 0) || hasSelectedCustomMetric)
   const [resourceCardHovered, setResourceCardHovered] = useState(false)
   const [metricDetail, setMetricDetail] = useState<MetricDetail | null>(null)
+  const handleMetricDialogOpen = useCallback(() => setActiveTooltip(null), [setActiveTooltip])
+  const handleMetricDialogOpenChange = useCallback((open: boolean) => {
+    if (!open) setMetricDetail(null)
+  }, [])
   const metricErrorIds = useRef(new Set<string>())
   const resourceTooltipId = `resource-${card.id}`
   const descriptionTooltipId = `description-${card.id}`
@@ -680,7 +825,8 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showReso
     }
     metricErrorIds.current = activeErrors
     for (const error of allMetricErrors) {
-      toast.error('Metric unavailable', {
+      const label = card.customMetricLabels?.find(metric => metric.key === error.key)?.label ?? error.key
+      toast.error(`Metric unavailable: ${label}`, {
         id: `metric-${card.id}:${error.key}`,
         description: `${card.title}: ${error.message}`
       })
@@ -689,22 +835,25 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showReso
   useEffect(() => {
     setMetricDetail(detail => {
       if (!detail) return null
-      if (detail.customMetricKey) return detail
+      if (detail.customMetricKeys) return detail
       return {
         ...detail,
-        history
+        history: resourceMetricHistory(history)
       }
     })
   }, [history])
   useEffect(() => {
     setMetricDetail(detail => {
-      if (!detail?.customMetricKey) return detail
-      const metric = customMetrics.find(metric => metric.key === detail.customMetricKey && 'unit' in metric)
-      if (!metric || !('unit' in metric)) return detail
+      if (!detail?.customMetricKeys) return detail
+      const metrics = detail.customMetricKeys.flatMap(key => {
+        const metric = customMetrics.find(candidate => candidate.key === key)
+        return metric && 'unit' in metric ? [metric] : []
+      })
+      if (metrics.length !== detail.customMetricKeys.length) return detail
       return {
         ...detail,
-        history: customMetricHistory(metric.history),
-        historyPeriodMs: metric.historyPeriodMs
+        history: customMetricsHistory(metrics),
+        historyPeriodMs: metrics[0]!.historyPeriodMs
       }
     })
   }, [customMetrics])
@@ -834,9 +983,7 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showReso
         </CardContent>
       </Card>
       </a>
-      <MetricDetailDialog detail={metricDetail} onOpen={() => setActiveTooltip(null)} onOpenChange={open => {
-        if (!open) setMetricDetail(null)
-      }} />
+      <MetricDetailDialog detail={metricDetail} onOpen={handleMetricDialogOpen} onOpenChange={handleMetricDialogOpenChange} />
     </>
   )
 })

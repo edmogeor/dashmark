@@ -1,30 +1,23 @@
 import type { APIRoute } from 'astro'
 import { getConfig } from '@/lib/config'
 import { addResourceUsageVaryHeader, getContainerMetricUsage } from '@/lib/docker'
-import { getMetricHistory, getResourceMetricHistory, saveMetricSample, saveResourceMetric, startMetricsCollection } from '@/lib/metrics'
+import { getLatestMetricUsage, getMetricHistory, getResourceMetricHistory, startMetricsCollection } from '@/lib/metrics'
 import type { CustomMetric, ResourceUsageResponse } from '@/lib/status'
 
 export async function getResourceUsageResponse(request: Request): Promise<Response> {
   const config = getConfig()
   startMetricsCollection(config)
   const cardId = new URL(request.url).searchParams.get('id')
-  const usage = cardId ? await getContainerMetricUsage(config, request.headers, cardId) : undefined
+  // Authorize the card without triggering a second Docker/custom-source collection.
+  const access = cardId ? await getContainerMetricUsage(config, request.headers, cardId, false) : undefined
+  const usage = cardId && access ? getLatestMetricUsage(cardId) : undefined
   const metricUsage = cardId && usage ? { cardId, ...usage } : undefined
-  if (metricUsage?.resource) {
-    saveResourceMetric(config, metricUsage.cardId, metricUsage.resource, metricUsage.historyPeriodMs)
-  }
-  if (metricUsage) {
-    for (const metric of metricUsage.customMetrics) {
-      if (typeof metric.value === 'number') {
-        saveMetricSample(config, metricUsage.cardId, metric.key, metric.value, metricUsage.historyPeriodMs)
-      }
-    }
-  }
+  const historyPeriodMs = access?.historyPeriodMs ?? config.metricsHistoryPeriodMs
   const customMetrics: CustomMetric[] = metricUsage?.customMetrics.map(metric => 'unit' in metric
     ? {
         ...metric,
-        history: getMetricHistory(config, metricUsage.cardId, metric.key, metricUsage.historyPeriodMs),
-        historyPeriodMs: metricUsage.historyPeriodMs
+        history: getMetricHistory(config, metricUsage.cardId, metric.key, historyPeriodMs),
+        historyPeriodMs
       }
     : metric
   ) ?? []
@@ -36,10 +29,11 @@ export async function getResourceUsageResponse(request: Request): Promise<Respon
 
   const body: ResourceUsageResponse = {
     resource: usage?.resource ?? null,
-    history: metricUsage ? getResourceMetricHistory(config, metricUsage.cardId, metricUsage.historyPeriodMs) : [],
-    historyPeriodMs: usage?.historyPeriodMs ?? config.metricsHistoryPeriodMs,
+    history: cardId && access ? getResourceMetricHistory(config, cardId, historyPeriodMs) : [],
+    historyPeriodMs,
+    pending: access !== undefined && usage === undefined,
     customMetrics,
-    metricErrors: usage?.metricErrors ?? []
+    metricErrors: usage?.metricErrors ?? access?.metricErrors ?? []
   }
   return new Response(JSON.stringify(body), { status: 200, headers })
 }
