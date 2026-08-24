@@ -27,7 +27,7 @@ export const strings = {
     received: 'Network in',
     sent: 'Network out',
     waitingForNetwork: 'Waiting for next refresh',
-    unavailable: 'Usage unavailable'
+    unavailable: 'Unavailable'
   },
   dashboard: {
     noServices: 'No services found'

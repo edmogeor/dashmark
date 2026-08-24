@@ -280,6 +280,24 @@ async function getCachedContainers(dockerHost: string, ttlMs: number): Promise<D
   return containers
 }
 
+function networkRates(dockerHost: string, containerId: string, stats: DockerStats): Pick<ContainerResources, 'receivedBytesPerSecond' | 'sentBytesPerSecond' | 'networkRatePending'> {
+  const cacheKey = `${dockerHost}:${containerId}`
+  const previous = networkUsageCache.get(cacheKey)
+  const timestamp = Date.now()
+  const elapsedSeconds = previous ? (timestamp - previous.timestamp) / 1_000 : 0
+  const hasNetworkCounters = stats.receivedBytes !== undefined && stats.sentBytes !== undefined
+  const receivedBytesPerSecond = previous && elapsedSeconds > 0 && stats.receivedBytes !== undefined
+    ? Math.max(0, (stats.receivedBytes - previous.receivedBytes) / elapsedSeconds)
+    : undefined
+  const sentBytesPerSecond = previous && elapsedSeconds > 0 && stats.sentBytes !== undefined
+    ? Math.max(0, (stats.sentBytes - previous.sentBytes) / elapsedSeconds)
+    : undefined
+  if (hasNetworkCounters) {
+    networkUsageCache.set(cacheKey, { receivedBytes: stats.receivedBytes!, sentBytes: stats.sentBytes!, timestamp })
+  }
+  return { receivedBytesPerSecond, sentBytesPerSecond, networkRatePending: hasNetworkCounters && previous === undefined }
+}
+
 async function getContainerResources(
   dockerHost: string,
   containerId: string,
@@ -296,26 +314,15 @@ async function getContainerResources(
     const cpuPercent = systemDelta > 0 && cpuDelta >= 0
       ? (cpuDelta / systemDelta) * cpuCount * 100
       : undefined
-    const cacheKey = `${dockerHost}:${containerId}`
-    const previous = networkUsageCache.get(cacheKey)
-    const timestamp = Date.now()
-    const elapsedSeconds = previous ? (timestamp - previous.timestamp) / 1_000 : 0
-    const receivedBytesPerSecond = previous && elapsedSeconds > 0 && stats.receivedBytes !== undefined
-      ? Math.max(0, (stats.receivedBytes - previous.receivedBytes) / elapsedSeconds)
-      : undefined
-    const sentBytesPerSecond = previous && elapsedSeconds > 0 && stats.sentBytes !== undefined
-      ? Math.max(0, (stats.sentBytes - previous.sentBytes) / elapsedSeconds)
-      : undefined
-    if (stats.receivedBytes !== undefined && stats.sentBytes !== undefined) {
-      networkUsageCache.set(cacheKey, { receivedBytes: stats.receivedBytes, sentBytes: stats.sentBytes, timestamp })
-    }
+    const network = networkRates(dockerHost, containerId, stats)
 
     return {
       cpuPercent: resourceStats.includes('cpu') ? cpuPercent : undefined,
       memoryUsage: resourceStats.includes('memory') ? stats.memoryUsage : undefined,
       memoryLimit: resourceStats.includes('memory') ? stats.memoryLimit : undefined,
-      receivedBytesPerSecond: resourceStats.includes('network') ? receivedBytesPerSecond : undefined,
-      sentBytesPerSecond: resourceStats.includes('network') ? sentBytesPerSecond : undefined
+      receivedBytesPerSecond: resourceStats.includes('network') ? network.receivedBytesPerSecond : undefined,
+      sentBytesPerSecond: resourceStats.includes('network') ? network.sentBytesPerSecond : undefined,
+      networkRatePending: resourceStats.includes('network') && network.networkRatePending
     }
   } catch {
     return undefined

@@ -16,11 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Collect live metrics only in the background and serve tooltip data from the latest collected sample.
 - Preserve metric labels while showing per-row loading and unavailable states.
+- Show memory usage as a percentage, with bytes and percentage in chart hover details.
+- Render area charts with linear, series-color gradients.
 
 ### Fixed
 
 - Prevent metric chart Y-axes from displaying `NaN` for padded network-rate domains.
 - Render chart data with the metric dialog instead of deferring it after the dialog opens.
+- Keep network metrics loading until Docker has enough samples to calculate a rate.
 
 ## [0.3.0-alpha.3] - 2026-08-24
 

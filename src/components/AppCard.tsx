@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -166,6 +166,7 @@ type MetricDetail = {
   historyPeriodMs: number
   series: MetricSeries[]
   formatValue: (value: number) => string
+  formatTooltipValue?: (value: number) => string
   formatAxisValue?: (value: number) => string
   chart?: Exclude<CustomMetricChart, 'none'>
   customMetricKeys?: string[]
@@ -302,6 +303,7 @@ function demoResourceUsage(cardId: string, timestamp: number): ResourceMetricSam
 }
 
 const MetricDetailDialog = memo(function MetricDetailDialog({ detail, onOpen, onOpenChange }: { detail: MetricDetail | null; onOpen: () => void; onOpenChange: (open: boolean) => void }) {
+  const chartGradientId = useId().replace(/:/g, '')
   const [displayedDetail, setDisplayedDetail] = useState(detail)
   useEffect(() => {
     if (detail) setDisplayedDetail(detail)
@@ -367,6 +369,16 @@ const MetricDetailDialog = memo(function MetricDetailDialog({ detail, onOpen, on
               <div className="min-h-0 flex-1">
               <ChartContainer config={tickerConfig} className="dashmark-metric-chart h-full w-full aspect-auto" aria-label={`${currentDetail.label} chart`}>
               <Chart className="dashmark-metric-chart-svg" data={data} margin={{ top: 12, right: 4, bottom: 4, left: 0 }} accessibilityLayer={false} throttleDelay={50}>
+                {chart === 'area' && (
+                  <defs>
+                    {currentDetail.series.map((series, index) => (
+                      <linearGradient key={series.key} id={`${chartGradientId}-${index}`} x1="0" x2="0" y1="0" y2="1">
+                        <stop offset="0%" stopColor={series.color} stopOpacity={0.4} />
+                        <stop offset="100%" stopColor={series.color} stopOpacity={0} />
+                      </linearGradient>
+                    ))}
+                  </defs>
+                )}
                 <CartesianGrid vertical={false} />
                 <XAxis
                   dataKey="timestamp"
@@ -404,7 +416,7 @@ const MetricDetailDialog = memo(function MetricDetailDialog({ detail, onOpen, on
                         {values.map(([series, value]) => (
                           <div key={series.key} className="dashmark-metric-chart-tooltip-value flex items-center justify-between gap-4 font-mono font-medium tabular-nums" data-series-key={series.key}>
                             {currentDetail.series.length > 1 && <span className="dashmark-metric-chart-tooltip-label text-muted-foreground">{series.label}</span>}
-                            <span className="dashmark-metric-chart-tooltip-number">{currentDetail.formatValue(value)}</span>
+                            <span className="dashmark-metric-chart-tooltip-number">{(currentDetail.formatTooltipValue ?? currentDetail.formatValue)(value)}</span>
                           </div>
                         ))}
                       </div>
@@ -415,7 +427,7 @@ const MetricDetailDialog = memo(function MetricDetailDialog({ detail, onOpen, on
                   const color = series.color
                   const props = {
                     dataKey: series.key,
-                    type: chart === 'line' ? 'linear' : 'stepAfter',
+                    type: chart === 'step' ? 'stepAfter' : 'linear',
                     stroke: color,
                     strokeWidth: 2,
                     dot: false,
@@ -430,18 +442,18 @@ const MetricDetailDialog = memo(function MetricDetailDialog({ detail, onOpen, on
                       const y = Number(props.y)
                       const label = props.value === undefined ? '' : String(props.value)
                       if (!Number.isFinite(x) || !Number.isFinite(y) || !label) return null
-                      const width = label.length * 9 + 8
+                      const width = label.length * 9 + 16
                       const labelOffset = (seriesIndex - (currentDetail.series.length - 1) / 2) * 28
                       return (
                         <g className="dashmark-metric-chart-end-label" transform={`translate(${x - width - 4} ${y - 12 + labelOffset})`}>
                           <rect width={width} height={24} rx={8} fill="var(--background)" />
-                          <text x={4} y={16} fill={series.color} fontSize={16} fontWeight={700}>{label}</text>
+                          <text x={8} y={16} fill={series.color} fontSize={16} fontWeight={700}>{label}</text>
                         </g>
                       )
                     }}
                   />
                   return chart === 'area'
-                    ? <Area key={series.key} className="dashmark-metric-chart-series" {...props} fill={series.color} fillOpacity={0.2}>{label}</Area>
+                    ? <Area key={series.key} className="dashmark-metric-chart-series" {...props} fill={`url(#${chartGradientId}-${seriesIndex})`}>{label}</Area>
                     : <Line key={series.key} className="dashmark-metric-chart-series" {...props}>{label}</Line>
                 })}
               </Chart>
@@ -472,16 +484,18 @@ function ResourceMetric({ label, value, metricKey, pending = false, onSelect }: 
   pending?: boolean
   onSelect?: () => void
 }) {
-  const interactive = onSelect !== undefined
+  const interactive = onSelect !== undefined && !pending
 
   return (
     <div
       className={cn(
         'dashmark-app-resource-metric flex min-h-8 items-center gap-3 rounded-md px-1.5 text-xs',
         pending && 'opacity-50',
+        pending && 'cursor-not-allowed',
         interactive && 'card-action-button cursor-pointer hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'
       )}
       role={interactive ? 'button' : undefined}
+      aria-disabled={pending || undefined}
       data-metric-key={metricKey}
       tabIndex={interactive ? 0 : undefined}
       onClick={interactive ? event => {
@@ -564,6 +578,7 @@ function ResourceUsageTooltip({ card, resources, history, historyPeriodMs, custo
   const showCpu = card.resourceStats?.includes('cpu')
   const showMemory = card.resourceStats?.includes('memory')
   const showNetwork = card.resourceStats?.includes('network') && !card.usesHostNetwork
+  const networkPending = loading || resources?.networkRatePending === true
   const selectedCustomMetrics = card.customMetricLabels ?? card.metrics
     ?.filter(key => !['cpu', 'memory', 'network', 'none'].includes(key))
     .map(key => ({ key, label: key })) ?? []
@@ -645,14 +660,26 @@ function ResourceUsageTooltip({ card, resources, history, historyPeriodMs, custo
             <ResourceMetric
               label={strings.card.memory}
               metricKey="memory"
-              value={resources.memoryLimit ? `${formatBytes(resources.memoryUsage)} / ${formatBytes(resources.memoryLimit)}` : formatBytes(resources.memoryUsage)}
+              value={resources.memoryLimit ? formatPercent((resources.memoryUsage / resources.memoryLimit) * 100) : formatBytes(resources.memoryUsage)}
               onSelect={() => onDetailSelect({
                 label: strings.card.memory,
                 history: resourceMetricHistory(history),
                 historyPeriodMs,
-                series: [{ key: 'memory', label: strings.card.memory, color: tickerConfig.memory.color, value: sample => sample.memory }],
-                formatValue: formatBytes,
-                formatAxisValue: formatAxisBytes,
+                series: [{
+                  key: 'memory',
+                  label: strings.card.memory,
+                  color: tickerConfig.memory.color,
+                  value: sample => resources.memoryLimit && sample.memory !== undefined
+                    ? (sample.memory / resources.memoryLimit) * 100
+                    : sample.memory
+                }],
+                formatValue: value => resources.memoryLimit
+                  ? formatPercent(value)
+                  : formatBytes(value),
+                formatTooltipValue: value => resources.memoryLimit
+                  ? `${formatBytes((value / 100) * resources.memoryLimit)} (${formatPercent(value)})`
+                  : formatBytes(value),
+                formatAxisValue: resources.memoryLimit ? formatAxisPercent : formatAxisBytes,
                 chart: 'line'
               })}
             />
@@ -663,14 +690,14 @@ function ResourceUsageTooltip({ card, resources, history, historyPeriodMs, custo
                 label={strings.card.received}
                 metricKey="received"
                 value={resources?.receivedBytesPerSecond}
-                pending={loading}
+                pending={networkPending}
                 onSelect={showNetworkDetails}
               />
               <NetworkMetric
                 label={strings.card.sent}
                 metricKey="sent"
                 value={resources?.sentBytesPerSecond}
-                pending={loading}
+                pending={networkPending}
                 onSelect={showNetworkDetails}
               />
             </>

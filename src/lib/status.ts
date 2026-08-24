@@ -11,6 +11,7 @@ export type ContainerResources = {
   memoryLimit?: number
   receivedBytesPerSecond?: number
   sentBytesPerSecond?: number
+  networkRatePending?: boolean
 }
 
 export type ResourceMetricSample = ContainerResources & {
@@ -69,6 +70,7 @@ function isContainerResources(value: unknown): value is ContainerResources {
     && (value.memoryLimit === undefined || typeof value.memoryLimit === 'number')
     && (value.receivedBytesPerSecond === undefined || typeof value.receivedBytesPerSecond === 'number')
     && (value.sentBytesPerSecond === undefined || typeof value.sentBytesPerSecond === 'number')
+    && (value.networkRatePending === undefined || typeof value.networkRatePending === 'boolean')
 }
 
 function isResourceMetricSample(value: unknown): value is ResourceMetricSample {
