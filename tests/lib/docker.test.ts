@@ -786,7 +786,7 @@ radarr:
       await expect(getContainerMetricUsage(config, new Headers(), 'default:custom-metrics')).resolves.toEqual({
         resource: undefined,
         historyPeriodMs: config.metricsHistoryPeriodMs,
-        customMetrics: [{ key: 'active_downloads', label: 'Active downloads', unit: 'count', value: 4 }],
+        customMetrics: [{ key: 'active_downloads', label: 'Active downloads', unit: 'count', chart: 'step', value: 4 }],
         metricErrors: []
       })
       expect(fetch).toHaveBeenCalledTimes(1)

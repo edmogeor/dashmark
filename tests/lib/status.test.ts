@@ -35,7 +35,7 @@ describe('isStatusResponse', () => {
     expect(isResourceUsageResponse({
       resource: null,
       customMetrics: [
-        { key: 'rpm', label: 'RPM', unit: { suffix: 'rpm' }, value: 900, history: [], historyPeriodMs: 60_000 },
+        { key: 'rpm', label: 'RPM', unit: { suffix: 'rpm' }, chart: 'none', value: 900, history: [], historyPeriodMs: 60_000 },
         { key: 'version', label: 'Version', value: '1.2.3' }
       ],
       metricErrors: [{ key: 'failed', message: 'Metric is unavailable' }]

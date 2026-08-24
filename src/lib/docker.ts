@@ -37,6 +37,7 @@ export type Card = {
   health?: string
   resourceStats?: ResourceStat[]
   metrics?: string[]
+  customMetricLabels?: { key: string; label: string }[]
   metricProvider?: string
   metricsPollIntervalMs?: number
   metricsHistoryPeriodMs?: number
@@ -529,6 +530,8 @@ async function cardFromContainer(
     resolveIcon(config, { iconLabel: labels.icon, imageName: container.Image, title, containerName: name }),
     resolveCardDescription(config, labels.description, { imageName: container.Image, title, containerName: name })
   ])
+  const customMetrics = selectedCustomMetrics(resolved)
+  const metricErrors = selectedCustomMetricErrors(resolved)
 
   return {
     id: `${hostId}:${container.Id}`,
@@ -549,10 +552,11 @@ async function cardFromContainer(
     usesHostNetwork: container.HostConfig?.NetworkMode === 'host',
     resourceStats: labels.resourceStats ?? [...RESOURCE_STATS],
     metrics: labels.metrics,
+    ...(customMetrics.length > 0 ? { customMetricLabels: customMetrics.map(([key, metric]) => ({ key, label: metric.label })) } : {}),
     metricProvider: labels.metricProvider,
     metricsPollIntervalMs: labels.metricsPollIntervalMs,
     metricsHistoryPeriodMs: labels.metricsHistoryPeriodMs,
-    ...(selectedCustomMetricErrors(resolved).length > 0 ? { metricErrors: selectedCustomMetricErrors(resolved) } : {})
+    ...(metricErrors.length > 0 ? { metricErrors } : {})
   }
 }
 
@@ -656,7 +660,7 @@ export async function getContainerStatuses(
 }
 
 export type CollectedCustomMetric =
-  | { key: string; label: string; unit: Extract<MetricOverride, { valueType: 'number' }>['unit']; value: number }
+  | { key: string; label: string; unit: Extract<MetricOverride, { valueType: 'number' }>['unit']; chart: Extract<MetricOverride, { valueType: 'number' }>['chart']; value: number }
   | { key: string; label: string; value: string }
 
 export type ContainerMetricUsage = {
@@ -710,7 +714,7 @@ async function collectSelectedCustomMetrics(
   for (const { key, metric, result } of results) {
     if ('value' in result) {
       if (metric.valueType === 'string' && typeof result.value === 'string') customMetrics.push({ key, label: metric.label, value: result.value })
-      if (metric.valueType === 'number' && typeof result.value === 'number') customMetrics.push({ key, label: metric.label, unit: metric.unit, value: result.value })
+      if (metric.valueType === 'number' && typeof result.value === 'number') customMetrics.push({ key, label: metric.label, unit: metric.unit, chart: metric.chart, value: result.value })
     }
     else collectedErrors.push({ key, message: result.error })
   }

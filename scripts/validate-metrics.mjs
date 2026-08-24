@@ -10,6 +10,7 @@ const units = new Set([
   'duration', 'hertz', 'watts', 'volts', 'amperes', 'celsius', 'fahrenheit', 'boolean'
 ])
 const reductions = new Set(['count', 'sum', 'average', 'minimum', 'maximum'])
+const charts = new Set(['step', 'line', 'area', 'none'])
 const metricName = /^[a-z][a-z0-9_-]*$/
 const prometheusName = /^[a-zA-Z_:][a-zA-Z0-9_:]*$/
 const jsonPointer = /^(?:\/(?:[^~]|~[01])*)+$/
@@ -69,7 +70,7 @@ function validate(file) {
   validatePath(file)
 
   const definition = record(yaml.load(fs.readFileSync(file, 'utf8')), 'must contain a YAML mapping')
-  allowed(definition, new Set(['label', 'unit', 'value_type', 'json', 'prometheus']), 'metric definition')
+  allowed(definition, new Set(['label', 'unit', 'chart', 'value_type', 'json', 'prometheus']), 'metric definition')
   if (typeof definition.label !== 'string' || !definition.label.trim()) throw new Error('label must be a non-empty string')
   const valueType = definition.value_type ?? 'number'
   if (valueType !== 'number' && valueType !== 'string') throw new Error('value_type must be number or string')
@@ -79,7 +80,12 @@ function validate(file) {
 
   if (valueType === 'number') {
     validateUnit(definition.unit ?? 'number')
-  } else if (definition.unit !== undefined) throw new Error('string metrics cannot define a unit')
+    if (definition.chart !== undefined && (typeof definition.chart !== 'string' || !charts.has(definition.chart))) {
+      throw new Error('chart must be step, line, area, or none')
+    }
+  } else if (definition.unit !== undefined || definition.chart !== undefined) {
+    throw new Error('string metrics cannot define a unit or chart')
+  }
 
   if (hasJson) {
     const extractor = record(definition.json, 'json must be a mapping')

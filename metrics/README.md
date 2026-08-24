@@ -79,6 +79,7 @@ Each entry under `custom_metrics` needs:
 | `source.headers` | No | Header values referenced from an environment variable or file. |
 | `json` or `prometheus` | Yes | Exactly one extractor. |
 | `unit` | Numeric only | Display unit, defaults to `number`. |
+| `chart` | Numeric only | `step` (default), `line`, `area`, or `none`. |
 | `value_type` | No | `number` (default) or `string`. |
 
 Do not put literal credentials in YAML. Use one secret reference per header:
@@ -183,6 +184,25 @@ custom_metrics:
 ```
 
 Text metrics cannot define a unit, array value path, or reduction.
+
+## Charts
+
+Numeric metrics open a history chart by default. Set `chart` to choose its
+rendering: `step` holds each sampled value until the next sample, `line`
+connects samples directly, and `area` fills beneath the sampled values. Set
+`chart: none` to show the current value without making the metric interactive:
+
+```yaml
+custom_metrics:
+  queue_depth:
+    label: Queue depth
+    unit: count
+    chart: none
+    source:
+      url: http://service:8080/stats
+    json:
+      path: /queue/depth
+```
 
 ## Units
 

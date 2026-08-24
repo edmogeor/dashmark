@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0-alpha.2] - 2026-08-24
+
+### Added
+
+- Let numeric custom metrics choose a step, line, area, or no history chart.
+- Show selected custom metrics alongside built-in loading rows.
+
 ## [0.3.0-alpha.1] - 2026-08-24
 
 ### Added

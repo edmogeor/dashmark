@@ -18,6 +18,7 @@ export type ResourceMetricSample = ContainerResources & {
 }
 
 export type CustomMetricSample = { timestamp: number; value: number }
+export type CustomMetricChart = 'step' | 'line' | 'area' | 'none'
 export type CustomMetricUnit =
   | 'number' | 'count' | 'percent' | 'ratio' | 'bytes' | 'bytes_per_second'
   | 'bits' | 'bits_per_second' | 'seconds' | 'milliseconds' | 'microseconds'
@@ -27,6 +28,7 @@ export type NumericCustomMetric = {
   key: string
   label: string
   unit: CustomMetricUnit
+  chart: CustomMetricChart
   value: number
   history: CustomMetricSample[]
   historyPeriodMs: number
@@ -90,6 +92,7 @@ function isCustomMetric(value: unknown): value is CustomMetric {
     && (typeof value.value === 'string' || (
       typeof value.value === 'number' && Number.isFinite(value.value)
       && isCustomMetricUnit(value.unit)
+      && isCustomMetricChart(value.chart)
       && Array.isArray(value.history) && value.history.every(isCustomMetricSample)
       && typeof value.historyPeriodMs === 'number' && value.historyPeriodMs > 0
     ))
@@ -101,6 +104,10 @@ function isCustomMetricUnit(value: unknown): value is CustomMetricUnit {
     'bits', 'bits_per_second', 'seconds', 'milliseconds', 'microseconds',
     'duration', 'hertz', 'watts', 'volts', 'amperes', 'celsius', 'fahrenheit', 'boolean'
   ].includes(value)) || (isRecord(value) && typeof value.suffix === 'string')
+}
+
+function isCustomMetricChart(value: unknown): value is CustomMetricChart {
+  return value === 'step' || value === 'line' || value === 'area' || value === 'none'
 }
 
 function isMetricError(value: unknown): value is MetricError {

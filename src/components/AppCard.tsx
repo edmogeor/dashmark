@@ -8,7 +8,7 @@ import {
   TooltipTrigger
 } from '@/components/ui/tooltip'
 import { Gauge, Info, LoaderCircle, Server } from 'lucide-react'
-import { CartesianGrid, LabelList, Line, LineChart, XAxis, YAxis } from 'recharts'
+import { Area, AreaChart, CartesianGrid, LabelList, Line, LineChart, XAxis, YAxis } from 'recharts'
 import { StatusBadge } from './StatusBadge'
 import { MarqueeText } from './MarqueeText'
 import type { Card as CardType } from '@/lib/docker'
@@ -17,7 +17,7 @@ import { strings } from '@/lib/strings'
 import { useIsDark } from '@/lib/use-is-dark'
 import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { isResourceUsageResponse, type ContainerResources, type CustomMetric, type CustomMetricUnit, type ResourceMetricSample } from '@/lib/status'
+import { isResourceUsageResponse, type ContainerResources, type CustomMetric, type CustomMetricChart, type CustomMetricUnit, type ResourceMetricSample } from '@/lib/status'
 import { RESOURCE_USAGE_POLL_INTERVAL_MS, TOOLTIP_DELAY_MS } from '@/lib/constants'
 import { useTooltipController } from './tooltip-controller'
 import { badgeColor } from '@/lib/badge-color'
@@ -161,6 +161,7 @@ type MetricDetail = {
   series: MetricSeries[]
   formatValue: (value: number) => string
   formatAxisValue?: (value: number) => string
+  chart?: Exclude<CustomMetricChart, 'none'>
 }
 
 function metricData(history: ResourceMetricSample[], series: MetricSeries[]): ChartPoint[] {
@@ -246,6 +247,8 @@ function MetricDetailDialog({ detail, onOpen, onOpenChange }: { detail: MetricDe
   const end = data.at(-1)?.timestamp ?? Date.now()
   const start = end - (currentDetail?.historyPeriodMs ?? 5 * 60_000)
   const timeTicks = Array.from({ length: 4 }, (_, index) => start + ((end - start) * index) / 3)
+  const chart = currentDetail?.chart ?? 'step'
+  const Chart = chart === 'area' ? AreaChart : LineChart
 
   return (
     <Dialog open={detail !== null} onOpenChange={onOpenChange}>
@@ -266,7 +269,7 @@ function MetricDetailDialog({ detail, onOpen, onOpenChange }: { detail: MetricDe
             </DialogHeader>
             <div ref={setChartRoot} className="h-80 w-full">
             {chartDimensions && <ChartContainer config={tickerConfig} initialDimension={chartDimensions} className="h-full w-full aspect-auto" aria-label={`${currentDetail.label} chart`}>
-              <LineChart data={data} margin={{ top: 12, right: 4, bottom: 4, left: 0 }} accessibilityLayer={false}>
+              <Chart data={data} margin={{ top: 12, right: 4, bottom: 4, left: 0 }} accessibilityLayer={false}>
                 <CartesianGrid vertical={false} />
                 <XAxis
                   dataKey="timestamp"
@@ -309,28 +312,37 @@ function MetricDetailDialog({ detail, onOpen, onOpenChange }: { detail: MetricDe
                     )
                   }}
                 />
-                {currentDetail.series.map(series => (
-                  <Line key={series.key} dataKey={series.key} type="stepAfter" stroke={`var(--color-${series.key})`} strokeWidth={2} dot={false} isAnimationActive={false}>
-                    <LabelList
-                      dataKey={`${series.key}Label`}
-                      position="insideRight"
-                      content={props => {
-                        const x = Number(props.x)
-                        const y = Number(props.y)
-                        const label = props.value === undefined ? '' : String(props.value)
-                        if (!Number.isFinite(x) || !Number.isFinite(y) || !label) return null
-                        const width = label.length * 9 + 8
-                        return (
-                          <g transform={`translate(${x - width - 4} ${y - 12})`}>
-                            <rect width={width} height={24} rx={8} fill="var(--background)" />
-                            <text x={4} y={16} fill={`var(--color-${series.key})`} fontSize={16} fontWeight={700}>{label}</text>
-                          </g>
-                        )
-                      }}
-                    />
-                  </Line>
-                ))}
-              </LineChart>
+                {currentDetail.series.map(series => {
+                  const props = {
+                    dataKey: series.key,
+                    type: chart === 'line' ? 'linear' : 'stepAfter',
+                    stroke: `var(--color-${series.key})`,
+                    strokeWidth: 2,
+                    dot: false,
+                    isAnimationActive: false
+                  } as const
+                  const label = <LabelList
+                    dataKey={`${series.key}Label`}
+                    position="insideRight"
+                    content={props => {
+                      const x = Number(props.x)
+                      const y = Number(props.y)
+                      const label = props.value === undefined ? '' : String(props.value)
+                      if (!Number.isFinite(x) || !Number.isFinite(y) || !label) return null
+                      const width = label.length * 9 + 8
+                      return (
+                        <g transform={`translate(${x - width - 4} ${y - 12})`}>
+                          <rect width={width} height={24} rx={8} fill="var(--background)" />
+                          <text x={4} y={16} fill={`var(--color-${series.key})`} fontSize={16} fontWeight={700}>{label}</text>
+                        </g>
+                      )
+                    }}
+                  />
+                  return chart === 'area'
+                    ? <Area key={series.key} {...props} fill={`var(--color-${series.key})`} fillOpacity={0.2}>{label}</Area>
+                    : <Line key={series.key} {...props}>{label}</Line>
+                })}
+              </Chart>
             </ChartContainer>}
             </div>
           </>
@@ -427,6 +439,9 @@ function ResourceUsageTooltip({ card, resources, history, historyPeriodMs, custo
   const showCpu = card.resourceStats?.includes('cpu')
   const showMemory = card.resourceStats?.includes('memory')
   const showNetwork = card.resourceStats?.includes('network') && !card.usesHostNetwork
+  const selectedCustomMetrics = card.customMetricLabels ?? card.metrics
+    ?.filter(key => !['cpu', 'memory', 'network', 'none'].includes(key))
+    .map(key => ({ key, label: key })) ?? []
   const hasUsage = customMetrics.length > 0 || resources?.cpuPercent !== undefined || resources?.memoryUsage !== undefined
     || resources?.receivedBytesPerSecond !== undefined || resources?.sentBytesPerSecond !== undefined || (resources !== null && showNetwork)
   const showNetworkDetails = () => onDetailSelect({
@@ -462,6 +477,7 @@ function ResourceUsageTooltip({ card, resources, history, historyPeriodMs, custo
               <LoadingResourceMetric label={strings.card.sent} />
             </>
           )}
+          {selectedCustomMetrics.map(metric => <LoadingResourceMetric key={metric.key} label={metric.label} />)}
         </div>
       ) : hasUsage ? (
         <div className="grid gap-1">
@@ -511,6 +527,10 @@ function ResourceUsageTooltip({ card, resources, history, historyPeriodMs, custo
             if (!('unit' in metric)) {
               return <ResourceMetric key={metric.key} label={metric.label} value={metric.value} />
             }
+            if (metric.chart === 'none') {
+              return <ResourceMetric key={metric.key} label={metric.label} value={formatCustomMetric(metric.value, metric.unit)} />
+            }
+            const chart = metric.chart
             return (
               <ResourceMetric
                 key={metric.key}
@@ -522,7 +542,8 @@ function ResourceUsageTooltip({ card, resources, history, historyPeriodMs, custo
                   historyPeriodMs: metric.historyPeriodMs,
                   series: [{ key: 'cpu', label: metric.label, value: sample => sample.cpuPercent }],
                   formatValue: value => formatCustomMetric(value, metric.unit),
-                  formatAxisValue: value => formatAxisCustomMetric(value, metric.unit)
+                  formatAxisValue: value => formatAxisCustomMetric(value, metric.unit),
+                  chart
                 })}
               />
             )

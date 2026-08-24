@@ -28,6 +28,8 @@ type CustomMetricUnit = typeof CUSTOM_METRIC_UNITS[number]
 type MetricUnit = CustomMetricUnit | { suffix: string }
 const CUSTOM_METRIC_REDUCTIONS = ['count', 'sum', 'average', 'minimum', 'maximum'] as const
 export type CustomMetricReduction = typeof CUSTOM_METRIC_REDUCTIONS[number]
+const CUSTOM_METRIC_CHARTS = ['step', 'line', 'area', 'none'] as const
+type CustomMetricChart = typeof CUSTOM_METRIC_CHARTS[number]
 
 export type JsonMetricExtractor = {
   path: string
@@ -50,6 +52,7 @@ type MetricCommon = {
 export type NumericMetricOverride = MetricCommon & {
   valueType: 'number'
   unit: MetricUnit
+  chart: CustomMetricChart
 } & ({ json: JsonMetricExtractor; prometheus?: never } | { prometheus: PrometheusMetricExtractor; json?: never })
 
 export type TextMetricOverride = MetricCommon & {
@@ -113,6 +116,12 @@ function parseUnit(value: unknown): MetricUnit | undefined {
   if (typeof value === 'string' && CUSTOM_METRIC_UNITS.includes(value as CustomMetricUnit)) return value as CustomMetricUnit
   if (isRecord(value) && typeof value.suffix === 'string' && value.suffix) return { suffix: value.suffix }
   return undefined
+}
+
+function parseChart(value: unknown): CustomMetricChart | undefined {
+  return typeof value === 'string' && CUSTOM_METRIC_CHARTS.includes(value as CustomMetricChart)
+    ? value as CustomMetricChart
+    : undefined
 }
 
 function isHttpUrl(value: string): boolean {
@@ -187,6 +196,7 @@ function parseMetricOverrides(value: unknown): { metrics?: ServiceMetricOverride
     const label = string(metric.label)
     const valueType = metric.value_type === undefined ? 'number' : string(metric.value_type)
     const unit = metric.unit === undefined ? 'number' : parseUnit(metric.unit)
+    const chart = metric.chart === undefined ? 'step' : parseChart(metric.chart)
     const source = isRecord(metric.source) ? metric.source : undefined
     const url = string(source?.url)
     const json = parseJsonExtractor(metric.json)
@@ -219,8 +229,12 @@ function parseMetricOverrides(value: unknown): { metrics?: ServiceMetricOverride
       invalid('value_type must be number or string')
       continue
     }
-    if (valueType === 'string' && (metric.unit !== undefined || json?.valuePath !== undefined || json?.reduce !== undefined || prometheus?.reduce !== undefined || (prometheus && !prometheus.valueLabel))) {
-      invalid('string metrics cannot use units or reductions')
+    if (!chart) {
+      invalid('chart must be step, line, area, or none')
+      continue
+    }
+    if (valueType === 'string' && (metric.unit !== undefined || metric.chart !== undefined || json?.valuePath !== undefined || json?.reduce !== undefined || prometheus?.reduce !== undefined || (prometheus && !prometheus.valueLabel))) {
+      invalid('string metrics cannot use units, reductions, or charts')
       continue
     }
     if (valueType === 'number' && (!unit || prometheus?.valueLabel !== undefined)) {
@@ -236,7 +250,7 @@ function parseMetricOverrides(value: unknown): { metrics?: ServiceMetricOverride
 
     const common = { label, source: headers ? { url, headers } : { url } }
     if (valueType === 'string') metrics[key] = json ? { ...common, valueType, json } : { ...common, valueType, prometheus: prometheus! }
-    else metrics[key] = json ? { ...common, valueType, unit: unit!, json } : { ...common, valueType, unit: unit!, prometheus: prometheus! }
+    else metrics[key] = json ? { ...common, valueType, unit: unit!, chart, json } : { ...common, valueType, unit: unit!, chart, prometheus: prometheus! }
   }
 
   return {

@@ -90,6 +90,7 @@ radarr:
     active_downloads:
       label: Active downloads
       unit: count
+      chart: line
       source:
         url: http://metrics.example.internal/radarr
         headers:
@@ -106,6 +107,7 @@ radarr:
         label: 'Active downloads',
         valueType: 'number',
         unit: 'count',
+        chart: 'line',
         source: {
           url: 'http://metrics.example.internal/radarr',
           headers: { 'X-Api-Key': { env: 'RADARR_API_KEY' } }
@@ -144,6 +146,7 @@ service:
         label: 'Requests',
         valueType: 'number',
         unit: 'number',
+        chart: 'step',
         source: { url: 'http://metrics.example.internal/metrics' },
         prometheus: { name: 'http_requests_total', labels: undefined, reduce: 'sum' }
       }
@@ -163,8 +166,14 @@ service:
     temperature:
       label: Temperature
       unit: { suffix: rpm }
+      chart: none
       source: { url: https://metrics.example.internal/data }
       json: { path: /rpm }
+    invalid_chart:
+      label: Invalid chart
+      chart: scatter
+      source: { url: https://metrics.example.internal/data }
+      json: { path: /value }
     invalid_text:
       label: Invalid text
       value_type: string
@@ -184,6 +193,7 @@ service:
         label: 'Temperature',
         valueType: 'number',
         unit: { suffix: 'rpm' },
+        chart: 'none',
         source: { url: 'https://metrics.example.internal/data' },
         json: { path: '/rpm', valuePath: undefined, reduce: undefined }
       }

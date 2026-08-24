@@ -245,11 +245,11 @@ radarr:
         reduce: maximum
 ```
 
-Numeric metrics default to the `number` unit. Available units are `number`, `count`, `percent`, `ratio`, `bytes`, `bytes_per_second`, `bits`, `bits_per_second`, `seconds`, `milliseconds`, `microseconds`, `duration`, `hertz`, `watts`, `volts`, `amperes`, `celsius`, `fahrenheit`, and `boolean`, or `{ suffix: rpm }` for a custom suffix.
+Numeric metrics default to the `number` unit. Available units are `number`, `count`, `percent`, `ratio`, `bytes`, `bytes_per_second`, `bits`, `bits_per_second`, `seconds`, `milliseconds`, `microseconds`, `duration`, `hertz`, `watts`, `volts`, `amperes`, `celsius`, `fahrenheit`, and `boolean`, or `{ suffix: rpm }` for a custom suffix. Numeric charts default to `chart: step`; use `line` or `area` to change the rendering, or `none` to show the current value without a chart dialog.
 
 JSON `path` and optional `value_path` are RFC6901 JSON Pointers. A scalar path must resolve to a finite number. For arrays, `value_path` extracts a number from each item and `reduce` may be `count`, `sum`, `average`, `minimum`, or `maximum`; an array without a reduction is accepted only when it yields one number. Prometheus sources accept standard text exposition, ignore comments, select by metric name and optional exact labels, and use the same reductions.
 
-Set `value_type: string` for a current text metric. JSON text metrics require `path` to resolve to one string. Prometheus text metrics require `value_label`, which returns that label value from exactly one matching sample. Text metrics have no unit or history.
+Set `value_type: string` for a current text metric. JSON text metrics require `path` to resolve to one string. Prometheus text metrics require `value_label`, which returns that label value from exactly one matching sample. Text metrics have no unit, chart, or history.
 
 When `dashmark.url` is absent, Dashmark can derive an HTTPS URL from a Traefik router label such as `traefik.http.routers.plex.rule=Host(\`plex.example.com\`)`. Add another `dashmark.*` label to opt the container in.
 
