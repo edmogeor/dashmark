@@ -58,7 +58,7 @@ function isContainerStatus(value: unknown): value is ContainerStatus {
     && !('sentBytesPerSecond' in value)
 }
 
-export function isContainerResources(value: unknown): value is ContainerResources {
+function isContainerResources(value: unknown): value is ContainerResources {
   return isRecord(value)
     && (value.cpuPercent === undefined || typeof value.cpuPercent === 'number')
     && (value.memoryUsage === undefined || typeof value.memoryUsage === 'number')
@@ -67,7 +67,7 @@ export function isContainerResources(value: unknown): value is ContainerResource
     && (value.sentBytesPerSecond === undefined || typeof value.sentBytesPerSecond === 'number')
 }
 
-export function isResourceMetricSample(value: unknown): value is ResourceMetricSample {
+function isResourceMetricSample(value: unknown): value is ResourceMetricSample {
   return isRecord(value) && typeof value.timestamp === 'number' && isContainerResources(value)
 }
 
@@ -80,11 +80,11 @@ export function isResourceUsageResponse(value: unknown): value is ResourceUsageR
     && Array.isArray(value.metricErrors) && value.metricErrors.every(isMetricError)
 }
 
-export function isCustomMetricSample(value: unknown): value is CustomMetricSample {
+function isCustomMetricSample(value: unknown): value is CustomMetricSample {
   return isRecord(value) && typeof value.timestamp === 'number' && typeof value.value === 'number' && Number.isFinite(value.value)
 }
 
-export function isCustomMetric(value: unknown): value is CustomMetric {
+function isCustomMetric(value: unknown): value is CustomMetric {
   return isRecord(value)
     && typeof value.key === 'string' && typeof value.label === 'string'
     && (typeof value.value === 'string' || (
@@ -103,7 +103,7 @@ function isCustomMetricUnit(value: unknown): value is CustomMetricUnit {
   ].includes(value)) || (isRecord(value) && typeof value.suffix === 'string')
 }
 
-export function isMetricError(value: unknown): value is MetricError {
+function isMetricError(value: unknown): value is MetricError {
   return isRecord(value) && typeof value.key === 'string' && typeof value.message === 'string'
 }
 

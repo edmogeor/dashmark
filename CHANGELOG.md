@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0-alpha.1] - 2026-08-24
+
+### Added
+
 - Store resource metric history in SQLite and display live ticker charts in resource tooltips.
+- Configure custom numeric and text metrics from JSON or Prometheus sources.
+
+### Changed
+
+- Remove unused chart, dialog, and progress component APIs.
+- Simplify custom metric validation and collection paths.
 
 ## [0.2.2] - 2026-08-24
 

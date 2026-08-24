@@ -12,21 +12,21 @@ export type ServiceOverrides = Partial<ParsedLabels> & {
   customMetricErrors?: Record<string, string>
 }
 
-export type MetricSecretReference = { env?: string; file?: string }
+type MetricSecretReference = { env?: string; file?: string }
 
-export type MetricSourceOverride = {
+type MetricSourceOverride = {
   url: string
   headers?: Record<string, MetricSecretReference>
 }
 
-export const CUSTOM_METRIC_UNITS = [
+const CUSTOM_METRIC_UNITS = [
   'number', 'count', 'percent', 'ratio', 'bytes', 'bytes_per_second',
   'bits', 'bits_per_second', 'seconds', 'milliseconds', 'microseconds',
   'duration', 'hertz', 'watts', 'volts', 'amperes', 'celsius', 'fahrenheit', 'boolean'
 ] as const
-export type CustomMetricUnit = typeof CUSTOM_METRIC_UNITS[number]
-export type MetricUnit = CustomMetricUnit | { suffix: string }
-export const CUSTOM_METRIC_REDUCTIONS = ['count', 'sum', 'average', 'minimum', 'maximum'] as const
+type CustomMetricUnit = typeof CUSTOM_METRIC_UNITS[number]
+type MetricUnit = CustomMetricUnit | { suffix: string }
+const CUSTOM_METRIC_REDUCTIONS = ['count', 'sum', 'average', 'minimum', 'maximum'] as const
 export type CustomMetricReduction = typeof CUSTOM_METRIC_REDUCTIONS[number]
 
 export type JsonMetricExtractor = {
@@ -155,10 +155,25 @@ function parsePrometheusExtractor(value: unknown): PrometheusMetricExtractor | u
   }
 }
 
+function parseMetricHeaders(source: Record<string, unknown>): { headers?: Record<string, MetricSecretReference>; error?: string } {
+  if (source.headers === undefined) return {}
+  if (!isRecord(source.headers)) return { error: 'headers must be a mapping' }
+
+  const headers: Record<string, MetricSecretReference> = {}
+  for (const [header, reference] of Object.entries(source.headers)) {
+    const secret = parseSecretReference(reference)
+    if (!secret || !/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(header)) {
+      return { error: 'headers must use valid names and env or file references' }
+    }
+    headers[header] = secret
+  }
+  return Object.keys(headers).length > 0 ? { headers } : {}
+}
+
 function parseMetricOverrides(value: unknown): { metrics?: ServiceMetricOverrides; errors?: Record<string, string> } {
   if (!isRecord(value)) return {}
   const metrics: ServiceMetricOverrides = {}
-    const errors: Record<string, string> = {}
+  const errors: Record<string, string> = {}
 
   for (const [key, metric] of Object.entries(value)) {
     const invalid = (reason: string) => {
@@ -213,25 +228,13 @@ function parseMetricOverrides(value: unknown): { metrics?: ServiceMetricOverride
       continue
     }
 
-    const headers: Record<string, MetricSecretReference> = {}
-    let invalidHeaders = false
-    if (isRecord(source.headers)) {
-      for (const [header, reference] of Object.entries(source.headers)) {
-        const secret = parseSecretReference(reference)
-        if (secret && /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(header)) headers[header] = secret
-        else {
-          invalid('headers must use valid names and env or file references')
-          invalidHeaders = true
-          break
-        }
-      }
-    } else if (source.headers !== undefined) {
-      invalid('headers must be a mapping')
+    const { headers, error } = parseMetricHeaders(source)
+    if (error) {
+      invalid(error)
       continue
     }
-    if (invalidHeaders) continue
 
-    const common = { label, source: Object.keys(headers).length > 0 ? { url, headers } : { url } }
+    const common = { label, source: headers ? { url, headers } : { url } }
     if (valueType === 'string') metrics[key] = json ? { ...common, valueType, json } : { ...common, valueType, prometheus: prometheus! }
     else metrics[key] = json ? { ...common, valueType, unit: unit!, json } : { ...common, valueType, unit: unit!, prometheus: prometheus! }
   }

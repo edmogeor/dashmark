@@ -9,24 +9,25 @@ export async function getResourceUsageResponse(request: Request): Promise<Respon
   startMetricsCollection(config)
   const cardId = new URL(request.url).searchParams.get('id')
   const usage = cardId ? await getContainerMetricUsage(config, request.headers, cardId) : undefined
-  if (usage?.resource && cardId) saveResourceMetric(config, cardId, usage.resource, usage.historyPeriodMs)
-  if (usage && cardId) {
-    for (const metric of usage.customMetrics) {
-      if (typeof metric.value === 'number') saveMetricSample(config, cardId, metric.key, metric.value, usage.historyPeriodMs)
+  const metricUsage = cardId && usage ? { cardId, ...usage } : undefined
+  if (metricUsage?.resource) {
+    saveResourceMetric(config, metricUsage.cardId, metricUsage.resource, metricUsage.historyPeriodMs)
+  }
+  if (metricUsage) {
+    for (const metric of metricUsage.customMetrics) {
+      if (typeof metric.value === 'number') {
+        saveMetricSample(config, metricUsage.cardId, metric.key, metric.value, metricUsage.historyPeriodMs)
+      }
     }
   }
-  const customMetrics: CustomMetric[] = []
-  if (usage && cardId) {
-    for (const metric of usage.customMetrics) {
-      if ('unit' in metric) {
-        customMetrics.push({
-          ...metric,
-          history: getMetricHistory(config, cardId, metric.key, usage.historyPeriodMs),
-          historyPeriodMs: usage.historyPeriodMs
-        })
-      } else customMetrics.push(metric)
-    }
-  }
+  const customMetrics: CustomMetric[] = metricUsage?.customMetrics.map(metric => 'unit' in metric
+    ? {
+        ...metric,
+        history: getMetricHistory(config, metricUsage.cardId, metric.key, metricUsage.historyPeriodMs),
+        historyPeriodMs: metricUsage.historyPeriodMs
+      }
+    : metric
+  ) ?? []
   const headers = new Headers({
     'Content-Type': 'application/json',
     'Cache-Control': 'private, no-store'
@@ -35,7 +36,7 @@ export async function getResourceUsageResponse(request: Request): Promise<Respon
 
   const body: ResourceUsageResponse = {
     resource: usage?.resource ?? null,
-    history: cardId && usage ? getResourceMetricHistory(config, cardId, usage.historyPeriodMs) : [],
+    history: metricUsage ? getResourceMetricHistory(config, metricUsage.cardId, metricUsage.historyPeriodMs) : [],
     historyPeriodMs: usage?.historyPeriodMs ?? config.metricsHistoryPeriodMs,
     customMetrics,
     metricErrors: usage?.metricErrors ?? []

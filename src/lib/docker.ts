@@ -655,20 +655,33 @@ export async function getContainerStatuses(
   return { statuses }
 }
 
+export type CollectedCustomMetric =
+  | { key: string; label: string; unit: Extract<MetricOverride, { valueType: 'number' }>['unit']; value: number }
+  | { key: string; label: string; value: string }
+
 export type ContainerMetricUsage = {
   resource?: ContainerResources
   historyPeriodMs: number
-  customMetrics: ({ key: string; label: string; unit: Extract<MetricOverride, { valueType: 'number' }>['unit']; value: number } | { key: string; label: string; value: string })[]
+  customMetrics: CollectedCustomMetric[]
   metricErrors: { key: string; message: string }[]
 }
 
-function selectedCustomMetrics(resolved: ResolvedContainer): [string, MetricOverride][] {
+type SelectedCustomMetric = [key: string, metric: MetricOverride]
+type ContainerMetricSample = {
+  cardId: string
+  resource: ContainerResources | undefined
+  customMetrics: CollectedCustomMetric[]
+  metricsPollIntervalMs: number
+  metricsHistoryPeriodMs: number
+}
+
+function selectedCustomMetrics(resolved: ResolvedContainer): SelectedCustomMetric[] {
   if (!resolved.customMetrics || !resolved.labels.metrics) return []
   return resolved.labels.metrics.flatMap(key => {
     const [provider] = key.split('/', 2)
     if (key.includes('/') && provider !== resolved.labels.metricProvider) return []
     const metric = resolved.customMetrics?.[key]
-    return metric ? [[key, metric] as [string, MetricOverride]] : []
+    return metric ? [[key, metric]] : []
   })
 }
 
@@ -687,18 +700,21 @@ function selectedCustomMetricErrors(resolved: ResolvedContainer): { key: string;
   })
 }
 
-async function collectSelectedCustomMetrics(resolved: ResolvedContainer): Promise<Pick<ContainerMetricUsage, 'customMetrics' | 'metricErrors'>> {
-  const results = await Promise.all(selectedCustomMetrics(resolved).map(async ([key, metric]) => ({ key, metric, result: await collectCustomMetric(key, metric) })))
+async function collectSelectedCustomMetrics(
+  metrics: SelectedCustomMetric[],
+  metricErrors: ContainerMetricUsage['metricErrors']
+): Promise<Pick<ContainerMetricUsage, 'customMetrics' | 'metricErrors'>> {
+  const results = await Promise.all(metrics.map(async ([key, metric]) => ({ key, metric, result: await collectCustomMetric(key, metric) })))
   const customMetrics: ContainerMetricUsage['customMetrics'] = []
-  const metricErrors: ContainerMetricUsage['metricErrors'] = selectedCustomMetricErrors(resolved)
+  const collectedErrors = [...metricErrors]
   for (const { key, metric, result } of results) {
     if ('value' in result) {
       if (metric.valueType === 'string' && typeof result.value === 'string') customMetrics.push({ key, label: metric.label, value: result.value })
       if (metric.valueType === 'number' && typeof result.value === 'number') customMetrics.push({ key, label: metric.label, unit: metric.unit, value: result.value })
     }
-    else metricErrors.push({ key, message: result.error })
+    else collectedErrors.push({ key, message: result.error })
   }
-  return { customMetrics, metricErrors }
+  return { customMetrics, metricErrors: collectedErrors }
 }
 
 export async function getContainerMetricUsage(
@@ -724,12 +740,13 @@ export async function getContainerMetricUsage(
     const resolved = resolveContainer(yamlConfig.config, host.id, container)
     if (!isVisibleContainer(config, headers, resolved) || resolved.labels.showStatus === false) return undefined
     const resourceStats = resolved.labels.resourceStats ?? RESOURCE_STATS
-    const customMetrics = collectSelectedCustomMetrics(resolved)
-    if (resourceStats.length === 0 && selectedCustomMetrics(resolved).length === 0 && selectedCustomMetricErrors(resolved).length === 0) return undefined
+    const selectedMetrics = selectedCustomMetrics(resolved)
+    const metricErrors = selectedCustomMetricErrors(resolved)
+    if (resourceStats.length === 0 && selectedMetrics.length === 0 && metricErrors.length === 0) return undefined
 
     const [resource, collected] = await Promise.all([
       resourceStats.length > 0 ? getContainerResources(host.dockerHost, container.Id, resourceStats) : undefined,
-      customMetrics
+      collectSelectedCustomMetrics(selectedMetrics, metricErrors)
     ])
     if (!resource && collected.customMetrics.length === 0 && collected.metricErrors.length === 0) return undefined
     return { resource, ...collected, historyPeriodMs: resolved.labels.metricsHistoryPeriodMs ?? config.metricsHistoryPeriodMs }
@@ -748,12 +765,12 @@ export async function getContainerResourceUsage(
 
 export async function collectContainerResourceUsage(
   config: AppConfig
-): Promise<{ cardId: string; resource?: ContainerResources; customMetrics: ContainerMetricUsage['customMetrics']; metricsPollIntervalMs: number; metricsHistoryPeriodMs: number }[]> {
+): Promise<ContainerMetricSample[]> {
   if (!config.showResourceUsage) return []
 
   const yamlConfig = loadYamlConfig(config)
   if (yamlConfig.error) return []
-  const samples: { cardId: string; resource: ContainerResources | undefined; customMetrics: ContainerMetricUsage['customMetrics']; metricsPollIntervalMs: number; metricsHistoryPeriodMs: number }[] = []
+  const samples: ContainerMetricSample[] = []
 
   await Promise.all(configuredDockerHosts(config).map(async host => {
     try {
@@ -763,11 +780,11 @@ export async function collectContainerResourceUsage(
         const resolved = resolveContainer(yamlConfig.config, host.id, container)
         if (resolved.labels.hidden || !resolved.url || resolved.labels.showStatus === false) return undefined
         const resourceStats = resolved.labels.resourceStats ?? RESOURCE_STATS
-        const customMetrics = collectSelectedCustomMetrics(resolved)
-        if (resourceStats.length === 0 && selectedCustomMetrics(resolved).length === 0) return undefined
+        const selectedMetrics = selectedCustomMetrics(resolved)
+        if (resourceStats.length === 0 && selectedMetrics.length === 0) return undefined
         const [resource, collected] = await Promise.all([
           resourceStats.length > 0 ? getContainerResources(host.dockerHost, container.Id, resourceStats) : undefined,
-          customMetrics
+          collectSelectedCustomMetrics(selectedMetrics, [])
         ])
         if (!resource && collected.customMetrics.length === 0) return undefined
         return {
@@ -778,7 +795,7 @@ export async function collectContainerResourceUsage(
           metricsHistoryPeriodMs: resolved.labels.metricsHistoryPeriodMs ?? config.metricsHistoryPeriodMs
         }
       }))
-      samples.push(...results.filter((sample): sample is { cardId: string; resource: ContainerResources | undefined; customMetrics: ContainerMetricUsage['customMetrics']; metricsPollIntervalMs: number; metricsHistoryPeriodMs: number } => sample !== undefined))
+      samples.push(...results.filter((sample): sample is ContainerMetricSample => sample !== undefined))
     } catch {
       // Resource metrics are optional, so an unavailable host does not affect the dashboard.
     }
