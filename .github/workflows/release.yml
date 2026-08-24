@@ -26,9 +26,6 @@ jobs:
       - name: Install dependencies
         run: npm ci || npm install
 
-      - name: Fetch icons
-        run: npm run fetch-icons
-
       - name: Lint
         run: npm run lint
 
