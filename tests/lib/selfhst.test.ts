@@ -28,6 +28,10 @@ describe('fuzzyMatchIcon', () => {
     expect(fuzzyMatchIcon(['code'], [icon('codeberg')])).toBeNull()
   })
 
+  it('rejects a distant full-name match', () => {
+    expect(fuzzyMatchIcon(['code-server'], [icon('shoko-server')])).toBeNull()
+  })
+
   it('does not match a sufficiently different name', () => {
     const icons = [icon('plex'), icon('grafana')]
     expect(fuzzyMatchIcon(['sonarr'], icons)).toBeNull()

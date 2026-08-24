@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.16] - 2026-08-24
+
+### Fixed
+
+- Reject distant automatic icon and description matches.
+
 ## [0.1.15] - 2026-08-24
 
 ### Added

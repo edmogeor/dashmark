@@ -180,6 +180,7 @@ export function fuzzyMatchReference<T extends ReferenceMatch>(candidates: string
     const top = fuse.search(candidate)[0]
     if (!top || !hasSimilarLength(candidate, top.item.reference)) continue
     const score = top.score ?? 1
+    if (score > FUZZY_MATCH_THRESHOLD) continue
     if (!bestMatch || score < bestMatch.score) {
       bestMatch = { item: top.item, score }
     }
