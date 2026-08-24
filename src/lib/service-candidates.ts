@@ -26,7 +26,6 @@ export function getServiceCandidates(imageName: string | undefined, containerNam
 
   add(containerName)
   add(title)
-  add(title.split(/[^a-zA-Z0-9]+/)[0])
 
   return [...candidates]
 }

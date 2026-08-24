@@ -66,6 +66,7 @@ export const SELFHST_PAGE_SIZE = 100
 export const SELFHST_MAX_PAGES = 100
 export const SELFHST_FETCH_TIMEOUT_MS = 10_000
 export const FUZZY_MATCH_THRESHOLD = 0.3
+export const FUZZY_MIN_LENGTH_RATIO = 0.75
 export const FUZZY_REFERENCE_WEIGHT = 0.7
 export const FUZZY_NAME_WEIGHT = 0.3
 

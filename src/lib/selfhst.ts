@@ -11,6 +11,7 @@ import {
   SELFHST_MAX_PAGES,
   SELFHST_FETCH_TIMEOUT_MS,
   FUZZY_MATCH_THRESHOLD,
+  FUZZY_MIN_LENGTH_RATIO,
   FUZZY_REFERENCE_WEIGHT,
   FUZZY_NAME_WEIGHT
 } from './constants'
@@ -156,6 +157,10 @@ function findExactMatch(candidates: string[], icons: SelfhstIcon[]): SelfhstIcon
   return icons.find(icon => candidateSet.has(icon.reference)) ?? null
 }
 
+function hasSimilarLength(candidate: string, reference: string): boolean {
+  return Math.min(candidate.length, reference.length) / Math.max(candidate.length, reference.length) >= FUZZY_MIN_LENGTH_RATIO
+}
+
 export function fuzzyMatchIcon(candidates: string[], icons: SelfhstIcon[]): SelfhstIcon | null {
   if (icons.length === 0 || candidates.length === 0) return null
 
@@ -168,7 +173,7 @@ export function fuzzyMatchIcon(candidates: string[], icons: SelfhstIcon[]): Self
 
   for (const candidate of candidates) {
     const top = fuse.search(candidate)[0]
-    if (!top) continue
+    if (!top || !hasSimilarLength(candidate, top.item.reference)) continue
     const score = top.score ?? 1
     if (!bestMatch || score < bestMatch.score) {
       bestMatch = { icon: top.item, score }

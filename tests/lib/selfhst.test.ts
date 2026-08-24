@@ -24,6 +24,10 @@ describe('fuzzyMatchIcon', () => {
     expect(fuzzyMatchIcon(['grafan'], [icon('grafana')])?.reference).toBe('grafana')
   })
 
+  it('rejects a short partial match', () => {
+    expect(fuzzyMatchIcon(['code'], [icon('codeberg')])).toBeNull()
+  })
+
   it('does not match a sufficiently different name', () => {
     const icons = [icon('plex'), icon('grafana')]
     expect(fuzzyMatchIcon(['sonarr'], icons)).toBeNull()
