@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.17] - 2026-08-24
+
+### Changed
+
+- Refresh the brand mark across app icons, the in-app logo, favicon, social image, and README screenshot.
+
 ## [0.1.16] - 2026-08-24
 
 ### Fixed

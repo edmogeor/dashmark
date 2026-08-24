@@ -48,7 +48,7 @@ const pageUrl = new URL(`${baseUrl}/demo/`, origin).href
     <meta name="twitter:title" content="Dashmark - Demo" />
     <meta name="twitter:description" content={strings.meta.description} />
     <meta name="twitter:image" content={imageUrl} />
-    <link rel="icon" type="image/svg+xml" href={`${baseUrl}/brand/icon.svg`} />
+    <link rel="icon" type="image/svg+xml" href={`${baseUrl}/favicon.svg`} />
     <script is:inline define:vars={{ themeStorageKey: THEME_STORAGE_KEY }}>
       const stored = localStorage.getItem(themeStorageKey)
       document.documentElement.classList.toggle('dark', stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches)
