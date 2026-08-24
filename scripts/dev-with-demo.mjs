@@ -7,20 +7,21 @@ const require = createRequire(import.meta.url)
 const astroEntry = resolve(dirname(require.resolve('astro/package.json')), 'bin', 'astro.mjs')
 
 function startAstroDev(dockerHost) {
+  const env = {
+    ...process.env,
+    DOCKER_HOSTS: dockerHost,
+    // Keep Astro attached so this wrapper retains the mock Docker server until
+    // the development server exits.
+    ASTRO_DEV_BACKGROUND: '0',
+    MOCK_AUTH: 'true',
+    MOCK_USER_NAME: 'John Doe',
+    MOCK_USER_USERNAME: 'john',
+    MOCK_USER_EMAIL: 'john@example.com',
+    MOCK_USER_GROUPS: process.env.MOCK_USER_GROUPS ?? 'admins,media,family',
+    STATUS_BADGE_GROUPS: process.env.STATUS_BADGE_GROUPS ?? 'admins'
+  }
   return spawn(process.execPath, [astroEntry, 'dev'], {
-    env: {
-      ...process.env,
-      DOCKER_HOST: dockerHost,
-      // Keep Astro attached so this wrapper retains the mock Docker server until
-      // the development server exits.
-      ASTRO_DEV_BACKGROUND: '0',
-      MOCK_AUTH: 'true',
-      MOCK_USER_NAME: 'John Doe',
-      MOCK_USER_USERNAME: 'john',
-      MOCK_USER_EMAIL: 'john@example.com',
-      MOCK_USER_GROUPS: process.env.MOCK_USER_GROUPS ?? 'admins,media,family',
-      STATUS_BADGE_GROUPS: process.env.STATUS_BADGE_GROUPS ?? 'admins'
-    },
+    env,
     stdio: 'inherit'
   })
 }

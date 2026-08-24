@@ -12,6 +12,7 @@ describe('parseLabels', () => {
       'dashmark.order': '1',
       'dashmark.hidden': 'true',
       'dashmark.show_status': 'false',
+      'dashmark.stats': 'cpu,network',
       'dashmark.access_groups': 'media, admins'
     }
 
@@ -24,6 +25,7 @@ describe('parseLabels', () => {
       category: 'Media',
       order: 1,
       showStatus: false,
+      resourceStats: ['cpu', 'network'],
       accessGroups: ['media', 'admins'],
       searchAliases: []
     })
@@ -39,6 +41,7 @@ describe('parseLabels', () => {
       category: undefined,
       order: undefined,
       showStatus: undefined,
+      resourceStats: undefined,
       accessGroups: [],
       searchAliases: []
     })
@@ -57,6 +60,11 @@ describe('parseLabels', () => {
       'dashmark.search_aliases': 'movies, watch later'
     }
     expect(parseLabels(labels).searchAliases).toEqual(['movies', 'watch later'])
+  })
+
+  it('uses none to disable and ignores unknown resource stats', () => {
+    expect(parseLabels({ 'dashmark.stats': 'none,cpu' }).resourceStats).toEqual([])
+    expect(parseLabels({ 'dashmark.stats': 'cpu,unknown,memory' }).resourceStats).toEqual(['cpu', 'memory'])
   })
 
   it('ignores non-finite order values', () => {

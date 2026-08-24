@@ -20,7 +20,15 @@ export const strings = {
     clear: 'Clear search'
   },
   card: {
-    description: 'Description'
+    description: 'Description',
+    resourceUsage: 'Resource usage',
+    cpu: 'CPU',
+    memory: 'Memory',
+    received: 'Received',
+    sent: 'Sent',
+    waitingForNetwork: 'Waiting for next refresh',
+    host: 'Host',
+    unavailable: 'Usage unavailable'
   },
   dashboard: {
     noServices: 'No services found'

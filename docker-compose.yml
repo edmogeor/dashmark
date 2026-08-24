@@ -27,6 +27,8 @@ services:
       # - SHOW_SEARCH=true
       # - SHOW_STATUS=true
       # - STATUS_BADGE_GROUPS=admins,operators
+      # - SHOW_RESOURCE_USAGE=true
+      # - RESOURCE_USAGE_GROUPS=admins,operators
       # - STATUS_POLL_INTERVAL=30
       # - CATEGORY_ORDER=Media,Productivity,Home
       # - ENABLE_AUTOMATIC_DESCRIPTIONS=true
@@ -59,5 +61,6 @@ services:
       - "-allowfrom=dashmark"
       - "-allowGET=/version"
       - "-allowGET=/v1\\..{1,2}/containers/json"
+      - "-allowGET=/v1\\..{1,2}/containers/.*/stats"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro

@@ -42,7 +42,7 @@ A manually defined Card entry in the YAML config, keyed by container name or com
 
 Data flows through `src/pages/index.astro`, which is rendered on demand. It calls `getConfig()` and `getCards(config, request.headers)` server-side and passes `initialCards`/`initialError` into the `<Dashboard client:load />` island. It also calls `getUser()` and `resolveGreeting()` to compute the header greeting and group tags, which are passed to `Dashboard` when `SHOW_HEADER` is enabled.
 
-The `Dashboard` island renders the cards and polls `GET /api/status` every 30 seconds to refresh Container State/Health badges in place.
+The `Dashboard` island renders the cards and polls `GET /api/status` every 30 seconds to refresh Container State/Health badges in place. A resource tooltip polls `GET /api/resources?id=<card-id>` every two seconds only while open, so Docker stats are never fetched for inactive cards.
 
 `src/pages/icons/[...path].ts` serves custom icon files from `ICONS_DIR`, guarded against path traversal.
 
@@ -92,8 +92,10 @@ Selfhst icons are analysed for luminance when resolved. If an icon is dominated 
 | `GREETING_AFTERNOON` | `Good afternoon` | Afternoon greeting |
 | `GREETING_EVENING` | `Good evening` | Evening greeting |
 | `SHOW_SEARCH` | `true` | Show the search bar and category filter |
-| `SHOW_STATUS` | `true` | Show the state/health badge on cards |
+| `SHOW_STATUS` | `true` | Show state/health badges on cards |
 | `STATUS_BADGE_GROUPS` | unset | Comma-separated groups allowed to see status badges; unset shows them to everyone |
+| `SHOW_RESOURCE_USAGE` | `true` | Fetch and show CPU, memory, and network resource metrics |
+| `RESOURCE_USAGE_GROUPS` | unset | Comma-separated groups allowed to receive resource metrics |
 | `STATUS_POLL_INTERVAL` | `30` | Seconds between container status updates |
 | `CATEGORY_ORDER` | unset | Comma-separated category order; unlisted categories follow alphabetically |
 | `ENABLE_AUTOMATIC_DESCRIPTIONS` | `true` | When `false`, skip matching cards without explicit descriptions to the bundled selfh.st app directory index |
@@ -115,7 +117,8 @@ All labels use the `dashmark.` prefix:
 | `dashmark.description` | Short description shown in a tooltip; `none` suppresses automatic descriptions |
 | `dashmark.icon` | `selfhst:<slug>` reference, URL, path inside `ICONS_DIR`, or `placeholder` (unset auto-matches) |
 | `dashmark.category` | Group name |
-| `dashmark.show_status` | `"false"` hides the status badge for this card |
+| `dashmark.show_status` | `"false"` hides the status badge and resource-usage tooltip for this card |
+| `dashmark.stats` | Comma-separated `cpu`, `memory`, and `network` metrics; `none` disables resource usage for this card |
 | `dashmark.access_groups` | Comma-separated group allow-list |
 | `dashmark.search_aliases` | Comma-separated extra search terms |
 | `dashmark.order` | Numeric sort priority within a category |
@@ -124,13 +127,13 @@ With no `dashmark.url` (and no YAML URL), the URL is derived from a Traefik labe
 
 ### YAML config
 
-Optional flat file at `CONFIG_FILE`, where each top-level key is a service keyed by container name or compose service name (from the `com.docker.compose.service` label; container name wins on conflict). With `DOCKER_HOSTS`, `<host-id>/<container-or-service-name>` targets one host. Resolution order is host-qualified container name, host-qualified Compose service name, unqualified container name, then unqualified Compose service name. Per-service fields: `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `show_status`, `access_groups`, `search_aliases`. YAML values override Docker labels for a matching container; entries with no matching container still produce cards (no state badge). See `config/config.example.yml`.
+Optional flat file at `CONFIG_FILE`, where each top-level key is a service keyed by container name or compose service name (from the `com.docker.compose.service` label; container name wins on conflict). With `DOCKER_HOSTS`, `<host-id>/<container-or-service-name>` targets one host. Resolution order is host-qualified container name, host-qualified Compose service name, unqualified container name, then unqualified Compose service name. Per-service fields: `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `show_status`, `stats`, `access_groups`, `search_aliases`. `stats` accepts `none` or a list containing `cpu`, `memory`, and `network`. YAML values override Docker labels for a matching container; entries with no matching container still produce cards (no state badge). See `config/config.example.yml`.
 
 ### Access groups
 
 When `ENABLE_ACCESS_GROUPS=true`, each request must carry a groups header. A card is visible when its `access_groups` intersect the user's groups; cards with no `access_groups` are visible to everyone. Group matching is case-insensitive. A missing header renders an error state (`MISSING_GROUPS_HEADER`), and the `Vary` response header is set so shared caches key on the groups header. `auto` mode checks candidate headers in order: `X-Authentik-Groups`, `Remote-Groups`, `X-Auth-Request-Groups`, `X-Forwarded-Groups`, `X-Auth-Groups`. Group values can be comma-, semicolon-, or pipe-separated, or a JSON array of strings. Keycloak, Pocket ID, and Zitadel are OIDC providers that do not set a groups header themselves; they need oauth2-proxy (or a proxy that sets `X-Forwarded-Groups` or `X-Auth-Request-Groups`) in front.
 
-`STATUS_BADGE_GROUPS` uses the same group header to control status badge visibility independently of card visibility. An unset value shows badges to everyone; a configured value requires a case-insensitive group match.
+`STATUS_BADGE_GROUPS` uses the same group header to control status badge visibility independently of card visibility. An unset value shows badges to everyone; a configured value requires a case-insensitive group match. `RESOURCE_USAGE_GROUPS` similarly restricts resource metrics server-side; unauthorized status responses omit CPU, memory, and network data.
 
 When group tags are enabled, matching status-badge groups appear in the header even when no Card uses them for access control.
 
@@ -139,6 +142,7 @@ When group tags are enabled, matching status-badge groups appear in the header e
 - Multi-stage `node:22-alpine` image; the runtime runs `node ./dist/server/entry.mjs` and listens on `PORT` (default 4321). `src/data/icons.json` and `src/data/descriptions.json` are copied into the image (generated at build via `prebuild`).
 - Mount the Docker socket read-only (`/var/run/docker.sock:/var/run/docker.sock:ro`); Dashmark only reads container metadata.
 - For remote hosts, use a restricted socket proxy over a private network. Do not expose the Docker daemon or socket proxy publicly.
+- The socket proxy needs read access to `/version`, `/containers/json`, and `/containers/<id>/stats` for resource-usage tooltips.
 - Serve behind a reverse proxy with authentication when `ENABLE_ACCESS_GROUPS=true` so the groups header is trustworthy.
 - `docker-compose.yml` mounts `config/config.example.yml` -> `/app/config.yml` and `./icons` -> `/app/icons`, and routes Docker access through a `wollomatic/socket-proxy` sidecar (`DOCKER_HOSTS=tcp://dockerproxy:2375`).
 

@@ -41,6 +41,7 @@ Dashmark discovers labeled Docker containers and turns them into dashboard cards
 - Reuse Traefik host rules as card links.
 - Organise cards with categories, search aliases, and custom ordering.
 - Show live container state and health, refreshed every 30 seconds.
+- View live CPU, memory, and network usage for each container.
 - Use automatic, selfhst, remote, local, or placeholder icons.
 - Add automatic service descriptions from the selfh.st app directory.
 - Add standalone cards and label overrides with YAML.
@@ -142,6 +143,8 @@ Configure Dashmark with environment variables, Docker labels, and an optional YA
 | `SHOW_SEARCH` | `true` | Show search and the category filter |
 | `SHOW_STATUS` | `true` | Show container state and health badges |
 | `STATUS_BADGE_GROUPS` | unset | Comma-separated groups allowed to see status badges; unset shows them to everyone |
+| `SHOW_RESOURCE_USAGE` | `true` | Fetch and show CPU, memory, received, and sent metrics for containers |
+| `RESOURCE_USAGE_GROUPS` | unset | Comma-separated groups allowed to receive resource metrics; unset shows them to everyone |
 | `STATUS_POLL_INTERVAL` | `30` | Seconds between container status updates |
 | `CATEGORY_ORDER` | unset | Comma-separated category order; unlisted categories follow alphabetically |
 | `ENABLE_AUTOMATIC_DESCRIPTIONS` | `true` | Match selfh.st descriptions when no description is set |
@@ -172,7 +175,7 @@ For multiple hosts, use a comma-separated list of `<host-id>=<Docker endpoint>` 
 
 Dashmark fetches hosts independently. Cards from reachable hosts still appear if another host is unavailable. Cards are visually unchanged, but their internal IDs and status updates are namespaced by host so identical container IDs do not collide.
 
-Run a restricted socket proxy on every remote Docker host and connect to it over a private network such as Tailscale or WireGuard. Do not expose the Docker daemon or a socket proxy on the public internet. Dashmark only needs read access to `/version` and `/containers/json`.
+Run a restricted socket proxy on every remote Docker host and connect to it over a private network such as Tailscale or WireGuard. Do not expose the Docker daemon or a socket proxy on the public internet. Dashmark only needs read access to `/version`, `/containers/json`, and each container's `/stats` endpoint.
 
 ### Docker labels
 
@@ -186,12 +189,31 @@ Add labels to opt a container in and configure its card.
 | `dashmark.description` | Tooltip text; set to `none` to suppress automatic descriptions |
 | `dashmark.icon` | `selfhst:<slug>`, an image URL, a path in `ICONS_DIR`, or `placeholder` |
 | `dashmark.category` | Category name; matching is case-insensitive |
-| `dashmark.show_status` | Set to `false` to hide the status badge for this card |
+| `dashmark.show_status` | Set to `false` to hide the status badge and resource-usage tooltip for this card |
+| `dashmark.stats` | Comma-separated `cpu`, `memory`, and `network` metrics for this card; set to `none` to disable resource usage |
 | `dashmark.access_groups` | Comma-separated group allow-list |
 | `dashmark.search_aliases` | Comma-separated additional search terms |
 | `dashmark.order` | Sort order within a category, lower values first; cards without an order follow alphabetically by title |
 
 `CATEGORY_ORDER=Media,Productivity,Home` sets the display order for listed categories. Category names are matched case-insensitively; configured names set their display spelling, while unlisted categories use the first spelling found after cards are sorted. Uncategorized cards always appear last.
+
+### Resource usage
+
+Docker-backed cards show CPU and memory progress bars plus per-container network **Received** and **Sent** rates in the gauge tooltip. Dashmark fetches resource metrics only while that tooltip is open, then stops when it closes. Network rates appear after the second tooltip refresh because Dashmark calculates them from consecutive Docker samples. When multiple Docker hosts are configured, the tooltip includes the host ID.
+
+Set `SHOW_RESOURCE_USAGE=false` to stop fetching Docker's stats endpoint and hide all resource tooltips. Set `RESOURCE_USAGE_GROUPS=admins,operators` to return resource metrics only to those groups. This restriction is enforced server-side, so unauthorized clients never receive the metrics. Configure an authenticated reverse proxy and a trusted groups header when using `RESOURCE_USAGE_GROUPS`.
+
+Each Docker card shows all metrics by default. Set `dashmark.stats=none` to disable resource usage for one container, or limit it with a comma-separated list such as `dashmark.stats=cpu,memory`. YAML overrides support the same setting:
+
+```yaml
+plex:
+  stats:
+    - cpu
+    - memory
+
+backup:
+  stats: none
+```
 
 When `dashmark.url` is absent, Dashmark can derive an HTTPS URL from a Traefik router label such as `traefik.http.routers.plex.rule=Host(\`plex.example.com\`)`. Add another `dashmark.*` label to opt the container in.
 
@@ -247,7 +269,7 @@ vps/plex:
   url: https://plex.vps.example.com
 ```
 
-Available fields are `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `show_status`, `access_groups`, and `search_aliases`. See [`config/config.example.yml`](config/config.example.yml) for a commented example.
+Available fields are `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `show_status`, `stats`, `access_groups`, and `search_aliases`. See [`config/config.example.yml`](config/config.example.yml) for a commented example.
 
 ### Icons
 

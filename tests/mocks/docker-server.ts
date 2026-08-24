@@ -16,6 +16,8 @@ export class MockDockerServer {
   private running: boolean = false
   public containers: MockContainer[] = []
   public apiVersion: string = '1.41'
+  public stats: Record<string, unknown> = {}
+  public statsRequests: number = 0
 
   constructor() {
     this.server = http.createServer((req, res) => {
@@ -30,6 +32,20 @@ export class MockDockerServer {
       if (req.url === '/v1.41/containers/json?all=1') {
         res.writeHead(200)
         res.end(JSON.stringify(this.containers))
+        return
+      }
+
+      const statsMatch = req.url?.match(/^\/v1\.41\/containers\/([^/]+)\/stats\?stream=false$/)
+      if (statsMatch) {
+        this.statsRequests += 1
+        const stats = this.stats[decodeURIComponent(statsMatch[1])]
+        if (stats === undefined) {
+          res.writeHead(404)
+          res.end(JSON.stringify({ message: 'Not found' }))
+          return
+        }
+        res.writeHead(200)
+        res.end(JSON.stringify(stats))
         return
       }
 

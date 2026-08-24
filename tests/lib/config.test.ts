@@ -14,6 +14,8 @@ const trackedVars = [
   'SHOW_SEARCH',
   'SHOW_STATUS',
   'STATUS_BADGE_GROUPS',
+  'SHOW_RESOURCE_USAGE',
+  'RESOURCE_USAGE_GROUPS',
   'STATUS_POLL_INTERVAL',
   'CATEGORY_ORDER',
   'ENABLE_AUTOMATIC_DESCRIPTIONS',
@@ -189,6 +191,21 @@ describe('getConfig status polling', () => {
   it('defaults status badge groups to everyone', () => {
     delete process.env.STATUS_BADGE_GROUPS
     expect(getConfig().statusBadgeGroups).toEqual([])
+  })
+
+  it('defaults resource usage to on for everyone', () => {
+    delete process.env.SHOW_RESOURCE_USAGE
+    delete process.env.RESOURCE_USAGE_GROUPS
+    expect(getConfig()).toMatchObject({ showResourceUsage: true, resourceUsageGroups: [] })
+  })
+
+  it('reads resource usage controls', () => {
+    process.env.SHOW_RESOURCE_USAGE = 'false'
+    process.env.RESOURCE_USAGE_GROUPS = 'admins, operators, admins'
+    expect(getConfig()).toMatchObject({
+      showResourceUsage: false,
+      resourceUsageGroups: ['admins', 'operators']
+    })
   })
 
   it('reads unique, trimmed status badge groups', () => {

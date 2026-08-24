@@ -19,6 +19,11 @@ plex:
   order: 1
   # Set false to hide this card's status badge.
   show_status: false
+  # Metrics default to CPU, memory, and network. Use `none` to disable them,
+  # or list only the metrics this card should expose.
+  stats:
+    - cpu
+    - memory
   search_aliases:
     - movies
     - watch later
