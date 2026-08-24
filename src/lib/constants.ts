@@ -86,7 +86,10 @@ export const AFTERNOON_START_HOUR = 12
 export const EVENING_START_HOUR = 17
 
 export const STATUS_POLL_INTERVAL_MS = 30_000
+export const RESOURCE_USAGE_POLL_INTERVAL_MS = 2_000
 export const STATUS_TOAST_ID = 'status-warning'
+
+export const TOOLTIP_DELAY_MS = 100
 
 export const LOADING_DELAY_MS = 300
 export const LOADING_MIN_DURATION_MS = 300

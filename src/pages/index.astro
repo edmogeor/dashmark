@@ -3,7 +3,7 @@ import { Dashboard } from '@/components/Dashboard'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { getConfig } from '@/lib/config'
 import { getCards } from '@/lib/docker'
-import { getUser, hasAllowedGroup } from '@/lib/auth'
+import { getUser, hasAllowedAccess } from '@/lib/auth'
 import { resolveGreeting } from '@/lib/greeting'
 import { strings } from '@/lib/strings'
 import { THEME_STORAGE_KEY } from '@/lib/constants'
@@ -16,13 +16,9 @@ const origin = Astro.url.origin
 const imageUrl = `${origin}${assetPath('/brand/og-image.png')}`
 const { cards: initialCards, error: initialError } = await getCards(config, Astro.request.headers)
 const user = getUser(config, Astro.request.headers)
-const showStatusBadges = config.showStatus && hasAllowedGroup(user.groups, config.statusBadgeGroups)
-const showResourceUsage = config.showResourceUsage && hasAllowedGroup(user.groups, config.resourceUsageGroups)
-const displayedGroupNames = new Set([
-  ...initialCards.flatMap(card => card.accessGroups.map(group => group.toLowerCase())),
-  ...config.statusBadgeGroups.map(group => group.toLowerCase()),
-  ...config.resourceUsageGroups.map(group => group.toLowerCase())
-])
+const showStatusBadges = config.showStatus && hasAllowedAccess(user, config.statusBadgeAccess)
+const showResourceUsage = config.showResourceUsage && hasAllowedAccess(user, config.resourceUsageAccess)
+const displayedGroupNames = new Set(initialCards.flatMap(card => card.access.map(entry => entry.toLowerCase())))
 const displayedUserGroups = user.groups.filter(group => displayedGroupNames.has(group.toLowerCase()))
 const greeting = resolveGreeting(config, user)
 ---

@@ -1,4 +1,4 @@
-import { memo, useEffect, useState, type ReactNode } from 'react'
+import { memo, useEffect, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -16,6 +16,9 @@ import { getInitials } from '@/lib/initials'
 import { strings } from '@/lib/strings'
 import { useIsDark } from '@/lib/use-is-dark'
 import { isResourceUsageResponse, type ContainerResources } from '@/lib/status'
+import { RESOURCE_USAGE_POLL_INTERVAL_MS, TOOLTIP_DELAY_MS } from '@/lib/constants'
+import { useTooltipController } from './tooltip-controller'
+import { badgeColor } from '@/lib/badge-color'
 
 type AppCardProps = {
   card: CardType
@@ -111,26 +114,54 @@ function NetworkMetric({ label, value }: { label: string; value: number | undefi
   )
 }
 
-function ResourceUsageTooltip({ card, resources }: { card: CardType; resources: ContainerResources | null }) {
+function LoadingResourceMetric({ label }: { label: string }) {
+  return (
+    <ResourceMetric
+      label={label}
+      value={(
+        <span role="status">
+          <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+          <span className="sr-only">{strings.card.loadingResourceUsage}</span>
+        </span>
+      )}
+      pending
+    />
+  )
+}
+
+function ResourceUsageTooltip({ card, resources, loading }: { card: CardType; resources: ContainerResources | null; loading: boolean }) {
   const memoryPercent = resources?.memoryUsage !== undefined && resources.memoryLimit
     ? (resources.memoryUsage / resources.memoryLimit) * 100
     : undefined
+  const showCpu = card.resourceStats?.includes('cpu')
+  const showMemory = card.resourceStats?.includes('memory')
   const showNetwork = card.resourceStats?.includes('network')
   const hasUsage = resources?.cpuPercent !== undefined || resources?.memoryUsage !== undefined
     || resources?.receivedBytesPerSecond !== undefined || resources?.sentBytesPerSecond !== undefined || (resources !== null && showNetwork)
 
   return (
     <TooltipContent side="top" align="center" collisionPadding={16} className="dashmark-app-resources w-60 p-3">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <span className="text-xs font-semibold">{strings.card.resourceUsage}</span>
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <span className="text-[0.6875rem] leading-none font-medium tracking-[0.16em] text-muted-foreground uppercase">{strings.card.resourceUsage}</span>
         {card.host && (
-          <span className="dashmark-app-resource-host inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-            {strings.card.host}: {card.host}
+          <span className={cn('dashmark-app-resource-host inline-flex rounded-full px-2 py-0.5 text-xs font-medium', badgeColor(card.hostColor ?? 0))}>
+            {card.host}
           </span>
         )}
       </div>
-      {hasUsage ? (
-        <div className="grid gap-3">
+      {loading && resources === null ? (
+        <div className="grid divide-y divide-border/60 border-t border-border/60 [&>*]:py-3 [&>*:last-child]:pb-0">
+          {showCpu && <LoadingResourceMetric label={strings.card.cpu} />}
+          {showMemory && <LoadingResourceMetric label={strings.card.memory} />}
+          {showNetwork && (
+            <>
+              <LoadingResourceMetric label={strings.card.received} />
+              <LoadingResourceMetric label={strings.card.sent} />
+            </>
+          )}
+        </div>
+      ) : hasUsage ? (
+        <div className="grid divide-y divide-border/60 border-t border-border/60 [&>*]:py-3 [&>*:last-child]:pb-0">
           {resources?.cpuPercent !== undefined && (
             <ResourceMetric label={strings.card.cpu} value={formatPercent(resources.cpuPercent)} percent={resources.cpuPercent} />
           )}
@@ -155,13 +186,25 @@ function ResourceUsageTooltip({ card, resources }: { card: CardType; resources: 
   )
 }
 
-function useResourceUsage(cardId: string, enabled: boolean, open: boolean): ContainerResources | null {
-  const [resources, setResources] = useState<ContainerResources | null>(null)
+function useResourceUsage(
+  cardId: string,
+  enabled: boolean,
+  active: boolean,
+  initialResources?: ContainerResources
+): { resources: ContainerResources | null; loading: boolean } {
+  const [resources, setResources] = useState<ContainerResources | null>(initialResources ?? null)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (!enabled || !open) return
+    if (initialResources) {
+      setResources(initialResources)
+      setLoading(false)
+      return
+    }
+    if (!enabled || !active) return
 
     setResources(null)
+    setLoading(true)
 
     let stopped = false
     let timeout: ReturnType<typeof setTimeout> | undefined
@@ -177,7 +220,10 @@ function useResourceUsage(cardId: string, enabled: boolean, open: boolean): Cont
         if (!stopped) setResources(null)
       } finally {
         controller = undefined
-        if (!stopped) timeout = setTimeout(poll, 2_000)
+        if (!stopped) {
+          setLoading(false)
+          timeout = setTimeout(poll, RESOURCE_USAGE_POLL_INTERVAL_MS)
+        }
       }
     }
 
@@ -187,18 +233,48 @@ function useResourceUsage(cardId: string, enabled: boolean, open: boolean): Cont
       controller?.abort()
       if (timeout) clearTimeout(timeout)
     }
-  }, [cardId, enabled, open])
+  }, [active, cardId, enabled, initialResources])
 
-  return resources
+  return { resources, loading }
 }
 
 export const AppCard = memo(function AppCard({ card, showStatus = true, showResourceUsage = true, asCard = false, isLoading = false, openInNewTab = false }: AppCardProps) {
+  const { activeTooltip, setActiveTooltip } = useTooltipController()
   const hasStatus = card.health === 'starting' || card.health === 'unhealthy' || Boolean(card.state)
   const showStatusBadge = showStatus && card.showStatus !== false && (hasStatus || (isLoading && card.hasContainer))
   const showResourceUsageTooltip = showResourceUsage && card.showStatus !== false && card.hasContainer && card.resourceStats !== undefined && card.resourceStats.length > 0
-  const [resourceTooltipOpen, setResourceTooltipOpen] = useState(false)
-  const resources = useResourceUsage(card.id, showResourceUsageTooltip, resourceTooltipOpen)
+  const [resourceCardHovered, setResourceCardHovered] = useState(false)
+  const resourceTooltipId = `resource-${card.id}`
+  const descriptionTooltipId = `description-${card.id}`
+  const resourceTooltipOpen = activeTooltip === resourceTooltipId
+  const { resources, loading: resourcesLoading } = useResourceUsage(
+    card.id,
+    showResourceUsageTooltip,
+    resourceTooltipOpen || resourceCardHovered,
+    card.resourceUsage
+  )
   const hasActions = showResourceUsageTooltip || Boolean(card.description)
+
+  function handleTooltipOpenChange(tooltipId: string, open: boolean) {
+    if (open) setActiveTooltip(tooltipId)
+    else if (activeTooltip === tooltipId) setActiveTooltip(null)
+  }
+
+  function handleTooltipTriggerPointerDown(event: ReactPointerEvent<HTMLButtonElement>, tooltipId: string) {
+    event.stopPropagation()
+    if (event.pointerType !== 'touch') return
+
+    event.preventDefault()
+    setActiveTooltip(activeTooltip === tooltipId ? null : tooltipId)
+  }
+
+  function handleCardPointerDownCapture(event: ReactPointerEvent<HTMLAnchorElement>) {
+    if (!activeTooltip || (event.target instanceof Element && event.target.closest('.card-action-button'))) return
+
+    event.preventDefault()
+    setActiveTooltip(null)
+  }
+
   const cardClassName = cn(
     'dashmark-app-card group/card h-full overflow-hidden transition-[background-color,translate] not-has-[.card-action-button:hover]:hover:-translate-y-0.5',
     asCard
@@ -212,13 +288,16 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showReso
       target={openInNewTab ? '_blank' : undefined}
       rel={openInNewTab ? 'noopener noreferrer' : undefined}
       className="dashmark-app-link block h-full rounded-lg"
+      onPointerEnter={showResourceUsageTooltip ? () => setResourceCardHovered(true) : undefined}
+      onPointerLeave={showResourceUsageTooltip ? () => setResourceCardHovered(false) : undefined}
+      onPointerDownCapture={handleCardPointerDownCapture}
     >
       <Card className={cardClassName}>
         <CardContent className="dashmark-app-content relative flex min-h-24 items-center gap-5 p-3">
           <AppIcon icon={card.icon} title={card.title} asCard={asCard} />
-          <div className="dashmark-app-details min-w-0 flex-1">
+          <div className="dashmark-app-details flex min-w-0 flex-1 flex-col gap-2">
             <div className="dashmark-app-header flex min-w-0">
-              <MarqueeText className={cn('dashmark-app-title min-w-0 flex-1 text-sm font-semibold sm:text-[0.9375rem] lg:text-base', hasActions && 'mr-[4.5rem]')}>
+              <MarqueeText className={cn('dashmark-app-title min-w-0 flex-1 text-sm font-semibold sm:text-[0.9375rem] lg:text-base', hasActions && 'mr-[65px]')}>
                 {card.title}
               </MarqueeText>
             </div>
@@ -226,7 +305,7 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showReso
               {card.url}
             </MarqueeText>
             {showStatusBadge && (
-              <div className="dashmark-app-status-container mt-2">
+              <div className="dashmark-app-status-container">
                 <StatusBadge
                   state={card.state}
                   health={card.health}
@@ -237,32 +316,32 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showReso
             )}
           </div>
           {hasActions && (
-            <TooltipProvider>
-              <div className="absolute top-3 right-3 flex items-center gap-1">
+            <TooltipProvider delayDuration={TOOLTIP_DELAY_MS}>
+              <div className="absolute top-2 right-2 flex items-center gap-1">
                 {showResourceUsageTooltip && (
-                  <Tooltip open={resourceTooltipOpen} onOpenChange={setResourceTooltipOpen}>
+                  <Tooltip open={resourceTooltipOpen} onOpenChange={open => handleTooltipOpenChange(resourceTooltipId, open)}>
                     <TooltipTrigger asChild>
                       <button
                         type="button"
                         className="dashmark-app-resources-trigger card-action-button cursor-help rounded-full p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
                         onClick={e => e.preventDefault()}
-                        onPointerDown={e => e.stopPropagation()}
+                        onPointerDown={event => handleTooltipTriggerPointerDown(event, resourceTooltipId)}
                       >
                         <Gauge className="h-4 w-4" />
                         <span className="sr-only">{strings.card.resourceUsage}</span>
                       </button>
                     </TooltipTrigger>
-                    <ResourceUsageTooltip card={card} resources={resources} />
+                    <ResourceUsageTooltip card={card} resources={resources} loading={resourcesLoading} />
                   </Tooltip>
                 )}
                 {card.description && (
-                  <Tooltip>
+                  <Tooltip open={activeTooltip === descriptionTooltipId} onOpenChange={open => handleTooltipOpenChange(descriptionTooltipId, open)}>
                     <TooltipTrigger asChild>
                       <button
                         type="button"
                         className="dashmark-app-description-trigger card-action-button cursor-help rounded-full p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
                         onClick={e => e.preventDefault()}
-                        onPointerDown={e => e.stopPropagation()}
+                        onPointerDown={event => handleTooltipTriggerPointerDown(event, descriptionTooltipId)}
                       >
                         <Info className="h-4 w-4" />
                         <span className="sr-only">{strings.card.description}</span>

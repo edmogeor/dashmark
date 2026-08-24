@@ -126,7 +126,7 @@ Configure Dashmark with environment variables, Docker labels, and an optional YA
 | `ICONS_DIR` | `/app/icons` | Directory for local icon files |
 | `PORT` | `4321` | HTTP listening port |
 | `CUSTOM_STYLESHEET` | unset | Absolute path to a mounted CSS file, served as `/custom.css` |
-| `ENABLE_ACCESS_GROUPS` | `false` | Filter cards using a groups request header |
+| `ENABLE_ACCESS_CONTROL` | `false` | Filter cards using authenticated access entries |
 | `ACCESS_GROUPS_HEADER` | `auto` | Groups header name, or automatic provider detection |
 | `SHOW_HEADER` | `true` | Show the greeting header |
 | `SHOW_GROUP_TAGS` | `true` | Show the user's relevant access or status-badge group tags |
@@ -142,9 +142,9 @@ Configure Dashmark with environment variables, Docker labels, and an optional YA
 | `GREETING_EVENING` | `Good evening` | Evening value for `{greeting}` |
 | `SHOW_SEARCH` | `true` | Show search and the category filter |
 | `SHOW_STATUS` | `true` | Show container state and health badges |
-| `STATUS_BADGE_GROUPS` | unset | Comma-separated groups allowed to see status badges; unset shows them to everyone |
+| `STATUS_BADGE_ACCESS` | unset | Comma-separated access entries allowed to see status badges; unset shows them to everyone |
 | `SHOW_RESOURCE_USAGE` | `true` | Fetch and show CPU, memory, received, and sent metrics for containers |
-| `RESOURCE_USAGE_GROUPS` | unset | Comma-separated groups allowed to receive resource metrics; unset shows them to everyone |
+| `RESOURCE_USAGE_ACCESS` | unset | Comma-separated access entries allowed to receive resource metrics; unset shows them to everyone |
 | `STATUS_POLL_INTERVAL` | `30` | Seconds between container status updates |
 | `CATEGORY_ORDER` | unset | Comma-separated category order; unlisted categories follow alphabetically |
 | `ENABLE_AUTOMATIC_DESCRIPTIONS` | `true` | Match selfh.st descriptions when no description is set |
@@ -191,7 +191,7 @@ Add labels to opt a container in and configure its card.
 | `dashmark.category` | Category name; matching is case-insensitive |
 | `dashmark.show_status` | Set to `false` to hide the status badge and resource-usage tooltip for this card |
 | `dashmark.stats` | Comma-separated `cpu`, `memory`, and `network` metrics for this card; set to `none` to disable resource usage |
-| `dashmark.access_groups` | Comma-separated group allow-list |
+| `dashmark.access` | Comma-separated access allow-list |
 | `dashmark.search_aliases` | Comma-separated additional search terms |
 | `dashmark.order` | Sort order within a category, lower values first; cards without an order follow alphabetically by title |
 
@@ -201,7 +201,7 @@ Add labels to opt a container in and configure its card.
 
 Docker-backed cards show CPU and memory progress bars plus per-container network **Received** and **Sent** rates in the gauge tooltip. Dashmark fetches resource metrics only while that tooltip is open, then stops when it closes. Network rates appear after the second tooltip refresh because Dashmark calculates them from consecutive Docker samples. When multiple Docker hosts are configured, the tooltip includes the host ID.
 
-Set `SHOW_RESOURCE_USAGE=false` to stop fetching Docker's stats endpoint and hide all resource tooltips. Set `RESOURCE_USAGE_GROUPS=admins,operators` to return resource metrics only to those groups. This restriction is enforced server-side, so unauthorized clients never receive the metrics. Configure an authenticated reverse proxy and a trusted groups header when using `RESOURCE_USAGE_GROUPS`.
+Set `SHOW_RESOURCE_USAGE=false` to stop fetching Docker's stats endpoint and hide all resource tooltips. Set `RESOURCE_USAGE_ACCESS=admins,operators` to return resource metrics only to matching users. This restriction is enforced server-side, so unauthorized clients never receive the metrics. Configure an authenticated reverse proxy and trusted identity headers when using `RESOURCE_USAGE_ACCESS`.
 
 Each Docker card shows all metrics by default. Set `dashmark.stats=none` to disable resource usage for one container, or limit it with a comma-separated list such as `dashmark.stats=cpu,memory`. YAML overrides support the same setting:
 
@@ -239,7 +239,7 @@ plex:
   order: 1
   search_aliases:
     - movies
-  access_groups:
+   access:
     - media
 
 github:
@@ -269,7 +269,7 @@ vps/plex:
   url: https://plex.vps.example.com
 ```
 
-Available fields are `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `show_status`, `stats`, `access_groups`, and `search_aliases`. See [`config/config.example.yml`](config/config.example.yml) for a commented example.
+Available fields are `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `show_status`, `stats`, `access`, and `search_aliases`. See [`config/config.example.yml`](config/config.example.yml) for a commented example.
 
 ### Icons
 
@@ -303,13 +303,13 @@ services:
 
 ### Access groups and greetings
 
-Set `ENABLE_ACCESS_GROUPS=true` to show a card only when its `access_groups` overlap with the groups supplied by your reverse proxy. Cards with no access groups remain visible to everyone. Dashmark returns an error when the required header is missing. All group matching is case-insensitive.
+Set `ENABLE_ACCESS_CONTROL=true` to show a card only when one of its `access` entries matches an authenticated group, username, or email. Cards with no access entries remain visible to everyone. Dashmark returns an error when the groups header is missing. Matching is case-insensitive.
 
 `ACCESS_GROUPS_HEADER=auto` checks these headers in order: Authentik (`X-Authentik-Groups`), Authelia (`Remote-Groups`), oauth2-proxy (`X-Forwarded-Groups` or `X-Auth-Request-Groups`), and Keycloak Gatekeeper (`X-Auth-Groups`). Set the variable to a header name for another proxy. Group values may be comma-, semicolon-, or pipe-separated, or a JSON array.
 
-Set `STATUS_BADGE_GROUPS=admins,operators` to show status badges only to users with one of those groups. The comparison is case-insensitive; leaving it unset shows badges to everyone.
+Set `STATUS_BADGE_ACCESS=admins,operators` to show status badges only to matching users. The comparison is case-insensitive; leaving it unset shows badges to everyone.
 
-When group tags are enabled, Dashmark also shows a user's matching `STATUS_BADGE_GROUPS` values, even if no card uses that group for access control.
+When group tags are enabled, Dashmark shows only the user's authenticated groups that are referenced by a visible card's `access` entries.
 
 The default header greets the authenticated user. Use `CUSTOM_HEADER`, for example `CUSTOM_HEADER={greeting}, {first_name}!`, to customise it. The available tags are `{greeting}`, `{full_name}`, `{first_name}`, `{last_name}`, `{username}`, and `{email}`. Set the corresponding `USER_*_HEADER` variables when automatic detection does not support your proxy.
 
@@ -333,7 +333,7 @@ npm run typecheck
 npm run build
 ```
 
-`npm run dev` uses a mock Docker API, sample cards, and sample authentication headers. It simulates the `admins`, `media`, and `family` groups, and limits status badges to `admins` by default. It does not need a Docker daemon and supports hot reload. Override either value to test other cases, for example `MOCK_USER_GROUPS=media STATUS_BADGE_GROUPS=admins npm run dev`.
+`npm run dev` uses a mock Docker API, sample cards, and sample authentication headers. It simulates the `admins`, `media`, and `family` groups, and limits status badges to `admins` by default. It does not need a Docker daemon and supports hot reload. Override either value to test other cases, for example `MOCK_USER_GROUPS=media STATUS_BADGE_ACCESS=admins npm run dev`.
 
 Contributions are welcome. Please open an issue or pull request with a clear description of the change.
 

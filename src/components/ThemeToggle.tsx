@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { Sun, Moon } from 'lucide-react'
 import { strings } from '@/lib/strings'
 import { THEME_REVEAL_TIMEOUT_MS, THEME_STORAGE_KEY } from '@/lib/constants'
@@ -14,9 +15,19 @@ function getStoredOverride(): Theme | null {
   return value === 'light' || value === 'dark' ? value : null
 }
 
-function applyTheme(override: Theme | null) {
-  const resolved = override ?? getSystemTheme()
-  document.documentElement.classList.toggle('dark', resolved === 'dark')
+function applyTheme(override: Theme | null): void {
+  const root = document.documentElement
+  root.classList.toggle('dark', (override ?? getSystemTheme()) === 'dark')
+}
+
+function transitionTheme(override: Theme | null, update: () => void): void {
+  const apply = () => flushSync(() => {
+    update()
+    applyTheme(override)
+  })
+
+  if (document.startViewTransition) document.startViewTransition(apply)
+  else apply()
 }
 
 function getAriaLabel(mounted: boolean, override: Theme | null, isDark: boolean): string {
@@ -57,8 +68,11 @@ export function ThemeToggle() {
 
     const listener = (e: MediaQueryListEvent) => {
       const currentOverride = getStoredOverride()
-      setResolved(currentOverride ?? (e.matches ? 'dark' : 'light'))
-      applyTheme(currentOverride)
+      const nextResolved = currentOverride ?? (e.matches ? 'dark' : 'light')
+      transitionTheme(currentOverride, () => {
+        setOverride(currentOverride)
+        setResolved(nextResolved)
+      })
     }
 
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
@@ -106,15 +120,19 @@ export function ThemeToggle() {
   function handleToggle() {
     if (override) {
       localStorage.removeItem(THEME_STORAGE_KEY)
-      setOverride(null)
-      setResolved(getSystemTheme())
-      applyTheme(null)
+      transitionTheme(null, () => {
+        setRevealed(revealed)
+        setOverride(null)
+        setResolved(getSystemTheme())
+      })
     } else {
       const nextOverride = resolved === 'dark' ? 'light' : 'dark'
       localStorage.setItem(THEME_STORAGE_KEY, nextOverride)
-      setOverride(nextOverride)
-      setResolved(nextOverride)
-      applyTheme(nextOverride)
+      transitionTheme(nextOverride, () => {
+        setRevealed(revealed)
+        setOverride(nextOverride)
+        setResolved(nextOverride)
+      })
     }
   }
 

@@ -11,7 +11,7 @@ function containerCard(id: string, state?: string): Card {
     state,
     searchAliases: [],
     hasContainer: true,
-    accessGroups: []
+    access: []
   }
 }
 

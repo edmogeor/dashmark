@@ -53,7 +53,7 @@ function parseService(value: unknown): ServiceOverrides | null {
     resourceStats: typeof value.stats === 'string' || Array.isArray(value.stats)
       ? parseResourceStats(typeof value.stats === 'string' ? value.stats : stringArray(value.stats))
       : undefined,
-    accessGroups: stringArray(value.access_groups),
+    access: stringArray(value.access),
     searchAliases: stringArray(value.search_aliases)
   }
 }

@@ -301,7 +301,7 @@ describe('getCards', () => {
     config.dockerHost = dockerHost
 
     const withoutGroups = await getCards(config, new Headers())
-    expect(withoutGroups.usesAccessGroups).toBe(false)
+    expect(withoutGroups.usesAccessControl).toBe(false)
 
     server.containers = [
       {
@@ -313,14 +313,14 @@ describe('getCards', () => {
         Status: 'Up 1 hour',
         Labels: {
           'dashmark.url': 'https://gated.home.local',
-          'dashmark.access_groups': 'admins'
+          'dashmark.access': 'admins'
         }
       }
     ]
     clearDockerCache()
 
     const withGroups = await getCards(config, new Headers())
-    expect(withGroups.usesAccessGroups).toBe(true)
+    expect(withGroups.usesAccessControl).toBe(true)
   })
 
   it('hides containers with dashmark.hidden=true', async () => {
@@ -433,14 +433,14 @@ describe('getCards', () => {
         Status: 'Up 1 hour',
         Labels: {
           'dashmark.url': 'https://admin.home.local',
-          'dashmark.access_groups': 'admins'
+          'dashmark.access': 'admins'
         }
       }
     ]
 
     const config = getConfig()
     config.dockerHost = dockerHost
-    config.enableAccessGroups = true
+    config.enableAccessControl = true
     config.accessGroupsHeader = 'X-Authentik-Groups'
 
     const noGroup = await getCards(config, new Headers())
@@ -470,14 +470,14 @@ describe('getCards', () => {
         Status: 'Up 1 hour',
         Labels: {
           'dashmark.url': 'https://admin.home.local',
-          'dashmark.access_groups': 'admins'
+          'dashmark.access': 'admins'
         }
       }
     ]
 
     const config = getConfig()
     config.dockerHost = dockerHost
-    config.enableAccessGroups = true
+    config.enableAccessControl = true
     config.accessGroupsHeader = 'auto'
 
     const oauth2Proxy = await getCards(
@@ -696,7 +696,7 @@ describe('getContainerStatuses', () => {
     expect(server.statsRequests).toBe(0)
 
     config.showResourceUsage = true
-    config.resourceUsageGroups = ['admins']
+    config.resourceUsageAccess = ['admins']
     config.accessGroupsHeader = 'X-Test-Groups'
     const unauthorized = await getContainerResourceUsage(config, new Headers({ 'X-Test-Groups': 'users' }), 'default:restricted-resources')
     expect(unauthorized).toBeUndefined()
@@ -791,14 +791,14 @@ describe('getContainerStatuses', () => {
         Status: 'Up 1 hour',
         Labels: {
           'dashmark.url': 'https://admin.home.local',
-          'dashmark.access_groups': 'admins'
+          'dashmark.access': 'admins'
         }
       }
     ]
 
     const config = getConfig()
     config.dockerHost = dockerHost
-    config.enableAccessGroups = true
+    config.enableAccessControl = true
     config.accessGroupsHeader = 'X-Authentik-Groups'
 
     const noGroup = await getContainerStatuses(config, new Headers())

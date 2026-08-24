@@ -7,7 +7,7 @@ import { loadYamlConfig } from './config-file'
 import { parseLabels, isValidUrl, traefikUrl, hasDashmarkLabels, RESOURCE_STATS, type ParsedLabels, type ResourceStat } from './labels'
 import { resolveIcon, type IconResult } from './icons'
 import { resolveDescription } from './descriptions'
-import { groupHeaderNames, hasAllowedGroup, readUserGroups } from './auth'
+import { getUser, groupHeaderNames, hasAllowedAccess } from './auth'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
 import { dashmarkError, errorMessage, isRecord, type DashmarkError } from './errors'
@@ -35,10 +35,12 @@ export type Card = {
   state?: string
   health?: string
   resourceStats?: ResourceStat[]
+  resourceUsage?: ContainerResources
   searchAliases: string[]
   hasContainer: boolean
-  accessGroups: string[]
+  access: string[]
   host?: string
+  hostColor?: number
 }
 
 type DockerContainer = {
@@ -405,15 +407,13 @@ function mergeWithYaml(
     order: yamlService.order ?? labels.order,
     showStatus: yamlService.showStatus ?? labels.showStatus,
     resourceStats: yamlService.resourceStats ?? labels.resourceStats,
-    accessGroups: yamlService.accessGroups ?? labels.accessGroups,
+    access: yamlService.access ?? labels.access,
     searchAliases: yamlService.searchAliases ?? labels.searchAliases
   }
 }
 
-function groupsIntersect(cardGroups: string[], userGroups: string[]): boolean {
-  if (cardGroups.length === 0) return true
-  const lowerUser = new Set(userGroups.map(g => g.toLowerCase()))
-  return cardGroups.some(g => lowerUser.has(g.toLowerCase()))
+function canAccess(config: AppConfig, headers: Headers, access: string[]): boolean {
+  return !config.enableAccessControl || hasAllowedAccess(getUser(config, headers), access)
 }
 
 function resolveCardDescription(
@@ -425,8 +425,16 @@ function resolveCardDescription(
   return description ?? resolveDescription(config, options)
 }
 
-function filterCardsByAccessGroups(cards: Card[], userGroups: string[]): Card[] {
-  return cards.filter(card => groupsIntersect(card.accessGroups, userGroups))
+function filterCardsByAccess(cards: Card[], config: AppConfig, headers: Headers): Card[] {
+  return cards.filter(card => canAccess(config, headers, card.access))
+}
+
+function missingAccessIdentity(config: AppConfig, headers: Headers, cards: { access: string[] }[]): DashmarkError | undefined {
+  if (!config.enableAccessControl || !cards.some(card => card.access.length > 0)) return undefined
+
+  const user = getUser(config, headers)
+  if (user.groups.length > 0 || user.username || user.email) return undefined
+  return dashmarkError('MISSING_GROUPS_HEADER', strings.errors.missingGroupsHeader)
 }
 
 function resolveCardUrl(
@@ -466,50 +474,31 @@ function resolveContainer(
   }
 }
 
-function isVisibleContainer({ labels, url }: ResolvedContainer, userGroups: string[]): boolean {
-  return !labels.hidden && url !== undefined && groupsIntersect(labels.accessGroups, userGroups)
+function isVisibleContainer(config: AppConfig, headers: Headers, { labels, url }: ResolvedContainer): boolean {
+  return !labels.hidden && url !== undefined && canAccess(config, headers, labels.access)
 }
 
-export function addAccessGroupVaryHeader(headers: Headers, config: AppConfig): void {
-  if (!config.enableAccessGroups) return
+export function addAccessVaryHeader(headers: Headers, config: AppConfig): void {
+  if (!config.enableAccessControl) return
   headers.set('Vary', groupHeaderNames(config).join(', '))
 }
 
 export function addResourceUsageVaryHeader(headers: Headers, config: AppConfig): void {
-  if (!config.enableAccessGroups && config.resourceUsageGroups.length === 0) return
+  if (!config.enableAccessControl && config.resourceUsageAccess.length === 0) return
   headers.set('Vary', groupHeaderNames(config).join(', '))
 }
 
 function canViewResourceUsage(config: AppConfig, headers: Headers): boolean {
   if (!config.showResourceUsage) return false
-  if (config.resourceUsageGroups.length === 0) return true
-  return hasAllowedGroup(readUserGroups(config, headers).groups, config.resourceUsageGroups)
-}
-
-function getUserGroups(config: AppConfig, headers: Headers): { groups: string[]; error?: DashmarkError } {
-  if (!config.enableAccessGroups) return { groups: [] }
-
-  const { groups, found } = readUserGroups(config, headers)
-  if (found) return { groups }
-
-  const expected = groupHeaderNames(config).join(', ')
-  logger.error('docker', logMessages.docker.missingAccessGroupsHeader, { expected })
-  return {
-    groups: [],
-    error: dashmarkError(
-      'MISSING_GROUPS_HEADER',
-      strings.errors.missingGroupsHeader,
-      false,
-      strings.errors.expectedHeader(expected)
-    )
-  }
+  return hasAllowedAccess(getUser(config, headers), config.resourceUsageAccess)
 }
 
 async function cardFromContainer(
   config: AppConfig,
   resolved: ResolvedContainer,
   hostId: string,
-  showHost: boolean
+  showHost: boolean,
+  hostColor: number
 ): Promise<Card | null> {
   const { container, name, labels, url } = resolved
 
@@ -534,8 +523,9 @@ async function cardFromContainer(
     health: parseHealth(container.Status),
     searchAliases: labels.searchAliases,
     hasContainer: true,
-    accessGroups: labels.accessGroups,
+    access: labels.access,
     host: showHost ? hostId : undefined,
+    hostColor: showHost ? hostColor : undefined,
     resourceStats: labels.resourceStats ?? [...RESOURCE_STATS]
   }
 }
@@ -566,7 +556,7 @@ async function cardFromYaml(
     showStatus: service.showStatus,
     searchAliases: service.searchAliases ?? [],
     hasContainer: false,
-    accessGroups: service.accessGroups ?? []
+    access: service.access ?? []
   }
 }
 
@@ -609,14 +599,21 @@ export async function getContainerStatuses(
     return { statuses: {} }
   }
 
-  const { groups: userGroups, error } = getUserGroups(config, headers)
-  if (error) return { statuses: {}, error }
-
   const { yamlServices, containers, error: loadError } = await loadServicesAndContainers(config)
   if (loadError) return { statuses: {}, error: loadError }
-  const statusEntries = containers.map(({ hostId, container }) => {
-    const resolved = resolveContainer(yamlServices, hostId, container)
-    if (!isVisibleContainer(resolved, userGroups)) return undefined
+  const resolvedContainers = containers.map(({ hostId, container }) => ({
+    hostId,
+    container,
+    resolved: resolveContainer(yamlServices, hostId, container)
+  }))
+  const accessCards = resolvedContainers
+    .filter(({ resolved }) => !resolved.labels.hidden && resolved.url !== undefined)
+    .map(({ resolved }) => ({ access: resolved.labels.access }))
+  const accessError = missingAccessIdentity(config, headers, accessCards)
+  if (accessError) return { statuses: {}, error: accessError }
+
+  const statusEntries = resolvedContainers.map(({ hostId, container, resolved }) => {
+    if (!isVisibleContainer(config, headers, resolved)) return undefined
 
     return [`${hostId}:${container.Id}`, {
       state: container.State,
@@ -639,9 +636,6 @@ export async function getContainerResourceUsage(
 ): Promise<ContainerResources | undefined> {
   if (!canViewResourceUsage(config, headers)) return undefined
 
-  const { groups: userGroups, error } = getUserGroups(config, headers)
-  if (error) return undefined
-
   const host = configuredDockerHosts(config).find(candidate => cardId.startsWith(`${candidate.id}:`))
   if (!host) return undefined
   const containerId = cardId.slice(host.id.length + 1)
@@ -656,7 +650,7 @@ export async function getContainerResourceUsage(
     if (!container || container.State !== 'running') return undefined
 
     const resolved = resolveContainer(yamlConfig.config, host.id, container)
-    if (!isVisibleContainer(resolved, userGroups) || resolved.labels.showStatus === false) return undefined
+    if (!isVisibleContainer(config, headers, resolved) || resolved.labels.showStatus === false) return undefined
     const resourceStats = resolved.labels.resourceStats ?? RESOURCE_STATS
     if (resourceStats.length === 0) return undefined
 
@@ -672,11 +666,13 @@ async function buildAllCards(config: AppConfig): Promise<{ cards: Card[]; error?
 
   const cards: Card[] = []
   const matchedKeys = new Set<string>()
-  const showHost = configuredDockerHosts(config).length > 1
+  const hostIds = [...new Set(containers.map(({ hostId }) => hostId))]
+  const showHost = hostIds.length > 1
+  const hostColors = new Map(hostIds.map((hostId, index) => [hostId, index]))
 
   for (const { hostId, container } of containers) {
     const resolved = resolveContainer(yamlServices, hostId, container)
-    const card = await cardFromContainer(config, resolved, hostId, showHost)
+    const card = await cardFromContainer(config, resolved, hostId, showHost, hostColors.get(hostId) ?? 0)
     if (card) cards.push(card)
 
     if (resolved.yamlKey) matchedKeys.add(resolved.yamlKey)
@@ -694,13 +690,12 @@ async function buildAllCards(config: AppConfig): Promise<{ cards: Card[]; error?
 export async function getCards(
   config: AppConfig,
   headers: Headers
-): Promise<{ cards: Card[]; usesAccessGroups: boolean; error?: DashmarkError }> {
-  const { groups: userGroups, error: userGroupsError } = getUserGroups(config, headers)
-  if (userGroupsError) return { cards: [], usesAccessGroups: false, error: userGroupsError }
-
+): Promise<{ cards: Card[]; usesAccessControl: boolean; error?: DashmarkError }> {
   const { cards: allCards, error } = await buildAllCards(config)
-  if (error) return { cards: [], usesAccessGroups: false, error }
+  if (error) return { cards: [], usesAccessControl: false, error }
 
-  const usesAccessGroups = allCards.some(card => card.accessGroups.length > 0)
-  return { cards: filterCardsByAccessGroups(allCards, userGroups), usesAccessGroups }
+  const usesAccessControl = allCards.some(card => card.access.length > 0)
+  const accessError = missingAccessIdentity(config, headers, allCards)
+  if (accessError) return { cards: [], usesAccessControl, error: accessError }
+  return { cards: filterCardsByAccess(allCards, config, headers), usesAccessControl }
 }

@@ -8,7 +8,7 @@ export type AppConfig = {
   configFile: string
   iconsDir: string
   customStylesheet?: string
-  enableAccessGroups: boolean
+  enableAccessControl: boolean
   accessGroupsHeader: string
   userNameHeader?: string
   userUsernameHeader?: string
@@ -18,9 +18,9 @@ export type AppConfig = {
   port: number
   showSearch: boolean
   showStatus: boolean
-  statusBadgeGroups: string[]
+  statusBadgeAccess: string[]
   showResourceUsage: boolean
-  resourceUsageGroups: string[]
+  resourceUsageAccess: string[]
   statusPollIntervalMs: number
   categoryOrder: string[]
   enableAutomaticDescriptions: boolean
@@ -86,15 +86,15 @@ function parseCategoryOrder(value: string | undefined): string[] {
   return [...categories.values()]
 }
 
-function parseStatusBadgeGroups(value: string | undefined): string[] {
-  const groups = new Map<string, string>()
+function parseAccess(value: string | undefined): string[] {
+  const entries = new Map<string, string>()
   for (const name of value?.split(',') ?? []) {
-    const group = name.trim()
-    if (group && !groups.has(group.toLowerCase())) {
-      groups.set(group.toLowerCase(), group)
+    const entry = name.trim()
+    if (entry && !entries.has(entry.toLowerCase())) {
+      entries.set(entry.toLowerCase(), entry)
     }
   }
-  return [...groups.values()]
+  return [...entries.values()]
 }
 
 function optionalString(value: string | undefined): string | undefined {
@@ -124,7 +124,7 @@ function parseDockerHosts(value: string | undefined): DockerHostConfig[] | undef
 }
 
 export function getConfig(): AppConfig {
-  const enableAccessGroups = parseBool(process.env.ENABLE_ACCESS_GROUPS, false)
+  const enableAccessControl = parseBool(process.env.ENABLE_ACCESS_CONTROL, false)
   const accessGroupsHeader = parseAccessGroupsHeader(process.env.ACCESS_GROUPS_HEADER)
   const customHeader = optionalString(process.env.CUSTOM_HEADER)
 
@@ -134,7 +134,7 @@ export function getConfig(): AppConfig {
     configFile: process.env.CONFIG_FILE || '/app/config.yml',
     iconsDir: process.env.ICONS_DIR || '/app/icons',
     customStylesheet: optionalString(process.env.CUSTOM_STYLESHEET),
-    enableAccessGroups,
+    enableAccessControl,
     accessGroupsHeader,
     userNameHeader: parseUserHeader(process.env.USER_NAME_HEADER),
     userUsernameHeader: parseUserHeader(process.env.USER_USERNAME_HEADER),
@@ -144,9 +144,9 @@ export function getConfig(): AppConfig {
     port: parsePort(process.env.PORT, DEFAULT_PORT),
     showSearch: parseBool(process.env.SHOW_SEARCH, true),
     showStatus: parseBool(process.env.SHOW_STATUS, true),
-    statusBadgeGroups: parseStatusBadgeGroups(process.env.STATUS_BADGE_GROUPS),
+    statusBadgeAccess: parseAccess(process.env.STATUS_BADGE_ACCESS),
     showResourceUsage: parseBool(process.env.SHOW_RESOURCE_USAGE, true),
-    resourceUsageGroups: parseStatusBadgeGroups(process.env.RESOURCE_USAGE_GROUPS),
+    resourceUsageAccess: parseAccess(process.env.RESOURCE_USAGE_ACCESS),
     statusPollIntervalMs: parseInterval(process.env.STATUS_POLL_INTERVAL),
     categoryOrder: parseCategoryOrder(process.env.CATEGORY_ORDER),
     enableAutomaticDescriptions: parseBool(process.env.ENABLE_AUTOMATIC_DESCRIPTIONS, true),

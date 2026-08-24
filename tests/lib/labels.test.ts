@@ -13,7 +13,7 @@ describe('parseLabels', () => {
       'dashmark.hidden': 'true',
       'dashmark.show_status': 'false',
       'dashmark.stats': 'cpu,network',
-      'dashmark.access_groups': 'media, admins'
+      'dashmark.access': 'media, admins'
     }
 
     expect(parseLabels(labels)).toEqual({
@@ -26,7 +26,7 @@ describe('parseLabels', () => {
       order: 1,
       showStatus: false,
       resourceStats: ['cpu', 'network'],
-      accessGroups: ['media', 'admins'],
+      access: ['media', 'admins'],
       searchAliases: []
     })
   })
@@ -42,7 +42,7 @@ describe('parseLabels', () => {
       order: undefined,
       showStatus: undefined,
       resourceStats: undefined,
-      accessGroups: [],
+      access: [],
       searchAliases: []
     })
   })

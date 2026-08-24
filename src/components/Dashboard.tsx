@@ -1,13 +1,13 @@
-import { useDeferredValue, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useDeferredValue, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { AnimatePresence, LayoutGroup, motion, type Transition } from 'framer-motion'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import type { Virtualizer } from '@tanstack/virtual-core'
-import { Popover } from 'radix-ui'
 import { SearchBar } from './SearchBar'
 import { CategoryFilter } from './CategoryFilter'
 import { AppCard } from './AppCard'
 import { useDashboardViewModel, type CategoryItem } from './use-dashboard-view-model'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { CircleAlert, User } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 import type { Card as CardType } from '@/lib/docker'
@@ -17,7 +17,9 @@ import { useStatusPolling } from '@/lib/use-status-polling'
 import { usePageOverflow } from '@/lib/use-page-overflow'
 import { strings } from '@/lib/strings'
 import { cn } from '@/lib/utils'
-import { STATUS_POLL_INTERVAL_MS } from '@/lib/constants'
+import { badgeColor } from '@/lib/badge-color'
+import { STATUS_POLL_INTERVAL_MS, TOOLTIP_DELAY_MS } from '@/lib/constants'
+import { TooltipControllerProvider, useTooltipController } from './tooltip-controller'
 
 const brandMarkPath = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/brand/logo-mark.svg`
 const COLUMN_WIDTH = 300
@@ -48,38 +50,50 @@ function estimateCategoryHeight(index: number, items: CategoryItem[]): number {
   return CARD_ESTIMATE_BASE + cardCount * CARD_ESTIMATE_DELTA
 }
 
-function GroupBadge({ group }: { group: string }) {
+function GroupBadge({ group, colorIndex }: { group: string; colorIndex: number }) {
   return (
-    <span className="dashmark-group-badge inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+    <span className={cn('dashmark-group-badge inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium', badgeColor(colorIndex))}>
       <User className="h-3.5 w-3.5" />
       {group}
     </span>
   )
 }
 
-function UserGroupsBadge({ groups }: { groups: string[] }) {
+function UserGroupsBadge({ groups, colorOffset }: { groups: string[]; colorOffset: number }) {
+  const { activeTooltip, setActiveTooltip } = useTooltipController()
+  const tooltipId = 'more-groups'
+
+  function handleMoreGroupsPointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (event.pointerType !== 'touch') return
+
+    event.preventDefault()
+    setActiveTooltip(activeTooltip === tooltipId ? null : tooltipId)
+  }
+
   return (
     <div className="dashmark-user-groups ml-3 flex items-center gap-1.5">
-      <GroupBadge group={groups[0]} />
+      <GroupBadge group={groups[0]} colorIndex={colorOffset} />
       {groups.length > 1 && (
-        <Popover.Root>
-          <Popover.Trigger asChild>
-            <button
-              type="button"
-              aria-label={`Show ${groups.length - 1} more groups`}
-              className="dashmark-group-badge dashmark-group-badge-overflow inline-flex cursor-pointer items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              +{groups.length - 1}
-            </button>
-          </Popover.Trigger>
-          <Popover.Portal>
-            <Popover.Content side="bottom" align="end" sideOffset={4} collisionPadding={16} className="z-50 flex flex-col items-start gap-1.5 overflow-hidden rounded-md border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-popover-content-transform-origin]">
-              {groups.slice(1).map(group => (
-                <GroupBadge key={group} group={group} />
+        <TooltipProvider delayDuration={TOOLTIP_DELAY_MS}>
+          <Tooltip open={activeTooltip === tooltipId} onOpenChange={open => setActiveTooltip(open ? tooltipId : null)}>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label={`Show ${groups.length - 1} more groups`}
+                className="dashmark-group-badge dashmark-group-badge-overflow inline-flex cursor-help items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                onClick={event => event.preventDefault()}
+                onPointerDown={handleMoreGroupsPointerDown}
+              >
+                +{groups.length - 1}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" align="end" collisionPadding={16} className="flex flex-col items-start gap-1.5">
+              {groups.slice(1).map((group, index) => (
+                <GroupBadge key={group} group={group} colorIndex={colorOffset + index + 1} />
               ))}
-            </Popover.Content>
-          </Popover.Portal>
-        </Popover.Root>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )}
     </div>
   )
@@ -322,14 +336,15 @@ type DashboardGreetingProps = {
   greeting?: string
   showGroups: boolean
   userGroups: string[]
+  groupColorOffset: number
   hasSearch: boolean
 }
 
-function DashboardGreeting({ greeting, showGroups, userGroups, hasSearch }: DashboardGreetingProps) {
+function DashboardGreeting({ greeting, showGroups, userGroups, groupColorOffset, hasSearch }: DashboardGreetingProps) {
   return (
     <div className={`dashmark-greeting-container flex items-end justify-between ${hasSearch ? 'mb-4' : ''}`}>
       <h1 className="dashmark-greeting text-xl leading-[1.2] font-semibold tracking-tight sm:text-[1.375rem] lg:text-2xl">{greeting}</h1>
-      {showGroups && userGroups.length > 0 && <UserGroupsBadge groups={userGroups} />}
+      {showGroups && userGroups.length > 0 && <UserGroupsBadge groups={userGroups} colorOffset={groupColorOffset} />}
     </div>
   )
 }
@@ -386,6 +401,7 @@ type DashboardSearchProps = DashboardSearchPanelProps & {
   greeting?: string
   showGroups: boolean
   userGroups: string[]
+  groupColorOffset: number
   hasPageOverflow: boolean
   masonryLayoutReady: boolean
   onAnimationComplete: () => void
@@ -398,6 +414,7 @@ function DashboardSearch({
   greeting,
   showGroups,
   userGroups,
+  groupColorOffset,
   hasPageOverflow,
   masonryLayoutReady,
   search,
@@ -424,7 +441,7 @@ function DashboardSearch({
           onAnimationComplete={onAnimationComplete}
         >
           {showHeader && (
-            <DashboardGreeting greeting={greeting} showGroups={showGroups} userGroups={userGroups} hasSearch={showSearch} />
+            <DashboardGreeting greeting={greeting} showGroups={showGroups} userGroups={userGroups} groupColorOffset={groupColorOffset} hasSearch={showSearch} />
           )}
           {showSearch && (
             <DashboardSearchPanel
@@ -546,7 +563,7 @@ function DashboardResults({
   )
 }
 
-export function Dashboard({
+function DashboardContent({
   initialCards,
   initialError,
   initialShowSearch = true,
@@ -606,6 +623,7 @@ export function Dashboard({
     categoryItems,
     categories
   } = useDashboardViewModel(cards, deferredSearch, selectedCategory, Boolean(error), categoryOrder)
+  const groupColorOffset = new Set(cards.flatMap(card => card.host ? [card.host] : [])).size
 
   const [masonryLayoutReady, setMasonryLayoutReady] = useState(false)
   const [searchBarDone, setSearchBarDone] = useState(false)
@@ -625,6 +643,7 @@ export function Dashboard({
           greeting={greeting}
           showGroups={showGroups}
           userGroups={userGroups}
+          groupColorOffset={groupColorOffset}
           hasPageOverflow={hasPageOverflow}
           masonryLayoutReady={masonryLayoutReady}
           search={search}
@@ -658,5 +677,13 @@ export function Dashboard({
         </div>
       </LayoutGroup>
     </>
+  )
+}
+
+export function Dashboard(props: DashboardProps) {
+  return (
+    <TooltipControllerProvider>
+      <DashboardContent {...props} />
+    </TooltipControllerProvider>
   )
 }

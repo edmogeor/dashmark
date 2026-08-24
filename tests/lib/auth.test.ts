@@ -8,7 +8,7 @@ import {
   getUserUsername,
   getUserEmail,
   parseUserGroups,
-  hasAllowedGroup,
+  hasAllowedAccess,
   readUserGroups,
   groupHeaderNames,
   isAuthorized
@@ -39,17 +39,19 @@ describe('parseUserGroups', () => {
   })
 })
 
-describe('hasAllowedGroup', () => {
-  it('allows everyone when no groups are configured', () => {
-    expect(hasAllowedGroup([], [])).toBe(true)
+describe('hasAllowedAccess', () => {
+  it('allows everyone when no access entries are configured', () => {
+    expect(hasAllowedAccess({ groups: [] }, [])).toBe(true)
   })
 
-  it('matches configured groups case-insensitively', () => {
-    expect(hasAllowedGroup(['Operators'], ['admins', 'operators'])).toBe(true)
+  it('matches groups, usernames, and emails case-insensitively', () => {
+    expect(hasAllowedAccess({ groups: ['Operators'] }, ['admins', 'operators'])).toBe(true)
+    expect(hasAllowedAccess({ groups: [], username: 'Jane' }, ['jane'])).toBe(true)
+    expect(hasAllowedAccess({ groups: [], email: 'jane@example.com' }, ['JANE@EXAMPLE.COM'])).toBe(true)
   })
 
-  it('rejects users without a configured group', () => {
-    expect(hasAllowedGroup(['media'], ['admins', 'operators'])).toBe(false)
+  it('rejects users without a configured access entry', () => {
+    expect(hasAllowedAccess({ groups: ['media'] }, ['admins', 'operators'])).toBe(false)
   })
 })
 

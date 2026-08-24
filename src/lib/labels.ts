@@ -10,7 +10,7 @@ export type ParsedLabels = {
   order?: number
   showStatus?: boolean
   resourceStats?: ResourceStat[]
-  accessGroups: string[]
+  access: string[]
   searchAliases: string[]
 }
 
@@ -49,7 +49,7 @@ export function parseLabels(labels: Record<string, string>): ParsedLabels {
   const order = orderRaw !== undefined ? Number(orderRaw) : undefined
   const showStatus = parseOptionalBool(get('show_status'))
   const resourceStats = parseResourceStats(get('stats'))
-  const accessGroups = parseCommaSeparated(get('access_groups'))
+  const access = parseCommaSeparated(get('access'))
   const searchAliases = parseCommaSeparated(get('search_aliases'))
 
   return {
@@ -62,7 +62,7 @@ export function parseLabels(labels: Record<string, string>): ParsedLabels {
     order: Number.isFinite(order) ? order : undefined,
     showStatus,
     resourceStats,
-    accessGroups,
+    access,
     searchAliases
   }
 }

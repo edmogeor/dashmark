@@ -1,6 +1,6 @@
 import http from 'node:http'
 
-const demoContainers = [
+export const demoContainers = [
   {
     Id: 'plex123',
     Names: ['/plex'],
@@ -12,6 +12,7 @@ const demoContainers = [
       'dashmark.title': 'Plex',
       'dashmark.url': 'http://localhost:8081',
       'dashmark.category': 'Media',
+      'dashmark.access': 'media,family',
       'dashmark.order': '1'
     }
   },
@@ -26,6 +27,7 @@ const demoContainers = [
       'dashmark.title': 'Jellyfin',
       'dashmark.url': 'http://localhost:8082',
       'dashmark.category': 'Media',
+      'dashmark.access': 'media',
       'dashmark.order': '2'
     }
   },
@@ -40,6 +42,7 @@ const demoContainers = [
       'dashmark.title': 'Grafana',
       'dashmark.url': 'http://localhost:8083',
       'dashmark.category': 'Monitoring',
+      'dashmark.access': 'admins',
       'dashmark.order': '1'
     }
   },
@@ -67,7 +70,8 @@ const demoContainers = [
     Labels: {
       'dashmark.title': 'Portainer',
       'dashmark.url': 'http://localhost:8085',
-      'dashmark.category': 'Management'
+      'dashmark.category': 'Management',
+      'dashmark.access': 'admins'
     }
   },
   {

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-08-24
+
+### Changed
+
+- Prefetch resource metrics on card hover and show per-metric loading indicators.
+- Refine card text spacing and mobile resource-tooltip interactions.
+- **Breaking:** replace `ENABLE_ACCESS_GROUPS`, `STATUS_BADGE_GROUPS`, and `RESOURCE_USAGE_GROUPS` with `ENABLE_ACCESS_CONTROL`, `STATUS_BADGE_ACCESS`, and `RESOURCE_USAGE_ACCESS`.
+- **Breaking:** replace the `dashmark.access_groups` label and YAML `access_groups` field with `dashmark.access` and `access`. Access entries now match authenticated groups, usernames, and emails.
+
 ## [0.2.0] - 2026-08-24
 
 ### Added

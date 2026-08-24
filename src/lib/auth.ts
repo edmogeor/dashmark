@@ -42,10 +42,13 @@ export function parseUserGroups(headerValue: string | null | undefined): string[
   return value.split(/[,;|]/).map(group => group.trim()).filter(Boolean)
 }
 
-export function hasAllowedGroup(userGroups: string[], allowedGroups: string[]): boolean {
-  if (allowedGroups.length === 0) return true
-  const allowed = new Set(allowedGroups.map(group => group.toLowerCase()))
-  return userGroups.some(group => allowed.has(group.toLowerCase()))
+export function hasAllowedAccess(user: Pick<AuthUser, 'groups' | 'username' | 'email'>, allowedAccess: string[]): boolean {
+  if (allowedAccess.length === 0) return true
+  const identities = [...user.groups, user.username, user.email]
+    .filter((identity): identity is string => Boolean(identity))
+    .map(identity => identity.toLowerCase())
+  const allowed = new Set(allowedAccess.map(entry => entry.toLowerCase()))
+  return identities.some(identity => allowed.has(identity))
 }
 
 function firstHeader(headers: Headers, names: string[], override?: string): string | undefined {

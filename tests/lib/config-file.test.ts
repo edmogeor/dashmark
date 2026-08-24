@@ -29,10 +29,10 @@ valid:
   url: https://valid.example.com
   order: 2
   show_status: false
-  access_groups: [admins]
+  access: [admins]
 invalid:
   hidden: "false"
-  access_groups: admins
+  access: admins
 not-a-service: null
 `)
 
@@ -42,7 +42,7 @@ not-a-service: null
           url: 'https://valid.example.com',
           order: 2,
           showStatus: false,
-          accessGroups: ['admins']
+           access: ['admins']
         },
         invalid: {}
       }

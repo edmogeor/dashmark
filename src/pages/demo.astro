@@ -18,7 +18,7 @@ const demoUser = { firstName: 'John', groups: ['admins', 'media', 'family'] }
 const demoCards: Card[] = await Promise.all(demoServices.map(async ({ imageName, ...card }) => ({
   ...card,
   description: resolveDescription(config, { imageName, title: card.title, containerName: card.id }),
-  accessGroups: card.accessGroups ?? [],
+  access: card.access ?? [],
   state: card.state ?? 'running',
   health: card.health ?? 'healthy',
   icon: await resolveIcon(config, { imageName, title: card.title, containerName: card.id })

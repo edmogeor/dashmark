@@ -21,13 +21,13 @@ export const strings = {
   },
   card: {
     description: 'Description',
-    resourceUsage: 'Resource usage',
+    resourceUsage: 'Resources',
     cpu: 'CPU',
     memory: 'Memory',
     received: 'Received',
     sent: 'Sent',
+    loadingResourceUsage: 'Loading resource usage',
     waitingForNetwork: 'Waiting for next refresh',
-    host: 'Host',
     unavailable: 'Usage unavailable'
   },
   dashboard: {

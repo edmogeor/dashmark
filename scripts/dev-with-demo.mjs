@@ -1,15 +1,15 @@
 import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
-import { startMockDocker } from './mock-docker-server.mjs'
+import { demoContainers, startMockDocker } from './mock-docker-server.mjs'
 
 const require = createRequire(import.meta.url)
 const astroEntry = resolve(dirname(require.resolve('astro/package.json')), 'bin', 'astro.mjs')
 
-function startAstroDev(dockerHost) {
+function startAstroDev(dockerHosts) {
   const env = {
     ...process.env,
-    DOCKER_HOSTS: dockerHost,
+    DOCKER_HOSTS: dockerHosts,
     // Keep Astro attached so this wrapper retains the mock Docker server until
     // the development server exits.
     ASTRO_DEV_BACKGROUND: '0',
@@ -18,7 +18,7 @@ function startAstroDev(dockerHost) {
     MOCK_USER_USERNAME: 'john',
     MOCK_USER_EMAIL: 'john@example.com',
     MOCK_USER_GROUPS: process.env.MOCK_USER_GROUPS ?? 'admins,media,family',
-    STATUS_BADGE_GROUPS: process.env.STATUS_BADGE_GROUPS ?? 'admins'
+    STATUS_BADGE_ACCESS: process.env.STATUS_BADGE_ACCESS ?? 'admins,media,family'
   }
   return spawn(process.execPath, [astroEntry, 'dev'], {
     env,
@@ -27,8 +27,12 @@ function startAstroDev(dockerHost) {
 }
 
 async function main() {
-  const { server, url } = await startMockDocker()
-  const astro = startAstroDev(url)
+  const splitIndex = Math.ceil(demoContainers.length / 2)
+  const [{ server: homeServer, url: homeUrl }, { server: vpsServer, url: vpsUrl }] = await Promise.all([
+    startMockDocker(demoContainers.slice(0, splitIndex)),
+    startMockDocker(demoContainers.slice(splitIndex))
+  ])
+  const astro = startAstroDev(`home=${homeUrl},vps=${vpsUrl}`)
 
   console.log('Dashmark dev server running with mock Docker API')
   console.log('Press Ctrl+C to stop')
@@ -39,7 +43,7 @@ async function main() {
     shuttingDown = true
     console.log('\nShutting down...')
     astro.kill('SIGTERM')
-    server.close(() => process.exit(0))
+    homeServer.close(() => vpsServer.close(() => process.exit(0)))
     setTimeout(() => process.exit(0), 2000).unref()
   }
 

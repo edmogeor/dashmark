@@ -6,7 +6,7 @@
 # card (it needs a `url` and has no status badge).
 #
 # Limit status badges by authenticated group with the environment variable
-# STATUS_BADGE_GROUPS=admins,operators. Group matching is case-insensitive.
+# STATUS_BADGE_ACCESS=admins,operators. Access matching is case-insensitive.
 
 # Override the card for a container you run. Omitted fields fall back to the
 # container's labels or defaults.
@@ -42,12 +42,12 @@ github:
 vps/plex:
   title: VPS Plex
 
-# Restrict a card to these groups when ENABLE_ACCESS_GROUPS=true. Cards with
-# no `access_groups` are visible to everyone. Group matching is case-insensitive.
+# Restrict a card to these access entries when ENABLE_ACCESS_CONTROL=true. Cards with
+# no `access` entries are visible to everyone. Entries match groups, usernames, and emails.
 portainer:
   url: https://portainer.home.local
   category: Management
-  access_groups:
+  access:
     - admins
 
 # Hide a container so it does not appear on the dashboard.

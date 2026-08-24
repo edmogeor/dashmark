@@ -37,7 +37,7 @@ export function MarqueeText({ children, className }: { children: ReactNode; clas
     <span
       ref={parentRef}
       data-overflow={offset < 0 ? '' : undefined}
-      className={`group/marquee block overflow-hidden whitespace-nowrap ${className ?? ''}`}
+      className={`group/marquee block leading-none overflow-hidden whitespace-nowrap ${className ?? ''}`}
       style={parentStyle}
     >
       <span

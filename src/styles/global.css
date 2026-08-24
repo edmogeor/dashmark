@@ -86,6 +86,18 @@
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
   --radius: 0.625rem;
+  --dashmark-badge-color-0: oklch(0.55 0.2 275);
+  --dashmark-badge-color-1: oklch(0.75 0.16 85);
+  --dashmark-badge-color-2: oklch(0.7 0.12 200);
+  --dashmark-badge-color-3: oklch(0.6 0.23 330);
+  --dashmark-badge-color-4: oklch(0.6 0.11 180);
+  --dashmark-badge-color-5: oklch(0.62 0.2 310);
+  --dashmark-badge-color-6: oklch(0.84 0.16 100);
+  --dashmark-badge-color-7: oklch(0.62 0.19 250);
+  --dashmark-badge-color-8: oklch(0.7 0.18 55);
+  --dashmark-badge-color-9: oklch(0.58 0.2 300);
+  --dashmark-badge-color-10: oklch(0.69 0.15 235);
+  --dashmark-badge-color-11: oklch(0.6 0.02 255);
 }
 
 .dark {
@@ -122,6 +134,31 @@
   --ring: oklch(0.556 0 0);
 }
 
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 240ms;
+  animation-timing-function: ease;
+}
+
+.dashmark-theme-toggle {
+  view-transition-name: dashmark-theme-toggle;
+}
+
+::view-transition-old(dashmark-theme-toggle) {
+  display: none;
+}
+
+::view-transition-new(dashmark-theme-toggle) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0ms;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -137,6 +174,26 @@
   body.dashmark {
     min-height: var(--dashmark-viewport-height, 100dvh);
   }
+}
+
+@layer components {
+  .dashmark-badge-color {
+    background-color: color-mix(in oklab, var(--dashmark-badge-color) 15%, transparent);
+    color: color-mix(in oklab, var(--dashmark-badge-color) 72%, var(--foreground));
+  }
+
+  .dashmark-badge-color-0 { --dashmark-badge-color: var(--dashmark-badge-color-0); }
+  .dashmark-badge-color-1 { --dashmark-badge-color: var(--dashmark-badge-color-1); }
+  .dashmark-badge-color-2 { --dashmark-badge-color: var(--dashmark-badge-color-2); }
+  .dashmark-badge-color-3 { --dashmark-badge-color: var(--dashmark-badge-color-3); }
+  .dashmark-badge-color-4 { --dashmark-badge-color: var(--dashmark-badge-color-4); }
+  .dashmark-badge-color-5 { --dashmark-badge-color: var(--dashmark-badge-color-5); }
+  .dashmark-badge-color-6 { --dashmark-badge-color: var(--dashmark-badge-color-6); }
+  .dashmark-badge-color-7 { --dashmark-badge-color: var(--dashmark-badge-color-7); }
+  .dashmark-badge-color-8 { --dashmark-badge-color: var(--dashmark-badge-color-8); }
+  .dashmark-badge-color-9 { --dashmark-badge-color: var(--dashmark-badge-color-9); }
+  .dashmark-badge-color-10 { --dashmark-badge-color: var(--dashmark-badge-color-10); }
+  .dashmark-badge-color-11 { --dashmark-badge-color: var(--dashmark-badge-color-11); }
 }
 
 @layer components {

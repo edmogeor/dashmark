@@ -11,7 +11,7 @@ function card(id: string, title: string, category?: string): Card {
     category,
     searchAliases: [],
     hasContainer: false,
-    accessGroups: []
+    access: []
   }
 }
 

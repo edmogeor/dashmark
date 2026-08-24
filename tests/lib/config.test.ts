@@ -10,12 +10,12 @@ const trackedVars = [
   'USER_EMAIL_HEADER',
   'USER_FIRST_NAME_HEADER',
   'USER_LAST_NAME_HEADER',
-  'ENABLE_ACCESS_GROUPS',
+  'ENABLE_ACCESS_CONTROL',
   'SHOW_SEARCH',
   'SHOW_STATUS',
-  'STATUS_BADGE_GROUPS',
+  'STATUS_BADGE_ACCESS',
   'SHOW_RESOURCE_USAGE',
-  'RESOURCE_USAGE_GROUPS',
+  'RESOURCE_USAGE_ACCESS',
   'STATUS_POLL_INTERVAL',
   'CATEGORY_ORDER',
   'ENABLE_AUTOMATIC_DESCRIPTIONS',
@@ -111,9 +111,9 @@ describe('getConfig user headers', () => {
 })
 
 describe('getConfig feature toggles', () => {
-  it('defaults enableAccessGroups to false', () => {
-    delete process.env.ENABLE_ACCESS_GROUPS
-    expect(getConfig().enableAccessGroups).toBe(false)
+  it('defaults enableAccessControl to false', () => {
+    delete process.env.ENABLE_ACCESS_CONTROL
+    expect(getConfig().enableAccessControl).toBe(false)
   })
 
   it('defaults visual features to on', () => {
@@ -189,28 +189,28 @@ describe('getConfig feature toggles', () => {
 
 describe('getConfig status polling', () => {
   it('defaults status badge groups to everyone', () => {
-    delete process.env.STATUS_BADGE_GROUPS
-    expect(getConfig().statusBadgeGroups).toEqual([])
+    delete process.env.STATUS_BADGE_ACCESS
+    expect(getConfig().statusBadgeAccess).toEqual([])
   })
 
   it('defaults resource usage to on for everyone', () => {
     delete process.env.SHOW_RESOURCE_USAGE
-    delete process.env.RESOURCE_USAGE_GROUPS
-    expect(getConfig()).toMatchObject({ showResourceUsage: true, resourceUsageGroups: [] })
+    delete process.env.RESOURCE_USAGE_ACCESS
+    expect(getConfig()).toMatchObject({ showResourceUsage: true, resourceUsageAccess: [] })
   })
 
   it('reads resource usage controls', () => {
     process.env.SHOW_RESOURCE_USAGE = 'false'
-    process.env.RESOURCE_USAGE_GROUPS = 'admins, operators, admins'
+    process.env.RESOURCE_USAGE_ACCESS = 'admins, operators, admins'
     expect(getConfig()).toMatchObject({
       showResourceUsage: false,
-      resourceUsageGroups: ['admins', 'operators']
+      resourceUsageAccess: ['admins', 'operators']
     })
   })
 
   it('reads unique, trimmed status badge groups', () => {
-    process.env.STATUS_BADGE_GROUPS = ' Admins, operators, admins '
-    expect(getConfig().statusBadgeGroups).toEqual(['Admins', 'operators'])
+    process.env.STATUS_BADGE_ACCESS = ' Admins, operators, admins '
+    expect(getConfig().statusBadgeAccess).toEqual(['Admins', 'operators'])
   })
 
   it('defaults to a 30-second interval', () => {
