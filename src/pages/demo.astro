@@ -4,6 +4,7 @@ export const prerender = true
 import { Dashboard } from '@/components/Dashboard'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { getConfig } from '@/lib/config'
+import { resolveDescription } from '@/lib/descriptions'
 import { THEME_STORAGE_KEY } from '@/lib/constants'
 import { demoServices } from '@/lib/demo'
 import { resolveGreeting } from '@/lib/greeting'
@@ -16,6 +17,7 @@ const config = getConfig()
 const demoUser = { firstName: 'John', groups: ['admins', 'media', 'family'] }
 const demoCards: Card[] = await Promise.all(demoServices.map(async ({ imageName, ...card }) => ({
   ...card,
+  description: resolveDescription(config, { imageName, title: card.title, containerName: card.id }),
   accessGroups: card.accessGroups ?? [],
   state: card.state ?? 'running',
   health: card.health ?? 'healthy',

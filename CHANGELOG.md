@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.18] - 2026-08-24
+
+### Changed
+
+- Refine app icon spacing for standard and maskable installs, and update the social-image gradient.
+- Use automatically resolved descriptions for demo services.
+
 ## [0.1.17] - 2026-08-24
 
 ### Changed
