@@ -10,6 +10,8 @@ const MOCK_USER_EMAIL = process.env.MOCK_USER_EMAIL
 const MOCK_USER_GROUPS = process.env.MOCK_USER_GROUPS
 const DEMO_ENABLED = process.env.DASHMARK_DEMO === 'true'
 
+if (!MOCK_AUTH) startMetricsCollection(getConfig())
+
 export const onRequest = defineMiddleware((context, next) => {
   if (!DEMO_ENABLED && context.url.pathname.replace(/\/$/, '').endsWith('/demo')) {
     return new Response('Not found', { status: 404 })
@@ -29,6 +31,5 @@ export const onRequest = defineMiddleware((context, next) => {
     return new Response('Unauthorized', { status: 401 })
   }
 
-  startMetricsCollection(getConfig())
   return next()
 })

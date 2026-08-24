@@ -147,9 +147,17 @@ export function getMetricHistory(
   `).all(cardId, metricKey, cutoff) as GenericMetricRow[]
 }
 
+function pruneMetricHistory(config: AppConfig, timestamp: number): void {
+  const db = database(config.metricsDatabasePath)
+  const cutoff = timestamp - config.metricsHistoryPeriodMs
+  db.prepare('DELETE FROM resource_metrics WHERE timestamp < ?').run(cutoff)
+  db.prepare('DELETE FROM metric_samples WHERE timestamp < ?').run(cutoff)
+}
+
 async function collectAndSave(config: AppConfig): Promise<void> {
   const samples = await collectContainerResourceUsage(config)
   const timestamp = Date.now()
+  pruneMetricHistory(config, timestamp)
   for (const { cardId, resource, customMetrics, metricsPollIntervalMs, metricsHistoryPeriodMs } of samples) {
     const previous = lastMetricCollection.get(cardId)
     if (previous !== undefined && timestamp - previous < metricsPollIntervalMs) continue

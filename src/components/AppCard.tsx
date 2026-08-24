@@ -17,7 +17,7 @@ import { strings } from '@/lib/strings'
 import { useIsDark } from '@/lib/use-is-dark'
 import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { isResourceUsageResponse, type ContainerResources, type CustomMetric, type CustomMetricChart, type CustomMetricUnit, type ResourceMetricSample } from '@/lib/status'
+import { isResourceUsageResponse, type ContainerResources, type CustomMetric, type CustomMetricChart, type CustomMetricSample, type CustomMetricUnit, type ResourceMetricSample } from '@/lib/status'
 import { RESOURCE_USAGE_POLL_INTERVAL_MS, TOOLTIP_DELAY_MS } from '@/lib/constants'
 import { useTooltipController } from './tooltip-controller'
 import { badgeColor } from '@/lib/badge-color'
@@ -162,6 +162,7 @@ type MetricDetail = {
   formatValue: (value: number) => string
   formatAxisValue?: (value: number) => string
   chart?: Exclude<CustomMetricChart, 'none'>
+  customMetricKey?: string
 }
 
 function metricData(history: ResourceMetricSample[], series: MetricSeries[]): ChartPoint[] {
@@ -173,6 +174,10 @@ function metricData(history: ResourceMetricSample[], series: MetricSeries[]): Ch
     }
     return point
   }).filter(sample => series.some(item => sample[item.key] !== undefined))
+}
+
+function customMetricHistory(history: CustomMetricSample[]): ResourceMetricSample[] {
+  return history.map(sample => ({ timestamp: sample.timestamp, cpuPercent: sample.value }))
 }
 
 function formatTimestamp(timestamp: unknown): string {
@@ -538,12 +543,13 @@ function ResourceUsageTooltip({ card, resources, history, historyPeriodMs, custo
                 value={formatCustomMetric(metric.value, metric.unit)}
                 onSelect={() => onDetailSelect({
                   label: metric.label,
-                  history: metric.history.map(sample => ({ timestamp: sample.timestamp, cpuPercent: sample.value })),
+                  history: customMetricHistory(metric.history),
                   historyPeriodMs: metric.historyPeriodMs,
                   series: [{ key: 'cpu', label: metric.label, value: sample => sample.cpuPercent }],
                   formatValue: value => formatCustomMetric(value, metric.unit),
                   formatAxisValue: value => formatAxisCustomMetric(value, metric.unit),
-                  chart
+                  chart,
+                  customMetricKey: metric.key
                 })}
               />
             )
@@ -683,12 +689,25 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showReso
   useEffect(() => {
     setMetricDetail(detail => {
       if (!detail) return null
+      if (detail.customMetricKey) return detail
       return {
         ...detail,
         history
       }
     })
   }, [history])
+  useEffect(() => {
+    setMetricDetail(detail => {
+      if (!detail?.customMetricKey) return detail
+      const metric = customMetrics.find(metric => metric.key === detail.customMetricKey && 'unit' in metric)
+      if (!metric || !('unit' in metric)) return detail
+      return {
+        ...detail,
+        history: customMetricHistory(metric.history),
+        historyPeriodMs: metric.historyPeriodMs
+      }
+    })
+  }, [customMetrics])
   const hasActions = showResourceUsageTooltip || Boolean(card.description)
 
   function handleTooltipOpenChange(tooltipId: string, open: boolean) {

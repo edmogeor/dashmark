@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0-alpha.3] - 2026-08-24
+
+### Fixed
+
+- Keep open custom metric charts on their own history instead of replacing them with resource samples.
+- Begin metric collection when the server starts and prune expired rows during collection.
+
 ## [0.3.0-alpha.2] - 2026-08-24
 
 ### Added
