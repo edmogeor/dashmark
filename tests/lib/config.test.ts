@@ -14,6 +14,7 @@ const trackedVars = [
   'STATUS_BADGE_GROUPS',
   'STATUS_POLL_INTERVAL',
   'CATEGORY_ORDER',
+  'ENABLE_AUTOMATIC_DESCRIPTIONS',
   'ENABLE_AUTOMATIC_ICONS',
   'SHOW_BRANDING',
   'SHOW_HEADER',
@@ -85,12 +86,14 @@ describe('getConfig feature toggles', () => {
   it('defaults visual features to on', () => {
     delete process.env.SHOW_SEARCH
     delete process.env.SHOW_STATUS
+    delete process.env.ENABLE_AUTOMATIC_DESCRIPTIONS
     delete process.env.ENABLE_AUTOMATIC_ICONS
     delete process.env.SHOW_BRANDING
 
     const cfg = getConfig()
     expect(cfg.showSearch).toBe(true)
     expect(cfg.showStatus).toBe(true)
+    expect(cfg.enableAutomaticDescriptions).toBe(true)
     expect(cfg.enableAutomaticIcons).toBe(true)
     expect(cfg.showBranding).toBe(true)
   })
@@ -99,12 +102,14 @@ describe('getConfig feature toggles', () => {
     process.env.SHOW_SEARCH = 'false'
     process.env.SHOW_STATUS = 'false'
     process.env.SHOW_BRANDING = 'false'
+    process.env.ENABLE_AUTOMATIC_DESCRIPTIONS = 'false'
     process.env.ENABLE_AUTOMATIC_ICONS = 'false'
 
     const cfg = getConfig()
     expect(cfg.showSearch).toBe(false)
     expect(cfg.showStatus).toBe(false)
     expect(cfg.showBranding).toBe(false)
+    expect(cfg.enableAutomaticDescriptions).toBe(false)
     expect(cfg.enableAutomaticIcons).toBe(false)
   })
 

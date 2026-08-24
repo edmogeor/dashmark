@@ -96,6 +96,7 @@ Selfhst icons are analysed for luminance when resolved. If an icon is dominated 
 | `STATUS_BADGE_GROUPS` | unset | Comma-separated groups allowed to see status badges; unset shows them to everyone |
 | `STATUS_POLL_INTERVAL` | `30` | Seconds between container status updates |
 | `CATEGORY_ORDER` | unset | Comma-separated category order; unlisted categories follow alphabetically |
+| `ENABLE_AUTOMATIC_DESCRIPTIONS` | `true` | When `false`, skip matching cards without explicit descriptions to the bundled selfh.st app directory index |
 | `ENABLE_AUTOMATIC_ICONS` | `true` | When `false`, skip auto-matching container images to icons; cards without an explicit icon fall back to a placeholder |
 | `SHOW_BRANDING` | `true` | Show the Dashmark logo next to the search bar |
 | `NEW_TAB` | `false` | When `true`, card links open in a new tab |
@@ -111,7 +112,7 @@ All labels use the `dashmark.` prefix:
 | `dashmark.hidden` | `"true"` hides the container regardless of other labels |
 | `dashmark.url` | URL the card links to (may instead come from YAML or a Traefik rule) |
 | `dashmark.title` | Display title; falls back to the container name |
-| `dashmark.description` | Short description shown in a tooltip |
+| `dashmark.description` | Short description shown in a tooltip; `none` suppresses automatic descriptions |
 | `dashmark.icon` | `selfhst:<slug>` reference, URL, path inside `ICONS_DIR`, or `placeholder` (unset auto-matches) |
 | `dashmark.category` | Group name |
 | `dashmark.show_status` | `"false"` hides the status badge for this card |
@@ -135,7 +136,7 @@ When group tags are enabled, matching status-badge groups appear in the header e
 
 ## Deployment
 
-- Multi-stage `node:22-alpine` image; the runtime runs `node ./dist/server/entry.mjs` and listens on `PORT` (default 4321). `src/data/icons.json` is copied into the image (generated at build via `prebuild`).
+- Multi-stage `node:22-alpine` image; the runtime runs `node ./dist/server/entry.mjs` and listens on `PORT` (default 4321). `src/data/icons.json` and `src/data/descriptions.json` are copied into the image (generated at build via `prebuild`).
 - Mount the Docker socket read-only (`/var/run/docker.sock:/var/run/docker.sock:ro`); Dashmark only reads container metadata.
 - Serve behind a reverse proxy with authentication when `ENABLE_ACCESS_GROUPS=true` so the groups header is trustworthy.
 - `docker-compose.yml` mounts `config/config.example.yml` -> `/app/config.yml` and `./icons` -> `/app/icons`, and routes Docker access through a `wollomatic/socket-proxy` sidecar (`DOCKER_HOST=tcp://dockerproxy:2375`).

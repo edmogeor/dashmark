@@ -20,6 +20,7 @@ export type AppConfig = {
   statusBadgeGroups: string[]
   statusPollIntervalMs: number
   categoryOrder: string[]
+  enableAutomaticDescriptions: boolean
   enableAutomaticIcons: boolean
   showBranding: boolean
   showHeader: boolean
@@ -115,6 +116,7 @@ export function getConfig(): AppConfig {
     statusBadgeGroups: parseStatusBadgeGroups(process.env.STATUS_BADGE_GROUPS),
     statusPollIntervalMs: parseInterval(process.env.STATUS_POLL_INTERVAL),
     categoryOrder: parseCategoryOrder(process.env.CATEGORY_ORDER),
+    enableAutomaticDescriptions: parseBool(process.env.ENABLE_AUTOMATIC_DESCRIPTIONS, true),
     enableAutomaticIcons: parseBool(process.env.ENABLE_AUTOMATIC_ICONS, true),
     showBranding: parseBool(process.env.SHOW_BRANDING, true),
     showHeader: parseBool(process.env.SHOW_HEADER, true),

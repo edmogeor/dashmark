@@ -1,10 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { MockDockerServer } from '../mocks/docker-server'
 import { getConfig } from '@/lib/config'
 import { getCards, getContainerStatuses, clearDockerCache } from '@/lib/docker'
+
+vi.mock('@/lib/descriptions', () => ({
+  resolveDescription: vi.fn(() => 'Automatic description')
+}))
 
 const tempDirectories: string[] = []
 
@@ -62,6 +66,7 @@ describe('getCards', () => {
     expect(cards).toHaveLength(1)
     expect(cards[0]).toMatchObject({
       title: 'Plex',
+      description: 'Automatic description',
       url: 'https://plex.home.local',
       category: 'Media',
       showStatus: false,
@@ -69,7 +74,6 @@ describe('getCards', () => {
       health: 'healthy',
       hasContainer: true
     })
-    expect(cards[0]?.description).toBeUndefined()
   })
 
   it('keeps an explicit description', async () => {

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.15] - 2026-08-24
+
+### Added
+
+- Automatic service descriptions from the selfh.st app directory, controlled by `ENABLE_AUTOMATIC_DESCRIPTIONS`.
+
 ## [0.1.14] - 2026-08-24
 
 ### Fixed

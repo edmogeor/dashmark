@@ -22,6 +22,11 @@ export type SelfhstIcon = {
   url: string
 }
 
+type ReferenceMatch = {
+  reference: string
+  name: string
+}
+
 const cache = new Map<string, SelfhstIcon[]>()
 
 function isSelfhstIcon(value: unknown): value is SelfhstIcon {
@@ -134,13 +139,13 @@ export async function fetchSelfhstIcons(): Promise<SelfhstIcon[]> {
   }
 }
 
-const fuseCache = new WeakMap<SelfhstIcon[], Fuse<SelfhstIcon>>()
+const fuseCache = new WeakMap<object, unknown>()
 
-function getFuse(icons: SelfhstIcon[]): Fuse<SelfhstIcon> {
-  const cached = fuseCache.get(icons)
+function getFuse<T extends ReferenceMatch>(items: T[]): Fuse<T> {
+  const cached = fuseCache.get(items) as Fuse<T> | undefined
   if (cached) return cached
 
-  const fuse = new Fuse(icons, {
+  const fuse = new Fuse(items, {
     keys: [
       { name: 'reference', weight: FUZZY_REFERENCE_WEIGHT },
       { name: 'name', weight: FUZZY_NAME_WEIGHT }
@@ -148,37 +153,41 @@ function getFuse(icons: SelfhstIcon[]): Fuse<SelfhstIcon> {
     threshold: FUZZY_MATCH_THRESHOLD,
     includeScore: true
   })
-  fuseCache.set(icons, fuse)
+  fuseCache.set(items, fuse)
   return fuse
 }
 
-function findExactMatch(candidates: string[], icons: SelfhstIcon[]): SelfhstIcon | null {
+function findExactMatch<T extends ReferenceMatch>(candidates: string[], items: T[]): T | null {
   const candidateSet = new Set(candidates)
-  return icons.find(icon => candidateSet.has(icon.reference)) ?? null
+  return items.find(item => candidateSet.has(item.reference)) ?? null
 }
 
 function hasSimilarLength(candidate: string, reference: string): boolean {
   return Math.min(candidate.length, reference.length) / Math.max(candidate.length, reference.length) >= FUZZY_MIN_LENGTH_RATIO
 }
 
-export function fuzzyMatchIcon(candidates: string[], icons: SelfhstIcon[]): SelfhstIcon | null {
-  if (icons.length === 0 || candidates.length === 0) return null
+export function fuzzyMatchReference<T extends ReferenceMatch>(candidates: string[], items: T[]): T | null {
+  if (items.length === 0 || candidates.length === 0) return null
 
-  const exact = findExactMatch(candidates, icons)
+  const exact = findExactMatch(candidates, items)
   if (exact) return exact
 
-  const fuse = getFuse(icons)
+  const fuse = getFuse(items)
 
-  let bestMatch: { icon: SelfhstIcon; score: number } | null = null
+  let bestMatch: { item: T; score: number } | null = null
 
   for (const candidate of candidates) {
     const top = fuse.search(candidate)[0]
     if (!top || !hasSimilarLength(candidate, top.item.reference)) continue
     const score = top.score ?? 1
     if (!bestMatch || score < bestMatch.score) {
-      bestMatch = { icon: top.item, score }
+      bestMatch = { item: top.item, score }
     }
   }
 
-  return bestMatch?.icon ?? null
+  return bestMatch?.item ?? null
+}
+
+export function fuzzyMatchIcon(candidates: string[], icons: SelfhstIcon[]): SelfhstIcon | null {
+  return fuzzyMatchReference(candidates, icons)
 }

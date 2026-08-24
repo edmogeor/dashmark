@@ -25,6 +25,7 @@ services:
       # - STATUS_BADGE_GROUPS=admins,operators
       # - STATUS_POLL_INTERVAL=30
       # - CATEGORY_ORDER=Media,Productivity,Home
+      # - ENABLE_AUTOMATIC_DESCRIPTIONS=true
       # - ENABLE_AUTOMATIC_ICONS=true
       # - SHOW_BRANDING=true
       # - SHOW_HEADER=true

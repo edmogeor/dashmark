@@ -41,6 +41,7 @@ Dashmark discovers labeled Docker containers and turns them into dashboard cards
 - Organise cards with categories, search aliases, and custom ordering.
 - Show live container state and health, refreshed every 30 seconds.
 - Use automatic, selfhst, remote, local, or placeholder icons.
+- Add automatic service descriptions from the selfh.st app directory.
 - Add standalone cards and label overrides with YAML.
 - Limit card visibility with groups supplied by your authentication proxy.
 - Add a small custom stylesheet without modifying the image.
@@ -142,6 +143,7 @@ Configure Dashmark with environment variables, Docker labels, and an optional YA
 | `STATUS_BADGE_GROUPS` | unset | Comma-separated groups allowed to see status badges; unset shows them to everyone |
 | `STATUS_POLL_INTERVAL` | `30` | Seconds between container status updates |
 | `CATEGORY_ORDER` | unset | Comma-separated category order; unlisted categories follow alphabetically |
+| `ENABLE_AUTOMATIC_DESCRIPTIONS` | `true` | Match selfh.st descriptions when no description is set |
 | `ENABLE_AUTOMATIC_ICONS` | `true` | Guess icons from image names when no icon is set |
 | `SHOW_BRANDING` | `true` | Show the Dashmark logo near search |
 | `NEW_TAB` | `false` | Open card links in a new tab |
@@ -156,7 +158,7 @@ Add labels to opt a container in and configure its card.
 | `dashmark.hidden` | Set to `true` to hide the container |
 | `dashmark.url` | Card link. May be inferred from a Traefik rule |
 | `dashmark.title` | Display title. Defaults to the container name |
-| `dashmark.description` | Tooltip text; set to `none` to hide it |
+| `dashmark.description` | Tooltip text; set to `none` to suppress automatic descriptions |
 | `dashmark.icon` | `selfhst:<slug>`, an image URL, a path in `ICONS_DIR`, or `placeholder` |
 | `dashmark.category` | Category name; matching is case-insensitive |
 | `dashmark.show_status` | Set to `false` to hide the status badge for this card |
@@ -202,6 +204,10 @@ Dashmark resolves icons in this order:
 4. Any other value is a path inside `ICONS_DIR`, including subdirectories.
 5. With no icon value, Dashmark guesses from the container image name.
 6. If no icon is found, Dashmark shows initials.
+
+### Descriptions
+
+When `ENABLE_AUTOMATIC_DESCRIPTIONS` is enabled, Dashmark matches cards without a description against its bundled [selfh.st app directory](https://selfh.st/apps/) index. A `dashmark.description` label or YAML `description` takes precedence; set either to `none` to suppress automatic descriptions. The generated index is derived from [selfhst/cdn](https://github.com/selfhst/cdn) under the [MIT License](https://github.com/selfhst/cdn/blob/main/LICENSE); see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 ### Styling
 

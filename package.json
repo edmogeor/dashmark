@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node scripts/dev-with-demo.mjs",
     "fetch-icons": "node scripts/fetch-icons.mjs",
-    "prebuild": "npm run fetch-icons",
+    "fetch-descriptions": "node scripts/fetch-descriptions.mjs",
+    "prebuild": "npm run fetch-icons && npm run fetch-descriptions",
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
