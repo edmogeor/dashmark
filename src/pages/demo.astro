@@ -1,5 +1,5 @@
 ---
-export const prerender = true
+export const prerender = process.env.DASHMARK_DEMO === 'true'
 
 import { Dashboard } from '@/components/Dashboard'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -17,6 +17,7 @@ const config = getConfig()
 const demoUser = { firstName: 'John', groups: ['admins', 'media', 'family'] }
 const demoCards: Card[] = await Promise.all(demoServices.map(async ({ imageName, ...card }) => ({
   ...card,
+  isDemo: true,
   description: resolveDescription(config, { imageName, title: card.title, containerName: card.id }),
   access: card.access ?? [],
   state: card.state ?? 'running',

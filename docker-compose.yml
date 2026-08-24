@@ -7,6 +7,7 @@ services:
     volumes:
       - ./config/config.example.yml:/app/config.yml:ro
       - ./icons:/app/icons:ro
+      - ./data:/app/data
       # - ./custom.css:/app/custom.css:ro
     environment:
       # Points Dashmark at the socket-proxy sidecar below. When unset, Dashmark
@@ -28,7 +29,10 @@ services:
       # - SHOW_STATUS=true
        # - STATUS_BADGE_ACCESS=admins,operators
       # - SHOW_RESOURCE_USAGE=true
-       # - RESOURCE_USAGE_ACCESS=admins,operators
+      # - RESOURCE_USAGE_ACCESS=admins,operators
+      # - METRICS_DATABASE_PATH=/app/data/metrics.db
+      # - METRICS_POLL_INTERVAL=2
+      # - METRICS_HISTORY_PERIOD=300
       # - STATUS_POLL_INTERVAL=30
       # - CATEGORY_ORDER=Media,Productivity,Home
       # - ENABLE_AUTOMATIC_DESCRIPTIONS=true

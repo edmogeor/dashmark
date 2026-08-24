@@ -1,24 +1,27 @@
 import { memo, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger
 } from '@/components/ui/tooltip'
-import { Gauge, Info, LoaderCircle } from 'lucide-react'
+import { Gauge, Info, LoaderCircle, Server } from 'lucide-react'
+import { CartesianGrid, LabelList, Line, LineChart, XAxis, YAxis } from 'recharts'
 import { StatusBadge } from './StatusBadge'
 import { MarqueeText } from './MarqueeText'
 import type { Card as CardType } from '@/lib/docker'
 import { getInitials } from '@/lib/initials'
 import { strings } from '@/lib/strings'
 import { useIsDark } from '@/lib/use-is-dark'
-import { isResourceUsageResponse, type ContainerResources } from '@/lib/status'
+import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { isResourceUsageResponse, type ContainerResources, type CustomMetric, type CustomMetricUnit, type ResourceMetricSample } from '@/lib/status'
 import { RESOURCE_USAGE_POLL_INTERVAL_MS, TOOLTIP_DELAY_MS } from '@/lib/constants'
 import { useTooltipController } from './tooltip-controller'
 import { badgeColor } from '@/lib/badge-color'
+import { toast } from 'sonner'
 
 type AppCardProps = {
   card: CardType
@@ -83,21 +86,304 @@ function formatPercent(value: number): string {
   return `${value >= 10 ? value.toFixed(0) : value.toFixed(1)}%`
 }
 
-function ResourceMetric({ label, value, percent, pending = false }: { label: string; value: ReactNode; percent?: number; pending?: boolean }) {
+function formatAxisPercent(value: number): string {
+  return `${Math.round(value / 5) * 5}%`
+}
+
+function formatAxisBytes(value: number): string {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  const index = value === 0 ? 0 : Math.min(Math.floor(Math.log(value) / Math.log(1_024)), units.length - 1)
+  const amount = value / 1_024 ** index
+  const rounded = amount >= 10 ? Math.round(amount / 5) * 5 : Math.round(amount * 10) / 10
+  return `${rounded} ${units[index]}`
+}
+
+function formatAxisCustomMetric(value: number, unit: CustomMetricUnit): string {
+  if (unit === 'bytes') return formatAxisBytes(value)
+  if (unit === 'bytes_per_second') return `${formatAxisBytes(value)}/s`
+  if (unit === 'bits') return `${formatAxisBytes(value / 8)}b`
+  if (unit === 'bits_per_second') return `${formatAxisBytes(value / 8)}b/s`
+  if (unit === 'percent') return formatAxisPercent(value)
+  if (unit === 'ratio') return formatAxisPercent(value * 100)
+  if (unit === 'boolean') return formatCustomMetric(value, unit)
+  return formatCustomMetric(Math.round(value / 5) * 5, unit)
+}
+
+function formatDuration(value: number): string {
+  if (value < 1) return `${(value * 1_000).toFixed(0)}ms`
+  if (value < 60) return `${value.toFixed(value < 10 ? 1 : 0)}s`
+  if (value < 3_600) return `${(value / 60).toFixed(1)}m`
+  return `${(value / 3_600).toFixed(1)}h`
+}
+
+function formatCustomMetric(value: number, unit: CustomMetricUnit): string {
+  if (typeof unit === 'object') return `${value.toLocaleString()} ${unit.suffix}`
+  if (unit === 'bytes') return formatBytes(value)
+  if (unit === 'bytes_per_second') return `${formatBytes(value)}/s`
+  if (unit === 'bits') return `${formatBytes(value / 8)}b`
+  if (unit === 'bits_per_second') return `${formatBytes(value / 8)}b/s`
+  if (unit === 'percent') return formatPercent(value)
+  if (unit === 'ratio') return formatPercent(value * 100)
+  if (unit === 'seconds') return `${value.toFixed(2)}s`
+  if (unit === 'milliseconds') return `${value.toFixed(0)}ms`
+  if (unit === 'microseconds') return `${value.toFixed(0)}us`
+  if (unit === 'duration') return formatDuration(value)
+  if (unit === 'hertz') return `${value.toLocaleString()} Hz`
+  if (unit === 'watts') return `${value.toLocaleString()} W`
+  if (unit === 'volts') return `${value.toLocaleString()} V`
+  if (unit === 'amperes') return `${value.toLocaleString()} A`
+  if (unit === 'celsius') return `${value.toLocaleString()} C`
+  if (unit === 'fahrenheit') return `${value.toLocaleString()} F`
+  if (unit === 'boolean') return value === 0 ? 'False' : 'True'
+  return value.toLocaleString()
+}
+
+const tickerConfig = {
+  cpu: { color: 'var(--primary)' },
+  memory: { color: 'var(--primary)' },
+  received: { color: 'var(--info)' },
+  sent: { color: 'var(--success)' }
+} satisfies ChartConfig
+
+type MetricKey = 'cpu' | 'memory' | 'received' | 'sent'
+type ChartPoint = { timestamp: number } & Partial<Record<MetricKey, number>> & Partial<Record<`${MetricKey}Label`, string>>
+
+type MetricSeries = {
+  key: MetricKey
+  label: string
+  value: (sample: ResourceMetricSample) => number | undefined
+}
+
+type MetricDetail = {
+  label: string
+  history: ResourceMetricSample[]
+  historyPeriodMs: number
+  series: MetricSeries[]
+  formatValue: (value: number) => string
+  formatAxisValue?: (value: number) => string
+}
+
+function metricData(history: ResourceMetricSample[], series: MetricSeries[]): ChartPoint[] {
+  return history.map(sample => {
+    const point: ChartPoint = { timestamp: sample.timestamp }
+    for (const item of series) {
+      const value = item.value(sample)
+      if (value !== undefined) point[item.key] = value
+    }
+    return point
+  }).filter(sample => series.some(item => sample[item.key] !== undefined))
+}
+
+function formatTimestamp(timestamp: unknown): string {
+  const value = Number(timestamp)
+  if (!Number.isFinite(value)) return ''
+  return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(value)
+}
+
+function formatExactTimestamp(timestamp: unknown): string {
+  const value = Number(timestamp)
+  if (!Number.isFinite(value)) return ''
+  return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(value)
+}
+
+function demoResourceUsage(cardId: string, timestamp: number): ResourceMetricSample {
+  const phase = [...cardId].reduce((total, character) => total + character.charCodeAt(0), 0) / 20
+  const seconds = timestamp / 1_000
+  return {
+    timestamp,
+    cpuPercent: 18 + Math.sin(seconds / 7 + phase) * 12 + Math.sin(seconds / 2 + phase) * 3,
+    memoryUsage: (850 + Math.sin(seconds / 18 + phase) * 120) * 1_024 * 1_024,
+    memoryLimit: 2 * 1_024 * 1_024 * 1_024,
+    receivedBytesPerSecond: (1_200 + Math.sin(seconds / 5 + phase) * 450) * 1_024,
+    sentBytesPerSecond: (320 + Math.sin(seconds / 8 + phase) * 180) * 1_024
+  }
+}
+
+function MetricDetailDialog({ detail, onOpen, onOpenChange }: { detail: MetricDetail | null; onOpen: () => void; onOpenChange: (open: boolean) => void }) {
+  const [displayedDetail, setDisplayedDetail] = useState(detail)
+  const [chartRoot, setChartRoot] = useState<HTMLDivElement | null>(null)
+  const [chartDimensions, setChartDimensions] = useState<{ width: number; height: number } | null>(null)
+  const isOpen = detail !== null
+  useEffect(() => {
+    if (detail) setDisplayedDetail(detail)
+  }, [detail])
+  useEffect(() => {
+    if (!isOpen || !chartRoot) return
+    setChartDimensions(null)
+    const measure = () => {
+      const { width, height } = chartRoot.getBoundingClientRect()
+      if (width > 0 && height > 0) setChartDimensions({ width: Math.round(width), height: Math.round(height) })
+    }
+    measure()
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect
+      if (width > 0 && height > 0) setChartDimensions({ width: Math.round(width), height: Math.round(height) })
+    })
+    observer.observe(chartRoot)
+    return () => observer.disconnect()
+  }, [chartRoot, isOpen])
+  const currentDetail = detail ?? displayedDetail
+  const data = currentDetail
+    ? metricData(currentDetail.history, currentDetail.series).map((point, index, points) => {
+      const pointWithLabels: ChartPoint = { ...point }
+      for (const item of currentDetail.series) {
+        const value = point[item.key]
+        if (index === points.length - 1 && typeof value === 'number') {
+          pointWithLabels[`${item.key}Label`] = currentDetail.formatValue(value)
+        }
+      }
+      return pointWithLabels
+    })
+    : []
+  const values = currentDetail ? data.flatMap(point => currentDetail.series.flatMap(item => {
+    const value = point[item.key]
+    return typeof value === 'number' ? [value] : []
+  })) : []
+  const minimum = Math.min(...values)
+  const maximum = Math.max(...values)
+  const padding = Math.max((maximum - minimum) * 0.1, Math.abs(maximum) * 0.05, 1)
+  const domain: [number, number] = [minimum - padding, maximum + padding]
+  const end = data.at(-1)?.timestamp ?? Date.now()
+  const start = end - (currentDetail?.historyPeriodMs ?? 5 * 60_000)
+  const timeTicks = Array.from({ length: 4 }, (_, index) => start + ((end - start) * index) / 3)
+
   return (
-    <div className={cn('grid gap-1.5', pending && 'opacity-50')}>
-      <div className="flex items-center justify-between gap-4 text-xs">
-        <span className="text-muted-foreground">{label}</span>
+    <Dialog open={detail !== null} onOpenChange={onOpenChange}>
+      <DialogContent
+        onOpenAutoFocus={onOpen}
+        onAnimationEnd={event => {
+          if (event.target === event.currentTarget && event.currentTarget.dataset.state === 'closed') setDisplayedDetail(null)
+        }}
+      >
+        {currentDetail && (
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-sm font-medium tracking-[0.16em] text-muted-foreground uppercase">
+                <Gauge className="h-4 w-4" aria-hidden="true" />
+                {currentDetail.label}
+              </DialogTitle>
+              <DialogDescription className="sr-only">Live {currentDetail.label.toLowerCase()} details</DialogDescription>
+            </DialogHeader>
+            <div ref={setChartRoot} className="h-80 w-full">
+            {chartDimensions && <ChartContainer config={tickerConfig} initialDimension={chartDimensions} className="h-full w-full aspect-auto" aria-label={`${currentDetail.label} chart`}>
+              <LineChart data={data} margin={{ top: 12, right: 4, bottom: 4, left: 0 }} accessibilityLayer={false}>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey="timestamp"
+                  type="number"
+                  scale="time"
+                  domain={[start, end]}
+                  allowDataOverflow
+                  tickFormatter={formatTimestamp}
+                  tickLine={false}
+                  axisLine={false}
+                  ticks={timeTicks}
+                />
+                <YAxis
+                  tickFormatter={currentDetail.formatAxisValue ?? currentDetail.formatValue}
+                  tickLine={false}
+                  axisLine={false}
+                  width={60}
+                  tick={{ fontSize: 10 }}
+                  domain={domain}
+                />
+                <ChartTooltip
+                  cursor={false}
+                  content={({ active, label, payload }) => {
+                    const values = payload?.flatMap(item => {
+                      const series = currentDetail.series.find(candidate => candidate.key === item.dataKey)
+                      const value = Number(item.value)
+                      return series && Number.isFinite(value) ? [[series, value] as const] : []
+                    }) ?? []
+                    if (!active || values.length === 0) return null
+                    return (
+                      <div className="grid gap-1 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
+                        <span className="text-muted-foreground">{formatExactTimestamp(label)}</span>
+                        {values.map(([series, value]) => (
+                          <div key={series.key} className="flex items-center justify-between gap-4 font-mono font-medium tabular-nums">
+                            {currentDetail.series.length > 1 && <span className="text-muted-foreground">{series.label}</span>}
+                            <span>{currentDetail.formatValue(value)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  }}
+                />
+                {currentDetail.series.map(series => (
+                  <Line key={series.key} dataKey={series.key} type="stepAfter" stroke={`var(--color-${series.key})`} strokeWidth={2} dot={false} isAnimationActive={false}>
+                    <LabelList
+                      dataKey={`${series.key}Label`}
+                      position="insideRight"
+                      content={props => {
+                        const x = Number(props.x)
+                        const y = Number(props.y)
+                        const label = props.value === undefined ? '' : String(props.value)
+                        if (!Number.isFinite(x) || !Number.isFinite(y) || !label) return null
+                        const width = label.length * 9 + 8
+                        return (
+                          <g transform={`translate(${x - width - 4} ${y - 12})`}>
+                            <rect width={width} height={24} rx={8} fill="var(--background)" />
+                            <text x={4} y={16} fill={`var(--color-${series.key})`} fontSize={16} fontWeight={700}>{label}</text>
+                          </g>
+                        )
+                      }}
+                    />
+                  </Line>
+                ))}
+              </LineChart>
+            </ChartContainer>}
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function ResourceMetric({ label, value, pending = false, onSelect }: {
+  label: string
+  value: ReactNode
+  pending?: boolean
+  onSelect?: () => void
+}) {
+  const interactive = onSelect !== undefined
+
+  return (
+    <div
+      className={cn(
+        'flex min-h-8 items-center gap-3 rounded-md px-1.5 text-xs',
+        pending && 'opacity-50',
+        interactive && 'card-action-button cursor-pointer hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'
+      )}
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onClick={interactive ? event => {
+        event.preventDefault()
+        event.stopPropagation()
+        onSelect()
+      } : undefined}
+      onKeyDown={interactive ? event => {
+        if (event.key !== 'Enter' && event.key !== ' ') return
+        event.preventDefault()
+        event.stopPropagation()
+        onSelect()
+      } : undefined}
+    >
+      <span className="text-muted-foreground">{label}</span>
+      <div className="ml-auto min-w-0">
         <span className="font-medium tabular-nums">{value}</span>
       </div>
-      {percent !== undefined && <Progress value={Math.min(100, Math.max(0, percent))} aria-label={`${label}: ${value}`} />}
     </div>
   )
 }
 
-function NetworkMetric({ label, value }: { label: string; value: number | undefined }) {
+function NetworkMetric({ label, value, onSelect }: {
+  label: string
+  value: number | undefined
+  onSelect: () => void
+}) {
   if (value !== undefined) {
-    return <ResourceMetric label={label} value={`${formatBytes(value)}/s`} />
+    return <ResourceMetric label={label} value={`${formatBytes(value)}/s`} onSelect={onSelect} />
   }
 
   return (
@@ -129,28 +415,45 @@ function LoadingResourceMetric({ label }: { label: string }) {
   )
 }
 
-function ResourceUsageTooltip({ card, resources, loading }: { card: CardType; resources: ContainerResources | null; loading: boolean }) {
-  const memoryPercent = resources?.memoryUsage !== undefined && resources.memoryLimit
-    ? (resources.memoryUsage / resources.memoryLimit) * 100
-    : undefined
+function ResourceUsageTooltip({ card, resources, history, historyPeriodMs, customMetrics, loading, onDetailSelect }: {
+  card: CardType
+  resources: ContainerResources | null
+  history: ResourceMetricSample[]
+  historyPeriodMs: number
+  customMetrics: CustomMetric[]
+  loading: boolean
+  onDetailSelect: (detail: MetricDetail) => void
+}) {
   const showCpu = card.resourceStats?.includes('cpu')
   const showMemory = card.resourceStats?.includes('memory')
   const showNetwork = card.resourceStats?.includes('network') && !card.usesHostNetwork
-  const hasUsage = resources?.cpuPercent !== undefined || resources?.memoryUsage !== undefined
+  const hasUsage = customMetrics.length > 0 || resources?.cpuPercent !== undefined || resources?.memoryUsage !== undefined
     || resources?.receivedBytesPerSecond !== undefined || resources?.sentBytesPerSecond !== undefined || (resources !== null && showNetwork)
+  const showNetworkDetails = () => onDetailSelect({
+    label: 'Network usage',
+    history,
+    historyPeriodMs,
+    series: [
+      { key: 'received', label: strings.card.received, value: sample => sample.receivedBytesPerSecond },
+      { key: 'sent', label: strings.card.sent, value: sample => sample.sentBytesPerSecond }
+    ],
+    formatValue: value => `${formatBytes(value)}/s`,
+    formatAxisValue: value => `${formatAxisBytes(value)}/s`
+  })
 
   return (
     <TooltipContent side="top" align="center" collisionPadding={16} className="dashmark-app-resources w-60 p-3">
-      <div className="mb-3 flex items-baseline justify-between gap-3">
+      <div className="mb-3 flex items-baseline justify-between gap-3 border-b pb-2">
         <span className="text-[0.6875rem] leading-none font-medium tracking-[0.16em] text-muted-foreground uppercase">{strings.card.resourceUsage}</span>
         {card.host && (
-          <span className={cn('dashmark-app-resource-host inline-flex rounded-full px-2 py-0.5 text-xs font-medium', badgeColor(card.hostColor ?? 0))}>
+          <span className={cn('dashmark-app-resource-host inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', badgeColor(card.hostColor ?? 0))}>
+            <Server className="h-3 w-3" aria-hidden="true" />
             {card.host}
           </span>
         )}
       </div>
       {loading && resources === null ? (
-        <div className="grid divide-y divide-border/60 border-t border-border/60 [&>*]:py-3 [&>*:last-child]:pb-0">
+        <div className="grid gap-1">
           {showCpu && <LoadingResourceMetric label={strings.card.cpu} />}
           {showMemory && <LoadingResourceMetric label={strings.card.memory} />}
           {showNetwork && (
@@ -161,23 +464,69 @@ function ResourceUsageTooltip({ card, resources, loading }: { card: CardType; re
           )}
         </div>
       ) : hasUsage ? (
-        <div className="grid divide-y divide-border/60 border-t border-border/60 [&>*]:py-3 [&>*:last-child]:pb-0">
+        <div className="grid gap-1">
           {resources?.cpuPercent !== undefined && (
-            <ResourceMetric label={strings.card.cpu} value={formatPercent(resources.cpuPercent)} percent={resources.cpuPercent} />
+            <ResourceMetric
+              label={strings.card.cpu}
+              value={formatPercent(resources.cpuPercent)}
+              onSelect={() => onDetailSelect({
+                label: strings.card.cpu,
+                history,
+                historyPeriodMs,
+                series: [{ key: 'cpu', label: strings.card.cpu, value: sample => sample.cpuPercent }],
+                formatValue: formatPercent,
+                formatAxisValue: formatAxisPercent
+              })}
+            />
           )}
           {resources?.memoryUsage !== undefined && (
             <ResourceMetric
               label={strings.card.memory}
               value={resources.memoryLimit ? `${formatBytes(resources.memoryUsage)} / ${formatBytes(resources.memoryLimit)}` : formatBytes(resources.memoryUsage)}
-              percent={memoryPercent ?? 0}
+              onSelect={() => onDetailSelect({
+                label: strings.card.memory,
+                history,
+                historyPeriodMs,
+                series: [{ key: 'memory', label: strings.card.memory, value: sample => sample.memoryUsage }],
+                formatValue: formatBytes,
+                formatAxisValue: formatAxisBytes
+              })}
             />
           )}
           {resources !== null && showNetwork && (
             <>
-              <NetworkMetric label={strings.card.received} value={resources.receivedBytesPerSecond} />
-              <NetworkMetric label={strings.card.sent} value={resources.sentBytesPerSecond} />
+              <NetworkMetric
+                label={strings.card.received}
+                value={resources.receivedBytesPerSecond}
+                onSelect={showNetworkDetails}
+              />
+              <NetworkMetric
+                label={strings.card.sent}
+                value={resources.sentBytesPerSecond}
+                onSelect={showNetworkDetails}
+              />
             </>
           )}
+          {customMetrics.map(metric => {
+            if (!('unit' in metric)) {
+              return <ResourceMetric key={metric.key} label={metric.label} value={metric.value} />
+            }
+            return (
+              <ResourceMetric
+                key={metric.key}
+                label={metric.label}
+                value={formatCustomMetric(metric.value, metric.unit)}
+                onSelect={() => onDetailSelect({
+                  label: metric.label,
+                  history: metric.history.map(sample => ({ timestamp: sample.timestamp, cpuPercent: sample.value })),
+                  historyPeriodMs: metric.historyPeriodMs,
+                  series: [{ key: 'cpu', label: metric.label, value: sample => sample.cpuPercent }],
+                  formatValue: value => formatCustomMetric(value, metric.unit),
+                  formatAxisValue: value => formatAxisCustomMetric(value, metric.unit)
+                })}
+              />
+            )
+          })}
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">{strings.card.unavailable}</p>
@@ -190,20 +539,45 @@ function useResourceUsage(
   cardId: string,
   enabled: boolean,
   active: boolean,
-  initialResources?: ContainerResources
-): { resources: ContainerResources | null; loading: boolean } {
+  initialResources?: ContainerResources,
+  isDemo = false
+): { resources: ContainerResources | null; history: ResourceMetricSample[]; historyPeriodMs: number; customMetrics: CustomMetric[]; metricErrors: { key: string; message: string }[]; loading: boolean } {
   const [resources, setResources] = useState<ContainerResources | null>(initialResources ?? null)
+  const [history, setHistory] = useState<ResourceMetricSample[]>([])
+  const [historyPeriodMs, setHistoryPeriodMs] = useState(5 * 60_000)
+  const [customMetrics, setCustomMetrics] = useState<CustomMetric[]>([])
+  const [metricErrors, setMetricErrors] = useState<{ key: string; message: string }[]>([])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (initialResources) {
+    if (initialResources && !isDemo) {
       setResources(initialResources)
+      setHistory([])
+      setCustomMetrics([])
+      setMetricErrors([])
       setLoading(false)
       return
     }
     if (!enabled || !active) return
 
+    if (isDemo) {
+      function update() {
+        const sample = demoResourceUsage(cardId, Date.now())
+        setResources(sample)
+        setHistory(previous => previous.length > 0
+          ? [...previous.slice(-89), sample]
+          : Array.from({ length: 30 }, (_, index) => demoResourceUsage(cardId, sample.timestamp - (29 - index) * RESOURCE_USAGE_POLL_INTERVAL_MS)))
+        setLoading(false)
+      }
+      update()
+      const timer = setInterval(update, RESOURCE_USAGE_POLL_INTERVAL_MS)
+      return () => clearInterval(timer)
+    }
+
     setResources(null)
+    setHistory([])
+    setCustomMetrics([])
+    setMetricErrors([])
     setLoading(true)
 
     let stopped = false
@@ -215,9 +589,20 @@ function useResourceUsage(
       try {
         const response = await fetch(`/api/resources?id=${encodeURIComponent(cardId)}`, { signal: controller.signal })
         const data: unknown = await response.json()
-        if (!stopped && response.ok && isResourceUsageResponse(data)) setResources(data.resource)
+        if (!stopped && response.ok && isResourceUsageResponse(data)) {
+          setResources(data.resource)
+          setHistory(data.history ?? [])
+          setCustomMetrics(data.customMetrics)
+          setMetricErrors(data.metricErrors)
+          if (data.historyPeriodMs) setHistoryPeriodMs(data.historyPeriodMs)
+        }
       } catch {
-        if (!stopped) setResources(null)
+        if (!stopped) {
+          setResources(null)
+          setHistory([])
+          setCustomMetrics([])
+          setMetricErrors([])
+        }
       } finally {
         controller = undefined
         if (!stopped) {
@@ -233,9 +618,9 @@ function useResourceUsage(
       controller?.abort()
       if (timeout) clearTimeout(timeout)
     }
-  }, [active, cardId, enabled, initialResources])
+  }, [active, cardId, enabled, initialResources, isDemo])
 
-  return { resources, loading }
+  return { resources, history, historyPeriodMs, customMetrics, metricErrors, loading }
 }
 
 export const AppCard = memo(function AppCard({ card, showStatus = true, showResourceUsage = true, asCard = false, isLoading = false, openInNewTab = false }: AppCardProps) {
@@ -243,17 +628,46 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showReso
   const dismissesTooltip = useRef(false)
   const hasStatus = card.health === 'starting' || card.health === 'unhealthy' || Boolean(card.state)
   const showStatusBadge = showStatus && card.showStatus !== false && (hasStatus || (isLoading && card.hasContainer))
-  const showResourceUsageTooltip = showResourceUsage && card.showStatus !== false && card.hasContainer && card.resourceStats !== undefined && card.resourceStats.length > 0
+  const hasSelectedCustomMetric = card.metrics?.some(metric => !['cpu', 'memory', 'network', 'none'].includes(metric)) ?? false
+  const showResourceUsageTooltip = showResourceUsage && card.showStatus !== false && card.hasContainer
+    && ((card.resourceStats !== undefined && card.resourceStats.length > 0) || hasSelectedCustomMetric)
   const [resourceCardHovered, setResourceCardHovered] = useState(false)
+  const [metricDetail, setMetricDetail] = useState<MetricDetail | null>(null)
+  const metricErrorIds = useRef(new Set<string>())
   const resourceTooltipId = `resource-${card.id}`
   const descriptionTooltipId = `description-${card.id}`
   const resourceTooltipOpen = activeTooltip === resourceTooltipId
-  const { resources, loading: resourcesLoading } = useResourceUsage(
+  const { resources, history, historyPeriodMs, customMetrics, metricErrors, loading: resourcesLoading } = useResourceUsage(
     card.id,
     showResourceUsageTooltip,
-    resourceTooltipOpen || resourceCardHovered,
-    card.resourceUsage
+    resourceTooltipOpen || resourceCardHovered || metricDetail !== null,
+    card.resourceUsage,
+    card.isDemo
   )
+  const allMetricErrors = [...(card.metricErrors ?? []), ...metricErrors]
+  const metricErrorSignature = allMetricErrors.map(error => `${error.key}:${error.message}`).join('|')
+  useEffect(() => {
+    const activeErrors = new Set(allMetricErrors.map(error => `${card.id}:${error.key}`))
+    for (const id of metricErrorIds.current) {
+      if (!activeErrors.has(id)) toast.dismiss(`metric-${id}`)
+    }
+    metricErrorIds.current = activeErrors
+    for (const error of allMetricErrors) {
+      toast.error('Metric unavailable', {
+        id: `metric-${card.id}:${error.key}`,
+        description: `${card.title}: ${error.message}`
+      })
+    }
+  }, [card.id, card.title, metricErrorSignature])
+  useEffect(() => {
+    setMetricDetail(detail => {
+      if (!detail) return null
+      return {
+        ...detail,
+        history
+      }
+    })
+  }, [history])
   const hasActions = showResourceUsageTooltip || Boolean(card.description)
 
   function handleTooltipOpenChange(tooltipId: string, open: boolean) {
@@ -293,7 +707,8 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showReso
   )
 
   return (
-    <a
+    <>
+      <a
       href={card.url}
       target={openInNewTab ? '_blank' : undefined}
       rel={openInNewTab ? 'noopener noreferrer' : undefined}
@@ -342,7 +757,17 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showReso
                         <span className="sr-only">{strings.card.resourceUsage}</span>
                       </button>
                     </TooltipTrigger>
-                    <ResourceUsageTooltip card={card} resources={resources} loading={resourcesLoading} />
+                    <ResourceUsageTooltip
+                      card={card}
+                      resources={resources}
+                      history={history}
+                      historyPeriodMs={historyPeriodMs}
+                      customMetrics={customMetrics}
+                      loading={resourcesLoading}
+                      onDetailSelect={detail => {
+                        setMetricDetail(detail)
+                      }}
+                    />
                   </Tooltip>
                 )}
                 {card.description && (
@@ -368,6 +793,10 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showReso
           )}
         </CardContent>
       </Card>
-    </a>
+      </a>
+      <MetricDetailDialog detail={metricDetail} onOpen={() => setActiveTooltip(null)} onOpenChange={open => {
+        if (!open) setMetricDetail(null)
+      }} />
+    </>
   )
 })

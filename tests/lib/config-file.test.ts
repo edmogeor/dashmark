@@ -81,6 +81,115 @@ not-a-service: null
     expect(result.config.a).toBeUndefined()
   })
 
+  it('parses explicit custom metric sources and overrides', () => {
+    const config = getConfig()
+    config.configFile = writeConfig(`
+radarr:
+  metrics: [cpu, active_downloads]
+  custom_metrics:
+    active_downloads:
+      label: Active downloads
+      unit: count
+      source:
+        url: http://metrics.example.internal/radarr
+        headers:
+          X-Api-Key:
+            env: RADARR_API_KEY
+      json:
+        path: /records
+        value_path: /queue/size
+        reduce: sum
+`)
+
+    expect(loadYamlConfig(config).config.radarr?.customMetrics).toEqual({
+      active_downloads: {
+        label: 'Active downloads',
+        valueType: 'number',
+        unit: 'count',
+        source: {
+          url: 'http://metrics.example.internal/radarr',
+          headers: { 'X-Api-Key': { env: 'RADARR_API_KEY' } }
+        },
+        json: { path: '/records', valuePath: '/queue/size', reduce: 'sum' }
+      }
+    })
+    expect(loadYamlConfig(config).config.radarr?.metrics).toEqual(['cpu', 'active_downloads'])
+  })
+
+  it('requires one valid extractor for each custom metric', () => {
+    const config = getConfig()
+    config.configFile = writeConfig(`
+service:
+  custom_metrics:
+    valid:
+      label: Requests
+      source: { url: http://metrics.example.internal/metrics }
+      prometheus: { name: http_requests_total, reduce: sum }
+    neither:
+      label: Missing
+      source: { url: http://metrics.example.internal/metrics }
+    both:
+      label: Both
+      source: { url: http://metrics.example.internal/metrics }
+      json: { path: /value }
+      prometheus: { name: value }
+    invalid_pointer:
+      label: Invalid pointer
+      source: { url: http://metrics.example.internal/metrics }
+      json: { path: value }
+`)
+
+    expect(loadYamlConfig(config).config.service?.customMetrics).toEqual({
+      valid: {
+        label: 'Requests',
+        valueType: 'number',
+        unit: 'number',
+        source: { url: 'http://metrics.example.internal/metrics' },
+        prometheus: { name: 'http_requests_total', labels: undefined, reduce: 'sum' }
+      }
+    })
+  })
+
+  it('supports text metrics and custom numeric suffixes', () => {
+    const config = getConfig()
+    config.configFile = writeConfig(`
+service:
+  custom_metrics:
+    build:
+      label: Build
+      value_type: string
+      source: { url: https://metrics.example.internal/metrics }
+      prometheus: { name: build_info, value_label: version }
+    temperature:
+      label: Temperature
+      unit: { suffix: rpm }
+      source: { url: https://metrics.example.internal/data }
+      json: { path: /rpm }
+    invalid_text:
+      label: Invalid text
+      value_type: string
+      unit: count
+      source: { url: https://metrics.example.internal/data }
+      json: { path: /value }
+`)
+
+    expect(loadYamlConfig(config).config.service?.customMetrics).toEqual({
+      build: {
+        label: 'Build',
+        valueType: 'string',
+        source: { url: 'https://metrics.example.internal/metrics' },
+        prometheus: { name: 'build_info', valueLabel: 'version' }
+      },
+      temperature: {
+        label: 'Temperature',
+        valueType: 'number',
+        unit: { suffix: 'rpm' },
+        source: { url: 'https://metrics.example.internal/data' },
+        json: { path: '/rpm', valuePath: undefined, reduce: undefined }
+      }
+    })
+  })
+
   it('clears the error after the file is fixed', () => {
     const config = getConfig()
     const configPath = writeConfig('bad: [unclosed\n')

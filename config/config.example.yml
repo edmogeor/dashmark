@@ -20,10 +20,39 @@ plex:
   # Set false to hide this card's status badge.
   show_status: false
   # Metrics default to CPU, memory, and network. Use `none` to disable them,
-  # or list only the metrics this card should expose.
-  stats:
+  # or list the built-in and configured custom metrics this card should expose.
+  metrics:
     - cpu
     - memory
+  # Bind provider-scoped metrics such as `radarr/active_downloads` to this
+  # card. Dashmark never infers this from the container image or name.
+  # metric_provider: radarr
+  # Custom metric sources are defined separately, so they can be selected in
+  # `metrics` alongside the built-in values.
+  # custom_metrics:
+  #   active_downloads:
+  #     label: Active downloads
+  #     unit: count
+  #     source:
+  #       url: http://metrics.example.internal/radarr
+  #       headers:
+  #         X-Api-Key: { env: RADARR_API_KEY }
+  #     json:
+  #       path: /queue
+  #       value_path: /records
+  #       reduce: count
+  #   version:
+  #     label: Version
+  #     value_type: string
+  #     source:
+  #       url: http://metrics.example.internal/metrics
+  #     prometheus:
+  #       name: app_build_info
+  #       value_label: version
+  # Override the defaults from METRICS_POLL_INTERVAL and
+  # METRICS_HISTORY_PERIOD for one card, in seconds.
+  metrics_poll_interval: 10
+  metrics_history_period: 900
   search_aliases:
     - movies
     - watch later

@@ -13,12 +13,14 @@ function startAstroDev(dockerHosts) {
     // Keep Astro attached so this wrapper retains the mock Docker server until
     // the development server exits.
     ASTRO_DEV_BACKGROUND: '0',
+    DASHMARK_DEMO: 'true',
     MOCK_AUTH: 'true',
     MOCK_USER_NAME: 'John Doe',
     MOCK_USER_USERNAME: 'john',
     MOCK_USER_EMAIL: 'john@example.com',
     MOCK_USER_GROUPS: process.env.MOCK_USER_GROUPS ?? 'admins,media,family',
-    STATUS_BADGE_ACCESS: process.env.STATUS_BADGE_ACCESS ?? 'admins,media,family'
+    STATUS_BADGE_ACCESS: process.env.STATUS_BADGE_ACCESS ?? 'admins,media,family',
+    METRICS_DATABASE_PATH: process.env.METRICS_DATABASE_PATH ?? resolve('.astro', 'metrics.db')
   }
   return spawn(process.execPath, [astroEntry, 'dev'], {
     env,

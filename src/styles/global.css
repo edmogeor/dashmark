@@ -11,6 +11,36 @@
   initial-value: 0px;
 }
 
+@keyframes dashmark-dialog-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dashmark-dialog-backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes dashmark-dialog-content-in {
+  from { opacity: 0; translate: -50% calc(-50% + 12px); scale: 0.96; }
+  to { opacity: 1; translate: -50% -50%; scale: 1; }
+}
+
+@keyframes dashmark-dialog-content-out {
+  from { opacity: 1; translate: -50% -50%; scale: 1; }
+  to { opacity: 0; translate: -50% calc(-50% + 12px); scale: 0.96; }
+}
+
+.dashmark-dialog-overlay[data-state='open'] { animation: dashmark-dialog-backdrop-in 180ms ease-out; }
+.dashmark-dialog-overlay[data-state='closed'] { animation: dashmark-dialog-backdrop-out 150ms ease-in; }
+.dashmark-dialog-content[data-state='open'] { animation: dashmark-dialog-content-in 180ms ease-out; }
+.dashmark-dialog-content[data-state='closed'] { animation: dashmark-dialog-content-out 150ms ease-in; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dashmark-dialog-overlay,
+  .dashmark-dialog-content { animation: none; }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

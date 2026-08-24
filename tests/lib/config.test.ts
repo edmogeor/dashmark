@@ -16,6 +16,9 @@ const trackedVars = [
   'STATUS_BADGE_ACCESS',
   'SHOW_RESOURCE_USAGE',
   'RESOURCE_USAGE_ACCESS',
+  'METRICS_DATABASE_PATH',
+  'METRICS_POLL_INTERVAL',
+  'METRICS_HISTORY_PERIOD',
   'STATUS_POLL_INTERVAL',
   'CATEGORY_ORDER',
   'ENABLE_AUTOMATIC_DESCRIPTIONS',
@@ -206,6 +209,23 @@ describe('getConfig status polling', () => {
       showResourceUsage: false,
       resourceUsageAccess: ['admins', 'operators']
     })
+  })
+
+  it('defaults metric history to five minutes and accepts a custom period', () => {
+    delete process.env.METRICS_HISTORY_PERIOD
+    expect(getConfig().metricsHistoryPeriodMs).toBe(300_000)
+
+    process.env.METRICS_HISTORY_PERIOD = '60'
+    process.env.METRICS_DATABASE_PATH = '/tmp/metrics.db'
+    expect(getConfig()).toMatchObject({ metricsHistoryPeriodMs: 60_000, metricsDatabasePath: '/tmp/metrics.db' })
+  })
+
+  it('defaults metric collection to two seconds and accepts a custom interval', () => {
+    delete process.env.METRICS_POLL_INTERVAL
+    expect(getConfig().metricsPollIntervalMs).toBe(2_000)
+
+    process.env.METRICS_POLL_INTERVAL = '10'
+    expect(getConfig().metricsPollIntervalMs).toBe(10_000)
   })
 
   it('reads unique, trimmed status badge groups', () => {

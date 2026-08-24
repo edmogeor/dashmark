@@ -118,7 +118,7 @@ All labels use the `dashmark.` prefix:
 | `dashmark.icon` | `selfhst:<slug>` reference, URL, path inside `ICONS_DIR`, or `placeholder` (unset auto-matches) |
 | `dashmark.category` | Group name |
 | `dashmark.show_status` | `"false"` hides the status badge and resource-usage tooltip for this card |
-| `dashmark.stats` | Comma-separated `cpu`, `memory`, and `network` metrics; `none` disables resource usage for this card |
+| `dashmark.metrics` | Comma-separated `cpu`, `memory`, and `network` metrics; `none` disables built-in metrics for this card |
 | `dashmark.access` | Comma-separated access allow-list |
 | `dashmark.search_aliases` | Comma-separated extra search terms |
 | `dashmark.order` | Numeric sort priority within a category |

@@ -2,7 +2,7 @@ import http from 'node:http'
 import https from 'node:https'
 import { URL } from 'node:url'
 import type { AppConfig, DockerHostConfig } from './config'
-import type { ServiceOverrides } from './config-file'
+import type { MetricOverride, ServiceOverrides } from './config-file'
 import { loadYamlConfig } from './config-file'
 import { parseLabels, isValidUrl, traefikUrl, hasDashmarkLabels, RESOURCE_STATS, type ParsedLabels, type ResourceStat } from './labels'
 import { resolveIcon, type IconResult } from './icons'
@@ -13,6 +13,7 @@ import { logMessages } from './log-messages'
 import { dashmarkError, errorMessage, isRecord, type DashmarkError } from './errors'
 import { strings } from './strings'
 import type { ContainerResources, ContainerStatus } from './status'
+import { collectCustomMetric } from './custom-metrics'
 import {
   DOCKER_REQUEST_TIMEOUT_MS,
   DOCKER_MAX_RESPONSE_BYTES,
@@ -35,6 +36,11 @@ export type Card = {
   state?: string
   health?: string
   resourceStats?: ResourceStat[]
+  metrics?: string[]
+  metricProvider?: string
+  metricsPollIntervalMs?: number
+  metricsHistoryPeriodMs?: number
+  metricErrors?: { key: string; message: string }[]
   resourceUsage?: ContainerResources
   searchAliases: string[]
   hasContainer: boolean
@@ -42,6 +48,7 @@ export type Card = {
   host?: string
   hostColor?: number
   usesHostNetwork?: boolean
+  isDemo?: boolean
 }
 
 type DockerContainer = {
@@ -412,6 +419,10 @@ function mergeWithYaml(
     order: yamlService.order ?? labels.order,
     showStatus: yamlService.showStatus ?? labels.showStatus,
     resourceStats: yamlService.resourceStats ?? labels.resourceStats,
+    metrics: yamlService.metrics ?? labels.metrics,
+    metricProvider: yamlService.metricProvider ?? labels.metricProvider,
+    metricsPollIntervalMs: yamlService.metricsPollIntervalMs ?? labels.metricsPollIntervalMs,
+    metricsHistoryPeriodMs: yamlService.metricsHistoryPeriodMs ?? labels.metricsHistoryPeriodMs,
     access: yamlService.access ?? labels.access,
     searchAliases: yamlService.searchAliases ?? labels.searchAliases
   }
@@ -458,6 +469,8 @@ type ResolvedContainer = {
   name: string
   yamlKey?: string
   labels: ParsedLabels
+  customMetrics?: Record<string, MetricOverride>
+  customMetricErrors?: Record<string, string>
   url?: string
 }
 
@@ -475,6 +488,8 @@ function resolveContainer(
     name: containerName(container),
     yamlKey,
     labels,
+    customMetrics: yamlService?.customMetrics,
+    customMetricErrors: yamlService?.customMetricErrors,
     url: resolveCardUrl(labels.url, rawLabels, yamlService !== undefined || hasDashmarkLabels(rawLabels))
   }
 }
@@ -532,7 +547,12 @@ async function cardFromContainer(
     host: showHost ? hostId : undefined,
     hostColor: showHost ? hostColor : undefined,
     usesHostNetwork: container.HostConfig?.NetworkMode === 'host',
-    resourceStats: labels.resourceStats ?? [...RESOURCE_STATS]
+    resourceStats: labels.resourceStats ?? [...RESOURCE_STATS],
+    metrics: labels.metrics,
+    metricProvider: labels.metricProvider,
+    metricsPollIntervalMs: labels.metricsPollIntervalMs,
+    metricsHistoryPeriodMs: labels.metricsHistoryPeriodMs,
+    ...(selectedCustomMetricErrors(resolved).length > 0 ? { metricErrors: selectedCustomMetricErrors(resolved) } : {})
   }
 }
 
@@ -635,11 +655,57 @@ export async function getContainerStatuses(
   return { statuses }
 }
 
-export async function getContainerResourceUsage(
+export type ContainerMetricUsage = {
+  resource?: ContainerResources
+  historyPeriodMs: number
+  customMetrics: ({ key: string; label: string; unit: Extract<MetricOverride, { valueType: 'number' }>['unit']; value: number } | { key: string; label: string; value: string })[]
+  metricErrors: { key: string; message: string }[]
+}
+
+function selectedCustomMetrics(resolved: ResolvedContainer): [string, MetricOverride][] {
+  if (!resolved.customMetrics || !resolved.labels.metrics) return []
+  return resolved.labels.metrics.flatMap(key => {
+    const [provider] = key.split('/', 2)
+    if (key.includes('/') && provider !== resolved.labels.metricProvider) return []
+    const metric = resolved.customMetrics?.[key]
+    return metric ? [[key, metric] as [string, MetricOverride]] : []
+  })
+}
+
+function selectedCustomMetricErrors(resolved: ResolvedContainer): { key: string; message: string }[] {
+  if (!resolved.labels.metrics) return []
+  return resolved.labels.metrics.flatMap(key => {
+    const [provider] = key.split('/', 2)
+    if (key.includes('/') && !resolved.labels.metricProvider) {
+      return [{ key, message: `metric_provider is required for ${key}` }]
+    }
+    if (key.includes('/') && provider !== resolved.labels.metricProvider) {
+      return [{ key, message: `${key} requires metric_provider: ${provider}` }]
+    }
+    const message = resolved.customMetricErrors?.[key]
+    return message ? [{ key, message }] : []
+  })
+}
+
+async function collectSelectedCustomMetrics(resolved: ResolvedContainer): Promise<Pick<ContainerMetricUsage, 'customMetrics' | 'metricErrors'>> {
+  const results = await Promise.all(selectedCustomMetrics(resolved).map(async ([key, metric]) => ({ key, metric, result: await collectCustomMetric(key, metric) })))
+  const customMetrics: ContainerMetricUsage['customMetrics'] = []
+  const metricErrors: ContainerMetricUsage['metricErrors'] = selectedCustomMetricErrors(resolved)
+  for (const { key, metric, result } of results) {
+    if ('value' in result) {
+      if (metric.valueType === 'string' && typeof result.value === 'string') customMetrics.push({ key, label: metric.label, value: result.value })
+      if (metric.valueType === 'number' && typeof result.value === 'number') customMetrics.push({ key, label: metric.label, unit: metric.unit, value: result.value })
+    }
+    else metricErrors.push({ key, message: result.error })
+  }
+  return { customMetrics, metricErrors }
+}
+
+export async function getContainerMetricUsage(
   config: AppConfig,
   headers: Headers,
   cardId: string
-): Promise<ContainerResources | undefined> {
+): Promise<ContainerMetricUsage | undefined> {
   if (!canViewResourceUsage(config, headers)) return undefined
 
   const host = configuredDockerHosts(config).find(candidate => cardId.startsWith(`${candidate.id}:`))
@@ -658,12 +724,67 @@ export async function getContainerResourceUsage(
     const resolved = resolveContainer(yamlConfig.config, host.id, container)
     if (!isVisibleContainer(config, headers, resolved) || resolved.labels.showStatus === false) return undefined
     const resourceStats = resolved.labels.resourceStats ?? RESOURCE_STATS
-    if (resourceStats.length === 0) return undefined
+    const customMetrics = collectSelectedCustomMetrics(resolved)
+    if (resourceStats.length === 0 && selectedCustomMetrics(resolved).length === 0 && selectedCustomMetricErrors(resolved).length === 0) return undefined
 
-    return getContainerResources(host.dockerHost, container.Id, resourceStats)
+    const [resource, collected] = await Promise.all([
+      resourceStats.length > 0 ? getContainerResources(host.dockerHost, container.Id, resourceStats) : undefined,
+      customMetrics
+    ])
+    if (!resource && collected.customMetrics.length === 0 && collected.metricErrors.length === 0) return undefined
+    return { resource, ...collected, historyPeriodMs: resolved.labels.metricsHistoryPeriodMs ?? config.metricsHistoryPeriodMs }
   } catch {
     return undefined
   }
+}
+
+export async function getContainerResourceUsage(
+  config: AppConfig,
+  headers: Headers,
+  cardId: string
+): Promise<ContainerResources | undefined> {
+  return (await getContainerMetricUsage(config, headers, cardId))?.resource
+}
+
+export async function collectContainerResourceUsage(
+  config: AppConfig
+): Promise<{ cardId: string; resource?: ContainerResources; customMetrics: ContainerMetricUsage['customMetrics']; metricsPollIntervalMs: number; metricsHistoryPeriodMs: number }[]> {
+  if (!config.showResourceUsage) return []
+
+  const yamlConfig = loadYamlConfig(config)
+  if (yamlConfig.error) return []
+  const samples: { cardId: string; resource: ContainerResources | undefined; customMetrics: ContainerMetricUsage['customMetrics']; metricsPollIntervalMs: number; metricsHistoryPeriodMs: number }[] = []
+
+  await Promise.all(configuredDockerHosts(config).map(async host => {
+    try {
+      const containers = await getCachedContainers(host.dockerHost, DOCKER_STATUS_CACHE_TTL_MS)
+      const results = await Promise.all(containers.map(async container => {
+        if (container.State !== 'running') return undefined
+        const resolved = resolveContainer(yamlConfig.config, host.id, container)
+        if (resolved.labels.hidden || !resolved.url || resolved.labels.showStatus === false) return undefined
+        const resourceStats = resolved.labels.resourceStats ?? RESOURCE_STATS
+        const customMetrics = collectSelectedCustomMetrics(resolved)
+        if (resourceStats.length === 0 && selectedCustomMetrics(resolved).length === 0) return undefined
+        const [resource, collected] = await Promise.all([
+          resourceStats.length > 0 ? getContainerResources(host.dockerHost, container.Id, resourceStats) : undefined,
+          customMetrics
+        ])
+        if (!resource && collected.customMetrics.length === 0) return undefined
+        return {
+          cardId: `${host.id}:${container.Id}`,
+          resource,
+          customMetrics: collected.customMetrics,
+          metricsPollIntervalMs: resolved.labels.metricsPollIntervalMs ?? config.metricsPollIntervalMs,
+          metricsHistoryPeriodMs: resolved.labels.metricsHistoryPeriodMs ?? config.metricsHistoryPeriodMs
+        }
+      }))
+      samples.push(...results.filter((sample): sample is { cardId: string; resource: ContainerResources | undefined; customMetrics: ContainerMetricUsage['customMetrics']; metricsPollIntervalMs: number; metricsHistoryPeriodMs: number } => sample !== undefined))
+    } catch {
+      // Resource metrics are optional, so an unavailable host does not affect the dashboard.
+    }
+  }))
+
+  return samples
 }
 
 async function buildAllCards(config: AppConfig): Promise<{ cards: Card[]; error?: DashmarkError }> {

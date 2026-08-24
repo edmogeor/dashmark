@@ -1,6 +1,6 @@
 type LogLevel = 'info' | 'warn' | 'error'
 
-type LogScope = 'docker' | 'config' | 'icons' | 'selfhst'
+type LogScope = 'docker' | 'config' | 'icons' | 'selfhst' | 'metrics'
 
 type LogContext = Record<string, unknown>
 

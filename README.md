@@ -145,6 +145,9 @@ Configure Dashmark with environment variables, Docker labels, and an optional YA
 | `STATUS_BADGE_ACCESS` | unset | Comma-separated access entries allowed to see status badges; unset shows them to everyone |
 | `SHOW_RESOURCE_USAGE` | `true` | Fetch and show CPU, memory, received, and sent metrics for containers |
 | `RESOURCE_USAGE_ACCESS` | unset | Comma-separated access entries allowed to receive resource metrics; unset shows them to everyone |
+| `METRICS_DATABASE_PATH` | `/app/data/metrics.db` in production | SQLite database used for resource metric history; mount its parent directory to keep history across restarts. Development uses `.astro/metrics.db` by default |
+| `METRICS_POLL_INTERVAL` | `2` | Seconds between background metric samples; card overrides may use a longer interval |
+| `METRICS_HISTORY_PERIOD` | `300` | Seconds of resource metric history displayed in live tickers |
 | `STATUS_POLL_INTERVAL` | `30` | Seconds between container status updates |
 | `CATEGORY_ORDER` | unset | Comma-separated category order; unlisted categories follow alphabetically |
 | `ENABLE_AUTOMATIC_DESCRIPTIONS` | `true` | Match selfh.st descriptions when no description is set |
@@ -190,7 +193,7 @@ Add labels to opt a container in and configure its card.
 | `dashmark.icon` | `selfhst:<slug>`, an image URL, a path in `ICONS_DIR`, or `placeholder` |
 | `dashmark.category` | Category name; matching is case-insensitive |
 | `dashmark.show_status` | Set to `false` to hide the status badge and resource-usage tooltip for this card |
-| `dashmark.stats` | Comma-separated `cpu`, `memory`, and `network` metrics for this card; set to `none` to disable resource usage |
+| `dashmark.metrics` | Comma-separated `cpu`, `memory`, and `network` metrics for this card; set to `none` to disable built-in metrics |
 | `dashmark.access` | Comma-separated access allow-list |
 | `dashmark.search_aliases` | Comma-separated additional search terms |
 | `dashmark.order` | Sort order within a category, lower values first; cards without an order follow alphabetically by title |
@@ -199,21 +202,54 @@ Add labels to opt a container in and configure its card.
 
 ### Resource usage
 
-Docker-backed cards show CPU and memory progress bars plus per-container network **Received** and **Sent** rates in the gauge tooltip. Dashmark fetches resource metrics only while that tooltip is open, then stops when it closes. Network rates appear after the second tooltip refresh because Dashmark calculates them from consecutive Docker samples. When multiple Docker hosts are configured, the tooltip includes the host ID.
+Docker-backed cards show CPU and memory progress bars plus per-container network **Received** and **Sent** rates in the gauge tooltip. Each metric row includes a live ticker chart over the `METRICS_HISTORY_PERIOD` window. Dashmark samples eligible running containers every two seconds and stores those samples in SQLite, so history survives page refreshes and, when the database directory is mounted, restarts. Network rates appear after the second sample because Dashmark calculates them from consecutive Docker samples. When multiple Docker hosts are configured, the tooltip includes the host ID.
 
 Set `SHOW_RESOURCE_USAGE=false` to stop fetching Docker's stats endpoint and hide all resource tooltips. Set `RESOURCE_USAGE_ACCESS=admins,operators` to return resource metrics only to matching users. This restriction is enforced server-side, so unauthorized clients never receive the metrics. Configure an authenticated reverse proxy and trusted identity headers when using `RESOURCE_USAGE_ACCESS`.
 
-Each Docker card shows all metrics by default. Set `dashmark.stats=none` to disable resource usage for one container, or limit it with a comma-separated list such as `dashmark.stats=cpu,memory`. YAML overrides support the same setting:
+Each Docker card shows all built-in metrics by default. Set `dashmark.metrics=none` to disable them for one container, or limit them with a comma-separated list such as `dashmark.metrics=cpu,memory`. Custom metric sources use `custom_metrics`, leaving `metrics` available for the unified selection list. YAML overrides support the same setting and can override polling and retention:
 
 ```yaml
 plex:
-  stats:
+  metrics:
     - cpu
     - memory
+  metrics_poll_interval: 10
+  metrics_history_period: 900
 
 backup:
-  stats: none
+  metrics: none
 ```
+
+Define custom metrics under the card's YAML service. Each metric has a label, an HTTP(S) source, and exactly one extractor. Header values must reference an environment variable or file, so secrets never live in the configuration or API response. Only custom keys named in `metrics` are fetched and exposed.
+
+```yaml
+radarr:
+  metrics: [cpu, active_downloads, queue_depth]
+  custom_metrics:
+    active_downloads:
+      label: Active downloads
+      unit: count
+      source:
+        url: http://radarr:7878/api/v3/queue/status
+        headers:
+          X-Api-Key: { env: RADARR_API_KEY }
+      json:
+        path: /totalRecords
+    queue_depth:
+      label: Primary queue depth
+      source:
+        url: http://metrics:9090/metrics
+      prometheus:
+        name: app_queue_depth
+        labels: { queue: primary }
+        reduce: maximum
+```
+
+Numeric metrics default to the `number` unit. Available units are `number`, `count`, `percent`, `ratio`, `bytes`, `bytes_per_second`, `bits`, `bits_per_second`, `seconds`, `milliseconds`, `microseconds`, `duration`, `hertz`, `watts`, `volts`, `amperes`, `celsius`, `fahrenheit`, and `boolean`, or `{ suffix: rpm }` for a custom suffix.
+
+JSON `path` and optional `value_path` are RFC6901 JSON Pointers. A scalar path must resolve to a finite number. For arrays, `value_path` extracts a number from each item and `reduce` may be `count`, `sum`, `average`, `minimum`, or `maximum`; an array without a reduction is accepted only when it yields one number. Prometheus sources accept standard text exposition, ignore comments, select by metric name and optional exact labels, and use the same reductions.
+
+Set `value_type: string` for a current text metric. JSON text metrics require `path` to resolve to one string. Prometheus text metrics require `value_label`, which returns that label value from exactly one matching sample. Text metrics have no unit or history.
 
 When `dashmark.url` is absent, Dashmark can derive an HTTPS URL from a Traefik router label such as `traefik.http.routers.plex.rule=Host(\`plex.example.com\`)`. Add another `dashmark.*` label to opt the container in.
 

@@ -59,9 +59,11 @@ const greeting = resolveGreeting(config, user)
         document.documentElement.classList.toggle('dark', dark)
       })()
     </script>
-    <script is:inline define:vars={{ serviceWorkerPath: assetPath('/service-worker.js') }}>
+    <script is:inline>
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register(serviceWorkerPath)
+        void navigator.serviceWorker.getRegistrations().then(registrations => {
+          for (const registration of registrations) void registration.unregister()
+        })
       }
     </script>
   </head>

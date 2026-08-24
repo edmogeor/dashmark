@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { MockDockerServer } from '../mocks/docker-server'
 import { getConfig } from '@/lib/config'
-import { getCards, getContainerResourceUsage, getContainerStatuses, clearDockerCache } from '@/lib/docker'
+import { getCards, getContainerMetricUsage, getContainerResourceUsage, getContainerStatuses, clearDockerCache } from '@/lib/docker'
 
 vi.mock('@/lib/descriptions', () => ({
   resolveDescription: vi.fn(() => 'Automatic description')
@@ -731,7 +731,7 @@ describe('getContainerStatuses', () => {
       Id: 'selected-resources', Names: ['/selected-resources'], Image: 'nginx', ImageID: 'sha256:selected',
       State: 'running', Status: 'Up 1 hour', Labels: {
         'dashmark.url': 'https://resources.example.com',
-        'dashmark.stats': 'cpu'
+        'dashmark.metrics': 'cpu'
       }
     }]
     server.stats['selected-resources'] = {
@@ -750,11 +750,79 @@ describe('getContainerStatuses', () => {
 
     const container = server.containers[0]
     if (!container?.Labels) throw new Error('Expected resource test container')
-    container.Labels['dashmark.stats'] = 'none'
+    container.Labels['dashmark.metrics'] = 'none'
     clearDockerCache()
     const none = await getContainerResourceUsage(config, new Headers(), 'default:selected-resources')
     expect(none).toBeUndefined()
     expect(server.statsRequests).toBe(1)
+  })
+
+  it('collects only custom metrics selected by the unified metric list', async () => {
+    server.containers = [{
+      Id: 'custom-metrics', Names: ['/radarr'], Image: 'radarr', ImageID: 'sha256:radarr',
+      State: 'running', Status: 'Up 1 hour', Labels: {
+        'dashmark.url': 'https://radarr.example.com',
+        'dashmark.metrics': 'active_downloads'
+      }
+    }]
+    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"totalRecords":4}'))
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.configFile = writeTempConfig(`
+radarr:
+  custom_metrics:
+    active_downloads:
+      label: Active downloads
+      unit: count
+      source: { url: https://metrics.example.test/radarr }
+      json: { path: /totalRecords }
+    ignored:
+      label: Ignored
+      source: { url: https://metrics.example.test/ignored }
+      json: { path: /value }
+`)
+
+    try {
+      await expect(getContainerMetricUsage(config, new Headers(), 'default:custom-metrics')).resolves.toEqual({
+        resource: undefined,
+        historyPeriodMs: config.metricsHistoryPeriodMs,
+        customMetrics: [{ key: 'active_downloads', label: 'Active downloads', unit: 'count', value: 4 }],
+        metricErrors: []
+      })
+      expect(fetch).toHaveBeenCalledTimes(1)
+      expect(server.statsRequests).toBe(0)
+    } finally {
+      fetch.mockRestore()
+    }
+  })
+
+  it('rejects custom metrics from a different provider', async () => {
+    server.containers = [{
+      Id: 'provider-metrics', Names: ['/radarr'], Image: 'radarr', ImageID: 'sha256:radarr',
+      State: 'running', Status: 'Up 1 hour', Labels: {
+        'dashmark.url': 'https://radarr.example.com',
+        'dashmark.metric_provider': 'radarr',
+        'dashmark.metrics': 'sonarr/active_downloads'
+      }
+    }]
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.configFile = writeTempConfig(`
+radarr:
+  custom_metrics:
+    sonarr/active_downloads:
+      label: Active downloads
+      unit: count
+      source: { url: https://metrics.example.test/sonarr }
+      json: { path: /totalRecords }
+`)
+
+    await expect(getContainerMetricUsage(config, new Headers(), 'default:provider-metrics')).resolves.toEqual({
+      resource: undefined,
+      historyPeriodMs: config.metricsHistoryPeriodMs,
+      customMetrics: [],
+      metricErrors: [{ key: 'sonarr/active_downloads', message: 'sonarr/active_downloads requires metric_provider: sonarr' }]
+    })
   })
 
   it('omits hidden containers', async () => {

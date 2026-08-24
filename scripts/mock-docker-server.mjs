@@ -135,19 +135,26 @@ export function startMockDocker(containers = demoContainers) {
 
         const elapsedMs = Date.now() - startedAt
         const offset = container.Id.length * 1_000_000
+        const phase = offset / 1_000_000
+        const counterBase = 1_000_000_000_000
+        const cpuUsage = timestamp => counterBase + timestamp * 300_000 + Math.sin(timestamp / 7_000 + phase) * 300_000_000
+        const systemUsage = timestamp => counterBase + timestamp * 2_000_000
+        const receivedBytes = timestamp => counterBase + timestamp * 1_200 + Math.sin(timestamp / 9_000 + phase) * 2_000_000
+        const sentBytes = timestamp => counterBase + timestamp * 300 + Math.sin(timestamp / 12_000 + phase) * 350_000
+        const memoryUsage = 512 * 1024 * 1024 + Math.round(Math.sin(elapsedMs / 8_000 + phase) * 96 * 1024 * 1024)
         send(200, JSON.stringify({
           cpu_stats: {
-            cpu_usage: { total_usage: offset + elapsedMs * 400_000, percpu_usage: [1, 1] },
-            system_cpu_usage: offset + elapsedMs * 2_000_000,
+            cpu_usage: { total_usage: cpuUsage(elapsedMs), percpu_usage: [1, 1] },
+            system_cpu_usage: systemUsage(elapsedMs),
             online_cpus: 2
           },
           precpu_stats: {
-            cpu_usage: { total_usage: offset + Math.max(0, elapsedMs - 1_000) * 400_000 },
-            system_cpu_usage: offset + Math.max(0, elapsedMs - 1_000) * 2_000_000
+            cpu_usage: { total_usage: cpuUsage(Math.max(0, elapsedMs - 1_000)) },
+            system_cpu_usage: systemUsage(Math.max(0, elapsedMs - 1_000))
           },
-          memory_stats: { usage: 512 * 1024 * 1024, limit: 2 * 1024 * 1024 * 1024 },
+          memory_stats: { usage: memoryUsage, limit: 2 * 1024 * 1024 * 1024 },
           networks: {
-            eth0: { rx_bytes: elapsedMs * 1_200, tx_bytes: elapsedMs * 300 }
+            eth0: { rx_bytes: receivedBytes(elapsedMs), tx_bytes: sentBytes(elapsedMs) }
           }
         }))
         return

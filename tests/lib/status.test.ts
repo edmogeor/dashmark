@@ -20,12 +20,25 @@ describe('isStatusResponse', () => {
         memoryLimit: 2_048,
         receivedBytesPerSecond: 512,
         sentBytesPerSecond: 256
-      }
+      },
+      customMetrics: [],
+      metricErrors: []
     })).toBe(true)
   })
 
   it('rejects malformed status and error payloads', () => {
     expect(isStatusResponse({ statuses: { plex: { state: 42 } } })).toBe(false)
     expect(isStatusResponse({ error: { code: 'UNKNOWN', message: 'Nope', retryable: false } })).toBe(false)
+  })
+
+  it('accepts numeric and text custom metrics', () => {
+    expect(isResourceUsageResponse({
+      resource: null,
+      customMetrics: [
+        { key: 'rpm', label: 'RPM', unit: { suffix: 'rpm' }, value: 900, history: [], historyPeriodMs: 60_000 },
+        { key: 'version', label: 'Version', value: '1.2.3' }
+      ],
+      metricErrors: [{ key: 'failed', message: 'Metric is unavailable' }]
+    })).toBe(true)
   })
 })

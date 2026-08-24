@@ -13,11 +13,13 @@
     "astro": "astro",
     "typecheck": "astro check",
     "lint": "oxlint .",
+    "validate:metrics": "node scripts/validate-metrics.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.1",
+    "@radix-ui/react-dialog": "^1.1.23",
     "@radix-ui/react-dropdown-menu": "^2.1.0",
     "@radix-ui/react-tooltip": "^1.1.0",
     "@tanstack/react-virtual": "^3.14.9",
@@ -32,6 +34,7 @@
     "radix-ui": "^1.6.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "recharts": "^3.8.0",
     "sharp": "^0.35.3",
     "sonner": "^2.0.8",
     "tailwind-merge": "^2.6.0"

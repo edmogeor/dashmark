@@ -1,6 +1,6 @@
 import { logger } from './logger'
 import { logMessages } from './log-messages'
-import { AUTO_ACCESS_GROUPS_HEADER, ACCESS_GROUPS_HEADER_TOKEN, DEFAULT_PORT, MAX_PORT, STATUS_POLL_INTERVAL_MS } from './constants'
+import { AUTO_ACCESS_GROUPS_HEADER, ACCESS_GROUPS_HEADER_TOKEN, DEFAULT_PORT, MAX_PORT, METRICS_HISTORY_PERIOD_MS, STATUS_POLL_INTERVAL_MS } from './constants'
 
 export type AppConfig = {
   dockerHost: string
@@ -21,6 +21,9 @@ export type AppConfig = {
   statusBadgeAccess: string[]
   showResourceUsage: boolean
   resourceUsageAccess: string[]
+  metricsDatabasePath: string
+  metricsPollIntervalMs: number
+  metricsHistoryPeriodMs: number
   statusPollIntervalMs: number
   categoryOrder: string[]
   enableAutomaticDescriptions: boolean
@@ -70,9 +73,9 @@ function parsePort(value: string | undefined, defaultValue: number): number {
   return Number.isInteger(port) && port > 0 && port <= MAX_PORT ? port : defaultValue
 }
 
-function parseInterval(value: string | undefined): number {
+function parseInterval(value: string | undefined, defaultValue: number): number {
   const seconds = Number(value)
-  return Number.isInteger(seconds) && seconds > 0 ? seconds * 1_000 : STATUS_POLL_INTERVAL_MS
+  return Number.isInteger(seconds) && seconds > 0 ? seconds * 1_000 : defaultValue
 }
 
 function parseCategoryOrder(value: string | undefined): string[] {
@@ -147,7 +150,10 @@ export function getConfig(): AppConfig {
     statusBadgeAccess: parseAccess(process.env.STATUS_BADGE_ACCESS),
     showResourceUsage: parseBool(process.env.SHOW_RESOURCE_USAGE, true),
     resourceUsageAccess: parseAccess(process.env.RESOURCE_USAGE_ACCESS),
-    statusPollIntervalMs: parseInterval(process.env.STATUS_POLL_INTERVAL),
+    metricsDatabasePath: process.env.METRICS_DATABASE_PATH || (process.env.NODE_ENV === 'production' ? '/app/data/metrics.db' : '.astro/metrics.db'),
+    metricsPollIntervalMs: parseInterval(process.env.METRICS_POLL_INTERVAL, 2_000),
+    metricsHistoryPeriodMs: parseInterval(process.env.METRICS_HISTORY_PERIOD, METRICS_HISTORY_PERIOD_MS),
+    statusPollIntervalMs: parseInterval(process.env.STATUS_POLL_INTERVAL, STATUS_POLL_INTERVAL_MS),
     categoryOrder: parseCategoryOrder(process.env.CATEGORY_ORDER),
     enableAutomaticDescriptions: parseBool(process.env.ENABLE_AUTOMATIC_DESCRIPTIONS, true),
     enableAutomaticIcons: parseBool(process.env.ENABLE_AUTOMATIC_ICONS, true),

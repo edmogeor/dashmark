@@ -21,11 +21,11 @@ export const strings = {
   },
   card: {
     description: 'Description',
-    resourceUsage: 'Resources',
+    resourceUsage: 'Metrics',
     cpu: 'CPU',
     memory: 'Memory',
-    received: 'Receiving',
-    sent: 'Sending',
+    received: 'Network in',
+    sent: 'Network out',
     loadingResourceUsage: 'Loading resource usage',
     waitingForNetwork: 'Waiting for next refresh',
     unavailable: 'Usage unavailable'

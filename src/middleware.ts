@@ -1,13 +1,20 @@
 import { defineMiddleware } from 'astro:middleware'
 import { isAuthorized } from '@/lib/auth'
+import { getConfig } from '@/lib/config'
+import { startMetricsCollection } from '@/lib/metrics'
 
 const MOCK_AUTH = process.env.MOCK_AUTH === 'true'
 const MOCK_USER_NAME = process.env.MOCK_USER_NAME
 const MOCK_USER_USERNAME = process.env.MOCK_USER_USERNAME
 const MOCK_USER_EMAIL = process.env.MOCK_USER_EMAIL
 const MOCK_USER_GROUPS = process.env.MOCK_USER_GROUPS
+const DEMO_ENABLED = process.env.DASHMARK_DEMO === 'true'
 
 export const onRequest = defineMiddleware((context, next) => {
+  if (!DEMO_ENABLED && context.url.pathname.replace(/\/$/, '').endsWith('/demo')) {
+    return new Response('Not found', { status: 404 })
+  }
+
   if (MOCK_AUTH) {
     const headers = new Headers(context.request.headers)
     if (MOCK_USER_NAME) headers.set('X-Authentik-Name', MOCK_USER_NAME)
@@ -22,5 +29,6 @@ export const onRequest = defineMiddleware((context, next) => {
     return new Response('Unauthorized', { status: 401 })
   }
 
+  startMetricsCollection(getConfig())
   return next()
 })

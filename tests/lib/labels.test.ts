@@ -12,7 +12,8 @@ describe('parseLabels', () => {
       'dashmark.order': '1',
       'dashmark.hidden': 'true',
       'dashmark.show_status': 'false',
-      'dashmark.stats': 'cpu,network',
+      'dashmark.metrics': 'cpu,network',
+      'dashmark.metric_provider': 'plex',
       'dashmark.access': 'media, admins'
     }
 
@@ -26,6 +27,8 @@ describe('parseLabels', () => {
       order: 1,
       showStatus: false,
       resourceStats: ['cpu', 'network'],
+      metrics: ['cpu', 'network'],
+      metricProvider: 'plex',
       access: ['media', 'admins'],
       searchAliases: []
     })
@@ -63,8 +66,17 @@ describe('parseLabels', () => {
   })
 
   it('uses none to disable and ignores unknown resource stats', () => {
-    expect(parseLabels({ 'dashmark.stats': 'none,cpu' }).resourceStats).toEqual([])
-    expect(parseLabels({ 'dashmark.stats': 'cpu,unknown,memory' }).resourceStats).toEqual(['cpu', 'memory'])
+    expect(parseLabels({ 'dashmark.metrics': 'none,cpu' }).resourceStats).toEqual([])
+    expect(parseLabels({ 'dashmark.metrics': 'cpu,unknown,memory' }).resourceStats).toEqual(['cpu', 'memory'])
+  })
+
+  it('ignores the removed stats label', () => {
+    expect(parseLabels({ 'dashmark.stats': 'cpu' }).resourceStats).toBeUndefined()
+  })
+
+  it('accepts valid metric providers only', () => {
+    expect(parseLabels({ 'dashmark.metric_provider': 'radarr' }).metricProvider).toBe('radarr')
+    expect(parseLabels({ 'dashmark.metric_provider': 'Radarr' }).metricProvider).toBeUndefined()
   })
 
   it('ignores non-finite order values', () => {
