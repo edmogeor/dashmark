@@ -2,6 +2,8 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { getConfig } from '@/lib/config'
 
 const trackedVars = [
+  'DOCKER_HOST',
+  'DOCKER_HOSTS',
   'ACCESS_GROUPS_HEADER',
   'USER_NAME_HEADER',
   'USER_USERNAME_HEADER',
@@ -51,6 +53,35 @@ describe('getConfig accessGroupsHeader', () => {
   it('falls back to auto for an invalid header name', () => {
     process.env.ACCESS_GROUPS_HEADER = 'X Bad Header'
     expect(getConfig().accessGroupsHeader).toBe('auto')
+  })
+})
+
+describe('getConfig Docker hosts', () => {
+  it('uses the local socket when DOCKER_HOSTS is unset', () => {
+    process.env.DOCKER_HOST = 'tcp://dockerproxy:2375'
+    delete process.env.DOCKER_HOSTS
+    expect(getConfig().dockerHosts).toBeUndefined()
+    expect(getConfig().dockerHost).toBe('unix:///var/run/docker.sock')
+  })
+
+  it('reads named Docker hosts', () => {
+    process.env.DOCKER_HOSTS = 'home=tcp://home-proxy:2375, vps=https://vps-proxy:2376'
+    expect(getConfig().dockerHosts).toEqual([
+      { id: 'home', dockerHost: 'tcp://home-proxy:2375' },
+      { id: 'vps', dockerHost: 'https://vps-proxy:2376' }
+    ])
+  })
+
+  it('uses default as the host ID for a single bare endpoint', () => {
+    process.env.DOCKER_HOSTS = 'tcp://dockerproxy:2375'
+    expect(getConfig().dockerHosts).toEqual([
+      { id: 'default', dockerHost: 'tcp://dockerproxy:2375' }
+    ])
+  })
+
+  it('ignores malformed and duplicate Docker host entries', () => {
+    process.env.DOCKER_HOSTS = 'home=tcp://home:2375, malformed, home=tcp://other:2375'
+    expect(getConfig().dockerHosts).toEqual([{ id: 'home', dockerHost: 'tcp://home:2375' }])
   })
 })
 

@@ -31,6 +31,12 @@ github:
   icon: selfhst:github
   category: External
 
+# When DOCKER_HOSTS=home=...,vps=... is configured, prefix a key with a host
+# ID to override only that host's container or Compose service. A
+# host-qualified key takes precedence over an unqualified key.
+vps/plex:
+  title: VPS Plex
+
 # Restrict a card to these groups when ENABLE_ACCESS_GROUPS=true. Cards with
 # no `access_groups` are visible to everyone. Group matching is case-insensitive.
 portainer:

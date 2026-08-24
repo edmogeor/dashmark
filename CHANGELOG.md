@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.19] - 2026-08-24
+
+### Added
+
+- Discover labeled Docker containers across multiple hosts with `DOCKER_HOSTS`.
+- Support host-qualified YAML overrides for services with the same name on different hosts.
+
+### Changed
+
+- **Breaking:** replace `DOCKER_HOST` with `DOCKER_HOSTS`. For one Docker host, use its endpoint directly; name each endpoint when configuring multiple hosts.
+
 ## [0.1.18] - 2026-08-24
 
 ### Changed

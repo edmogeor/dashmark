@@ -76,6 +76,165 @@ describe('getCards', () => {
     })
   })
 
+  it('combines cards and namespaces statuses from multiple Docker hosts', async () => {
+    const secondServer = new MockDockerServer()
+    const secondHost = await secondServer.start()
+    server.containers = [{
+      Id: 'shared-id', Names: ['/home-app'], Image: 'nginx', ImageID: 'sha256:home',
+      State: 'running', Status: 'Up 1 hour', Labels: { 'dashmark.url': 'https://home.example.com' }
+    }]
+    secondServer.containers = [{
+      Id: 'shared-id', Names: ['/vps-app'], Image: 'nginx', ImageID: 'sha256:vps',
+      State: 'paused', Status: 'Up 1 hour', Labels: { 'dashmark.url': 'https://vps.example.com' }
+    }]
+
+    const config = getConfig()
+    config.dockerHosts = [
+      { id: 'home', dockerHost },
+      { id: 'vps', dockerHost: secondHost }
+    ]
+
+    try {
+      const { cards, error } = await getCards(config, new Headers())
+      const { statuses } = await getContainerStatuses(config, new Headers())
+
+      expect(error).toBeUndefined()
+      expect(cards.map(card => card.id)).toEqual(['home:shared-id', 'vps:shared-id'])
+      expect(statuses).toEqual({
+        'home:shared-id': { state: 'running', health: undefined },
+        'vps:shared-id': { state: 'paused', health: undefined }
+      })
+    } finally {
+      await secondServer.stop()
+    }
+  })
+
+  it('applies host-qualified YAML overrides to matching services only', async () => {
+    const secondServer = new MockDockerServer()
+    const secondHost = await secondServer.start()
+    server.containers = [{
+      Id: 'home-plex', Names: ['/plex'], Image: 'plexinc/pms-docker', ImageID: 'sha256:home',
+      State: 'running', Status: 'Up 1 hour', Labels: { 'dashmark.url': 'https://home-plex.example.com' }
+    }]
+    secondServer.containers = [{
+      Id: 'vps-plex', Names: ['/plex'], Image: 'plexinc/pms-docker', ImageID: 'sha256:vps',
+      State: 'running', Status: 'Up 1 hour', Labels: { 'dashmark.url': 'https://vps-plex.example.com' }
+    }]
+
+    const config = getConfig()
+    config.dockerHosts = [
+      { id: 'home', dockerHost },
+      { id: 'vps', dockerHost: secondHost }
+    ]
+    config.configFile = writeTempConfig('vps/plex:\n  title: VPS Plex\n')
+
+    try {
+      const { cards, error } = await getCards(config, new Headers())
+
+      expect(error).toBeUndefined()
+      expect(cards).toHaveLength(2)
+      expect(cards.find(card => card.id === 'home:home-plex')?.title).toBe('plex')
+      expect(cards.find(card => card.id === 'vps:vps-plex')?.title).toBe('VPS Plex')
+    } finally {
+      await secondServer.stop()
+    }
+  })
+
+  it('uses the most specific YAML override for each host and service match', async () => {
+    const secondServer = new MockDockerServer()
+    const secondHost = await secondServer.start()
+    server.containers = [
+      {
+        Id: 'home-container', Names: ['/container'], Image: 'nginx', ImageID: 'sha256:home-container',
+        State: 'running', Status: 'Up 1 hour', Labels: {
+          'com.docker.compose.service': 'service',
+          'dashmark.url': 'https://home-container.example.com'
+        }
+      },
+      {
+        Id: 'home-other', Names: ['/other'], Image: 'nginx', ImageID: 'sha256:home-other',
+        State: 'running', Status: 'Up 1 hour', Labels: {
+          'com.docker.compose.service': 'service',
+          'dashmark.url': 'https://home-other.example.com'
+        }
+      }
+    ]
+    secondServer.containers = [
+      {
+        Id: 'vps-container', Names: ['/container'], Image: 'nginx', ImageID: 'sha256:vps-container',
+        State: 'running', Status: 'Up 1 hour', Labels: {
+          'com.docker.compose.service': 'service',
+          'dashmark.url': 'https://vps-container.example.com'
+        }
+      },
+      {
+        Id: 'vps-other', Names: ['/other'], Image: 'nginx', ImageID: 'sha256:vps-other',
+        State: 'running', Status: 'Up 1 hour', Labels: {
+          'com.docker.compose.service': 'service',
+          'dashmark.url': 'https://vps-other.example.com'
+        }
+      }
+    ]
+
+    const config = getConfig()
+    config.dockerHosts = [
+      { id: 'home', dockerHost },
+      { id: 'vps', dockerHost: secondHost }
+    ]
+    config.configFile = writeTempConfig([
+      'home/container:', '  title: Home container',
+      'home/service:', '  title: Home service',
+      'container:', '  title: Global container',
+      'service:', '  title: Global service'
+    ].join('\n'))
+
+    try {
+      const { cards, error } = await getCards(config, new Headers())
+
+      expect(error).toBeUndefined()
+      expect(Object.fromEntries(cards.map(card => [card.id, card.title]))).toEqual({
+        'home:home-container': 'Home container',
+        'home:home-other': 'Home service',
+        'vps:vps-container': 'Global container',
+        'vps:vps-other': 'Global service'
+      })
+    } finally {
+      await secondServer.stop()
+    }
+  })
+
+  it('keeps cards from reachable hosts when another host is unavailable', async () => {
+    server.containers = [{
+      Id: 'home-app', Names: ['/home-app'], Image: 'nginx', ImageID: 'sha256:home',
+      State: 'running', Status: 'Up 1 hour', Labels: { 'dashmark.url': 'https://home.example.com' }
+    }]
+
+    const config = getConfig()
+    config.dockerHosts = [
+      { id: 'home', dockerHost },
+      { id: 'offline', dockerHost: 'tcp://127.0.0.1:1' }
+    ]
+
+    const { cards, error } = await getCards(config, new Headers())
+
+    expect(error).toBeUndefined()
+    expect(cards.map(card => card.id)).toEqual(['home:home-app'])
+  })
+
+  it('returns an error when every configured host is unavailable', async () => {
+    const config = getConfig()
+    config.dockerHosts = [
+      { id: 'one', dockerHost: 'tcp://127.0.0.1:1' },
+      { id: 'two', dockerHost: 'tcp://127.0.0.1:2' }
+    ]
+    clearDockerCache()
+
+    const { cards, error } = await getCards(config, new Headers())
+
+    expect(cards).toEqual([])
+    expect(error?.code).toBe('DOCKER_UNREACHABLE')
+  })
+
   it('keeps an explicit description', async () => {
     server.containers = [
       {
@@ -234,36 +393,6 @@ describe('getCards', () => {
     expect(cards).toHaveLength(0)
   })
 
-  it('derives a Traefik URL when a matching YAML entry opts in', async () => {
-    server.containers = [
-      {
-        Id: 'traefik3',
-        Names: ['/traefik-yaml'],
-        Image: 'nginx',
-        ImageID: 'sha256:traefik3',
-        State: 'running',
-        Status: 'Up 1 hour',
-        Labels: {
-          'traefik.http.routers.traefik-yaml.rule': 'Host(`app.example.com`)'
-        }
-      }
-    ]
-
-    const config = getConfig()
-    config.dockerHost = dockerHost
-    config.configFile = writeTempConfig('traefik-yaml:\n  title: Traefik YAML\n')
-
-    const { cards, error } = await getCards(config, new Headers())
-
-    expect(error).toBeUndefined()
-    expect(cards).toHaveLength(1)
-    expect(cards[0]).toMatchObject({
-      title: 'Traefik YAML',
-      url: 'https://app.example.com',
-      hasContainer: true
-    })
-  })
-
   it('includes search_aliases on the card', async () => {
     server.containers = [
       {
@@ -283,8 +412,9 @@ describe('getCards', () => {
 
     const config = getConfig()
     config.dockerHost = dockerHost
-    const { cards } = await getCards(config, new Headers())
+    const { cards, error } = await getCards(config, new Headers())
 
+    expect(error).toBeUndefined()
     expect(cards).toHaveLength(1)
     expect(cards[0].searchAliases).toEqual(['movies', 'watch later'])
   })
@@ -411,75 +541,48 @@ describe('getCards', () => {
     expect(second.cards).toHaveLength(1)
   })
 
-  it('uses YAML changes after a successful card lookup', async () => {
-    server.containers = [
-      {
-        Id: 'abc123',
-        Names: ['/plex'],
-        Image: 'plexinc/pms-docker',
-        ImageID: 'sha256:abc',
-        State: 'running',
-        Status: 'Up 2 hours (healthy)',
-        Labels: { 'dashmark.url': 'https://plex.home.local' }
-      }
-    ]
-
+  it('uses YAML entries as standalone cards', async () => {
     const config = getConfig()
     config.dockerHost = dockerHost
-    config.configFile = writeTempConfig('plex:\n  title: Plex\n')
-
-    expect((await getCards(config, new Headers())).cards[0]?.title).toBe('Plex')
-
-    fs.writeFileSync(config.configFile, 'plex:\n  title: Plex Media\n')
-
-    expect((await getCards(config, new Headers())).cards[0]?.title).toBe('Plex Media')
-  })
-
-  it('lets a YAML none description hide the tooltip', async () => {
-    server.containers = [
-      {
-        Id: 'abc123',
-        Names: ['/plex'],
-        Image: 'plexinc/pms-docker',
-        ImageID: 'sha256:abc',
-        State: 'running',
-        Status: 'Up 2 hours',
-        Labels: { 'dashmark.url': 'https://plex.home.local' }
-      }
-    ]
-
-    const config = getConfig()
-    config.dockerHost = dockerHost
-    config.configFile = writeTempConfig('plex:\n  description: none\n')
-
-    expect((await getCards(config, new Headers())).cards[0]?.description).toBeUndefined()
-  })
-
-  it('matches YAML by compose service name without duplicating the card', async () => {
-    server.containers = [
-      {
-        Id: 'abc123',
-        Names: ['/stack_plex_1'],
-        Image: 'plexinc/pms-docker',
-        ImageID: 'sha256:abc',
-        State: 'running',
-        Status: 'Up 2 hours (healthy)',
-        Labels: {
-          'com.docker.compose.service': 'plex',
-          'dashmark.url': 'https://plex.home.local'
-        }
-      }
-    ]
-
-    const config = getConfig()
-    config.dockerHost = dockerHost
-    config.configFile = writeTempConfig('plex:\n  title: Plex Media\n')
+    config.dockerHosts = undefined
+    config.configFile = writeTempConfig('github:\n  title: GitHub\n  url: https://github.com\n')
 
     const { cards, error } = await getCards(config, new Headers())
+
     expect(error).toBeUndefined()
     expect(cards).toHaveLength(1)
-    expect(cards[0].title).toBe('Plex Media')
-    expect(cards[0].hasContainer).toBe(true)
+    expect(cards[0]).toMatchObject({
+      id: 'yaml-github',
+      title: 'GitHub',
+      url: 'https://github.com',
+      hasContainer: false
+    })
+  })
+
+  it('lets YAML override a Docker card by Compose service name', async () => {
+    server.containers = [{
+      Id: 'abc123', Names: ['/stack_plex_1'], Image: 'plexinc/pms-docker', ImageID: 'sha256:abc',
+      State: 'running', Status: 'Up 2 hours', Labels: {
+        'com.docker.compose.service': 'plex',
+        'dashmark.url': 'https://plex.home.local'
+      }
+    }]
+
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.dockerHosts = undefined
+    config.configFile = writeTempConfig('plex:\n  title: Plex Media\n  description: none\n')
+
+    const { cards, error } = await getCards(config, new Headers())
+
+    expect(error).toBeUndefined()
+    expect(cards).toHaveLength(1)
+    expect(cards[0]).toMatchObject({
+      id: 'default:abc123',
+      title: 'Plex Media',
+      description: undefined,
+      hasContainer: true
+    })
   })
 })
 
@@ -518,7 +621,7 @@ describe('getContainerStatuses', () => {
 
     expect(error).toBeUndefined()
     expect(statuses).toEqual({
-      abc123: { state: 'running', health: 'healthy' }
+      'default:abc123': { state: 'running', health: 'healthy' }
     })
   })
 
@@ -592,7 +695,7 @@ describe('getContainerStatuses', () => {
       config,
       new Headers({ 'X-Authentik-Groups': 'admins' })
     )
-    expect(withGroup.statuses).toHaveProperty('admin1')
+    expect(withGroup.statuses).toHaveProperty('default:admin1')
 
     const wrongGroup = await getContainerStatuses(
       config,

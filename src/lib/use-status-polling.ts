@@ -5,7 +5,7 @@ import { isStatusResponse, type ContainerStatus } from './status'
 import { strings } from './strings'
 import { STATUS_TOAST_ID } from './constants'
 
-function mergeStatuses(cards: Card[], statuses: Record<string, ContainerStatus>): Card[] {
+export function mergeStatuses(cards: Card[], statuses: Record<string, ContainerStatus>): Card[] {
   return cards.map(card => {
     if (!card.hasContainer) return card
     const status = statuses[card.id]

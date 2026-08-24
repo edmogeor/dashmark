@@ -1,7 +1,7 @@
 import http from 'node:http'
 import https from 'node:https'
 import { URL } from 'node:url'
-import type { AppConfig } from './config'
+import type { AppConfig, DockerHostConfig } from './config'
 import type { ServiceOverrides } from './config-file'
 import { loadYamlConfig } from './config-file'
 import { parseLabels, isValidUrl, traefikUrl, hasDashmarkLabels, type ParsedLabels } from './labels'
@@ -54,6 +54,11 @@ type DockerHost = {
   hostname?: string
   port?: number
   secure?: boolean
+}
+
+type DiscoveredContainer = {
+  hostId: string
+  container: DockerContainer
 }
 
 function isStringArray(value: unknown): value is string[] {
@@ -201,25 +206,41 @@ async function getCachedContainers(dockerHost: string, ttlMs: number): Promise<D
   return containers
 }
 
-async function fetchContainers(config: AppConfig): Promise<{ containers: DockerContainer[]; error?: DashmarkError }> {
-  try {
-    const containers = await getCachedContainers(config.dockerHost, DOCKER_STATUS_CACHE_TTL_MS)
-    return { containers }
-  } catch (error) {
-    const message = errorMessage(error)
+function configuredDockerHosts(config: AppConfig): DockerHostConfig[] {
+  return config.dockerHosts?.length ? config.dockerHosts : [{ id: 'default', dockerHost: config.dockerHost }]
+}
+
+async function fetchContainers(config: AppConfig): Promise<{ containers: DiscoveredContainer[]; error?: DashmarkError }> {
+  const hosts = configuredDockerHosts(config)
+  const results = await Promise.allSettled(hosts.map(async host => ({
+    hostId: host.id,
+    containers: await getCachedContainers(host.dockerHost, DOCKER_STATUS_CACHE_TTL_MS)
+  })))
+  const containers: DiscoveredContainer[] = []
+  let failure: unknown
+  let hasSuccessfulHost = false
+
+  for (const [index, result] of results.entries()) {
+    if (result.status === 'fulfilled') {
+      hasSuccessfulHost = true
+      containers.push(...result.value.containers.map(container => ({ hostId: result.value.hostId, container })))
+      continue
+    }
+
+    failure ??= result.reason
+    const message = errorMessage(result.reason)
+    const host = hosts[index]
     logger.error('docker', logMessages.docker.listContainersFailed, {
-      dockerHost: config.dockerHost,
+      dockerHost: host?.dockerHost,
       error: message
     })
-    return {
-      containers: [],
-      error: dashmarkError(
-        'DOCKER_UNREACHABLE',
-        strings.errors.dockerUnreachable,
-        true,
-        message
-      )
-    }
+  }
+
+  if (hasSuccessfulHost || results.length === 0) return { containers }
+  const message = errorMessage(failure)
+  return {
+    containers: [],
+    error: dashmarkError('DOCKER_UNREACHABLE', strings.errors.dockerUnreachable, true, message)
   }
 }
 
@@ -242,12 +263,23 @@ function containerName(container: DockerContainer): string {
 
 function lookupYamlService(
   yamlServices: Record<string, ServiceOverrides>,
+  hostId: string,
   container: DockerContainer
 ): { key?: string; service?: ServiceOverrides } {
   const name = containerName(container)
+  const composeService = container.Labels?.[COMPOSE_SERVICE_LABEL]
+  const hostName = `${hostId}/${name}`
+  if (yamlServices[hostName]) return { key: hostName, service: yamlServices[hostName] }
+
+  if (composeService) {
+    const hostComposeService = `${hostId}/${composeService}`
+    if (yamlServices[hostComposeService]) {
+      return { key: hostComposeService, service: yamlServices[hostComposeService] }
+    }
+  }
+
   if (yamlServices[name]) return { key: name, service: yamlServices[name] }
 
-  const composeService = container.Labels?.[COMPOSE_SERVICE_LABEL]
   if (composeService && yamlServices[composeService]) {
     return { key: composeService, service: yamlServices[composeService] }
   }
@@ -315,9 +347,10 @@ type ResolvedContainer = {
 
 function resolveContainer(
   yamlServices: Record<string, ServiceOverrides>,
+  hostId: string,
   container: DockerContainer
 ): ResolvedContainer {
-  const { key: yamlKey, service: yamlService } = lookupYamlService(yamlServices, container)
+  const { key: yamlKey, service: yamlService } = lookupYamlService(yamlServices, hostId, container)
   const rawLabels = container.Labels ?? {}
   const labels = mergeWithYaml(parseLabels(rawLabels), yamlService)
 
@@ -360,7 +393,8 @@ function getUserGroups(config: AppConfig, headers: Headers): { groups: string[];
 
 async function cardFromContainer(
   config: AppConfig,
-  resolved: ResolvedContainer
+  resolved: ResolvedContainer,
+  hostId: string
 ): Promise<Card | null> {
   const { container, name, labels, url } = resolved
 
@@ -373,7 +407,7 @@ async function cardFromContainer(
   ])
 
   return {
-    id: container.Id,
+    id: `${hostId}:${container.Id}`,
     title,
     description,
     url,
@@ -435,7 +469,7 @@ function sortCards(cards: Card[]): Card[] {
 
 type LoadedServices = {
   yamlServices: Record<string, ServiceOverrides>
-  containers: DockerContainer[]
+  containers: DiscoveredContainer[]
   error?: DashmarkError
 }
 
@@ -465,11 +499,11 @@ export async function getContainerStatuses(
   if (loadError) return { statuses: {}, error: loadError }
 
   const statuses: Record<string, ContainerStatus> = {}
-  for (const container of containers) {
-    const resolved = resolveContainer(yamlServices, container)
+  for (const { hostId, container } of containers) {
+    const resolved = resolveContainer(yamlServices, hostId, container)
     if (!isVisibleContainer(resolved, userGroups)) continue
 
-    statuses[container.Id] = {
+    statuses[`${hostId}:${container.Id}`] = {
       state: container.State,
       health: parseHealth(container.Status)
     }
@@ -482,12 +516,12 @@ async function buildAllCards(config: AppConfig): Promise<{ cards: Card[]; error?
   const { yamlServices, containers, error } = await loadServicesAndContainers(config)
   if (error) return { cards: [], error }
 
-  const matchedKeys = new Set<string>()
   const cards: Card[] = []
+  const matchedKeys = new Set<string>()
 
-  for (const container of containers) {
-    const resolved = resolveContainer(yamlServices, container)
-    const card = await cardFromContainer(config, resolved)
+  for (const { hostId, container } of containers) {
+    const resolved = resolveContainer(yamlServices, hostId, container)
+    const card = await cardFromContainer(config, resolved, hostId)
     if (card) cards.push(card)
 
     if (resolved.yamlKey) matchedKeys.add(resolved.yamlKey)

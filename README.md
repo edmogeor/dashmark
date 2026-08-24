@@ -36,6 +36,7 @@ Dashmark discovers labeled Docker containers and turns them into dashboard cards
 
 ## Features
 
+- Discover Docker containers across multiple hosts.
 - Discover Docker containers through opt-in labels.
 - Reuse Traefik host rules as card links.
 - Organise cards with categories, search aliases, and custom ordering.
@@ -59,7 +60,7 @@ Dashmark discovers labeled Docker containers and turns them into dashboard cards
        ports:
          - "127.0.0.1:4321:4321"
        environment:
-         - DOCKER_HOST=tcp://dockerproxy:2375
+          - DOCKER_HOSTS=default=tcp://dockerproxy:2375
        depends_on:
          - dockerproxy
        restart: unless-stopped
@@ -119,7 +120,7 @@ Configure Dashmark with environment variables, Docker labels, and an optional YA
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `DOCKER_HOST` | `unix:///var/run/docker.sock` | Docker socket or TCP endpoint |
+| `DOCKER_HOSTS` | `unix:///var/run/docker.sock` | One Docker endpoint, or comma-separated named endpoints such as `home=tcp://home-proxy:2375,vps=tcp://vps-proxy:2375` |
 | `CONFIG_FILE` | `/app/config.yml` | Optional YAML configuration file |
 | `ICONS_DIR` | `/app/icons` | Directory for local icon files |
 | `PORT` | `4321` | HTTP listening port |
@@ -149,6 +150,30 @@ Configure Dashmark with environment variables, Docker labels, and an optional YA
 | `NEW_TAB` | `false` | Open card links in a new tab |
 | `AUTH_TOKEN` | unset | Require `X-Dashmark-Token: <token>` on every request |
 
+### Multiple Docker hosts
+
+Use `DOCKER_HOSTS` to discover containers from more than one Docker daemon:
+
+```yaml
+environment:
+  - DOCKER_HOSTS=home=tcp://home-proxy:2375,vps=tcp://vps-proxy:2375
+```
+
+For one host, provide its Docker endpoint directly and Dashmark assigns it the `default` host ID:
+
+```yaml
+environment:
+  - DOCKER_HOSTS=tcp://dockerproxy:2375
+```
+
+For multiple hosts, use a comma-separated list of `<host-id>=<Docker endpoint>` entries. Host IDs may contain letters, numbers, `_`, and `-`; they identify a host in YAML overrides and must be unique. When unset, Dashmark connects to `unix:///var/run/docker.sock` as the `default` host.
+
+> **Breaking change:** `DOCKER_HOST` is no longer read. Replace `DOCKER_HOST=tcp://dockerproxy:2375` with `DOCKER_HOSTS=tcp://dockerproxy:2375` when upgrading.
+
+Dashmark fetches hosts independently. Cards from reachable hosts still appear if another host is unavailable. Cards are visually unchanged, but their internal IDs and status updates are namespaced by host so identical container IDs do not collide.
+
+Run a restricted socket proxy on every remote Docker host and connect to it over a private network such as Tailscale or WireGuard. Do not expose the Docker daemon or a socket proxy on the public internet. Dashmark only needs read access to `/version` and `/containers/json`.
+
 ### Docker labels
 
 Add labels to opt a container in and configure its card.
@@ -174,6 +199,15 @@ When `dashmark.url` is absent, Dashmark can derive an HTTPS URL from a Traefik r
 
 Mount a YAML file and set `CONFIG_FILE` if it is not mounted at `/app/config.yml`. Each top-level key is a container name or Compose service name. A matching key overrides that container; a non-matching key creates a standalone card and must include `url`.
 
+With `DOCKER_HOSTS`, use `<host-id>/<container-or-service-name>` to target a container on one host. Dashmark resolves YAML overrides in this order:
+
+1. Host-qualified container name, for example `vps/plex` for a container named `plex` on `vps`.
+2. Host-qualified Compose service name, for example `vps/plex` for `com.docker.compose.service=plex` on `vps`.
+3. Unqualified container name, for example `plex` on any host.
+4. Unqualified Compose service name, for example `plex` on any host.
+
+An unqualified key is a shared override. A host-qualified key overrides it for that host only. Container names take precedence over Compose service names at the same level.
+
 ```yaml
 plex:
   title: Plex
@@ -190,6 +224,27 @@ github:
   title: GitHub
   url: https://github.com
   category: External
+
+# Override only the plex service discovered from the `vps` Docker host.
+vps/plex:
+  title: VPS Plex
+```
+
+For the same service on multiple hosts, configure a shared default and one override per host:
+
+```yaml
+# Applies to Plex everywhere unless a host-specific key overrides a field.
+plex:
+  category: Media
+  icon: selfhst:plex
+
+home/plex:
+  title: Home Plex
+  url: https://plex.home.example.com
+
+vps/plex:
+  title: VPS Plex
+  url: https://plex.vps.example.com
 ```
 
 Available fields are `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `show_status`, `access_groups`, and `search_aliases`. See [`config/config.example.yml`](config/config.example.yml) for a commented example.

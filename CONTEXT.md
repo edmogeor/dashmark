@@ -50,7 +50,7 @@ The `Dashboard` island renders the cards and polls `GET /api/status` every 30 se
 
 ### Caching
 
-- `src/lib/docker.ts` keeps two caches, both cleared by `clearDockerCache()`: the negotiated Docker API version (per host) and the container list (per host, 30s TTL). Cards are rebuilt for each request so YAML edits are reflected immediately.
+- `src/lib/docker.ts` keeps two caches, both cleared by `clearDockerCache()`: the negotiated Docker API version (per host) and the container list (per host, 30s TTL). Docker hosts are fetched independently, so an unavailable host does not hide cards from healthy hosts.
 - `src/lib/config-file.ts` caches parsed YAML keyed by file path, invalidated when `mtime` or `size` change.
 
 ### Icon resolution
@@ -74,7 +74,7 @@ Selfhst icons are analysed for luminance when resolved. If an icon is dominated 
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `DOCKER_HOST` | `unix:///var/run/docker.sock` | Docker socket or TCP endpoint |
+| `DOCKER_HOSTS` | `unix:///var/run/docker.sock` | One endpoint, or comma-separated `<host-id>=<endpoint>` Docker endpoints |
 | `CONFIG_FILE` | `/app/config.yml` | Optional YAML config file path |
 | `ICONS_DIR` | `/app/icons` | Directory for custom icon files |
 | `ENABLE_ACCESS_GROUPS` | `false` | When `true`, filter cards by the groups header |
@@ -124,7 +124,7 @@ With no `dashmark.url` (and no YAML URL), the URL is derived from a Traefik labe
 
 ### YAML config
 
-Optional flat file at `CONFIG_FILE`, where each top-level key is a service keyed by container name or compose service name (from the `com.docker.compose.service` label; container name wins on conflict). Per-service fields: `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `show_status`, `access_groups`, `search_aliases`. YAML values override Docker labels for a matching container; entries with no matching container still produce cards (no state badge). See `config/config.example.yml`.
+Optional flat file at `CONFIG_FILE`, where each top-level key is a service keyed by container name or compose service name (from the `com.docker.compose.service` label; container name wins on conflict). With `DOCKER_HOSTS`, `<host-id>/<container-or-service-name>` targets one host. Resolution order is host-qualified container name, host-qualified Compose service name, unqualified container name, then unqualified Compose service name. Per-service fields: `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `show_status`, `access_groups`, `search_aliases`. YAML values override Docker labels for a matching container; entries with no matching container still produce cards (no state badge). See `config/config.example.yml`.
 
 ### Access groups
 
@@ -138,8 +138,9 @@ When group tags are enabled, matching status-badge groups appear in the header e
 
 - Multi-stage `node:22-alpine` image; the runtime runs `node ./dist/server/entry.mjs` and listens on `PORT` (default 4321). `src/data/icons.json` and `src/data/descriptions.json` are copied into the image (generated at build via `prebuild`).
 - Mount the Docker socket read-only (`/var/run/docker.sock:/var/run/docker.sock:ro`); Dashmark only reads container metadata.
+- For remote hosts, use a restricted socket proxy over a private network. Do not expose the Docker daemon or socket proxy publicly.
 - Serve behind a reverse proxy with authentication when `ENABLE_ACCESS_GROUPS=true` so the groups header is trustworthy.
-- `docker-compose.yml` mounts `config/config.example.yml` -> `/app/config.yml` and `./icons` -> `/app/icons`, and routes Docker access through a `wollomatic/socket-proxy` sidecar (`DOCKER_HOST=tcp://dockerproxy:2375`).
+- `docker-compose.yml` mounts `config/config.example.yml` -> `/app/config.yml` and `./icons` -> `/app/icons`, and routes Docker access through a `wollomatic/socket-proxy` sidecar (`DOCKER_HOSTS=tcp://dockerproxy:2375`).
 
 ## Key modules
 

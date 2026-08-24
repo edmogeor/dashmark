@@ -8,7 +8,8 @@ export const logMessages = {
     invalidYamlService: 'ignoring invalid YAML service',
     parseFailed: 'failed to parse config file',
     invalidAccessGroupsHeader: 'invalid access groups header, falling back to auto',
-    invalidUserHeader: 'invalid user header, ignoring override'
+    invalidUserHeader: 'invalid user header, ignoring override',
+    invalidDockerHosts: 'ignoring invalid DOCKER_HOSTS entry'
   },
   icons: {
     invalidPath: 'invalid custom icon path',

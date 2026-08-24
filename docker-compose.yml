@@ -9,9 +9,13 @@ services:
       - ./icons:/app/icons:ro
       # - ./custom.css:/app/custom.css:ro
     environment:
-      # Points Dashmark at the socket-proxy sidecar below. The default is the
-      # Docker socket at unix:///var/run/docker.sock.
-      - DOCKER_HOST=tcp://dockerproxy:2375
+      # Points Dashmark at the socket-proxy sidecar below. When unset, Dashmark
+      # uses the local Docker socket at unix:///var/run/docker.sock.
+      - DOCKER_HOSTS=tcp://dockerproxy:2375
+
+      # Multiple Docker hosts use named endpoints. The IDs can be referenced in
+      # YAML overrides, for example `home/plex` and `vps/plex`.
+      # - DOCKER_HOSTS=home=tcp://dockerproxy:2375,vps=tcp://vps-proxy:2375
 
       # Optional settings, shown with their defaults. Uncomment one to change it.
       # - PORT=4321

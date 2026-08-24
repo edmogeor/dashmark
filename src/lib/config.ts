@@ -4,6 +4,7 @@ import { AUTO_ACCESS_GROUPS_HEADER, ACCESS_GROUPS_HEADER_TOKEN, DEFAULT_PORT, MA
 
 export type AppConfig = {
   dockerHost: string
+  dockerHosts?: DockerHostConfig[]
   configFile: string
   iconsDir: string
   customStylesheet?: string
@@ -31,6 +32,11 @@ export type AppConfig = {
   greetingMorning?: string
   greetingAfternoon?: string
   greetingEvening?: string
+}
+
+export type DockerHostConfig = {
+  id: string
+  dockerHost: string
 }
 
 function parseBool(value: string | undefined, defaultValue: boolean): boolean {
@@ -93,13 +99,36 @@ function optionalString(value: string | undefined): string | undefined {
   return value?.trim() || undefined
 }
 
+function parseDockerHosts(value: string | undefined): DockerHostConfig[] | undefined {
+  if (!value?.trim()) return undefined
+
+  const entries = value.split(',').map(entry => entry.trim()).filter(Boolean)
+  if (entries.length === 1 && !entries[0].includes('=')) {
+    return [{ id: 'default', dockerHost: entries[0] }]
+  }
+
+  const hosts: DockerHostConfig[] = []
+  const ids = new Set<string>()
+  for (const entry of entries) {
+    const [id, dockerHost, ...extra] = entry.split('=')
+    if (!id || !dockerHost || extra.length > 0 || !/^[a-zA-Z0-9_-]+$/.test(id) || ids.has(id)) {
+      logger.error('config', logMessages.config.invalidDockerHosts, { entry: entry.trim() })
+      continue
+    }
+    ids.add(id)
+    hosts.push({ id, dockerHost: dockerHost.trim() })
+  }
+  return hosts.length > 0 ? hosts : undefined
+}
+
 export function getConfig(): AppConfig {
   const enableAccessGroups = parseBool(process.env.ENABLE_ACCESS_GROUPS, false)
   const accessGroupsHeader = parseAccessGroupsHeader(process.env.ACCESS_GROUPS_HEADER)
   const customHeader = optionalString(process.env.CUSTOM_HEADER)
 
   return {
-    dockerHost: process.env.DOCKER_HOST || 'unix:///var/run/docker.sock',
+    dockerHost: 'unix:///var/run/docker.sock',
+    dockerHosts: parseDockerHosts(process.env.DOCKER_HOSTS),
     configFile: process.env.CONFIG_FILE || '/app/config.yml',
     iconsDir: process.env.ICONS_DIR || '/app/icons',
     customStylesheet: optionalString(process.env.CUSTOM_STYLESHEET),
