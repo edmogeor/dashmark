@@ -19,6 +19,8 @@ export type AppConfig = {
   showSearch: boolean
   showStatus: boolean
   statusBadgeGroups: string[]
+  showResourceUsage: boolean
+  resourceUsageGroups: string[]
   statusPollIntervalMs: number
   categoryOrder: string[]
   enableAutomaticDescriptions: boolean
@@ -143,6 +145,8 @@ export function getConfig(): AppConfig {
     showSearch: parseBool(process.env.SHOW_SEARCH, true),
     showStatus: parseBool(process.env.SHOW_STATUS, true),
     statusBadgeGroups: parseStatusBadgeGroups(process.env.STATUS_BADGE_GROUPS),
+    showResourceUsage: parseBool(process.env.SHOW_RESOURCE_USAGE, true),
+    resourceUsageGroups: parseStatusBadgeGroups(process.env.RESOURCE_USAGE_GROUPS),
     statusPollIntervalMs: parseInterval(process.env.STATUS_POLL_INTERVAL),
     categoryOrder: parseCategoryOrder(process.env.CATEGORY_ORDER),
     enableAutomaticDescriptions: parseBool(process.env.ENABLE_AUTOMATIC_DESCRIPTIONS, true),

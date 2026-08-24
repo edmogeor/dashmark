@@ -9,9 +9,13 @@ export type ParsedLabels = {
   category?: string
   order?: number
   showStatus?: boolean
+  resourceStats?: ResourceStat[]
   accessGroups: string[]
   searchAliases: string[]
 }
+
+export const RESOURCE_STATS = ['cpu', 'memory', 'network'] as const
+export type ResourceStat = typeof RESOURCE_STATS[number]
 
 function parseCommaSeparated(value: string | undefined): string[] {
   return value?.split(',').map(item => item.trim()).filter(Boolean) ?? []
@@ -21,6 +25,15 @@ function parseOptionalBool(value: string | undefined): boolean | undefined {
   if (value?.toLowerCase() === 'true') return true
   if (value?.toLowerCase() === 'false') return false
   return undefined
+}
+
+export function parseResourceStats(value: string | string[] | undefined): ResourceStat[] | undefined {
+  if (value === undefined) return undefined
+  const values = (typeof value === 'string' ? value.split(',') : value)
+    .map(item => item.trim().toLowerCase())
+    .filter(Boolean)
+  if (values.includes('none')) return []
+  return RESOURCE_STATS.filter(stat => values.includes(stat))
 }
 
 export function parseLabels(labels: Record<string, string>): ParsedLabels {
@@ -35,6 +48,7 @@ export function parseLabels(labels: Record<string, string>): ParsedLabels {
   const orderRaw = get('order')
   const order = orderRaw !== undefined ? Number(orderRaw) : undefined
   const showStatus = parseOptionalBool(get('show_status'))
+  const resourceStats = parseResourceStats(get('stats'))
   const accessGroups = parseCommaSeparated(get('access_groups'))
   const searchAliases = parseCommaSeparated(get('search_aliases'))
 
@@ -47,6 +61,7 @@ export function parseLabels(labels: Record<string, string>): ParsedLabels {
     category,
     order: Number.isFinite(order) ? order : undefined,
     showStatus,
+    resourceStats,
     accessGroups,
     searchAliases
   }

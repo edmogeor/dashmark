@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import yaml from 'js-yaml'
 import type { AppConfig } from './config'
-import type { ParsedLabels } from './labels'
+import { parseResourceStats, type ParsedLabels } from './labels'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
 import { dashmarkError, errorMessage, isRecord, type DashmarkError } from './errors'
@@ -50,6 +50,9 @@ function parseService(value: unknown): ServiceOverrides | null {
     order,
     hidden: typeof value.hidden === 'boolean' ? value.hidden : undefined,
     showStatus: typeof value.show_status === 'boolean' ? value.show_status : undefined,
+    resourceStats: typeof value.stats === 'string' || Array.isArray(value.stats)
+      ? parseResourceStats(typeof value.stats === 'string' ? value.stats : stringArray(value.stats))
+      : undefined,
     accessGroups: stringArray(value.access_groups),
     searchAliases: stringArray(value.search_aliases)
   }

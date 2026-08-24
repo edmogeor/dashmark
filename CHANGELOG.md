@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-24
+
+### Added
+
+- CPU, memory, and network resource-usage tooltips for Docker-backed cards, fetched only while open.
+
 ## [0.1.19] - 2026-08-24
 
 ### Added

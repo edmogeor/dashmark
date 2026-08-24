@@ -11,10 +11,14 @@ export function mergeStatuses(cards: Card[], statuses: Record<string, ContainerS
     const status = statuses[card.id]
     if (!status) {
       if (card.state === undefined && card.health === undefined) return card
-      return { ...card, state: undefined, health: undefined }
+      return {
+        ...card,
+        state: undefined,
+        health: undefined
+      }
     }
     if (card.state === status.state && card.health === status.health) return card
-    return { ...card, state: status.state, health: status.health }
+    return { ...card, ...status }
   })
 }
 

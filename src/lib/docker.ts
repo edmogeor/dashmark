@@ -4,15 +4,15 @@ import { URL } from 'node:url'
 import type { AppConfig, DockerHostConfig } from './config'
 import type { ServiceOverrides } from './config-file'
 import { loadYamlConfig } from './config-file'
-import { parseLabels, isValidUrl, traefikUrl, hasDashmarkLabels, type ParsedLabels } from './labels'
+import { parseLabels, isValidUrl, traefikUrl, hasDashmarkLabels, RESOURCE_STATS, type ParsedLabels, type ResourceStat } from './labels'
 import { resolveIcon, type IconResult } from './icons'
 import { resolveDescription } from './descriptions'
-import { groupHeaderNames, readUserGroups } from './auth'
+import { groupHeaderNames, hasAllowedGroup, readUserGroups } from './auth'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
 import { dashmarkError, errorMessage, isRecord, type DashmarkError } from './errors'
 import { strings } from './strings'
-import type { ContainerStatus } from './status'
+import type { ContainerResources, ContainerStatus } from './status'
 import {
   DOCKER_REQUEST_TIMEOUT_MS,
   DOCKER_MAX_RESPONSE_BYTES,
@@ -34,9 +34,11 @@ export type Card = {
   showStatus?: boolean
   state?: string
   health?: string
+  resourceStats?: ResourceStat[]
   searchAliases: string[]
   hasContainer: boolean
   accessGroups: string[]
+  host?: string
 }
 
 type DockerContainer = {
@@ -61,6 +63,23 @@ type DiscoveredContainer = {
   container: DockerContainer
 }
 
+type DockerStats = {
+  cpuStats: {
+    totalUsage: number
+    systemUsage: number
+    onlineCpus?: number
+    cpuCount: number
+  }
+  previousCpuStats: {
+    totalUsage: number
+    systemUsage: number
+  }
+  memoryUsage?: number
+  memoryLimit?: number
+  receivedBytes?: number
+  sentBytes?: number
+}
+
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every(item => typeof item === 'string')
 }
@@ -78,6 +97,45 @@ function isDockerContainer(value: unknown): value is DockerContainer {
     && typeof value.State === 'string'
     && typeof value.Status === 'string'
     && (value.Labels === undefined || isStringRecord(value.Labels))
+}
+
+function number(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined
+}
+
+function parseDockerStats(value: unknown): DockerStats | undefined {
+  if (!isRecord(value) || !isRecord(value.cpu_stats) || !isRecord(value.precpu_stats)) return undefined
+  const cpuUsage = isRecord(value.cpu_stats.cpu_usage) ? value.cpu_stats.cpu_usage : undefined
+  const previousCpuUsage = isRecord(value.precpu_stats.cpu_usage) ? value.precpu_stats.cpu_usage : undefined
+  const totalUsage = number(cpuUsage?.total_usage)
+  const previousTotalUsage = number(previousCpuUsage?.total_usage)
+  const systemUsage = number(value.cpu_stats.system_cpu_usage)
+  const previousSystemUsage = number(value.precpu_stats.system_cpu_usage)
+  if (totalUsage === undefined || previousTotalUsage === undefined || systemUsage === undefined || previousSystemUsage === undefined) {
+    return undefined
+  }
+
+  const perCpuUsage = cpuUsage?.percpu_usage
+  const cpuCount = Array.isArray(perCpuUsage) ? perCpuUsage.length : 1
+  const onlineCpus = number(value.cpu_stats.online_cpus)
+  const memoryStats = isRecord(value.memory_stats) ? value.memory_stats : undefined
+  const networks = isRecord(value.networks) ? Object.values(value.networks) : []
+  const receivedBytes = networks.reduce<number | undefined>((total, network) => {
+    const received = isRecord(network) ? number(network.rx_bytes) : undefined
+    return total === undefined || received === undefined ? undefined : total + received
+  }, networks.length > 0 ? 0 : undefined)
+  const sentBytes = networks.reduce<number | undefined>((total, network) => {
+    const sent = isRecord(network) ? number(network.tx_bytes) : undefined
+    return total === undefined || sent === undefined ? undefined : total + sent
+  }, networks.length > 0 ? 0 : undefined)
+  return {
+    cpuStats: { totalUsage, systemUsage, onlineCpus, cpuCount },
+    previousCpuStats: { totalUsage: previousTotalUsage, systemUsage: previousSystemUsage },
+    memoryUsage: number(memoryStats?.usage),
+    memoryLimit: number(memoryStats?.limit),
+    receivedBytes,
+    sentBytes
+  }
 }
 
 function parseDockerHost(dockerHost: string): DockerHost {
@@ -103,6 +161,7 @@ const apiVersionCache = new Map<string, string>()
 
 type Timestamped<T> = { data: T; timestamp: number }
 const containerListCache = new Map<string, Timestamped<DockerContainer[]>>()
+const networkUsageCache = new Map<string, { receivedBytes: number; sentBytes: number; timestamp: number }>()
 async function rawDockerRequest(
   dockerHost: string,
   path: string,
@@ -206,6 +265,48 @@ async function getCachedContainers(dockerHost: string, ttlMs: number): Promise<D
   return containers
 }
 
+async function getContainerResources(
+  dockerHost: string,
+  containerId: string,
+  resourceStats: readonly ResourceStat[]
+): Promise<ContainerResources | undefined> {
+  try {
+    const data = await dockerRequest(dockerHost, `/containers/${encodeURIComponent(containerId)}/stats?stream=false`)
+    const stats = parseDockerStats(data)
+    if (!stats) return undefined
+
+    const cpuDelta = stats.cpuStats.totalUsage - stats.previousCpuStats.totalUsage
+    const systemDelta = stats.cpuStats.systemUsage - stats.previousCpuStats.systemUsage
+    const cpuCount = stats.cpuStats.onlineCpus || stats.cpuStats.cpuCount
+    const cpuPercent = systemDelta > 0 && cpuDelta >= 0
+      ? (cpuDelta / systemDelta) * cpuCount * 100
+      : undefined
+    const cacheKey = `${dockerHost}:${containerId}`
+    const previous = networkUsageCache.get(cacheKey)
+    const timestamp = Date.now()
+    const elapsedSeconds = previous ? (timestamp - previous.timestamp) / 1_000 : 0
+    const receivedBytesPerSecond = previous && elapsedSeconds > 0 && stats.receivedBytes !== undefined
+      ? Math.max(0, (stats.receivedBytes - previous.receivedBytes) / elapsedSeconds)
+      : undefined
+    const sentBytesPerSecond = previous && elapsedSeconds > 0 && stats.sentBytes !== undefined
+      ? Math.max(0, (stats.sentBytes - previous.sentBytes) / elapsedSeconds)
+      : undefined
+    if (stats.receivedBytes !== undefined && stats.sentBytes !== undefined) {
+      networkUsageCache.set(cacheKey, { receivedBytes: stats.receivedBytes, sentBytes: stats.sentBytes, timestamp })
+    }
+
+    return {
+      cpuPercent: resourceStats.includes('cpu') ? cpuPercent : undefined,
+      memoryUsage: resourceStats.includes('memory') ? stats.memoryUsage : undefined,
+      memoryLimit: resourceStats.includes('memory') ? stats.memoryLimit : undefined,
+      receivedBytesPerSecond: resourceStats.includes('network') ? receivedBytesPerSecond : undefined,
+      sentBytesPerSecond: resourceStats.includes('network') ? sentBytesPerSecond : undefined
+    }
+  } catch {
+    return undefined
+  }
+}
+
 function configuredDockerHosts(config: AppConfig): DockerHostConfig[] {
   return config.dockerHosts?.length ? config.dockerHosts : [{ id: 'default', dockerHost: config.dockerHost }]
 }
@@ -247,6 +348,7 @@ async function fetchContainers(config: AppConfig): Promise<{ containers: Discove
 export function clearDockerCache() {
   apiVersionCache.clear()
   containerListCache.clear()
+  networkUsageCache.clear()
 }
 
 function parseHealth(status: string): string | undefined {
@@ -302,6 +404,7 @@ function mergeWithYaml(
     category: yamlService.category ?? labels.category,
     order: yamlService.order ?? labels.order,
     showStatus: yamlService.showStatus ?? labels.showStatus,
+    resourceStats: yamlService.resourceStats ?? labels.resourceStats,
     accessGroups: yamlService.accessGroups ?? labels.accessGroups,
     searchAliases: yamlService.searchAliases ?? labels.searchAliases
   }
@@ -372,6 +475,17 @@ export function addAccessGroupVaryHeader(headers: Headers, config: AppConfig): v
   headers.set('Vary', groupHeaderNames(config).join(', '))
 }
 
+export function addResourceUsageVaryHeader(headers: Headers, config: AppConfig): void {
+  if (!config.enableAccessGroups && config.resourceUsageGroups.length === 0) return
+  headers.set('Vary', groupHeaderNames(config).join(', '))
+}
+
+function canViewResourceUsage(config: AppConfig, headers: Headers): boolean {
+  if (!config.showResourceUsage) return false
+  if (config.resourceUsageGroups.length === 0) return true
+  return hasAllowedGroup(readUserGroups(config, headers).groups, config.resourceUsageGroups)
+}
+
 function getUserGroups(config: AppConfig, headers: Headers): { groups: string[]; error?: DashmarkError } {
   if (!config.enableAccessGroups) return { groups: [] }
 
@@ -394,7 +508,8 @@ function getUserGroups(config: AppConfig, headers: Headers): { groups: string[];
 async function cardFromContainer(
   config: AppConfig,
   resolved: ResolvedContainer,
-  hostId: string
+  hostId: string,
+  showHost: boolean
 ): Promise<Card | null> {
   const { container, name, labels, url } = resolved
 
@@ -419,7 +534,9 @@ async function cardFromContainer(
     health: parseHealth(container.Status),
     searchAliases: labels.searchAliases,
     hasContainer: true,
-    accessGroups: labels.accessGroups
+    accessGroups: labels.accessGroups,
+    host: showHost ? hostId : undefined,
+    resourceStats: labels.resourceStats ?? [...RESOURCE_STATS]
   }
 }
 
@@ -497,19 +614,56 @@ export async function getContainerStatuses(
 
   const { yamlServices, containers, error: loadError } = await loadServicesAndContainers(config)
   if (loadError) return { statuses: {}, error: loadError }
-
-  const statuses: Record<string, ContainerStatus> = {}
-  for (const { hostId, container } of containers) {
+  const statusEntries = containers.map(({ hostId, container }) => {
     const resolved = resolveContainer(yamlServices, hostId, container)
-    if (!isVisibleContainer(resolved, userGroups)) continue
+    if (!isVisibleContainer(resolved, userGroups)) return undefined
 
-    statuses[`${hostId}:${container.Id}`] = {
+    return [`${hostId}:${container.Id}`, {
       state: container.State,
       health: parseHealth(container.Status)
-    }
+    }] as const
+  })
+
+  const statuses: Record<string, ContainerStatus> = {}
+  for (const entry of statusEntries) {
+    if (entry) statuses[entry[0]] = entry[1]
   }
 
   return { statuses }
+}
+
+export async function getContainerResourceUsage(
+  config: AppConfig,
+  headers: Headers,
+  cardId: string
+): Promise<ContainerResources | undefined> {
+  if (!canViewResourceUsage(config, headers)) return undefined
+
+  const { groups: userGroups, error } = getUserGroups(config, headers)
+  if (error) return undefined
+
+  const host = configuredDockerHosts(config).find(candidate => cardId.startsWith(`${candidate.id}:`))
+  if (!host) return undefined
+  const containerId = cardId.slice(host.id.length + 1)
+  if (!containerId) return undefined
+
+  const yamlConfig = loadYamlConfig(config)
+  if (yamlConfig.error) return undefined
+
+  try {
+    const containers = await getCachedContainers(host.dockerHost, DOCKER_STATUS_CACHE_TTL_MS)
+    const container = containers.find(candidate => candidate.Id === containerId)
+    if (!container || container.State !== 'running') return undefined
+
+    const resolved = resolveContainer(yamlConfig.config, host.id, container)
+    if (!isVisibleContainer(resolved, userGroups) || resolved.labels.showStatus === false) return undefined
+    const resourceStats = resolved.labels.resourceStats ?? RESOURCE_STATS
+    if (resourceStats.length === 0) return undefined
+
+    return getContainerResources(host.dockerHost, container.Id, resourceStats)
+  } catch {
+    return undefined
+  }
 }
 
 async function buildAllCards(config: AppConfig): Promise<{ cards: Card[]; error?: DashmarkError }> {
@@ -518,10 +672,11 @@ async function buildAllCards(config: AppConfig): Promise<{ cards: Card[]; error?
 
   const cards: Card[] = []
   const matchedKeys = new Set<string>()
+  const showHost = configuredDockerHosts(config).length > 1
 
   for (const { hostId, container } of containers) {
     const resolved = resolveContainer(yamlServices, hostId, container)
-    const card = await cardFromContainer(config, resolved, hostId)
+    const card = await cardFromContainer(config, resolved, hostId, showHost)
     if (card) cards.push(card)
 
     if (resolved.yamlKey) matchedKeys.add(resolved.yamlKey)

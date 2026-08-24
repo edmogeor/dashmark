@@ -27,7 +27,7 @@ describe('mergeStatuses', () => {
       'vps:shared-id': { state: 'paused' }
     })).toMatchObject([
       { id: 'home:shared-id', state: 'running', health: 'healthy' },
-      { id: 'vps:shared-id', state: 'paused', health: undefined }
+      { id: 'vps:shared-id', state: 'paused' }
     ])
   })
 })

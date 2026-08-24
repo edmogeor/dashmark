@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { MockDockerServer } from '../mocks/docker-server'
 import { getConfig } from '@/lib/config'
-import { getCards, getContainerStatuses, clearDockerCache } from '@/lib/docker'
+import { getCards, getContainerResourceUsage, getContainerStatuses, clearDockerCache } from '@/lib/docker'
 
 vi.mock('@/lib/descriptions', () => ({
   resolveDescription: vi.fn(() => 'Automatic description')
@@ -99,7 +99,10 @@ describe('getCards', () => {
       const { statuses } = await getContainerStatuses(config, new Headers())
 
       expect(error).toBeUndefined()
-      expect(cards.map(card => card.id)).toEqual(['home:shared-id', 'vps:shared-id'])
+      expect(cards.map(card => ({ id: card.id, host: card.host }))).toEqual([
+        { id: 'home:shared-id', host: 'home' },
+        { id: 'vps:shared-id', host: 'vps' }
+      ])
       expect(statuses).toEqual({
         'home:shared-id': { state: 'running', health: undefined },
         'vps:shared-id': { state: 'paused', health: undefined }
@@ -623,6 +626,116 @@ describe('getContainerStatuses', () => {
     expect(statuses).toEqual({
       'default:abc123': { state: 'running', health: 'healthy' }
     })
+  })
+
+  it('includes CPU, memory, and per-container network rates', async () => {
+    server.containers = [{
+      Id: 'resources', Names: ['/resources'], Image: 'nginx', ImageID: 'sha256:resources',
+      State: 'running', Status: 'Up 1 hour', Labels: { 'dashmark.url': 'https://resources.example.com' }
+    }]
+    server.stats.resources = {
+      cpu_stats: {
+        cpu_usage: { total_usage: 300, percpu_usage: [150, 150] },
+        system_cpu_usage: 1_400,
+        online_cpus: 2
+      },
+      precpu_stats: {
+        cpu_usage: { total_usage: 100 },
+        system_cpu_usage: 1_000
+      },
+      memory_stats: { usage: 512 * 1_024 * 1_024, limit: 2 * 1_024 * 1_024 * 1_024 },
+      networks: { eth0: { rx_bytes: 1_000, tx_bytes: 500 } }
+    }
+    const now = vi.spyOn(Date, 'now').mockReturnValue(0)
+    const config = getConfig()
+    config.dockerHost = dockerHost
+
+    try {
+      const statuses = await getContainerStatuses(config, new Headers())
+      expect(statuses.statuses['default:resources']).toEqual({ state: 'running', health: undefined })
+      expect(server.statsRequests).toBe(0)
+
+      const first = await getContainerResourceUsage(config, new Headers(), 'default:resources')
+      expect(first).toMatchObject({
+        cpuPercent: 100,
+        memoryUsage: 512 * 1_024 * 1_024,
+        memoryLimit: 2 * 1_024 * 1_024 * 1_024
+      })
+      expect(first?.receivedBytesPerSecond).toBeUndefined()
+
+      now.mockReturnValue(1_000)
+      server.stats.resources = {
+        ...server.stats.resources as Record<string, unknown>,
+        networks: { eth0: { rx_bytes: 3_000, tx_bytes: 1_000 } }
+      }
+      const second = await getContainerResourceUsage(config, new Headers(), 'default:resources')
+      expect(second).toMatchObject({
+        receivedBytesPerSecond: 2_000,
+        sentBytesPerSecond: 500
+      })
+    } finally {
+      now.mockRestore()
+    }
+  })
+
+  it('skips Docker stats when resource usage is disabled or not authorized', async () => {
+    server.containers = [{
+      Id: 'restricted-resources', Names: ['/restricted-resources'], Image: 'nginx', ImageID: 'sha256:restricted',
+      State: 'running', Status: 'Up 1 hour', Labels: { 'dashmark.url': 'https://resources.example.com' }
+    }]
+    server.stats['restricted-resources'] = {
+      cpu_stats: { cpu_usage: { total_usage: 200 }, system_cpu_usage: 400 },
+      precpu_stats: { cpu_usage: { total_usage: 100 }, system_cpu_usage: 200 }
+    }
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.showResourceUsage = false
+
+    const disabled = await getContainerResourceUsage(config, new Headers(), 'default:restricted-resources')
+    expect(disabled).toBeUndefined()
+    expect(server.statsRequests).toBe(0)
+
+    config.showResourceUsage = true
+    config.resourceUsageGroups = ['admins']
+    config.accessGroupsHeader = 'X-Test-Groups'
+    const unauthorized = await getContainerResourceUsage(config, new Headers({ 'X-Test-Groups': 'users' }), 'default:restricted-resources')
+    expect(unauthorized).toBeUndefined()
+    expect(server.statsRequests).toBe(0)
+
+    const authorized = await getContainerResourceUsage(config, new Headers({ 'X-Test-Groups': 'admins' }), 'default:restricted-resources')
+    expect(authorized?.cpuPercent).toBe(50)
+    expect(server.statsRequests).toBe(1)
+  })
+
+  it('limits resource metrics per card and skips stats for none', async () => {
+    server.containers = [{
+      Id: 'selected-resources', Names: ['/selected-resources'], Image: 'nginx', ImageID: 'sha256:selected',
+      State: 'running', Status: 'Up 1 hour', Labels: {
+        'dashmark.url': 'https://resources.example.com',
+        'dashmark.stats': 'cpu'
+      }
+    }]
+    server.stats['selected-resources'] = {
+      cpu_stats: { cpu_usage: { total_usage: 200 }, system_cpu_usage: 400 },
+      precpu_stats: { cpu_usage: { total_usage: 100 }, system_cpu_usage: 200 },
+      memory_stats: { usage: 1_024, limit: 2_048 },
+      networks: { eth0: { rx_bytes: 1_000, tx_bytes: 500 } }
+    }
+    const config = getConfig()
+    config.dockerHost = dockerHost
+
+    const cpuOnly = await getContainerResourceUsage(config, new Headers(), 'default:selected-resources')
+    expect(cpuOnly).toMatchObject({ cpuPercent: 50 })
+    expect(cpuOnly?.memoryUsage).toBeUndefined()
+    expect(server.statsRequests).toBe(1)
+
+    const container = server.containers[0]
+    if (!container?.Labels) throw new Error('Expected resource test container')
+    container.Labels['dashmark.stats'] = 'none'
+    clearDockerCache()
+    const none = await getContainerResourceUsage(config, new Headers(), 'default:selected-resources')
+    expect(none).toBeUndefined()
+    expect(server.statsRequests).toBe(1)
   })
 
   it('omits hidden containers', async () => {

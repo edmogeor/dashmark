@@ -51,7 +51,7 @@ const demoContainers = [
     State: 'running',
     Status: 'Up 30 minutes (healthy)',
     Labels: {
-      'dashmark.title': 'Uptime Kuma',
+      'dashmark.title': 'Uptime Kuma Monitoring and Incident Response Dashboard',
       'dashmark.url': 'http://localhost:8084',
       'dashmark.category': 'Monitoring',
       'dashmark.order': '2'
@@ -102,6 +102,7 @@ const demoContainers = [
 
 export function startMockDocker(containers = demoContainers) {
   return new Promise(resolve => {
+    const startedAt = Date.now()
     const server = http.createServer((req, res) => {
       res.setHeader('Content-Type', 'application/json')
 
@@ -117,6 +118,34 @@ export function startMockDocker(containers = demoContainers) {
 
       if (req.url?.startsWith('/v') && new URL(req.url, 'http://localhost').pathname.endsWith('/containers/json')) {
         send(200, JSON.stringify(containers))
+        return
+      }
+
+      const statsMatch = req.url?.match(/^\/v[^/]+\/containers\/([^/]+)\/stats\?stream=false$/)
+      if (statsMatch) {
+        const container = containers.find(item => item.Id === decodeURIComponent(statsMatch[1]))
+        if (!container) {
+          send(404, JSON.stringify({ message: 'Not found' }))
+          return
+        }
+
+        const elapsedMs = Date.now() - startedAt
+        const offset = container.Id.length * 1_000_000
+        send(200, JSON.stringify({
+          cpu_stats: {
+            cpu_usage: { total_usage: offset + elapsedMs * 400_000, percpu_usage: [1, 1] },
+            system_cpu_usage: offset + elapsedMs * 2_000_000,
+            online_cpus: 2
+          },
+          precpu_stats: {
+            cpu_usage: { total_usage: offset + Math.max(0, elapsedMs - 1_000) * 400_000 },
+            system_cpu_usage: offset + Math.max(0, elapsedMs - 1_000) * 2_000_000
+          },
+          memory_stats: { usage: 512 * 1024 * 1024, limit: 2 * 1024 * 1024 * 1024 },
+          networks: {
+            eth0: { rx_bytes: elapsedMs * 1_200, tx_bytes: elapsedMs * 300 }
+          }
+        }))
         return
       }
 

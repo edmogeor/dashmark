@@ -17,9 +17,11 @@ const imageUrl = `${origin}${assetPath('/brand/og-image.png')}`
 const { cards: initialCards, error: initialError } = await getCards(config, Astro.request.headers)
 const user = getUser(config, Astro.request.headers)
 const showStatusBadges = config.showStatus && hasAllowedGroup(user.groups, config.statusBadgeGroups)
+const showResourceUsage = config.showResourceUsage && hasAllowedGroup(user.groups, config.resourceUsageGroups)
 const displayedGroupNames = new Set([
   ...initialCards.flatMap(card => card.accessGroups.map(group => group.toLowerCase())),
-  ...config.statusBadgeGroups.map(group => group.toLowerCase())
+  ...config.statusBadgeGroups.map(group => group.toLowerCase()),
+  ...config.resourceUsageGroups.map(group => group.toLowerCase())
 ])
 const displayedUserGroups = user.groups.filter(group => displayedGroupNames.has(group.toLowerCase()))
 const greeting = resolveGreeting(config, user)
@@ -77,6 +79,7 @@ const greeting = resolveGreeting(config, user)
         initialError={initialError}
         initialShowSearch={config.showSearch}
         initialShowStatus={showStatusBadges}
+        initialShowResourceUsage={showResourceUsage}
         initialShowBranding={config.showBranding}
         statusPollIntervalMs={config.statusPollIntervalMs}
         categoryOrder={config.categoryOrder}
