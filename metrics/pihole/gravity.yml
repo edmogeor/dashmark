@@ -1,0 +1,5 @@
+label: Gravity
+unit: count
+source:
+  url: "{url}/admin/api.php?summaryRaw"
+jq: .domains_being_blocked

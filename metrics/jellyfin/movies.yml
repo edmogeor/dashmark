@@ -1,0 +1,10 @@
+label: Movies
+unit: count
+chart_group: library
+source:
+  url: "{url}/emby/Items/Counts"
+  headers:
+    X-Emby-Token:
+      env: DASHMARK_JELLYFIN_API_KEY
+      label: dashmark.metric_api_key
+jq: .MovieCount

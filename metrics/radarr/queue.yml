@@ -1,0 +1,9 @@
+label: Queued
+unit: count
+source:
+  url: "{url}/api/v3/queue/status"
+  headers:
+    X-Api-Key:
+      env: DASHMARK_RADARR_API_KEY
+      label: dashmark.metric_api_key
+jq: .totalCount

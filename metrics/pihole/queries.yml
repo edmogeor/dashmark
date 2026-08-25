@@ -1,0 +1,6 @@
+label: Queries
+unit: count
+chart_group: traffic
+source:
+  url: "{url}/admin/api.php?summaryRaw"
+jq: .dns_queries_today

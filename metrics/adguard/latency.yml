@@ -1,0 +1,7 @@
+label: Latency
+unit: milliseconds
+transform:
+  multiply: 1000
+source:
+  url: "{url}/control/stats"
+jq: .avg_processing_time
