@@ -288,30 +288,6 @@ that container.
 Docker labels are visible through Docker APIs and inspect output, so prefer
 environment variables or secret files.
 
-### OPNsense catalog metrics
-
-The `opnsense` catalog provider uses HTTP Basic authentication with the API key
-as its username and API secret as its password. Create a dedicated API key for
-a user with the required diagnostics privileges, then select the metrics with
-`metric_providers: opnsense` and `metrics: [opnsense/cpu,
-opnsense/memory, opnsense/wan-received, opnsense/wan-transmitted]`.
-
-The defaults are `DASHMARK_OPNSENSE_API_KEY` and
-`DASHMARK_OPNSENSE_API_SECRET`. Per-container `dashmark.metric_api_key` and
-`dashmark.metric_api_secret` labels override those defaults, but labels expose
-their values through Docker APIs and should only be used when that exposure is
-acceptable. CPU use is derived from the idle CPU text returned by
-`/api/diagnostics/activity/getActivity`; active memory is converted from its
-reported K, M, G, or T value to bytes. WAN metrics use the default `wan`
-interface from `/api/diagnostics/traffic/interface` and report its cumulative
-received and transmitted byte counters.
-
-Set `metrics_url` to the OPNsense API base when it differs from the card link,
-for example when Dashmark reaches OPNsense through a private address.
-
-See the [OPNsense API documentation](https://docs.opnsense.org/development/how-tos/api.html)
-for API-key creation and HTTP Basic authentication.
-
 ### CSRF and response tokens
 
 `extract` accepts exactly one extractor per token. Use `cheerio` to select an
