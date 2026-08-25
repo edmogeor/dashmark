@@ -2,7 +2,7 @@ label: Wanted
 unit: count
 chart_group: library
 source:
-  url: "{url}/api/v3/wanted/missing"
+  url: "{metrics_url}/api/v3/wanted/missing"
   headers:
     X-Api-Key:
       env: DASHMARK_SONARR_API_KEY

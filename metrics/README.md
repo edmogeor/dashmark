@@ -95,7 +95,7 @@ parameters:
     label: Resource
     type: url_component
 source:
-  url: "{url}/api/{resource}"
+  url: "{metrics_url}/api/{resource}"
 ```
 
 `url_component` encodes a parameter for a URL path or query component.
@@ -194,18 +194,18 @@ IDs, and each child request inherits its authentication, headers, and session.
 label: Movies
 unit: count
 source:
-  url: "{url}/library/sections"
+  url: "{metrics_url}/library/sections"
 for_each:
   items: '[.MediaContainer.Directory[] | select(.type == "movie") | .key]'
   request:
-    url: "{url}/library/sections/{item}/all"
+    url: "{metrics_url}/library/sections/{item}/all"
   value: '.MediaContainer.totalSize'
   reduce: sum
 ```
 
 `items` must produce an array of strings or finite numbers. `{item}` is URL
 component encoded before each child GET request. Catalog child request URLs must
-use `{url}` or `{metrics_url}` as their base. Dashmark deduplicates items,
+use `{metrics_url}` as their base. Dashmark deduplicates items,
 permits at most 32 child requests, runs four at a time, and treats a failed child,
 invalid value, or empty item set as an unavailable metric rather than reporting
 a partial total. `for_each` is limited to numeric HTTP metrics and cannot be
@@ -219,7 +219,7 @@ with optional Docker label overrides.
 
 ```yaml
 source:
-  url: "{url}/api/status"
+  url: "{metrics_url}/api/status"
   auth:
     type: basic
     username:
@@ -239,7 +239,7 @@ variable.
 
 ```yaml
 source:
-  url: "{url}/api/status"
+  url: "{metrics_url}/api/status"
   auth:
     type: token
     header: Authorization
@@ -264,11 +264,11 @@ Use an optional `prefix` when the receiving header needs a scheme, for example
 
 ```yaml
 source:
-  url: "{url}/api/v2/transfer/info"
+  url: "{metrics_url}/api/v2/transfer/info"
   auth:
     type: cookie_session
     steps:
-      - url: "{url}/api/v2/auth/login"
+      - url: "{metrics_url}/api/v2/auth/login"
         method: POST
         form:
           username:
@@ -280,12 +280,14 @@ source:
 jq: .dl_info_speed
 ```
 
-Metric sources may use `{url}` for both metric and login URLs. Sources that
-need a separate API base can use `{metrics_url}`, which resolves to the card's
-optional `metrics_url` and otherwise falls back to its `url`. In Docker,
-`dashmark.metrics_url` provides that API base; YAML `metrics_url` overrides
-the Docker label. `label` values override their `env` or `file` defaults for
-that container.
+Catalog sources use `{metrics_url}` as their base for both metric and login
+URLs. It resolves to the card's optional `metrics_url` and otherwise falls back
+to its `url`, so a deployment can keep the card link public and collect metrics
+from a private API base instead. This matters behind authenticated reverse
+proxies, where the public URL is not reliably reachable from inside the
+Dashmark container. In Docker, `dashmark.metrics_url` provides that API base;
+YAML `metrics_url` overrides the Docker label. `label` values override their
+`env` or `file` defaults for that container.
 Docker labels are visible through Docker APIs and inspect output, so prefer
 environment variables or secret files.
 
@@ -489,7 +491,7 @@ custom_metrics:
       in_progress: info
       unknown: disabled
     source:
-      url: "{url}/api/v1/backups"
+      url: "{metrics_url}/api/v1/backups"
     jq: ...
 ```
 
@@ -594,7 +596,7 @@ support arbitrary request methods. Catalog metrics may use declared,
 URL-encoded `url_component` parameters; arbitrary URL interpolation is not
 supported. Socket.IO metric behavior is unchanged.
 
-A `{url}`- or `{metrics_url}`-based metric is omitted when its card has no
+A `{metrics_url}`-based metric is omitted when its card has no
 resolvable base URL. When a required
 secret cannot be resolved (for example an unset environment variable), the
 metric reports `Credential ... is unavailable` and is omitted. There is no way
@@ -618,17 +620,17 @@ the schema fail automatically; valid definitions proceed to maintainer review.
 
 Each `.yml` file is self-contained: there is no shared source. Repeat the full
 `source` (and `auth`) block in every metric that needs it. Catalog metrics must
-define a reusable `source.url`, normally with `{url}` or `{metrics_url}`, because Dashmark loads
+define a reusable `source.url` beginning with `{metrics_url}`, because Dashmark loads
 only definitions with a source. Never include a private URL, hostname,
 credential, token, or personal identifier.
 
 Name secret environment variables `DASHMARK_<PROVIDER>_<NAME>`, for example
 `DASHMARK_RADARR_API_KEY`, and expose a per-container override label such as
 `dashmark.metric_api_key`. HTTP POST requests and bounded cookie-session flows
-are acceptable when they use portable `{url}` or `{metrics_url}` endpoints and secret references.
+are acceptable when they use portable `{metrics_url}` endpoints and secret references.
 Include public upstream API documentation for every endpoint and authentication
 flow. Socket.IO metrics are acceptable when their endpoint is portable from the
-card URL and their acknowledgement API is publicly documented.
+`{metrics_url}` base and their acknowledgement API is publicly documented.
 
 `CATALOG.md` is validated strictly against the metric files. Every file must
 have exactly one row, and every row must match a file. List the graph group in
@@ -639,10 +641,10 @@ The directory path is the metric key. For example,
 users select with `metrics: [radarr/active_downloads]`. This keeps provider
 metrics with the same name distinct, such as `sonarr/active_downloads`.
 
-The contributed YAML should define a `source` URL beginning with `{url}` or
-`{metrics_url}`. Dashmark replaces `{url}` with the card URL and
-`{metrics_url}` with the configured metrics URL, falling back to the card URL,
-at runtime. Header and query
+The contributed YAML should define a `source` URL beginning with
+`{metrics_url}` so collection can be redirected to a private API base with
+`dashmark.metrics_url`. Dashmark resolves it to the configured metrics URL,
+falling back to the card URL, at runtime. Header and query
 credentials can use a default `env` or `file` reference and an optional literal
 Docker-label override:
 
@@ -650,7 +652,7 @@ Docker-label override:
 label: Queue depth
 unit: count
 source:
-  url: "{url}/api/v3/queue/status"
+  url: "{metrics_url}/api/v3/queue/status"
   headers:
     X-Api-Key:
       env: DASHMARK_RADARR_API_KEY

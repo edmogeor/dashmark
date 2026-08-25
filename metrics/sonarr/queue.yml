@@ -1,7 +1,7 @@
 label: Queued
 unit: count
 source:
-  url: "{url}/api/v3/queue"
+  url: "{metrics_url}/api/v3/queue"
   headers:
     X-Api-Key:
       env: DASHMARK_SONARR_API_KEY

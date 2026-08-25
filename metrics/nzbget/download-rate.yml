@@ -2,7 +2,7 @@ label: Download
 unit: bytes_per_second
 chart: line
 source:
-  url: "{url}/jsonrpc"
+  url: "{metrics_url}/jsonrpc"
   method: POST
   json:
     jsonrpc: "2.0"

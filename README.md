@@ -191,7 +191,7 @@ Add labels to opt a container in and configure its card.
 | --- | --- |
 | `dashmark.hidden` | Set to `true` to hide the container |
 | `dashmark.url` | Card link. May be inferred from a Traefik rule |
-| `dashmark.metrics_url` | Optional HTTP(S) API base for catalog sources using `{metrics_url}`; defaults to the card link URL |
+| `dashmark.metrics_url` | Optional private HTTP(S) API base for catalog metric sources; defaults to the card link URL |
 | `dashmark.title` | Display title. Defaults to the container name |
 | `dashmark.description` | Tooltip text; set to `none` to suppress automatic descriptions |
 | `dashmark.icon` | `selfhst:<slug>`, an image URL, a path in `ICONS_DIR`, or `placeholder` |
@@ -248,7 +248,7 @@ labels:
   dashmark.metrics_access.radarr.active_downloads: media,admins
 ```
 
-Define custom metrics under the card's YAML service. Each metric has a label, an HTTP(S) source, and exactly one extractor. `metrics_url` can give catalog sources a private API base while the card keeps its public link; `{metrics_url}` falls back to `{url}` when it is not configured. Header values normally reference an environment variable or file; catalog metrics may opt into the literal API-key label override described above. Only custom keys named in `metrics` are fetched and exposed.
+Define custom metrics under the card's YAML service. Each metric has a label, an HTTP(S) source, and exactly one extractor. Catalog sources use the `{metrics_url}` base, which resolves to `metrics_url` when configured and otherwise falls back to the card link; this keeps collection on a private API base while the card stays public. Header values normally reference an environment variable or file; catalog metrics may opt into the literal API-key label override described above. Only custom keys named in `metrics` are fetched and exposed.
 
 ```yaml
 radarr:

@@ -1,7 +1,7 @@
 label: Queued
 unit: count
 source:
-  url: "{url}/api/v3/queue/status"
+  url: "{metrics_url}/api/v3/queue/status"
   headers:
     X-Api-Key:
       env: DASHMARK_RADARR_API_KEY

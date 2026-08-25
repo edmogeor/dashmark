@@ -2,5 +2,5 @@ label: DNS queries
 unit: count
 chart_group: traffic
 source:
-  url: "{url}/control/stats"
+  url: "{metrics_url}/control/stats"
 jq: .num_dns_queries

@@ -2,5 +2,5 @@ label: Filtered
 unit: count
 chart_group: traffic
 source:
-  url: "{url}/control/stats"
+  url: "{metrics_url}/control/stats"
 jq: '.num_replaced_safebrowsing + .num_replaced_safesearch + .num_replaced_parental'

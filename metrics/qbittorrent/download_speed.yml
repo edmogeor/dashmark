@@ -3,11 +3,11 @@ unit: bytes_per_second
 chart: line
 chart_group: transfer
 source:
-  url: "{url}/api/v2/torrents/info"
+  url: "{metrics_url}/api/v2/torrents/info"
   auth:
     type: cookie_session
     login:
-      url: "{url}/api/v2/auth/login"
+      url: "{metrics_url}/api/v2/auth/login"
       method: POST
       form:
         username:

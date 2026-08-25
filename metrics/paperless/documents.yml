@@ -2,7 +2,7 @@ label: Documents
 unit: count
 chart: none
 source:
-  url: "{url}/api/statistics/?format=json"
+  url: "{metrics_url}/api/statistics/?format=json"
   auth:
     type: token
     header: Authorization

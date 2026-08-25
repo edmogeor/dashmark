@@ -8,7 +8,7 @@ state_colors:
   in_progress: info
   unknown: disabled
 source:
-  url: "{url}/api/v1/backups"
+  url: "{metrics_url}/api/v1/backups"
   headers:
     X-API-Key:
       env: DASHMARK_ZEROBYTE_API_KEY

@@ -2,7 +2,7 @@ label: Series
 unit: count
 chart_group: library
 source:
-  url: "{url}/api/v3/series"
+  url: "{metrics_url}/api/v3/series"
   headers:
     X-Api-Key:
       env: DASHMARK_SONARR_API_KEY

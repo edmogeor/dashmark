@@ -2,7 +2,7 @@ label: Wanted episodes
 unit: count
 chart: none
 source:
-  url: "{url}/api/episodes/wanted"
+  url: "{metrics_url}/api/episodes/wanted"
   query:
     apikey:
       env: DASHMARK_BAZARR_API_KEY

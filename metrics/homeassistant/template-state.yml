@@ -6,7 +6,7 @@ parameters:
     label: Template
     type: json_value
 source:
-  url: "{url}/api/template"
+  url: "{metrics_url}/api/template"
   method: POST
   json:
     template:

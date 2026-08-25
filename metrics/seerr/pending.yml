@@ -2,7 +2,7 @@ label: Pending requests
 unit: count
 chart: step
 source:
-  url: "{url}/api/v1/request/count"
+  url: "{metrics_url}/api/v1/request/count"
   auth:
     type: token
     header: Authorization

@@ -2,7 +2,7 @@ label: Entities
 unit: count
 chart: none
 source:
-  url: "{url}/api/states"
+  url: "{metrics_url}/api/states"
   auth:
     type: token
     header: Authorization

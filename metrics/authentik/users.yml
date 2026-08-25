@@ -2,7 +2,7 @@ label: Users
 unit: count
 chart: none
 source:
-  url: "{url}/api/v3/core/users/?page_size=1"
+  url: "{metrics_url}/api/v3/core/users/?page_size=1"
   auth:
     type: token
     header: Authorization

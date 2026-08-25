@@ -2,7 +2,7 @@ label: Wanted movies
 unit: count
 chart: none
 source:
-  url: "{url}/api/movies/wanted"
+  url: "{metrics_url}/api/movies/wanted"
   query:
     apikey:
       env: DASHMARK_BAZARR_API_KEY

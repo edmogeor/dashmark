@@ -1,7 +1,7 @@
 label: Active streams
 unit: count
 source:
-  url: "{url}/emby/Sessions"
+  url: "{metrics_url}/emby/Sessions"
   headers:
     X-Emby-Token:
       env: DASHMARK_JELLYFIN_API_KEY

@@ -2,11 +2,11 @@ label: Seeding
 unit: count
 chart_group: queue
 source:
-  url: "{url}/api/v2/torrents/info"
+  url: "{metrics_url}/api/v2/torrents/info"
   auth:
     type: cookie_session
     login:
-      url: "{url}/api/v2/auth/login"
+      url: "{metrics_url}/api/v2/auth/login"
       method: POST
       form:
         username:

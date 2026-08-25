@@ -2,7 +2,7 @@ label: Indexers
 unit: count
 chart: none
 source:
-  url: "{url}/api/v1/indexer"
+  url: "{metrics_url}/api/v1/indexer"
   query:
     apikey:
       env: DASHMARK_PROWLARR_API_KEY

@@ -2,7 +2,7 @@ label: Shows
 unit: count
 chart: step
 source:
-  url: "{url}/library/sections"
+  url: "{metrics_url}/library/sections"
   headers:
     Accept: application/json
     X-Plex-Token:
@@ -11,6 +11,6 @@ source:
 for_each:
   items: '[.MediaContainer.Directory[] | select(.type == "show") | .key]'
   request:
-    url: "{url}/library/sections/{item}/all"
+    url: "{metrics_url}/library/sections/{item}/all"
   value: '.MediaContainer.totalSize'
   reduce: sum

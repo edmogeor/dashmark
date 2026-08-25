@@ -2,7 +2,7 @@ label: Wanted
 unit: count
 chart_group: library
 source:
-  url: "{url}/api/v3/movie"
+  url: "{metrics_url}/api/v3/movie"
   headers:
     X-Api-Key:
       env: DASHMARK_RADARR_API_KEY
