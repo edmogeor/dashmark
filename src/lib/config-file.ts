@@ -7,6 +7,7 @@ import { logger } from './logger'
 import { logMessages } from './log-messages'
 import { dashmarkError, errorMessage, isRecord, type DashmarkError } from './errors'
 import { strings } from './strings'
+import type { CustomMetricStateColor } from './status'
 
 export type ServiceOverrides = Partial<ParsedLabels> & {
   host?: string
@@ -91,7 +92,6 @@ export type CustomMetricReduction = typeof CUSTOM_METRIC_REDUCTIONS[number]
 const CUSTOM_METRIC_CHARTS = ['step', 'line', 'area', 'none'] as const
 type CustomMetricChart = typeof CUSTOM_METRIC_CHARTS[number]
 const CUSTOM_METRIC_BADGE_COLORS = ['success', 'info', 'warning', 'error', 'disabled'] as const
-export type CustomMetricStateColor = typeof CUSTOM_METRIC_BADGE_COLORS[number]
 
 export type PrometheusMetricExtractor = {
   name: string
@@ -114,7 +114,7 @@ export type MetricTransform = {
   add?: number
 }
 
-export type MetricParameter = { label: string; type: 'url_component' | 'json_value' }
+type MetricParameter = { label: string; type: 'url_component' | 'json_value' }
 
 type MetricCommon = {
   label: string
@@ -616,196 +616,142 @@ function parseSocketIoSource(value: unknown): { socketio?: SocketIoMetricSource;
   }
 }
 
+function rejectMetric(key: string, reason: string, errors: Record<string, string>) {
+  errors[key] = reason
+  logger.warn('config', 'ignoring invalid custom metric', { key, reason })
+}
+
+function mergeCatalogMetric(catalogEntry: Record<string, unknown> | undefined, configuredMetric: Record<string, unknown>): Record<string, unknown> {
+  if (!catalogEntry) return configuredMetric
+  const metric = { ...catalogEntry, ...configuredMetric }
+  if (configuredMetric.value_type === undefined || configuredMetric.value_type === catalogEntry.value_type) return metric
+  if (configuredMetric.value_type !== 'state') {
+    delete metric.color
+    delete metric.state_colors
+  }
+  if (configuredMetric.value_type !== 'number') {
+    delete metric.unit
+    delete metric.chart
+    delete metric.chart_group
+    delete metric.transform
+  }
+  return metric
+}
+
+function inconsistentChartGroupMetrics(metrics: ServiceMetricOverrides): [key: string, reason: string][] {
+  const groups = new Map<string, [string, NumericMetricOverride][]>()
+  for (const [key, metric] of Object.entries(metrics)) {
+    if (metric.valueType !== 'number' || !metric.chartGroup) continue
+    const group = groups.get(metric.chartGroup) ?? []
+    group.push([key, metric])
+    groups.set(metric.chartGroup, group)
+  }
+  const rejected: [key: string, reason: string][] = []
+  for (const [group, entries] of groups) {
+    const [first] = entries
+    if (!first) continue
+    const signature = `${first[1].chart}:${JSON.stringify(first[1].unit)}`
+    if (entries.every(([, metric]) => `${metric.chart}:${JSON.stringify(metric.unit)}` === signature)) continue
+    for (const [key] of entries) rejected.push([key, `chart_group ${group} metrics must use the same unit and chart`])
+  }
+  return rejected
+}
+
+function parseCustomMetric(key: string, configuredMetric: unknown, catalog: Record<string, Record<string, unknown>>): { metric?: MetricOverride; error?: string } {
+  if (!/^[a-z][a-z0-9_-]*(?:\/[a-z][a-z0-9_-]*)*$/.test(key) || !isRecord(configuredMetric)) {
+    return { error: 'metric key or definition is invalid' }
+  }
+  const metric = mergeCatalogMetric(catalog[key], configuredMetric)
+  const label = string(metric.label)
+  const valueType = metric.value_type === undefined ? 'number' : string(metric.value_type)
+  const unit = metric.unit === undefined ? 'number' : parseUnit(metric.unit)
+  const chart = metric.chart === undefined ? 'step' : parseChart(metric.chart)
+  const chartGroup = metric.chart_group === undefined ? undefined : string(metric.chart_group)
+  const transform = metric.transform === undefined ? undefined : parseMetricTransform(metric.transform)
+  const color = metric.color === undefined ? undefined : parseMetricStateColor(metric.color)
+  const stateColors = metric.state_colors === undefined ? undefined : parseMetricStateColors(metric.state_colors)
+  const parameters = metric.parameters === undefined ? undefined : parseMetricParameters(metric.parameters)
+  const text = metric.text === true
+  const forEach = metric.for_each === undefined ? undefined : parseForEachMetric(metric.for_each)
+  const source = isRecord(metric.source) ? metric.source : undefined
+  const url = string(source?.url)
+  const transport = source?.transport === undefined ? undefined : string(source.transport)
+  const jq = parseJqExtractor(metric.jq)
+  const prometheus = parsePrometheusExtractor(metric.prometheus)
+  if (!label) return { error: 'label must be a non-empty string' }
+  if (!source || !url) return { error: 'source.url is required' }
+  if (!isMetricUrl(url)) return { error: 'source.url must use HTTP or HTTPS, or begin with {url} or {metrics_url}' }
+  if (transport !== undefined && transport !== 'socketio') return { error: 'source.transport must be socketio when specified' }
+  if (metric.prometheus !== undefined && !prometheus) return { error: 'prometheus.name, labels, reduction, or value_label is invalid' }
+  if (metric.for_each !== undefined && !forEach) return { error: 'for_each requires item and value jq expressions, a child URL containing {item}, and a reduction' }
+  if (Number(jq !== undefined) + Number(prometheus !== undefined) + Number(text) + Number(forEach !== undefined) !== 1) {
+    return { error: 'define exactly one valid jq, prometheus, text, or for_each extractor' }
+  }
+  if (valueType !== 'number' && valueType !== 'string' && valueType !== 'state') return { error: 'value_type must be number, string, or state' }
+  if (!chart) return { error: 'chart must be step, line, area, or none' }
+  if (metric.transform !== undefined && !transform) return { error: 'transform must define finite multiply and/or add values' }
+  if (metric.color !== undefined && !color) return { error: 'color must be success, info, warning, error, or disabled' }
+  if (metric.state_colors !== undefined && !stateColors) return { error: 'state_colors must map non-empty values to success, info, warning, error, or disabled' }
+  if (metric.parameters !== undefined && !parameters) return { error: 'parameters must define named URL-component parameters' }
+  if (metric.chart_group !== undefined && (!chartGroup || !/^[a-z][a-z0-9_-]*$/.test(chartGroup))) return { error: 'chart_group must be a lowercase identifier' }
+  if ((valueType === 'string' || valueType === 'state') && (metric.unit !== undefined || metric.chart !== undefined || metric.chart_group !== undefined || metric.transform !== undefined || prometheus?.reduce !== undefined || (prometheus && !prometheus.valueLabel))) {
+    return { error: 'string metrics cannot use units, reductions, or charts' }
+  }
+  if ((valueType === 'number' || valueType === 'string') && color !== undefined) return { error: 'color requires value_type state' }
+  if ((valueType === 'number' || valueType === 'string') && stateColors !== undefined) return { error: 'state_colors requires value_type state' }
+  if (valueType === 'state' && color === undefined) return { error: 'state metrics require a color' }
+  if (valueType === 'number' && (!unit || prometheus?.valueLabel !== undefined || (chartGroup !== undefined && chart === 'none'))) {
+    return {
+      error: chartGroup !== undefined && chart === 'none'
+        ? 'chart_group requires a visible chart'
+        : 'numeric metrics require a valid unit and cannot use value_label'
+    }
+  }
+  if (forEach && (valueType !== 'number' || transport === 'socketio')) return { error: 'for_each requires a numeric HTTP metric' }
+
+  const socketio = transport === 'socketio' ? parseSocketIoSource(source) : {}
+  if (socketio.error) return { error: socketio.error }
+  if (transport === 'socketio' && prometheus) return { error: 'Socket.IO sources require a jq extractor' }
+  const sourceRequest = transport === 'socketio' ? {} : parseMetricRequest(
+    Object.fromEntries(Object.entries(source).filter(([name]) => name !== 'auth')),
+    'source'
+  )
+  if (sourceRequest.error || (transport !== 'socketio' && !sourceRequest.request)) return { error: sourceRequest.error ?? 'source is invalid' }
+  const socketHeaders = transport === 'socketio' ? parseMetricHeaders(source) : {}
+  if (socketHeaders.error) return { error: socketHeaders.error }
+  const { auth, error: authError } = parseMetricHttpAuth(source.auth)
+  if (authError) return { error: authError }
+
+  const common = {
+    label,
+    ...(parameters ? { parameters } : {}),
+    source: transport === 'socketio'
+      ? { url, transport: 'socketio' as const, ...(socketHeaders.headers ? { headers: socketHeaders.headers } : {}), ...(auth ? { auth } : {}), socketio: socketio.socketio! }
+      : { ...sourceRequest.request!, ...(auth ? { auth } : {}) }
+  }
+  if (valueType === 'string') return { metric: text ? { ...common, valueType, text: true } : jq ? { ...common, valueType, jq } : { ...common, valueType, prometheus: prometheus! } }
+  if (valueType === 'state') {
+    const colors = stateColors ? { stateColors } : {}
+    return { metric: text ? { ...common, valueType, color: color!, ...colors, text: true } : jq ? { ...common, valueType, color: color!, ...colors, jq } : { ...common, valueType, color: color!, ...colors, prometheus: prometheus! } }
+  }
+  const numeric = { ...common, valueType: 'number' as const, unit: unit!, chart, ...(chartGroup === undefined ? {} : { chartGroup }), ...(transform === undefined ? {} : { transform }) }
+  return { metric: forEach ? { ...numeric, forEach } : text ? { ...numeric, text: true } : jq ? { ...numeric, jq } : { ...numeric, prometheus: prometheus! } }
+}
+
 function parseMetricOverrides(value: unknown, catalog = metricCatalog()): { metrics?: ServiceMetricOverrides; errors?: Record<string, string> } {
   if (!isRecord(value)) return {}
   const metrics: ServiceMetricOverrides = {}
   const errors: Record<string, string> = {}
 
   for (const [key, configuredMetric] of Object.entries(value)) {
-    const invalid = (reason: string) => {
-      errors[key] = reason
-      logger.warn('config', 'ignoring invalid custom metric', { key, reason })
-    }
-    if (!/^[a-z][a-z0-9_-]*(?:\/[a-z][a-z0-9_-]*)*$/.test(key) || !isRecord(configuredMetric)) {
-      invalid('metric key or definition is invalid')
-      continue
-    }
-    const metric = catalog[key] ? { ...catalog[key], ...configuredMetric } : configuredMetric
-    if (catalog[key] && configuredMetric.value_type !== undefined && configuredMetric.value_type !== catalog[key].value_type) {
-      if (configuredMetric.value_type !== 'state') {
-        delete metric.color
-        delete metric.state_colors
-      }
-      if (configuredMetric.value_type !== 'number') {
-        delete metric.unit
-        delete metric.chart
-        delete metric.chart_group
-        delete metric.transform
-      }
-    }
-    const label = string(metric.label)
-    const valueType = metric.value_type === undefined ? 'number' : string(metric.value_type)
-    const unit = metric.unit === undefined ? 'number' : parseUnit(metric.unit)
-    const chart = metric.chart === undefined ? 'step' : parseChart(metric.chart)
-    const chartGroup = metric.chart_group === undefined ? undefined : string(metric.chart_group)
-    const transform = metric.transform === undefined ? undefined : parseMetricTransform(metric.transform)
-    const color = metric.color === undefined ? undefined : parseMetricStateColor(metric.color)
-    const stateColors = metric.state_colors === undefined ? undefined : parseMetricStateColors(metric.state_colors)
-    const parameters = metric.parameters === undefined ? undefined : parseMetricParameters(metric.parameters)
-    const text = metric.text === true
-    const forEach = metric.for_each === undefined ? undefined : parseForEachMetric(metric.for_each)
-    const source = isRecord(metric.source) ? metric.source : undefined
-    const url = string(source?.url)
-    const transport = source?.transport === undefined ? undefined : string(source.transport)
-    const jq = parseJqExtractor(metric.jq)
-    const prometheus = parsePrometheusExtractor(metric.prometheus)
-    if (!label) {
-      invalid('label must be a non-empty string')
-      continue
-    }
-    if (!source || !url) {
-      invalid('source.url is required')
-      continue
-    }
-    if (!isMetricUrl(url)) {
-      invalid('source.url must use HTTP or HTTPS, or begin with {url} or {metrics_url}')
-      continue
-    }
-    if (transport !== undefined && transport !== 'socketio') {
-      invalid('source.transport must be socketio when specified')
-      continue
-    }
-    if (metric.prometheus !== undefined && !prometheus) {
-      invalid('prometheus.name, labels, reduction, or value_label is invalid')
-      continue
-    }
-    if (metric.for_each !== undefined && !forEach) {
-      invalid('for_each requires item and value jq expressions, a child URL containing {item}, and a reduction')
-      continue
-    }
-    if (Number(jq !== undefined) + Number(prometheus !== undefined) + Number(text) + Number(forEach !== undefined) !== 1) {
-      invalid('define exactly one valid jq, prometheus, text, or for_each extractor')
-      continue
-    }
-    if (valueType !== 'number' && valueType !== 'string' && valueType !== 'state') {
-      invalid('value_type must be number, string, or state')
-      continue
-    }
-    if (!chart) {
-      invalid('chart must be step, line, area, or none')
-      continue
-    }
-    if (metric.transform !== undefined && !transform) {
-      invalid('transform must define finite multiply and/or add values')
-      continue
-    }
-    if (metric.color !== undefined && !color) {
-      invalid('color must be success, info, warning, error, or disabled')
-      continue
-    }
-    if (metric.state_colors !== undefined && !stateColors) {
-      invalid('state_colors must map non-empty values to success, info, warning, error, or disabled')
-      continue
-    }
-    if (metric.parameters !== undefined && !parameters) {
-      invalid('parameters must define named URL-component parameters')
-      continue
-    }
-    if (metric.chart_group !== undefined && (!chartGroup || !/^[a-z][a-z0-9_-]*$/.test(chartGroup))) {
-      invalid('chart_group must be a lowercase identifier')
-      continue
-    }
-    if ((valueType === 'string' || valueType === 'state') && (metric.unit !== undefined || metric.chart !== undefined || metric.chart_group !== undefined || metric.transform !== undefined || prometheus?.reduce !== undefined || (prometheus && !prometheus.valueLabel))) {
-      invalid('string metrics cannot use units, reductions, or charts')
-      continue
-    }
-    if ((valueType === 'number' || valueType === 'string') && color !== undefined) {
-      invalid('color requires value_type state')
-      continue
-    }
-    if ((valueType === 'number' || valueType === 'string') && stateColors !== undefined) {
-      invalid('state_colors requires value_type state')
-      continue
-    }
-    if (valueType === 'state' && color === undefined) {
-      invalid('state metrics require a color')
-      continue
-    }
-    if (valueType === 'number' && (!unit || prometheus?.valueLabel !== undefined || (chartGroup !== undefined && chart === 'none'))) {
-      invalid(chartGroup !== undefined && chart === 'none'
-        ? 'chart_group requires a visible chart'
-        : 'numeric metrics require a valid unit and cannot use value_label')
-      continue
-    }
-    if (forEach && (valueType !== 'number' || transport === 'socketio')) {
-      invalid('for_each requires a numeric HTTP metric')
-      continue
-    }
-
-    const socketio = transport === 'socketio' ? parseSocketIoSource(source) : {}
-    if (socketio.error) {
-      invalid(socketio.error)
-      continue
-    }
-    if (transport === 'socketio' && prometheus) {
-      invalid('Socket.IO sources require a jq extractor')
-      continue
-    }
-    const sourceRequest = transport === 'socketio' ? {} : parseMetricRequest(
-      Object.fromEntries(Object.entries(source).filter(([key]) => key !== 'auth')),
-      'source'
-    )
-    if (sourceRequest.error || (transport !== 'socketio' && !sourceRequest.request)) {
-      invalid(sourceRequest.error ?? 'source is invalid')
-      continue
-    }
-    const socketHeaders = transport === 'socketio' ? parseMetricHeaders(source) : {}
-    if (socketHeaders.error) {
-      invalid(socketHeaders.error)
-      continue
-    }
-    const { auth, error: authError } = parseMetricHttpAuth(source.auth)
-    if (authError) {
-      invalid(authError)
-      continue
-    }
-
-    const common = {
-      label,
-      ...(parameters ? { parameters } : {}),
-      source: transport === 'socketio'
-        ? { url, transport: 'socketio' as const, ...(socketHeaders.headers ? { headers: socketHeaders.headers } : {}), ...(auth ? { auth } : {}), socketio: socketio.socketio! }
-        : { ...sourceRequest.request!, ...(auth ? { auth } : {}) }
-    }
-    if (valueType === 'string') metrics[key] = text ? { ...common, valueType, text: true } : jq ? { ...common, valueType, jq } : { ...common, valueType, prometheus: prometheus! }
-    else if (valueType === 'state') {
-      const colors = stateColors ? { stateColors } : {}
-      metrics[key] = text ? { ...common, valueType, color: color!, ...colors, text: true } : jq ? { ...common, valueType, color: color!, ...colors, jq } : { ...common, valueType, color: color!, ...colors, prometheus: prometheus! }
-    }
-    else {
-      const numeric = { ...common, valueType: 'number' as const, unit: unit!, chart, ...(chartGroup === undefined ? {} : { chartGroup }), ...(transform === undefined ? {} : { transform }) }
-      metrics[key] = forEach ? { ...numeric, forEach } : text ? { ...numeric, text: true } : jq ? { ...numeric, jq } : { ...numeric, prometheus: prometheus! }
-    }
+    const parsed = parseCustomMetric(key, configuredMetric, catalog)
+    if (parsed.error || !parsed.metric) rejectMetric(key, parsed.error ?? 'custom metric is invalid', errors)
+    else metrics[key] = parsed.metric
   }
 
-  const metricGroups = new Map<string, [string, NumericMetricOverride][]>()
-  for (const [key, metric] of Object.entries(metrics)) {
-    if (metric.valueType !== 'number' || !metric.chartGroup) continue
-    const group = metricGroups.get(metric.chartGroup) ?? []
-    group.push([key, metric])
-    metricGroups.set(metric.chartGroup, group)
-  }
-  for (const [group, entries] of metricGroups) {
-    const [first] = entries
-    if (!first) continue
-    const signature = `${first[1].chart}:${JSON.stringify(first[1].unit)}`
-    if (entries.every(([, metric]) => `${metric.chart}:${JSON.stringify(metric.unit)}` === signature)) continue
-    for (const [key] of entries) {
-      const reason = `chart_group ${group} metrics must use the same unit and chart`
-      errors[key] = reason
-      logger.warn('config', 'ignoring invalid custom metric', { key, reason })
-      delete metrics[key]
-    }
+  for (const [key, reason] of inconsistentChartGroupMetrics(metrics)) {
+    rejectMetric(key, reason, errors)
+    delete metrics[key]
   }
 
   return {

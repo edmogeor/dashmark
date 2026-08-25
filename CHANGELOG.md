@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Map state metric values to badge colors with `state_colors`.
 - Add Zerobyte backup health catalog metric aggregating all enabled backup schedules.
 
+### Changed
+
+- Split metric override parsing into focused helpers for catalog merging and chart-group validation.
+- Move `tailwindcss`, `shadcn`, and `@fontsource-variable/geist` to production dependencies.
+
 ## [0.3.0-alpha.10] - 2026-08-25
 
 ### Added
