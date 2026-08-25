@@ -164,6 +164,7 @@ Each entry under `custom_metrics` needs:
 | `value_type` | No | `number` (default), `string`, or `state`. |
 | `color` | State only | `success`, `info`, `warning`, `error`, or `disabled`. |
 | `state_colors` | State only | Optional mapping of specific values to those colors; unmatched values keep `color`. |
+| `state_labels` | State only | Optional mapping of specific values to display labels shown on the badge; unmatched values show the raw value with underscores replaced by spaces. Labels are limited to 32 characters. |
 | `parameters` | Catalog only | Named `url_component` or `json_value` inputs required from each selecting card. |
 
 Do not put literal credentials in YAML. Use one secret reference per header:
@@ -475,8 +476,9 @@ The named colors use Dashmark's shared `--dashmark-status-success`,
 They also color container status badges.
 
 A state metric can map specific values to their own colors with an optional
-`state_colors` mapping. Values without an entry keep the definition's base
-`color`:
+`state_colors` mapping, and to their own badge text with an optional
+`state_labels` mapping. Values without an entry keep the definition's base
+`color` and show the raw value with underscores replaced by spaces:
 
 ```yaml
 custom_metrics:
@@ -490,6 +492,11 @@ custom_metrics:
       error: error
       in_progress: info
       unknown: disabled
+    state_labels:
+      success: Backed up
+      warning: Backup warning
+      error: Backup failed
+      in_progress: Backing up
     source:
       url: "{metrics_url}/api/v1/backups"
     jq: ...

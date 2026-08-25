@@ -967,6 +967,40 @@ radarr:
     expect(server.statsRequests).toBe(0)
   })
 
+  it('maps state values to labels and colors for state metrics', async () => {
+    server.containers = [{
+      Id: 'state-metric', Names: ['/backup'], Image: 'service', ImageID: 'sha256:service',
+      State: 'running', Status: 'Up 1 hour', Labels: {
+        'dashmark.url': 'https://service.example.test',
+        'dashmark.metrics': 'health'
+      }
+    }]
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.configFile = writeTempConfig(`
+backup:
+  custom_metrics:
+    health:
+      label: Backup health
+      value_type: state
+      color: info
+      state_colors: { success: success, in_progress: info }
+      state_labels: { success: 'Backed up', in_progress: 'Backing up' }
+      source: { url: https://metrics.example.test/backups }
+      jq: .status
+`)
+
+    mockGotResponse('{"status":"in_progress"}')
+    await expect(getContainerMetricUsage(config, new Headers(), 'default:state-metric')).resolves.toMatchObject({
+      customMetrics: [{ key: 'health', label: 'Backup health', value: 'in_progress', valueLabel: 'Backing up', color: 'info' }]
+    })
+
+    mockGotResponse('{"status":"success"}')
+    await expect(getContainerMetricUsage(config, new Headers(), 'default:state-metric')).resolves.toMatchObject({
+      customMetrics: [{ key: 'health', label: 'Backup health', value: 'success', valueLabel: 'Backed up', color: 'success' }]
+    })
+  })
+
   it('collects a fixture catalog metric from the card URL and API-key label', async () => {
     server.containers = [{
       Id: 'catalog-metric', Names: ['/service'], Image: 'service', ImageID: 'sha256:service',

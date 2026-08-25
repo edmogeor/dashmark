@@ -38,7 +38,7 @@ export type NumericCustomMetric = {
   historyPeriodMs: number
 }
 export type TextCustomMetric = { key: string; label: string; value: string }
-export type StateCustomMetric = TextCustomMetric & { color: CustomMetricStateColor }
+export type StateCustomMetric = TextCustomMetric & { color: CustomMetricStateColor; valueLabel?: string }
 export type CustomMetric = NumericCustomMetric | TextCustomMetric | StateCustomMetric
 export type MetricError = { key: string; message: string }
 
@@ -97,7 +97,7 @@ function isCustomMetricSample(value: unknown): value is CustomMetricSample {
 function isCustomMetric(value: unknown): value is CustomMetric {
   return isRecord(value)
     && typeof value.key === 'string' && typeof value.label === 'string'
-    && (typeof value.value === 'string' && (value.color === undefined || isCustomMetricStateColor(value.color)) || (
+    && (typeof value.value === 'string' && (value.color === undefined || isCustomMetricStateColor(value.color)) && (value.valueLabel === undefined || typeof value.valueLabel === 'string') || (
       typeof value.value === 'number' && Number.isFinite(value.value)
       && isCustomMetricUnit(value.unit)
       && isCustomMetricChart(value.chart)
