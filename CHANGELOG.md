@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add starter custom metrics for popular monitoring, media, and download services, including grouped charts.
+- Bind catalog metrics to private local sources and apply numeric transforms after extraction.
+
 ## [0.3.0-alpha.8] - 2026-08-25
 
 ### Fixed

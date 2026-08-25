@@ -195,6 +195,10 @@ Add labels to opt a container in and configure its card.
 | `dashmark.category` | Category name; matching is case-insensitive |
 | `dashmark.show_status` | Set to `false` to hide the status badge and resource-usage tooltip for this card |
 | `dashmark.metrics` | Comma-separated `cpu`, `memory`, and `network` metrics for this card; set to `none` to disable built-in metrics |
+| `dashmark.metric_provider` | Provider for catalog metrics, for example `radarr` |
+| `dashmark.metric_api_key` | Optional literal API-key override for catalog metrics. Docker labels are visible to Docker APIs and inspect output. |
+| `dashmark.metric_username` | Optional literal username override for cookie-session catalog metrics. |
+| `dashmark.metric_password` | Optional literal password override for cookie-session catalog metrics. |
 | `dashmark.metrics_access.<metric>` | Comma-separated access entries for one metric; use `.` in place of `/` in custom metric keys |
 | `dashmark.access` | Comma-separated access allow-list |
 | `dashmark.search_aliases` | Comma-separated additional search terms |
@@ -208,7 +212,7 @@ Docker-backed cards show CPU and memory progress bars plus per-container network
 
 Set `SHOW_METRICS=false` to stop metric collection and hide metric tooltips. Set `METRICS_ACCESS=admins,operators` to return metrics only to matching users. This restriction is enforced server-side, so unauthorized clients never receive metric values or history. Per-card `metrics_access` can further restrict individual metrics.
 
-Each Docker card shows all built-in metrics by default. Set `dashmark.metrics=none` to disable them for one container, or limit them with a comma-separated list such as `dashmark.metrics=cpu,memory`. Custom metric sources use `custom_metrics`, leaving `metrics` available for the unified selection list. YAML overrides support the same setting and can override polling and retention:
+Each Docker card shows all built-in metrics by default. Set `dashmark.metrics=none` to disable them for one container, or limit them with a comma-separated list such as `dashmark.metrics=cpu,memory`. Catalog metrics package their endpoint and extractor, so a provider-bound card can select them directly. Their default credential environment-variable names are documented in the catalog; literal `dashmark.metric_*` labels can override credentials for one container. Custom metric sources use `custom_metrics`, leaving `metrics` available for the unified selection list. YAML overrides support the same setting and can override polling and retention:
 
 ```yaml
 plex:
@@ -230,7 +234,7 @@ labels:
   dashmark.metrics_access.radarr.active_downloads: media,admins
 ```
 
-Define custom metrics under the card's YAML service. Each metric has a label, an HTTP(S) source, and exactly one extractor. Header values must reference an environment variable or file, so secrets never live in the configuration or API response. Only custom keys named in `metrics` are fetched and exposed.
+Define custom metrics under the card's YAML service. Each metric has a label, an HTTP(S) source, and exactly one extractor. Header values normally reference an environment variable or file; catalog metrics may opt into the literal API-key label override described above. Only custom keys named in `metrics` are fetched and exposed.
 
 ```yaml
 radarr:
@@ -243,8 +247,7 @@ radarr:
         url: http://radarr:7878/api/v3/queue/status
         headers:
           X-Api-Key: { env: RADARR_API_KEY }
-      json:
-        path: /totalRecords
+      jq: .totalRecords
     queue_depth:
       label: Primary queue depth
       source:
@@ -257,9 +260,16 @@ radarr:
 
 Numeric metrics default to the `number` unit. Available units are `number`, `count`, `percent`, `ratio`, `bytes`, `bytes_per_second`, `bits`, `bits_per_second`, `seconds`, `milliseconds`, `microseconds`, `duration`, `hertz`, `watts`, `volts`, `amperes`, `celsius`, `fahrenheit`, and `boolean`, or `{ suffix: rpm }` for a custom suffix. Numeric charts default to `chart: step`; use `line` or `area` to change the rendering, or `none` to show the current value without a chart dialog.
 
-JSON `path` and optional `value_path` are RFC6901 JSON Pointers. A scalar path must resolve to a finite number. For arrays, `value_path` extracts a number from each item and `reduce` may be `count`, `sum`, `average`, `minimum`, or `maximum`; an array without a reduction is accepted only when it yields one number. Prometheus sources accept standard text exposition, ignore comments, select by metric name and optional exact labels, and use the same reductions.
+`jq` expressions run against JSON responses and must produce one finite number. Prometheus sources accept standard text exposition, ignore comments, select by metric name and optional exact labels, and support `count`, `sum`, `average`, `minimum`, and `maximum` reductions.
 
-Set `value_type: string` for a current text metric. JSON text metrics require `path` to resolve to one string. Prometheus text metrics require `value_label`, which returns that label value from exactly one matching sample. Text metrics have no unit, chart, or history.
+Metrics can authenticate with a cookie session by adding `source.auth` with
+`type: cookie_session`. Its `login` request uses a `POST` URL plus exactly one
+`form` or `json` secret-reference mapping, and can define secret-reference
+headers or query values. Dashmark logs in using the metric's cached cookie jar
+before each metric request. See [Custom Metrics](metrics/README.md#cookie-session-authentication)
+for the complete schema and qBittorrent example.
+
+Set `value_type: string` for a current text metric. jq expressions must resolve to one string. Prometheus text metrics require `value_label`, which returns that label value from exactly one matching sample. Text metrics have no unit, chart, or history.
 
 When `dashmark.url` is absent, Dashmark can derive an HTTPS URL from a Traefik router label such as `traefik.http.routers.plex.rule=Host(\`plex.example.com\`)`. Add another `dashmark.*` label to opt the container in.
 

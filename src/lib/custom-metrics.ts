@@ -1,33 +1,20 @@
 import { readFileSync } from 'node:fs'
+import got from 'got'
+import jq from 'node-jq'
+import type { JsonInput } from 'node-jq/lib/options'
+import { CookieJar } from 'tough-cookie'
 import type { CustomMetricReduction, MetricOverride } from './config-file'
 import { logger } from './logger'
 
 const REQUEST_TIMEOUT_MS = 5_000
 const MAX_RESPONSE_BYTES = 1_048_576
+const cookieJars = new Map<string, CookieJar>()
 
 export type MetricResult = { value: number | string } | { error: string }
 
 function unavailable(key: string, detail: string): MetricResult {
   logger.error('metrics', 'custom metric collection failed', { key, detail })
   return { error: detail }
-}
-
-function decodePointerToken(token: string): string {
-  return token.replace(/~1/g, '/').replace(/~0/g, '~')
-}
-
-function resolvePointer(value: unknown, pointer: string): unknown {
-  let current = value
-  for (const token of pointer.slice(1).split('/')) {
-    const key = decodePointerToken(token)
-    if (Array.isArray(current)) {
-      if (!/^(0|[1-9]\d*)$/.test(key)) return undefined
-      current = current[Number(key)]
-    } else if (current !== null && typeof current === 'object') {
-      current = (current as Record<string, unknown>)[key]
-    } else return undefined
-  }
-  return current
 }
 
 function reduce(values: number[], reduction: CustomMetricReduction | undefined): number | undefined {
@@ -40,30 +27,23 @@ function reduce(values: number[], reduction: CustomMetricReduction | undefined):
   return Math.max(...values)
 }
 
-function numbers(values: unknown[]): number[] | undefined {
-  const parsed = values.map(value => typeof value === 'number' && Number.isFinite(value) ? value : undefined)
-  return parsed.every((value): value is number => value !== undefined) ? parsed : undefined
-}
-
-function extractJson(key: string, text: string, metric: MetricOverride): MetricResult {
-  const extractor = metric.json
-  if (!extractor) return unavailable(key, 'JSON extractor was not configured')
+async function extractJq(key: string, text: string, metric: MetricOverride): Promise<MetricResult> {
+  if (!metric.jq) return unavailable(key, 'jq extractor was not configured')
   let document: unknown
   try {
     document = JSON.parse(text)
   } catch {
     return unavailable(key, 'response is not valid JSON')
   }
-  const selected = resolvePointer(document, extractor.path)
-  if (metric.valueType === 'string') {
-    return typeof selected === 'string' ? { value: selected } : unavailable(key, 'JSON extraction did not produce a string')
+  try {
+    const value = await jq.run(metric.jq.expression, document as JsonInput, { input: 'json', output: 'json' })
+    if (metric.valueType === 'string') return typeof value === 'string' ? { value } : unavailable(key, 'jq extraction did not produce a string')
+    return typeof value === 'number' && Number.isFinite(value)
+      ? { value }
+      : unavailable(key, 'jq extraction did not produce a finite number')
+  } catch {
+    return unavailable(key, 'jq extraction failed')
   }
-  const entries = Array.isArray(selected) ? selected : [selected]
-  const values = numbers(entries.map(entry => extractor.valuePath === undefined ? entry : resolvePointer(entry, extractor.valuePath)))
-  const value = values && reduce(values, extractor.reduce)
-  return value === undefined || !Number.isFinite(value)
-    ? unavailable(key, 'JSON extraction did not produce the required numeric values')
-    : { value }
 }
 
 function parseLabels(input: string): Record<string, string> | undefined {
@@ -127,40 +107,99 @@ function extractPrometheus(key: string, text: string, metric: MetricOverride): M
     : { value }
 }
 
-function resolveHeaders(metric: MetricOverride): Headers | undefined {
-  const headers = new Headers()
-  for (const [name, reference] of Object.entries(metric.source.headers ?? {})) {
-    try {
-      const value = reference.env === undefined ? readFileSync(reference.file!, 'utf8').trim() : process.env[reference.env]
-      if (!value) throw new Error(reference.env === undefined ? 'secret file is empty' : 'environment variable is unset')
-      headers.set(name, value)
-    } catch (error) {
-      logger.error('metrics', 'failed to resolve custom metric secret', { metric: metric.label, header: name, error: error instanceof Error ? error.message : 'unknown error' })
-      return undefined
-    }
-  }
-  return headers
+function transform(key: string, result: MetricResult, metric: MetricOverride): MetricResult {
+  if ('error' in result || metric.valueType !== 'number' || typeof result.value !== 'number' || !metric.transform) return result
+  const value = result.value * (metric.transform.multiply ?? 1) + (metric.transform.add ?? 0)
+  return Number.isFinite(value) ? { value } : unavailable(key, 'metric transform did not produce a finite number')
 }
 
-async function responseText(response: Response): Promise<string> {
-  if (!response.body) return ''
-  const reader = response.body.getReader()
-  const chunks: Uint8Array[] = []
-  let size = 0
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    size += value.byteLength
-    if (size > MAX_RESPONSE_BYTES) {
-      await reader.cancel()
-      throw new Error(`response exceeds ${MAX_RESPONSE_BYTES} bytes`)
+function credentialName(reference: { env?: string; file?: string; label?: string }): string {
+  return reference.env ?? reference.file ?? reference.label ?? 'unknown credential'
+}
+
+type SecretReferences = Record<string, { env?: string; file?: string; label?: string; value?: string }>
+
+function resolveReferences(metric: MetricOverride, references: SecretReferences, kind: string): { values?: Record<string, string>; error?: string } {
+  const values: Record<string, string> = {}
+  for (const [name, reference] of Object.entries(references)) {
+    try {
+      const value = reference.value ?? (reference.env === undefined ? readFileSync(reference.file!, 'utf8').trim() : process.env[reference.env])
+      if (!value) throw new Error(reference.env === undefined ? 'secret file is empty' : 'environment variable is unset')
+      values[name] = value
+    } catch (error) {
+      logger.error('metrics', 'failed to resolve custom metric secret', { metric: metric.label, [kind]: name, error: error instanceof Error ? error.message : 'unknown error' })
+      return { error: `Credential ${credentialName(reference)} is unavailable` }
     }
-    chunks.push(value)
   }
-  const output = new Uint8Array(size)
-  let offset = 0
-  for (const chunk of chunks) { output.set(chunk, offset); offset += chunk.byteLength }
-  return new TextDecoder().decode(output)
+  return { values }
+}
+
+function resolveHeaders(metric: MetricOverride, references = metric.source.headers ?? {}): { headers?: Headers; error?: string } {
+  const headers = new Headers()
+  const { values, error } = resolveReferences(metric, references, 'header')
+  if (error || !values) return { error }
+  for (const [name, value] of Object.entries(values)) headers.set(name, value)
+  return { headers }
+}
+
+function resolveQuery(metric: MetricOverride, url: URL, references = metric.source.query ?? {}): string | undefined {
+  const { values, error } = resolveReferences(metric, references, 'query')
+  if (error || !values) return error
+  for (const [name, value] of Object.entries(values)) url.searchParams.set(name, value)
+  return undefined
+}
+
+async function requestText(
+  url: URL,
+  headers: Headers,
+  cookieJar: CookieJar,
+  body?: { form?: Record<string, string>; json?: Record<string, string> }
+): Promise<{ status: number; text: string }> {
+  const controller = new AbortController()
+  let responseTooLarge = false
+  const request = got(url, {
+    headers: Object.fromEntries(headers),
+    cookieJar,
+    followRedirect: false,
+    retry: { limit: 0 },
+    throwHttpErrors: false,
+    timeout: { request: REQUEST_TIMEOUT_MS },
+    signal: controller.signal,
+    resolveBodyOnly: false,
+    responseType: 'buffer',
+    method: body ? 'POST' : 'GET',
+    ...(body?.form ? { form: body.form } : {}),
+    ...(body?.json ? { json: body.json } : {})
+  })
+  request.on('downloadProgress', ({ total, transferred }) => {
+    if ((total !== undefined && total > MAX_RESPONSE_BYTES) || transferred > MAX_RESPONSE_BYTES) {
+      responseTooLarge = true
+      controller.abort()
+    }
+  })
+  try {
+    const response = await request
+    return { status: response.statusCode, text: Buffer.from(response.body).toString() }
+  } catch (error) {
+    if (responseTooLarge) throw new Error(`response exceeds ${MAX_RESPONSE_BYTES} bytes`)
+    throw error
+  }
+}
+
+async function login(metric: MetricOverride, cookieJar: CookieJar): Promise<string | undefined> {
+  const auth = metric.source.auth
+  if (!auth) return undefined
+  const loginUrl = new URL(auth.login.url)
+  const { headers, error: headerError } = resolveHeaders(metric, auth.login.headers)
+  if (headerError || !headers) return headerError ?? 'Could not resolve an authentication secret'
+  const queryError = resolveQuery(metric, loginUrl, auth.login.query)
+  if (queryError) return queryError
+  const bodyReferences = auth.login.form ?? auth.login.json
+  const { values, error: bodyError } = resolveReferences(metric, bodyReferences!, 'login')
+  if (bodyError || !values) return bodyError ?? 'Could not resolve an authentication secret'
+  const response = await requestText(loginUrl, headers, cookieJar, auth.login.form ? { form: values } : { json: values })
+  if (response.status < 200 || response.status >= 300) return `Login returned HTTP ${response.status}`
+  return undefined
 }
 
 export async function collectCustomMetric(key: string, metric: MetricOverride): Promise<MetricResult> {
@@ -172,17 +211,24 @@ export async function collectCustomMetric(key: string, metric: MetricOverride): 
     logger.error('metrics', 'custom metric has an invalid source URL', { key })
     return unavailable(key, 'Source URL is invalid')
   }
-  const headers = resolveHeaders(metric)
-  if (!headers) return unavailable(key, 'Could not resolve a metric secret')
+  const { headers, error: headerError } = resolveHeaders(metric)
+  if (headerError || !headers) return unavailable(key, headerError ?? 'Could not resolve a metric secret')
+  const queryError = resolveQuery(metric, url)
+  if (queryError) return unavailable(key, queryError)
   try {
-    const response = await fetch(url, { headers, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS), redirect: 'error' })
-    if (!response.ok) {
+    const jarKey = `${key}\0${metric.source.url}`
+    const cookieJar = cookieJars.get(jarKey) ?? new CookieJar()
+    cookieJars.set(jarKey, cookieJar)
+    const loginError = await login(metric, cookieJar)
+    if (loginError) return unavailable(key, loginError)
+    const response = await requestText(url, headers, cookieJar)
+    if (response.status >= 300 && response.status < 400) throw new Error('source redirected')
+    if (response.status < 200 || response.status >= 300) {
       logger.error('metrics', 'custom metric source returned an error', { key, url: url.origin + url.pathname, status: response.status })
       return { error: `Source returned HTTP ${response.status}` }
     }
-    const text = await responseText(response)
-    const result = 'json' in metric ? extractJson(key, text, metric) : extractPrometheus(key, text, metric)
-    return result
+    const result = 'jq' in metric ? await extractJq(key, response.text, metric) : extractPrometheus(key, response.text, metric)
+    return transform(key, result, metric)
   } catch (error) {
     const detail = error instanceof Error ? error.name : 'unknown error'
     logger.error('metrics', 'custom metric request failed', { key, url: url.origin + url.pathname, error: detail })

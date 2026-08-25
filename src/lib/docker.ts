@@ -2,8 +2,8 @@ import http from 'node:http'
 import https from 'node:https'
 import { URL } from 'node:url'
 import type { AppConfig, DockerHostConfig } from './config'
-import type { MetricOverride, ServiceOverrides } from './config-file'
-import { loadYamlConfig } from './config-file'
+import type { MetricOverride, ServiceMetricOverrides, ServiceOverrides } from './config-file'
+import { loadMetricCatalog, loadYamlConfig } from './config-file'
 import { parseLabels, isValidUrl, traefikUrl, hasDashmarkLabels, RESOURCE_STATS, type ParsedLabels, type ResourceStat } from './labels'
 import { resolveIcon, type IconResult } from './icons'
 import { resolveDescription } from './descriptions'
@@ -500,16 +500,57 @@ function resolveContainer(
   const { key: yamlKey, service: yamlService } = lookupYamlService(yamlServices, hostId, container)
   const rawLabels = container.Labels ?? {}
   const labels = mergeWithYaml(parseLabels(rawLabels), yamlService)
+  const url = resolveCardUrl(labels.url, rawLabels, yamlService !== undefined || hasDashmarkLabels(rawLabels))
+  const catalogMetrics = loadMetricCatalog()
+  const selectedCatalogMetrics = Object.fromEntries((labels.metrics ?? []).flatMap(key => {
+    const metric = catalogMetrics[key]
+    return metric ? [[key, metric]] : []
+  }))
+  const customMetrics = { ...selectedCatalogMetrics, ...yamlService?.customMetrics }
 
   return {
     container,
     name: containerName(container),
     yamlKey,
     labels,
-    customMetrics: yamlService?.customMetrics,
+    customMetrics: resolveMetricSources(customMetrics, url, rawLabels),
     customMetricErrors: yamlService?.customMetricErrors,
-    url: resolveCardUrl(labels.url, rawLabels, yamlService !== undefined || hasDashmarkLabels(rawLabels))
+    url
   }
+}
+
+function resolveMetricSources(
+  metrics: ServiceMetricOverrides,
+  cardUrl: string | undefined,
+  labels: Record<string, string>
+): ServiceMetricOverrides | undefined {
+  const resolveUrl = (url: string): string | undefined => {
+    if (!url.startsWith('{url}')) return url
+    return cardUrl ? `${cardUrl.replace(/\/$/, '')}${url.slice('{url}'.length)}` : undefined
+  }
+  const resolveReferences = (references: typeof metrics[string]['source']['headers']) => Object.fromEntries(Object.entries(references ?? {}).map(([name, reference]) => {
+    const value = reference.label === undefined ? undefined : labels[reference.label]
+    return [name, value === undefined ? reference : { ...reference, value }]
+  }))
+  const resolved = Object.fromEntries(Object.entries(metrics).flatMap(([key, metric]) => {
+    const url = resolveUrl(metric.source.url)
+    if (!url) return []
+    const headers = resolveReferences(metric.source.headers)
+    const query = resolveReferences(metric.source.query)
+    const auth = metric.source.auth
+    const loginUrl = auth ? resolveUrl(auth.login.url) : undefined
+    if (auth && !loginUrl) return []
+    const login = auth && loginUrl ? {
+      ...auth.login,
+      url: loginUrl,
+      ...(auth.login.headers ? { headers: resolveReferences(auth.login.headers) } : {}),
+      ...(auth.login.query ? { query: resolveReferences(auth.login.query) } : {}),
+      ...(auth.login.form ? { form: resolveReferences(auth.login.form) } : {}),
+      ...(auth.login.json ? { json: resolveReferences(auth.login.json) } : {})
+    } : undefined
+    return [[key, { ...metric, source: { url, ...(Object.keys(headers).length > 0 ? { headers } : {}), ...(Object.keys(query).length > 0 ? { query } : {}), ...(auth && login ? { auth: { ...auth, login } } : {}) } }]]
+  }))
+  return Object.keys(resolved).length > 0 ? resolved : undefined
 }
 
 function isVisibleContainer(config: AppConfig, headers: Headers, { labels, url }: ResolvedContainer): boolean {

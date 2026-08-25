@@ -1,59 +1,132 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createServer, type Server } from 'node:http'
+import type { AddressInfo } from 'node:net'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { collectCustomMetric } from '@/lib/custom-metrics'
 import type { MetricOverride } from '@/lib/config-file'
 
-const originalFetch = globalThis.fetch
+let server: Server
+let baseUrl: string
+let cookieRequests: string[] = []
+let loginRequests: { body: string; cookie: string }[] = []
 
-afterEach(() => {
-  globalThis.fetch = originalFetch
+beforeAll(async () => {
+  server = createServer((request, response) => {
+    const path = request.url ?? ''
+    if (path === '/cookies') {
+      cookieRequests.push(request.headers.cookie ?? '')
+      if (!request.headers.cookie?.includes('metric-session=active')) response.setHeader('Set-Cookie', 'metric-session=active; Path=/')
+      setTimeout(() => response.end(JSON.stringify({ value: request.headers.cookie?.includes('metric-session=active') ? 2 : 1 })), 10)
+      return
+    }
+    if (path === '/large') {
+      response.end(JSON.stringify({ value: 'x'.repeat(1_048_577) }))
+      return
+    }
+    if (path === '/login') {
+      let body = ''
+      request.on('data', chunk => { body += chunk })
+      request.on('end', () => {
+        loginRequests.push({ body, cookie: request.headers.cookie ?? '' })
+        if (body === 'username=admin&password=secret') response.setHeader('Set-Cookie', 'metric-session=authenticated; Path=/')
+        response.end(body === 'username=admin&password=secret' ? 'Ok.' : 'Fails.')
+      })
+      return
+    }
+    if (path === '/protected') {
+      response.statusCode = request.headers.cookie?.includes('metric-session=authenticated') ? 200 : 403
+      response.end(JSON.stringify({ value: 7 }))
+      return
+    }
+    const responses: Record<string, string> = {
+      '/data': '{"stats":{"value":12.5}}',
+      '/sum': '{"items":[{"value":2},{"value":3}]}',
+      '/megabytes': '{"megabytes":2}',
+      '/items': '{"items":[1,2]}',
+      '/queue': '# HELP queue_depth Current queue depth\nqueue_depth{queue="primary",instance="one"} 2\nqueue_depth{queue="secondary"} 9\nqueue_depth{queue="primary",instance="two"} 4 1710000000\n',
+      '/status': '{"status":"healthy"}',
+      '/metrics': 'build_info{version="1.2.3"} 1\n'
+    }
+    response.end(responses[path] ?? '')
+  })
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
 })
 
-function metric(extractor: Pick<MetricOverride, 'json'> | Pick<MetricOverride, 'prometheus'>): MetricOverride {
-  return { label: 'Test metric', unit: 'number', source: { url: 'https://metrics.example.test/data' }, ...extractor } as MetricOverride
-}
+afterAll(async () => { await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())) })
 
-function response(text: string): Response {
-  return new Response(text, { status: 200 })
+function metric(extractor: Pick<MetricOverride, 'jq'> | Pick<MetricOverride, 'prometheus'>): MetricOverride {
+  return { label: 'Test metric', unit: 'number', source: { url: `${baseUrl}/data` }, ...extractor } as MetricOverride
 }
 
 describe('collectCustomMetric', () => {
-  it('extracts a scalar JSON value and reduces values from an array', async () => {
-    globalThis.fetch = vi.fn()
-      .mockResolvedValueOnce(response('{"stats":{"value":12.5}}'))
-      .mockResolvedValueOnce(response('{"items":[{"value":2},{"value":3}]}'))
-
-    await expect(collectCustomMetric('scalar', metric({ json: { path: '/stats/value' } }))).resolves.toEqual({ value: 12.5 })
-    await expect(collectCustomMetric('sum', metric({ json: { path: '/items', valuePath: '/value', reduce: 'sum' } }))).resolves.toEqual({ value: 5 })
+  it('extracts scalar and aggregated JSON values with jq', async () => {
+    await expect(collectCustomMetric('scalar', metric({ jq: { expression: '.stats.value' } }))).resolves.toEqual({ value: 12.5 })
+    await expect(collectCustomMetric('sum', { ...metric({ jq: { expression: '[.items[].value] | add' } }), source: { url: `${baseUrl}/sum` } })).resolves.toEqual({ value: 5 })
   })
 
-  it('reports an unavailable metric when an array requires a reduction', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue(response('{"items":[1,2]}'))
+  it('applies numeric transforms after extraction', async () => {
+    await expect(collectCustomMetric('bytes', {
+      label: 'Bytes', valueType: 'number', unit: 'bytes', chart: 'step',
+      source: { url: `${baseUrl}/megabytes` }, transform: { multiply: 1_048_576 },
+      jq: { expression: '.megabytes' }
+    })).resolves.toEqual({ value: 2_097_152 })
+  })
 
-    await expect(collectCustomMetric('items', metric({ json: { path: '/items' } }))).resolves.toMatchObject({ error: 'JSON extraction did not produce the required numeric values' })
+  it('reports an unavailable metric when jq produces a non-numeric value', async () => {
+    await expect(collectCustomMetric('items', { ...metric({ jq: { expression: '.items' } }), source: { url: `${baseUrl}/items` } })).resolves.toMatchObject({ error: 'jq extraction did not produce a finite number' })
   })
 
   it('parses Prometheus samples, labels, comments, and reductions', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue(response(`# HELP queue_depth Current queue depth
-queue_depth{queue="primary",instance="one"} 2
-queue_depth{queue="secondary"} 9
-queue_depth{queue="primary",instance="two"} 4 1710000000
-`))
-
-    await expect(collectCustomMetric('queue', metric({
-      prometheus: { name: 'queue_depth', labels: { queue: 'primary' }, reduce: 'average' }
-    }))).resolves.toEqual({ value: 3 })
+    await expect(collectCustomMetric('queue', {
+      ...metric({ prometheus: { name: 'queue_depth', labels: { queue: 'primary' }, reduce: 'average' } }),
+      source: { url: `${baseUrl}/queue` }
+    })).resolves.toEqual({ value: 3 })
   })
 
   it('extracts text values without coercing them to numeric samples', async () => {
-    globalThis.fetch = vi.fn()
-      .mockResolvedValueOnce(response('{"status":"healthy"}'))
-      .mockResolvedValueOnce(response('build_info{version="1.2.3"} 1\n'))
-
     await expect(collectCustomMetric('status', {
-      label: 'Status', valueType: 'string', source: { url: 'https://metrics.example.test/status' }, json: { path: '/status' }
+      label: 'Status', valueType: 'string', source: { url: `${baseUrl}/status` }, jq: { expression: '.status' }
     })).resolves.toEqual({ value: 'healthy' })
     await expect(collectCustomMetric('version', {
-      label: 'Version', valueType: 'string', source: { url: 'https://metrics.example.test/metrics' }, prometheus: { name: 'build_info', valueLabel: 'version' }
+      label: 'Version', valueType: 'string', source: { url: `${baseUrl}/metrics` }, prometheus: { name: 'build_info', valueLabel: 'version' }
     })).resolves.toEqual({ value: '1.2.3' })
+  })
+
+  it('caches cookies for each metric key and source', async () => {
+    cookieRequests = []
+    const cookieMetric = { ...metric({ jq: { expression: '.value' } }), source: { url: `${baseUrl}/cookies` } }
+
+    await expect(collectCustomMetric('cookie', cookieMetric)).resolves.toEqual({ value: 1 })
+    await expect(collectCustomMetric('cookie', cookieMetric)).resolves.toEqual({ value: 2 })
+    await expect(collectCustomMetric('other-cookie', cookieMetric)).resolves.toEqual({ value: 1 })
+    expect(cookieRequests).toEqual(['', 'metric-session=active', ''])
+  })
+
+  it('logs in with form credentials before collecting a cookie-session metric', async () => {
+    loginRequests = []
+    const cookieMetric = {
+      ...metric({ jq: { expression: '.value' } }),
+      source: {
+        url: `${baseUrl}/protected`,
+        auth: {
+          type: 'cookie_session' as const,
+          login: {
+            url: `${baseUrl}/login`, method: 'POST' as const,
+            form: { username: { value: 'admin' }, password: { value: 'secret' } }
+          }
+        }
+      }
+    }
+
+    await expect(collectCustomMetric('authenticated', cookieMetric)).resolves.toEqual({ value: 7 })
+    await expect(collectCustomMetric('authenticated', cookieMetric)).resolves.toEqual({ value: 7 })
+    expect(loginRequests).toEqual([
+      { body: 'username=admin&password=secret', cookie: '' },
+      { body: 'username=admin&password=secret', cookie: 'metric-session=authenticated' }
+    ])
+  })
+
+  it('rejects responses larger than one megabyte', async () => {
+    await expect(collectCustomMetric('large', { ...metric({ jq: { expression: '.value' } }), source: { url: `${baseUrl}/large` } })).resolves.toEqual({ error: 'Could not reach metric source' })
   })
 })

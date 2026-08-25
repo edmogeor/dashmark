@@ -1,0 +1,6 @@
+label: DNS latency
+unit: seconds
+chart: line
+source:
+  url: "{url}/control/stats"
+jq: .avg_processing_time

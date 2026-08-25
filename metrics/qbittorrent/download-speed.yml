@@ -1,0 +1,19 @@
+label: Download
+unit: bytes_per_second
+chart: line
+chart_group: transfer_rates
+source:
+  url: "{url}/api/v2/transfer/info"
+  auth:
+    type: cookie_session
+    login:
+      url: "{url}/api/v2/auth/login"
+      method: POST
+      form:
+        username:
+          env: DASHMARK_QBITTORRENT_USERNAME
+          label: dashmark.metric_username
+        password:
+          env: DASHMARK_QBITTORRENT_PASSWORD
+          label: dashmark.metric_password
+jq: .dl_info_speed

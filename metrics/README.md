@@ -31,8 +31,7 @@ radarr:
         headers:
           X-Api-Key:
             env: RADARR_API_KEY
-      json:
-        path: /queue/active
+      jq: .queue.active
 ```
 
 The equivalent Docker label is:
@@ -68,6 +67,26 @@ Docker labels can use the equivalent `dashmark.metric_provider=radarr`.
 Locally defined unscoped metric keys, such as `active_downloads`, do not need a
 provider binding.
 
+### Catalog source bindings
+
+Catalog metrics derive their endpoint from the card URL. When required, a
+catalog metric defines its default credential environment variable. Override
+that credential for one container with a literal `dashmark.metric_api_key`
+label:
+
+```yaml
+media-radarr:
+  metric_provider: radarr
+  metrics: [radarr/queue-depth]
+  # Optional. The catalog defaults to DASHMARK_RADARR_API_KEY.
+  # Docker labels are visible through Docker APIs and inspect output.
+  # dashmark.metric_api_key: literal-api-key
+```
+
+Set the catalog's documented default variable on the Dashmark container, such
+as `DASHMARK_RADARR_API_KEY`. A literal metric label takes precedence, but is
+not recommended because Docker labels are not secret storage.
+
 ## Metric Definition
 
 Each entry under `custom_metrics` needs:
@@ -76,11 +95,13 @@ Each entry under `custom_metrics` needs:
 | --- | --- | --- |
 | `label` | Yes | Display label in the Metrics tooltip. |
 | `source.url` | Yes | Explicit HTTP or HTTPS endpoint. |
-| `source.headers` | No | Header values referenced from an environment variable or file. |
-| `json` or `prometheus` | Yes | Exactly one extractor. |
+| `source.headers` / `source.query` | No | Header or query values referenced from an environment variable, file, or optional literal label. |
+| `source.auth` | No | Cookie-session login request for endpoints that require an authenticated browser session. |
+| `jq` or `prometheus` | Yes | Exactly one extractor. |
 | `unit` | Numeric only | Display unit, defaults to `number`. |
 | `chart` | Numeric only | `step` (default), `line`, `area`, or `none`. |
 | `chart_group` | Numeric only | Lowercase group ID that combines compatible selected metrics into one chart. |
+| `transform` | Numeric only | Optional `{ multiply: number, add: number }` applied after extraction. |
 | `value_type` | No | `number` (default) or `string`. |
 
 Do not put literal credentials in YAML. Use one secret reference per header:
@@ -93,10 +114,42 @@ headers:
     file: /run/secrets/service_api_key
 ```
 
-## JSON Metrics
+### Cookie-session authentication
 
-`json.path` is a JSON Pointer selecting the value to display. JSON Pointer
-segments begin with `/`; escape `~` as `~0` and `/` as `~1`.
+Use `source.auth` when a metric endpoint first requires a login that sets a
+session cookie. Dashmark sends the login request with the metric's cached
+cookie jar, then fetches the metric with that same jar. The login method is
+always `POST`; it must define exactly one non-empty `form` or `json` mapping.
+Header, query, and body values all use secret references:
+
+```yaml
+source:
+  url: "{url}/api/v2/transfer/info"
+  auth:
+    type: cookie_session
+    login:
+      url: "{url}/api/v2/auth/login"
+      method: POST
+      form:
+        username:
+          env: DASHMARK_QBITTORRENT_USERNAME
+          label: dashmark.metric_username
+        password:
+          env: DASHMARK_QBITTORRENT_PASSWORD
+          label: dashmark.metric_password
+jq: .dl_info_speed
+```
+
+Catalog metrics may use `{url}` for both metric and login URLs. In Docker,
+`label` values override their `env` or `file` defaults for that container.
+Use `dashmark.metric_username` and `dashmark.metric_password` for the bundled
+qBittorrent metrics. Docker labels are visible through Docker APIs and inspect
+output, so prefer environment variables or secret files.
+
+## jq Metrics
+
+`jq` expressions select and transform values from JSON responses. Each
+expression must produce exactly one value of the metric's declared type.
 
 ```yaml
 custom_metrics:
@@ -105,11 +158,10 @@ custom_metrics:
     unit: count
     source:
       url: http://service:8080/stats
-    json:
-      path: /queue/active
+    jq: .queue.active
 ```
 
-For arrays, select numeric values with `value_path` and choose a reduction:
+Use jq to aggregate arrays:
 
 ```yaml
 custom_metrics:
@@ -118,14 +170,11 @@ custom_metrics:
     unit: bytes
     source:
       url: http://service:8080/queue
-    json:
-      path: /items
-      value_path: /size_bytes
-      reduce: sum
+    jq: '[.items[].size_bytes] | add'
 ```
 
-Available reductions are `count`, `sum`, `average`, `minimum`, and `maximum`.
-An array without a reduction must resolve to exactly one numeric value.
+For example, use `length` to count selected entries, `add` to sum values, or
+`add / length` to calculate an average.
 
 ## Prometheus Metrics
 
@@ -166,8 +215,7 @@ custom_metrics:
     value_type: string
     source:
       url: http://service:8080/status
-    json:
-      path: /status
+    jq: .status
 ```
 
 For Prometheus info metrics, select one matching sample and use `value_label`:
@@ -184,7 +232,7 @@ custom_metrics:
       value_label: version
 ```
 
-Text metrics cannot define a unit, array value path, or reduction.
+Text metrics cannot define a unit or chart.
 
 ## Charts
 
@@ -201,8 +249,7 @@ custom_metrics:
     chart: none
     source:
       url: http://service:8080/stats
-    json:
-      path: /queue/depth
+    jq: .queue.depth
 ```
 
 ### Multi-series charts
@@ -220,14 +267,14 @@ custom_metrics:
     chart: line
     chart_group: disk_io
     source: { url: http://service:8080/stats }
-    json: { path: /disk/read_bytes_per_second }
+    jq: .disk.read_bytes_per_second
   write_rate:
     label: Write
     unit: bytes_per_second
     chart: line
     chart_group: disk_io
     source: { url: http://service:8080/stats }
-    json: { path: /disk/write_bytes_per_second }
+    jq: .disk.write_bytes_per_second
 ```
 
 Chart series use Dashmark's separate `--dashmark-chart-color-0` through
@@ -252,6 +299,10 @@ unit:
 is displayed as a percentage. `duration` expects seconds and selects a compact
 time display automatically.
 
+Use `transform` to convert a source value before formatting. For example, a
+metric returning MiB can use `transform: { multiply: 1048576 }` with `unit:
+bytes`.
+
 ## Errors
 
 Invalid selected definitions display an availability toast with a safe,
@@ -266,8 +317,10 @@ You do not need to contribute a metric to use it. To share a reusable metric:
 1. Fork this repository.
 2. Add `metrics/<provider>/<metric-name>.yml`, for example
    `metrics/radarr/active_downloads.yml`.
-3. Add sanitized fixtures and extraction tests.
-4. Open a pull request using the **Custom Metric** template.
+3. Add the provider, metric key, graph group, and author to
+   [`metrics/CATALOG.md`](CATALOG.md).
+4. Add sanitized fixtures and extraction tests.
+5. Open a pull request using the **Custom Metric** template.
 
 The pull request runs `npm run validate:metrics`. Definitions that do not meet
 the schema fail automatically; valid definitions proceed to maintainer review.
@@ -277,15 +330,21 @@ The directory path is the metric key. For example,
 users select with `metrics: [radarr/active_downloads]`. This keeps provider
 metrics with the same name distinct, such as `sonarr/active_downloads`.
 
-The contributed YAML contains reusable extraction only. It must not include a
-`source` block because each user supplies their own endpoint and secret
-references locally:
+The contributed YAML may define a `source` URL beginning with `{url}`. Dashmark
+replaces `{url}` with the card URL at runtime. Header and query credentials can
+use a default `env` or `file` reference and an optional literal Docker-label
+override:
 
 ```yaml
-label: Active downloads
+label: Queue depth
 unit: count
-json:
-  path: /queue/active
+source:
+  url: "{url}/api/v3/queue/status"
+  headers:
+    X-Api-Key:
+      env: DASHMARK_RADARR_API_KEY
+      label: dashmark.metric_api_key
+jq: .totalCount
 ```
 
 Never submit private URLs, hostnames, API keys, secret files, or personal card

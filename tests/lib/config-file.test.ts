@@ -135,10 +135,7 @@ radarr:
         headers:
           X-Api-Key:
             env: RADARR_API_KEY
-      json:
-        path: /records
-        value_path: /queue/size
-        reduce: sum
+      jq: '[.records[].queue.size] | add'
 `)
 
     expect(loadYamlConfig(config).config.services.radarr?.customMetrics).toEqual({
@@ -151,10 +148,77 @@ radarr:
           url: 'http://metrics.example.internal/radarr',
           headers: { 'X-Api-Key': { env: 'RADARR_API_KEY' } }
         },
-        json: { path: '/records', valuePath: '/queue/size', reduce: 'sum' }
+        jq: { expression: '[.records[].queue.size] | add' }
       }
     })
     expect(loadYamlConfig(config).config.services.radarr?.metrics).toEqual(['cpu', 'active_downloads'])
+  })
+
+  it('binds a catalog metric to a local source', () => {
+    const config = getConfig()
+    config.configFile = writeConfig(`
+radarr:
+  metric_provider: radarr
+  metrics: [radarr/queue-depth]
+  custom_metrics:
+    radarr/queue-depth:
+      source: { url: http://radarr:7878/api/v3/queue/status }
+`)
+
+    expect(loadYamlConfig(config).config.services.radarr?.customMetrics).toEqual({
+      'radarr/queue-depth': {
+        label: 'Queue depth',
+        valueType: 'number',
+        unit: 'count',
+        chart: 'step',
+        source: { url: 'http://radarr:7878/api/v3/queue/status' },
+        jq: { expression: '.totalCount' }
+      }
+    })
+  })
+
+  it('parses cookie-session metric authentication and rejects invalid login bodies', () => {
+    const config = getConfig()
+    config.configFile = writeConfig(`
+service:
+  custom_metrics:
+    authenticated:
+      label: Authenticated
+      source:
+        url: https://service.example.com/info
+        auth:
+          type: cookie_session
+          login:
+            url: https://service.example.com/login
+            method: POST
+            form:
+              username: { env: SERVICE_USERNAME, label: dashmark.metric_username }
+              password: { file: /run/secrets/service_password }
+      jq: .value
+    invalid:
+      label: Invalid
+      source:
+        url: https://service.example.com/info
+        auth:
+          type: cookie_session
+          login:
+            url: https://service.example.com/login
+            method: POST
+            form: { username: { env: SERVICE_USERNAME } }
+            json: { password: { env: SERVICE_PASSWORD } }
+      jq: .value
+`)
+
+    const metrics = loadYamlConfig(config).config.services.service?.customMetrics
+    expect(metrics?.authenticated).toMatchObject({
+      source: {
+        auth: {
+          type: 'cookie_session',
+          login: { method: 'POST', form: { username: { env: 'SERVICE_USERNAME', label: 'dashmark.metric_username' } } }
+        }
+      }
+    })
+    expect(metrics?.invalid).toBeUndefined()
   })
 
   it('requires one valid extractor for each custom metric', () => {
@@ -172,12 +236,12 @@ service:
     both:
       label: Both
       source: { url: http://metrics.example.internal/metrics }
-      json: { path: /value }
+      jq: .value
       prometheus: { name: value }
-    invalid_pointer:
-      label: Invalid pointer
+    invalid_jq:
+      label: Invalid jq
       source: { url: http://metrics.example.internal/metrics }
-      json: { path: value }
+      jq: ''
 `)
 
     expect(loadYamlConfig(config).config.services.service?.customMetrics).toEqual({
@@ -207,18 +271,18 @@ service:
       unit: { suffix: rpm }
       chart: none
       source: { url: https://metrics.example.internal/data }
-      json: { path: /rpm }
+      jq: .rpm
     invalid_chart:
       label: Invalid chart
       chart: scatter
       source: { url: https://metrics.example.internal/data }
-      json: { path: /value }
+      jq: .value
     invalid_text:
       label: Invalid text
       value_type: string
       unit: count
       source: { url: https://metrics.example.internal/data }
-      json: { path: /value }
+      jq: .value
 `)
 
     expect(loadYamlConfig(config).config.services.service?.customMetrics).toEqual({
@@ -234,7 +298,7 @@ service:
         unit: { suffix: 'rpm' },
         chart: 'none',
         source: { url: 'https://metrics.example.internal/data' },
-        json: { path: '/rpm', valuePath: undefined, reduce: undefined }
+        jq: { expression: '.rpm' }
       }
     })
   })
@@ -250,14 +314,14 @@ service:
       chart: line
       chart_group: disk_io
       source: { url: https://metrics.example.internal/stats }
-      json: { path: /read }
+      jq: .read
     write_rate:
       label: Write
       unit: bytes_per_second
       chart: line
       chart_group: disk_io
       source: { url: https://metrics.example.internal/stats }
-      json: { path: /write }
+      jq: .write
 `)
 
     const service = loadYamlConfig(config).config.services.service
@@ -278,14 +342,14 @@ service:
       chart: line
       chart_group: traffic
       source: { url: https://metrics.example.internal/stats }
-      json: { path: /requests }
+      jq: .requests
     bytes:
       label: Bytes
       unit: bytes
       chart: line
       chart_group: traffic
       source: { url: https://metrics.example.internal/stats }
-      json: { path: /bytes }
+      jq: .bytes
 `)
 
     const service = loadYamlConfig(config).config.services.service

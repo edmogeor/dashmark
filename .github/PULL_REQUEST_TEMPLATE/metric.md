@@ -11,7 +11,7 @@ endpoint, hostname, API key, token, cookie, or secret file path. -->
 
 **Unit:**
 
-**Extractor:** `json` / `prometheus`
+**Extractor:** `jq` / `prometheus`
 
 ## Upstream Source
 
@@ -31,8 +31,7 @@ hostnames, or personal card names. -->
 #   metric_key:
 #     label: Example
 #     unit: count
-#     json:
-#       path: /value
+#     jq: .value
 ```
 
 ## Validation
@@ -44,9 +43,10 @@ reductions. -->
 
 - [ ] The definition contains no private URLs, hostnames, credentials, or secret references.
 - [ ] I created `metrics/<provider>/<metric-name>.yml` in my fork.
+- [ ] I added the provider, metric key, graph group, and author to `metrics/CATALOG.md`.
 - [ ] I ran `npm run validate:metrics` locally.
 - [ ] I added a sanitized fixture and extraction tests.
-- [ ] I documented the metric in `metrics/README.md` or its provider-specific documentation.
+- [ ] I documented the metric in its provider-specific documentation.
 - [ ] I ran `npm test`, `npm run typecheck`, and `npm run lint` locally.
 - [ ] I updated `CHANGELOG.md` under `[Unreleased]` if this is user-facing.
 - [ ] My commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).

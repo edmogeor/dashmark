@@ -1,0 +1,6 @@
+label: Downloaded data
+unit: bytes
+chart: line
+transform:
+  multiply: 1048576
+jq: .DownloadedSizeMB

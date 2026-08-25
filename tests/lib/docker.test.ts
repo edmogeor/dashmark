@@ -6,6 +6,8 @@ import { MockDockerServer } from '../mocks/docker-server'
 import { getConfig } from '@/lib/config'
 import { getCards, getContainerMetricUsage, getContainerResourceUsage, getContainerStatuses, clearDockerCache } from '@/lib/docker'
 
+const { got } = vi.hoisted(() => ({ got: vi.fn() }))
+
 vi.mock('@/lib/descriptions', () => ({
   resolveDescription: vi.fn(() => 'Automatic description')
 }))
@@ -13,6 +15,8 @@ vi.mock('@/lib/descriptions', () => ({
 vi.mock('@/lib/icons', () => ({
   resolveIcon: vi.fn(async () => ({ type: 'placeholder', initials: 'D' }))
 }))
+
+vi.mock('got', () => ({ default: got }))
 
 const tempDirectories: string[] = []
 
@@ -25,10 +29,17 @@ function writeTempConfig(content: string): string {
 }
 
 afterEach(() => {
+  got.mockReset()
   for (const directory of tempDirectories.splice(0)) {
     fs.rmSync(directory, { recursive: true, force: true })
   }
 })
+
+function mockGotResponse(body: string) {
+  const request = Object.assign(Promise.resolve({ statusCode: 200, body: Buffer.from(body) }), { on: vi.fn() })
+  request.on.mockReturnValue(request)
+  got.mockReturnValue(request)
+}
 
 describe('getCards', () => {
   let server: MockDockerServer
@@ -788,7 +799,7 @@ describe('getContainerStatuses', () => {
         'dashmark.metrics': 'active_downloads'
       }
     }]
-    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"totalRecords":4}'))
+    mockGotResponse('{"totalRecords":4}')
     const config = getConfig()
     config.dockerHost = dockerHost
     config.configFile = writeTempConfig(`
@@ -798,25 +809,68 @@ radarr:
       label: Active downloads
       unit: count
       source: { url: https://metrics.example.test/radarr }
-      json: { path: /totalRecords }
+      jq: .totalRecords
     ignored:
       label: Ignored
       source: { url: https://metrics.example.test/ignored }
-      json: { path: /value }
+      jq: .value
 `)
 
-    try {
-      await expect(getContainerMetricUsage(config, new Headers(), 'default:custom-metrics')).resolves.toEqual({
-        resource: undefined,
-        historyPeriodMs: config.metricsHistoryPeriodMs,
-        customMetrics: [{ key: 'active_downloads', label: 'Active downloads', unit: 'count', chart: 'step', value: 4 }],
-        metricErrors: []
-      })
-      expect(fetch).toHaveBeenCalledTimes(1)
-      expect(server.statsRequests).toBe(0)
-    } finally {
-      fetch.mockRestore()
-    }
+    await expect(getContainerMetricUsage(config, new Headers(), 'default:custom-metrics')).resolves.toEqual({
+      resource: undefined,
+      historyPeriodMs: config.metricsHistoryPeriodMs,
+      customMetrics: [{ key: 'active_downloads', label: 'Active downloads', unit: 'count', chart: 'step', value: 4 }],
+      metricErrors: []
+    })
+    expect(got).toHaveBeenCalledTimes(1)
+    expect(server.statsRequests).toBe(0)
+  })
+
+  it('collects a catalog metric from the card URL and API-key label', async () => {
+    server.containers = [{
+      Id: 'catalog-metric', Names: ['/radarr'], Image: 'radarr', ImageID: 'sha256:radarr',
+      State: 'running', Status: 'Up 1 hour', Labels: {
+        'dashmark.url': 'https://radarr.example.com',
+        'dashmark.metric_provider': 'radarr',
+        'dashmark.metrics': 'radarr/queue-depth',
+        'dashmark.metric_api_key': 'label-api-key'
+      }
+    }]
+    mockGotResponse('{"totalCount":4}')
+    const config = getConfig()
+    config.dockerHost = dockerHost
+
+    await expect(getContainerMetricUsage(config, new Headers(), 'default:catalog-metric')).resolves.toEqual({
+      resource: undefined,
+      historyPeriodMs: config.metricsHistoryPeriodMs,
+      customMetrics: [{ key: 'radarr/queue-depth', label: 'Queue depth', unit: 'count', chart: 'step', value: 4 }],
+      metricErrors: []
+    })
+    expect(String(got.mock.calls[0]?.[0])).toBe('https://radarr.example.com/api/v3/queue/status')
+    expect(new Headers(got.mock.calls[0]?.[1]?.headers).get('X-Api-Key')).toBe('label-api-key')
+  })
+
+  it('resolves cookie-session login labels for catalog metrics', async () => {
+    server.containers = [{
+      Id: 'qbittorrent-metric', Names: ['/qbittorrent'], Image: 'qbittorrent', ImageID: 'sha256:qbittorrent',
+      State: 'running', Status: 'Up 1 hour', Labels: {
+        'dashmark.url': 'https://qbittorrent.example.com',
+        'dashmark.metric_provider': 'qbittorrent',
+        'dashmark.metrics': 'qbittorrent/download-speed',
+        'dashmark.metric_username': 'label-user',
+        'dashmark.metric_password': 'label-password'
+      }
+    }]
+    mockGotResponse('{"dl_info_speed":4}')
+    const config = getConfig()
+    config.dockerHost = dockerHost
+
+    await expect(getContainerMetricUsage(config, new Headers(), 'default:qbittorrent-metric')).resolves.toMatchObject({
+      customMetrics: [{ key: 'qbittorrent/download-speed', value: 4 }]
+    })
+    expect(String(got.mock.calls[0]?.[0])).toBe('https://qbittorrent.example.com/api/v2/auth/login')
+    expect(got.mock.calls[0]?.[1]).toMatchObject({ method: 'POST', form: { username: 'label-user', password: 'label-password' } })
+    expect(String(got.mock.calls[1]?.[0])).toBe('https://qbittorrent.example.com/api/v2/transfer/info')
   })
 
   it('validates metric access without collecting live values', async () => {
@@ -827,7 +881,6 @@ radarr:
         'dashmark.metrics': 'active_downloads'
       }
     }]
-    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"totalRecords":4}'))
     const config = getConfig()
     config.dockerHost = dockerHost
     config.configFile = writeTempConfig(`
@@ -837,20 +890,16 @@ radarr:
       label: Active downloads
       unit: count
       source: { url: https://metrics.example.test/radarr }
-      json: { path: /totalRecords }
+      jq: .totalRecords
 `)
 
-    try {
-      await expect(getContainerMetricUsage(config, new Headers(), 'default:cached-metrics', false)).resolves.toEqual({
-        historyPeriodMs: config.metricsHistoryPeriodMs,
-        customMetrics: [],
-        metricErrors: []
-      })
-      expect(fetch).not.toHaveBeenCalled()
-      expect(server.statsRequests).toBe(0)
-    } finally {
-      fetch.mockRestore()
-    }
+    await expect(getContainerMetricUsage(config, new Headers(), 'default:cached-metrics', false)).resolves.toEqual({
+      historyPeriodMs: config.metricsHistoryPeriodMs,
+      customMetrics: [],
+      metricErrors: []
+    })
+    expect(got).not.toHaveBeenCalled()
+    expect(server.statsRequests).toBe(0)
   })
 
   it('rejects custom metrics from a different provider', async () => {
@@ -871,7 +920,7 @@ radarr:
       label: Active downloads
       unit: count
       source: { url: https://metrics.example.test/sonarr }
-      json: { path: /totalRecords }
+      jq: .totalRecords
 `)
 
     await expect(getContainerMetricUsage(config, new Headers(), 'default:provider-metrics')).resolves.toEqual({

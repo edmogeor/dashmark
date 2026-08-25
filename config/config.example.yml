@@ -74,19 +74,30 @@ plex:
   #     unit: count
   #     source:
   #       url: http://metrics.example.internal/radarr
-  #       headers:
-  #         X-Api-Key: { env: RADARR_API_KEY }
-   #     json:
-   #       path: /queue
-   #       value_path: /records
-   #       reduce: count
+   #       headers:
+   #         X-Api-Key: { env: RADARR_API_KEY }
+    #     jq: '.queue.records | length'
+   #   download_speed:
+   #     label: Download
+   #     unit: bytes_per_second
+   #     source:
+   #       url: http://qbittorrent:8080/api/v2/transfer/info
+   #       auth:
+   #         type: cookie_session
+   #         login:
+   #           url: http://qbittorrent:8080/api/v2/auth/login
+   #           method: POST
+   #           form:
+   #             username: { env: DASHMARK_QBITTORRENT_USERNAME }
+   #             password: { file: /run/secrets/qbittorrent_password }
+   #     jq: .dl_info_speed
    #   read_rate:
    #     label: Read
    #     unit: bytes_per_second
    #     chart: line
    #     chart_group: disk_io
    #     source: { url: http://metrics.example.internal/io }
-   #     json: { path: /read_bytes_per_second }
+   #     jq: .read_bytes_per_second
   #   version:
   #     label: Version
   #     value_type: string
