@@ -79,19 +79,23 @@ function validateSource(source) {
   if (value.auth !== undefined) validateCookieSessionAuth(value.auth)
 }
 
+function validateSecretReference(name, reference, context, kind) {
+  const secret = record(reference, `${context}.${kind}.${name} must be a mapping`)
+  allowed(secret, new Set(['env', 'file', 'label']), `${context}.${kind}.${name}`)
+  const env = typeof secret.env === 'string' && Boolean(secret.env)
+  const file = typeof secret.file === 'string' && Boolean(secret.file)
+  const label = typeof secret.label === 'string' && Boolean(secret.label)
+  if (!name || (env && file) || (!env && !file && !label)) {
+    throw new Error(`${context}.${kind} must use valid names and env, file, or label references`)
+  }
+}
+
 function validateSecretMappings(value, context) {
   for (const kind of ['headers', 'query']) {
     if (value[kind] === undefined) continue
     const references = record(value[kind], `${context}.${kind} must be a mapping`)
     for (const [name, reference] of Object.entries(references)) {
-      const secret = record(reference, `${context}.${kind}.${name} must be a mapping`)
-      allowed(secret, new Set(['env', 'file', 'label']), `${context}.${kind}.${name}`)
-      const env = typeof secret.env === 'string' && Boolean(secret.env)
-      const file = typeof secret.file === 'string' && Boolean(secret.file)
-      const label = typeof secret.label === 'string' && Boolean(secret.label)
-      if (!name || (env && file) || (!env && !file && !label)) {
-        throw new Error(`${context}.${kind} must use valid names and env, file, or label references`)
-      }
+      validateSecretReference(name, reference, context, kind)
     }
   }
 }
@@ -110,12 +114,7 @@ function validateCookieSessionAuth(auth) {
     const body = record(login[kind], `source.auth.login.${kind} must be a mapping`)
     if (Object.keys(body).length === 0) throw new Error(`source.auth.login.${kind} must not be empty`)
     for (const [name, reference] of Object.entries(body)) {
-      const secret = record(reference, `source.auth.login.${kind}.${name} must be a mapping`)
-      allowed(secret, new Set(['env', 'file', 'label']), `source.auth.login.${kind}.${name}`)
-      const env = typeof secret.env === 'string' && Boolean(secret.env)
-      const file = typeof secret.file === 'string' && Boolean(secret.file)
-      const label = typeof secret.label === 'string' && Boolean(secret.label)
-      if (!name || (env && file) || (!env && !file && !label)) throw new Error(`source.auth.login.${kind} must use valid names and env, file, or label references`)
+      validateSecretReference(name, reference, 'source.auth.login', kind)
     }
   }
   validateSecretMappings(login, 'source.auth.login')
