@@ -390,12 +390,14 @@ function parseJqExtractor(value: unknown): JqMetricExtractor | undefined {
 }
 
 function parseForEachMetric(value: unknown): ForEachMetric | undefined {
-  if (!isRecord(value) || Object.keys(value).some(key => !['items', 'request', 'value', 'reduce'].includes(key)) || !isRecord(value.request)) return undefined
+  if (!isRecord(value) || Object.keys(value).some(key => !['items', 'request', 'value', 'reduce'].includes(key))) return undefined
+  if (!isRecord(value.request) || Object.keys(value.request).some(key => key !== 'url')) return undefined
   const items = parseJqExtractor(value.items)
   const requestUrl = string(value.request.url)
   const itemValue = parseJqExtractor(value.value)
   const reduction = parseReduction(value.reduce)
-  if (!items || !requestUrl || !itemValue || !reduction || Object.keys(value.request).some(key => key !== 'url') || !isMetricUrl(requestUrl) || !requestUrl.includes('{item}')) return undefined
+  if (!items || !requestUrl || !itemValue || !reduction) return undefined
+  if (!isMetricUrl(requestUrl) || !requestUrl.includes('{item}')) return undefined
   return { items, requestUrl, value: itemValue, reduce: reduction }
 }
 

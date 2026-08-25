@@ -601,15 +601,20 @@ function resolveMetricSources(
       ...(json && Object.keys(json).length > 0 ? { json } : {})
     }
   }
+  const resolveForEach = (metric: MetricOverride, values: Record<string, string | number | boolean> | undefined): MetricOverride | undefined => {
+    if (!metric.forEach) return metric
+    const requestUrl = resolveUrl(metric.forEach.requestUrl, metric.parameters, values)
+    return requestUrl ? { ...metric, forEach: { ...metric.forEach, requestUrl } } : undefined
+  }
   const resolved = Object.fromEntries(Object.entries(metrics).flatMap(([key, metric]) => {
     const values = metricParameters?.[key]
     if (Object.keys(metric.parameters ?? {}).some(name => values?.[name] === undefined)) return []
-    const forEachUrl = metric.forEach ? resolveUrl(metric.forEach.requestUrl, metric.parameters, values) : undefined
-    if (metric.forEach && !forEachUrl) return []
-    const request = resolveRequest({ ...metric.source, method: metric.source.method ?? 'GET' }, metric, values)
+    const resolvedMetric = resolveForEach(metric, values)
+    if (!resolvedMetric) return []
+    const request = resolveRequest({ ...resolvedMetric.source, method: resolvedMetric.source.method ?? 'GET' }, resolvedMetric, values)
     if (!request) return []
-    const auth = metric.source.auth
-    const steps = auth?.type === 'cookie_session' ? auth.steps.map(step => resolveRequest(step, metric, values)) : undefined
+    const auth = resolvedMetric.source.auth
+    const steps = auth?.type === 'cookie_session' ? auth.steps.map(step => resolveRequest(step, resolvedMetric, values)) : undefined
     if (steps?.some(step => !step)) return []
     const basicAuth = auth?.type === 'basic'
       ? {
@@ -622,12 +627,11 @@ function resolveMetricSources(
       ? { ...auth, value: resolveReferences({ value: auth.value }).value! as typeof auth.value }
       : undefined
     return [[key, {
-      ...metric,
-      ...(metric.forEach && forEachUrl ? { forEach: { ...metric.forEach, requestUrl: forEachUrl } } : {}),
+      ...resolvedMetric,
       source: {
         ...request,
-        ...(metric.source.transport ? { transport: metric.source.transport } : {}),
-        ...(metric.source.socketio ? { socketio: resolveSocketIo(metric.source.socketio) } : {}),
+        ...(resolvedMetric.source.transport ? { transport: resolvedMetric.source.transport } : {}),
+        ...(resolvedMetric.source.socketio ? { socketio: resolveSocketIo(resolvedMetric.source.socketio) } : {}),
         ...(auth?.type === 'cookie_session' && steps ? { auth: { ...auth, steps: steps as typeof auth.steps } } : {}),
         ...(basicAuth ? { auth: basicAuth } : {}),
         ...(tokenAuth ? { auth: tokenAuth } : {})
