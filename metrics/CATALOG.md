@@ -40,3 +40,4 @@
 | prowlarr | `prowlarr/indexers` | - | [@edmogeor](https://github.com/edmogeor) |
 | seerr | `seerr/pending` | - | [@edmogeor](https://github.com/edmogeor) |
 | crowdsec | `crowdsec/active-bans` | - | [@edmogeor](https://github.com/edmogeor) |
+| zerobyte | `zerobyte/backup-health` | - | [@edmogeor](https://github.com/edmogeor) |

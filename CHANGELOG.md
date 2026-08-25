@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Map state metric values to badge colors with `state_colors`.
+- Add Zerobyte backup health catalog metric aggregating all enabled backup schedules.
 
 ## [0.3.0-alpha.10] - 2026-08-25
 

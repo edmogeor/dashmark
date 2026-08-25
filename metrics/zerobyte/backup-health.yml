@@ -1,0 +1,24 @@
+label: Backup health
+value_type: state
+color: info
+state_colors:
+  success: success
+  warning: warning
+  error: error
+  in_progress: info
+  unknown: disabled
+source:
+  url: "{url}/api/v1/backups"
+  headers:
+    X-API-Key:
+      env: DASHMARK_ZEROBYTE_API_KEY
+      label: dashmark.metric_api_key
+jq: |-
+  [.[] | select(.enabled)]
+  | if length == 0 then "unknown"
+    elif any(.[]; .lastBackupStatus == "error") then "error"
+    elif any(.[]; .lastBackupStatus == "warning") then "warning"
+    elif any(.[]; .lastBackupStatus == "in_progress") then "in_progress"
+    elif any(.[]; .lastBackupStatus == null) then "unknown"
+    else "success"
+    end

@@ -1,0 +1,35 @@
+[
+  {
+    "id": 1,
+    "shortId": "a1b2c3",
+    "name": "documents",
+    "enabled": true,
+    "cronExpression": "0 3 * * *",
+    "lastBackupAt": 1756100400000,
+    "lastBackupStatus": "success",
+    "lastBackupError": null,
+    "nextBackupAt": 1756186800000
+  },
+  {
+    "id": 2,
+    "shortId": "d4e5f6",
+    "name": "photos",
+    "enabled": true,
+    "cronExpression": "0 4 * * *",
+    "lastBackupAt": 1756104000000,
+    "lastBackupStatus": "success",
+    "lastBackupError": null,
+    "nextBackupAt": 1756190400000
+  },
+  {
+    "id": 3,
+    "shortId": "g7h8i9",
+    "name": "media-archive",
+    "enabled": false,
+    "cronExpression": "0 5 * * 0",
+    "lastBackupAt": 1755067200000,
+    "lastBackupStatus": "error",
+    "lastBackupError": "repository locked",
+    "nextBackupAt": null
+  }
+]
