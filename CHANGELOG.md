@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0-alpha.14] - 2026-08-25
+
+### Fixed
+
+- Stop error toasts from dismissing themselves and repeating while errors flap between polls.
+- Silence an error toast for the rest of the session once dismissed; server-disconnect toasts re-arm after recovery.
+- Put the container name in the error toast title with the metric and reason beneath.
+- Report zero speed for qBittorrent when no torrents exist.
+- Read Plex library counts from `MediaContainer.size`, falling back to `totalSize`.
+- Authenticate Seerr requests with `X-Api-Key` instead of the rejected Bearer header.
+
+### Changed
+
+- Remove CrowdSec catalog metrics.
+
 ## [0.3.0-alpha.13] - 2026-08-25
 
 ### Added
