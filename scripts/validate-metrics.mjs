@@ -77,6 +77,13 @@ function validateStateColor(color) {
   if (typeof color !== 'string' || !badgeColors.has(color)) throw new Error('color must be success, info, warning, error, or disabled')
 }
 
+function validateStateColors(colors) {
+  const value = record(colors, 'state_colors must be a mapping')
+  if (Object.keys(value).length === 0 || !Object.entries(value).every(([name, color]) => Boolean(name) && typeof color === 'string' && badgeColors.has(color))) {
+    throw new Error('state_colors must map non-empty values to success, info, warning, error, or disabled')
+  }
+}
+
 function validateParameters(parameters) {
   const value = record(parameters, 'parameters must be a mapping')
   if (Object.keys(value).length === 0) throw new Error('parameters must not be empty')
@@ -230,7 +237,7 @@ function validate(file) {
   const definition = record(yaml.load(fs.readFileSync(file, 'utf8')), 'must contain a YAML mapping')
   const shape = metricShape.safeParse(definition)
   if (!shape.success) throw new Error('label must be a non-empty string and value_type must be number, string, or state')
-  allowed(definition, new Set(['label', 'source', 'unit', 'chart', 'chart_group', 'transform', 'color', 'value_type', 'jq', 'prometheus', 'text', 'parameters', 'for_each']), 'metric definition')
+  allowed(definition, new Set(['label', 'source', 'unit', 'chart', 'chart_group', 'transform', 'color', 'state_colors', 'value_type', 'jq', 'prometheus', 'text', 'parameters', 'for_each']), 'metric definition')
   if (typeof definition.label !== 'string' || !definition.label.trim()) throw new Error('label must be a non-empty string')
   const valueType = definition.value_type ?? 'number'
   if (valueType !== 'number' && valueType !== 'string' && valueType !== 'state') throw new Error('value_type must be number, string, or state')
@@ -251,14 +258,15 @@ function validate(file) {
     }
     if (definition.chart_group !== undefined && definition.chart === 'none') throw new Error('chart_group requires a visible chart')
     if (definition.transform !== undefined) validateTransform(definition.transform)
-    if (definition.color !== undefined) throw new Error('color requires value_type state')
+    if (definition.color !== undefined || definition.state_colors !== undefined) throw new Error('color requires value_type state')
   } else if (definition.unit !== undefined || definition.chart !== undefined || definition.chart_group !== undefined || definition.transform !== undefined) {
     throw new Error('text and state metrics cannot define a unit or chart group')
   }
-  if (valueType === 'string' && definition.color !== undefined) throw new Error('color requires value_type state')
+  if (valueType === 'string' && (definition.color !== undefined || definition.state_colors !== undefined)) throw new Error('color requires value_type state')
   if (valueType === 'state') {
     if (definition.color === undefined) throw new Error('state metrics require color')
     validateStateColor(definition.color)
+    if (definition.state_colors !== undefined) validateStateColors(definition.state_colors)
   }
 
   if (hasJq && (typeof definition.jq !== 'string' || !definition.jq.trim())) throw new Error('jq must be a non-empty expression')

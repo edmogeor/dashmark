@@ -892,7 +892,7 @@ function metricDetails(resolved: ResolvedMetricCard, config: AppConfig, hasConta
 
 function collectedCustomMetric(key: string, metric: MetricOverride, value: number | string): CollectedCustomMetric | undefined {
   if (metric.valueType === 'string' && typeof value === 'string') return { key, label: metric.label, value }
-  if (metric.valueType === 'state' && typeof value === 'string') return { key, label: metric.label, color: metric.color, value }
+  if (metric.valueType === 'state' && typeof value === 'string') return { key, label: metric.label, color: metric.stateColors?.[value] ?? metric.color, value }
   if (metric.valueType === 'number' && typeof value === 'number') {
     return { key, label: metric.label, unit: metric.unit, chart: metric.chart, ...(metric.chartGroup === undefined ? {} : { chartGroup: metric.chartGroup }), value }
   }

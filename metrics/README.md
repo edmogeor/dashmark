@@ -163,6 +163,7 @@ Each entry under `custom_metrics` needs:
 | `transform` | Numeric only | Optional `{ multiply: number, add: number }` applied after extraction. |
 | `value_type` | No | `number` (default), `string`, or `state`. |
 | `color` | State only | `success`, `info`, `warning`, `error`, or `disabled`. |
+| `state_colors` | State only | Optional mapping of specific values to those colors; unmatched values keep `color`. |
 | `parameters` | Catalog only | Named `url_component` or `json_value` inputs required from each selecting card. |
 
 Do not put literal credentials in YAML. Use one secret reference per header:
@@ -470,6 +471,27 @@ The named colors use Dashmark's shared `--dashmark-status-success`,
 `--dashmark-status-info`, `--dashmark-status-warning`,
 `--dashmark-status-error`, and `--dashmark-status-disabled` CSS variables.
 They also color container status badges.
+
+A state metric can map specific values to their own colors with an optional
+`state_colors` mapping. Values without an entry keep the definition's base
+`color`:
+
+```yaml
+custom_metrics:
+  backup_state:
+    label: Backups
+    value_type: state
+    color: info
+    state_colors:
+      success: success
+      warning: warning
+      error: error
+      in_progress: info
+      unknown: disabled
+    source:
+      url: "{url}/api/v1/backups"
+    jq: ...
+```
 
 For Prometheus info metrics, select one matching sample and use `value_label`:
 

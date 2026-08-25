@@ -137,6 +137,7 @@ export type TextMetricOverride = MetricCommon & {
 export type StateMetricOverride = MetricCommon & {
   valueType: 'state'
   color: CustomMetricStateColor
+  stateColors?: Record<string, CustomMetricStateColor>
 } & ({ jq: JqMetricExtractor; prometheus?: never; text?: never; forEach?: never } | { prometheus: PrometheusMetricExtractor; jq?: never; text?: never; forEach?: never } | { text: true; jq?: never; prometheus?: never; forEach?: never })
 
 export type MetricOverride = NumericMetricOverride | TextMetricOverride | StateMetricOverride
@@ -320,6 +321,18 @@ function parseMetricStateColor(value: unknown): CustomMetricStateColor | undefin
   return typeof value === 'string' && CUSTOM_METRIC_BADGE_COLORS.includes(value as CustomMetricStateColor)
     ? value as CustomMetricStateColor
     : undefined
+}
+
+function parseMetricStateColors(value: unknown): Record<string, CustomMetricStateColor> | undefined {
+  if (!isRecord(value) || Object.keys(value).length === 0) return undefined
+  const colors: Record<string, CustomMetricStateColor> = {}
+  for (const [name, color] of Object.entries(value)) {
+    if (!name) return undefined
+    const parsed = parseMetricStateColor(color)
+    if (!parsed) return undefined
+    colors[name] = parsed
+  }
+  return colors
 }
 
 function parseMetricParameters(value: unknown): Record<string, MetricParameter> | undefined {
@@ -619,7 +632,10 @@ function parseMetricOverrides(value: unknown, catalog = metricCatalog()): { metr
     }
     const metric = catalog[key] ? { ...catalog[key], ...configuredMetric } : configuredMetric
     if (catalog[key] && configuredMetric.value_type !== undefined && configuredMetric.value_type !== catalog[key].value_type) {
-      if (configuredMetric.value_type !== 'state') delete metric.color
+      if (configuredMetric.value_type !== 'state') {
+        delete metric.color
+        delete metric.state_colors
+      }
       if (configuredMetric.value_type !== 'number') {
         delete metric.unit
         delete metric.chart
@@ -634,6 +650,7 @@ function parseMetricOverrides(value: unknown, catalog = metricCatalog()): { metr
     const chartGroup = metric.chart_group === undefined ? undefined : string(metric.chart_group)
     const transform = metric.transform === undefined ? undefined : parseMetricTransform(metric.transform)
     const color = metric.color === undefined ? undefined : parseMetricStateColor(metric.color)
+    const stateColors = metric.state_colors === undefined ? undefined : parseMetricStateColors(metric.state_colors)
     const parameters = metric.parameters === undefined ? undefined : parseMetricParameters(metric.parameters)
     const text = metric.text === true
     const forEach = metric.for_each === undefined ? undefined : parseForEachMetric(metric.for_each)
@@ -686,6 +703,10 @@ function parseMetricOverrides(value: unknown, catalog = metricCatalog()): { metr
       invalid('color must be success, info, warning, error, or disabled')
       continue
     }
+    if (metric.state_colors !== undefined && !stateColors) {
+      invalid('state_colors must map non-empty values to success, info, warning, error, or disabled')
+      continue
+    }
     if (metric.parameters !== undefined && !parameters) {
       invalid('parameters must define named URL-component parameters')
       continue
@@ -700,6 +721,10 @@ function parseMetricOverrides(value: unknown, catalog = metricCatalog()): { metr
     }
     if ((valueType === 'number' || valueType === 'string') && color !== undefined) {
       invalid('color requires value_type state')
+      continue
+    }
+    if ((valueType === 'number' || valueType === 'string') && stateColors !== undefined) {
+      invalid('state_colors requires value_type state')
       continue
     }
     if (valueType === 'state' && color === undefined) {
@@ -753,7 +778,10 @@ function parseMetricOverrides(value: unknown, catalog = metricCatalog()): { metr
         : { ...sourceRequest.request!, ...(auth ? { auth } : {}) }
     }
     if (valueType === 'string') metrics[key] = text ? { ...common, valueType, text: true } : jq ? { ...common, valueType, jq } : { ...common, valueType, prometheus: prometheus! }
-    else if (valueType === 'state') metrics[key] = text ? { ...common, valueType, color: color!, text: true } : jq ? { ...common, valueType, color: color!, jq } : { ...common, valueType, color: color!, prometheus: prometheus! }
+    else if (valueType === 'state') {
+      const colors = stateColors ? { stateColors } : {}
+      metrics[key] = text ? { ...common, valueType, color: color!, ...colors, text: true } : jq ? { ...common, valueType, color: color!, ...colors, jq } : { ...common, valueType, color: color!, ...colors, prometheus: prometheus! }
+    }
     else {
       const numeric = { ...common, valueType: 'number' as const, unit: unit!, chart, ...(chartGroup === undefined ? {} : { chartGroup }), ...(transform === undefined ? {} : { transform }) }
       metrics[key] = forEach ? { ...numeric, forEach } : text ? { ...numeric, text: true } : jq ? { ...numeric, jq } : { ...numeric, prometheus: prometheus! }

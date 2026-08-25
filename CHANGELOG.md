@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Map state metric values to badge colors with `state_colors`.
+
 ## [0.3.0-alpha.10] - 2026-08-25
 
 ### Added

@@ -10,6 +10,7 @@ type MetricDefinition = {
   label: string
   value_type?: 'number' | 'string' | 'state'
   color?: 'success' | 'info' | 'warning' | 'error' | 'disabled'
+  state_colors?: Record<string, 'success' | 'info' | 'warning' | 'error' | 'disabled'>
   unit?: string
   chart?: 'step' | 'line' | 'area' | 'none'
   chart_group?: string
@@ -88,7 +89,8 @@ function loadMetric(definitionUrl: URL, baseUrl: string): MetricOverride {
     ...(definition.for_each
       ? { forEach: { items: { expression: definition.for_each.items }, requestUrl: resolveUrl(definition.for_each.request.url, baseUrl, parameters), value: { expression: definition.for_each.value }, reduce: definition.for_each.reduce } }
       : definition.text ? { text: true } : { jq: { expression: definition.jq! } }),
-    ...(definition.color ? { color: definition.color } : {})
+    ...(definition.color ? { color: definition.color } : {}),
+    ...(definition.state_colors ? { stateColors: definition.state_colors } : {})
   } as MetricOverride
 }
 
