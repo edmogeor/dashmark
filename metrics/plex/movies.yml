@@ -12,5 +12,5 @@ for_each:
   items: '[.MediaContainer.Directory[] | select(.type == "movie") | .key]'
   request:
     url: "{metrics_url}/library/sections/{item}/all"
-  value: '.MediaContainer.totalSize'
+  value: '.MediaContainer.size // .MediaContainer.totalSize // 0'
   reduce: sum

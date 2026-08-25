@@ -16,4 +16,4 @@ source:
         password:
           env: DASHMARK_QBITTORRENT_PASSWORD
           label: dashmark.metric_password
-jq: '[.[].upspeed] | add'
+jq: '[.[].upspeed] | add // 0'

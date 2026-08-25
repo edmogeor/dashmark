@@ -132,7 +132,7 @@ export async function expectFixtureMetric(definitionUrl: URL, fixture: unknown, 
     if (definition.for_each && request.url !== expectedPath) {
       expect(request.headers['x-plex-token']).toBe('test-secret')
       response.setHeader('Content-Type', 'application/json')
-      response.end(JSON.stringify({ MediaContainer: { totalSize: 2 } }))
+      response.end(JSON.stringify({ MediaContainer: { size: 2 } }))
       return
     }
     expect(request.url).toBe(expectedPath)

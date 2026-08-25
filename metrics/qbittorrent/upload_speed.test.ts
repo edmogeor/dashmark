@@ -4,3 +4,7 @@ import { expectFixtureMetric } from '../test-utils'
 it('extracts total upload speed', async () => {
   await expectFixtureMetric(new URL('./upload_speed.yml', import.meta.url), JSON.parse(readFileSync(new URL('./torrents.fixture.json', import.meta.url), 'utf8')), 3500)
 })
+
+it('reports zero upload speed when no torrents exist', async () => {
+  await expectFixtureMetric(new URL('./upload_speed.yml', import.meta.url), [], 0)
+})
