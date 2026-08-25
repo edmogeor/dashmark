@@ -15,10 +15,10 @@ const reductions = new Set(['count', 'sum', 'average', 'minimum', 'maximum'])
 const charts = new Set(['step', 'line', 'area', 'none'])
 const metricName = /^[a-z][a-z0-9_-]*$/
 const prometheusName = /^[a-zA-Z_:][a-zA-Z0-9_:]*$/
-const metricShape = z.object({
+const metricShape = z.looseObject({
   label: z.string().trim().min(1),
   value_type: z.enum(['number', 'string']).optional()
-}).passthrough()
+})
 
 function files(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
@@ -73,11 +73,38 @@ function validateTransform(transform) {
 
 function validateSource(source) {
   const value = record(source, 'source must be a mapping')
+  if (value.transport === 'socketio') return validateSocketIoSource(value)
   allowed(value, new Set(['url', 'method', 'form', 'json', 'headers', 'query', 'auth']), 'source')
   const request = { ...value }
   delete request.auth
   validateRequest(request, 'source', false)
   if (value.auth !== undefined) validateCookieSessionAuth(value.auth)
+}
+
+function validateSocketIoArguments(args, context) {
+  if (args === undefined) return
+  if (!Array.isArray(args)) throw new Error(`${context}.args must be a list of strings, numbers, booleans, or secret references`)
+  for (const argument of args) {
+    if (typeof argument === 'string' || typeof argument === 'boolean' || (typeof argument === 'number' && Number.isFinite(argument))) continue
+    validateSecretReference('argument', argument, context, 'args')
+  }
+}
+
+function validateSocketIoEvent(event, context) {
+  const value = record(event, `${context} must be a mapping`)
+  allowed(value, new Set(['event', 'args']), context)
+  if (typeof value.event !== 'string' || !value.event) throw new Error(`${context}.event must be a non-empty string`)
+  validateSocketIoArguments(value.args, context)
+}
+
+function validateSocketIoSource(source) {
+  allowed(source, new Set(['url', 'transport', 'socketio']), 'source')
+  if (typeof source.url !== 'string' || !/^\{url\}(?:\/|$)/.test(source.url)) throw new Error('source.url must begin with {url}')
+  const socketio = record(source.socketio, 'source.socketio must be a mapping')
+  allowed(socketio, new Set(['auth', 'login', 'request']), 'source.socketio')
+  if (socketio.auth !== undefined) validateSecretMappings({ headers: socketio.auth }, 'source.socketio')
+  if (socketio.login !== undefined) validateSocketIoEvent(socketio.login, 'source.socketio.login')
+  validateSocketIoEvent(socketio.request, 'source.socketio.request')
 }
 
 function validateSecretReference(name, reference, context, kind) {

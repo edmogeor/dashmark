@@ -22,30 +22,37 @@ not sufficient. -->
 ## Metric File
 
 <!-- Add this metric as `metrics/<provider>/<metric-name>.yml`. The file path
-is its metric key, for example `radarr/active_downloads`. Include only reusable
-extraction fields. Do not include `source.url`, headers, credentials, private
-hostnames, or personal card names. -->
+is its metric key, for example `radarr/active_downloads`. Include a reusable
+`source` block, normally using `{url}`, plus reusable env/file secret
+references. Do not include private URLs, hostnames, literal credentials,
+tokens, or personal card names. -->
 
 ```yaml
-# custom_metrics:
-#   metric_key:
-#     label: Example
-#     unit: count
-#     jq: .value
+label: Example
+unit: count
+source:
+  url: "{url}/api/stats"
+  headers:
+    X-Api-Key:
+      env: DASHMARK_PROVIDER_API_KEY
+      label: dashmark.metric_api_key
+jq: .value
 ```
 
 ## Validation
 
-<!-- Explain how the extractor behaves for missing values, arrays, labels, and
-reductions. -->
+<!-- Explain how the extractor behaves for missing values, arrays, labels,
+reductions, authentication, and token extraction where applicable. Include
+the public upstream API documentation URL. -->
 
 ## Checklist
 
-- [ ] The definition contains no private URLs, hostnames, credentials, or secret references.
+- [ ] The definition contains no private URLs, hostnames, literal credentials, tokens, or personal identifiers.
+- [ ] The reusable source uses `{url}` and env/file secret references where required.
 - [ ] I created `metrics/<provider>/<metric-name>.yml` in my fork.
 - [ ] I added the provider, metric key, graph group, and author to `metrics/CATALOG.md`.
 - [ ] I ran `npm run validate:metrics` locally.
-- [ ] I added a sanitized fixture and extraction tests.
+- [ ] I added `metrics/<provider>/<metric-name>.test.ts`, with a sibling sanitized fixture when useful.
 - [ ] I documented the metric in its provider-specific documentation.
 - [ ] I ran `npm test`, `npm run typecheck`, and `npm run lint` locally.
 - [ ] I updated `CHANGELOG.md` under `[Unreleased]` if this is user-facing.

@@ -400,10 +400,18 @@ The pull request runs `npm run validate:metrics`. Definitions that do not meet
 the schema fail automatically; valid definitions proceed to maintainer review.
 
 Each `.yml` file is self-contained: there is no shared source. Repeat the full
-`source` (and `auth`) block in every metric that needs it. Name secret
-environment variables `DASHMARK_<PROVIDER>_<NAME>`, for example
+`source` (and `auth`) block in every metric that needs it. Catalog metrics must
+define a reusable `source.url`, normally with `{url}`, because Dashmark loads
+only definitions with a source. Never include a private URL, hostname,
+credential, token, or personal identifier.
+
+Name secret environment variables `DASHMARK_<PROVIDER>_<NAME>`, for example
 `DASHMARK_RADARR_API_KEY`, and expose a per-container override label such as
-`dashmark.metric_api_key`.
+`dashmark.metric_api_key`. HTTP POST requests and bounded cookie-session flows
+are acceptable when they use portable `{url}` endpoints and secret references.
+Include public upstream API documentation for every endpoint and authentication
+flow. Socket.IO metrics are acceptable when their endpoint is portable from the
+card URL and their acknowledgement API is publicly documented.
 
 `CATALOG.md` is validated strictly against the metric files. Every file must
 have exactly one row, and every row must match a file. List the graph group in
@@ -414,10 +422,10 @@ The directory path is the metric key. For example,
 users select with `metrics: [radarr/active_downloads]`. This keeps provider
 metrics with the same name distinct, such as `sonarr/active_downloads`.
 
-The contributed YAML may define a `source` URL beginning with `{url}`. Dashmark
-replaces `{url}` with the card URL at runtime. Header and query credentials can
-use a default `env` or `file` reference and an optional literal Docker-label
-override:
+The contributed YAML should define a `source` URL beginning with `{url}`.
+Dashmark replaces `{url}` with the card URL at runtime. Header and query
+credentials can use a default `env` or `file` reference and an optional literal
+Docker-label override:
 
 ```yaml
 label: Queue depth
@@ -430,6 +438,14 @@ source:
       label: dashmark.metric_api_key
 jq: .totalCount
 ```
+
+Add a colocated extraction test at
+`metrics/<provider>/<metric-name>.test.ts`. Use a sanitized inline response for
+small payloads; add a sibling `<metric-name>.fixture.json` when a response is
+large or shared by multiple tests. Tests must cover the selected value and any
+relevant missing, array, reduction, token, or authentication behavior. `npm
+run validate:metrics` checks file structure and catalog rows only; run `npm
+test` to execute metric tests.
 
 Never submit private URLs, hostnames, API keys, secret files, or personal card
 names.
