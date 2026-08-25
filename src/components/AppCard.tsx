@@ -21,7 +21,7 @@ import { isResourceUsageResponse, type ContainerResources, type CustomMetric, ty
 import { RESOURCE_USAGE_POLL_INTERVAL_MS, TOOLTIP_DELAY_MS } from '@/lib/constants'
 import { useTooltipController } from './tooltip-controller'
 import { badgeColor, chartColorVariable } from '@/lib/badge-color'
-import { toast } from 'sonner'
+import { clearErrorToast, showErrorToast } from '@/lib/error-toasts'
 
 type AppCardProps = {
   card: CardType
@@ -852,17 +852,17 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showReso
   useEffect(() => {
     const activeErrors = new Set(allMetricErrors.map(error => `${card.id}:${error.key}`))
     for (const id of metricErrorIds.current) {
-      if (!activeErrors.has(id)) toast.dismiss(`metric-${id}`)
+      if (!activeErrors.has(id)) clearErrorToast(`metric-${id}`)
     }
     metricErrorIds.current = activeErrors
     for (const error of allMetricErrors) {
       const label = card.customMetricLabels?.find(metric => metric.key === error.key)?.label ?? error.key
-      toast.error(`Metric unavailable: ${label}`, {
-        id: `metric-${card.id}:${error.key}`,
-        description: `${card.title}: ${error.message}`
-      })
+      showErrorToast(`metric-${card.id}:${error.key}`, `Metric unavailable: ${label}`, `${card.title}: ${error.message}`)
     }
   }, [card.id, card.title, metricErrorSignature])
+  useEffect(() => () => {
+    for (const id of metricErrorIds.current) clearErrorToast(`metric-${id}`)
+  }, [])
   useEffect(() => {
     setMetricDetail(detail => {
       if (!detail) return null

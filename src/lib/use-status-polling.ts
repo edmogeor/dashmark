@@ -1,9 +1,9 @@
-import { useEffect, useRef } from 'react'
-import { toast } from 'sonner'
+import { useEffect } from 'react'
 import type { Card } from './docker'
 import { isStatusResponse, type ContainerStatus } from './status'
 import { strings } from './strings'
 import { STATUS_TOAST_ID } from './constants'
+import { clearErrorToast, showErrorToast } from './error-toasts'
 
 export function mergeStatuses(cards: Card[], statuses: Record<string, ContainerStatus>): Card[] {
   return cards.map(card => {
@@ -35,22 +35,8 @@ export function useStatusPolling({
   setUnavailable: (unavailable: boolean) => void
   setLoading: (loading: boolean) => void
 }): void {
-  const statusToastDismissed = useRef(false)
-  const statusToastRecovering = useRef(false)
-
   function showStatusToast(description: string) {
-    statusToastRecovering.current = false
-    if (statusToastDismissed.current) return
-    toast.error(strings.errors.statusUpdateFailed, {
-      description,
-      id: STATUS_TOAST_ID,
-      duration: Infinity,
-      closeButton: true,
-      onDismiss: () => {
-        if (statusToastRecovering.current) return
-        statusToastDismissed.current = true
-      }
-    })
+    showErrorToast(STATUS_TOAST_ID, strings.errors.statusUpdateFailed, description)
   }
 
   useEffect(() => {
@@ -60,11 +46,11 @@ export function useStatusPolling({
     let requestController: AbortController | null = null
     let refreshWhenIdle = false
     let stopped = false
-    toast.dismiss(STATUS_TOAST_ID)
+    clearErrorToast(STATUS_TOAST_ID)
 
     function handleVisibilityChange() {
       if (document.visibilityState === 'hidden') {
-        toast.dismiss(STATUS_TOAST_ID)
+        clearErrorToast(STATUS_TOAST_ID)
         if (timeout) clearTimeout(timeout)
         timeout = null
         requestController?.abort()
@@ -95,9 +81,7 @@ export function useStatusPolling({
           showStatusToast(data.error.message)
         } else {
           setUnavailable(false)
-          statusToastRecovering.current = true
-          statusToastDismissed.current = false
-          toast.dismiss(STATUS_TOAST_ID)
+          clearErrorToast(STATUS_TOAST_ID)
           setCards(prev => mergeStatuses(prev, data.statuses))
         }
       } catch {
