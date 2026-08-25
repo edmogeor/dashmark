@@ -187,6 +187,16 @@ service:
     })
   })
 
+  it('parses metrics_url and rejects non-HTTP URLs', () => {
+    const config = getConfig()
+    config.configFile = writeConfig('opnsense:\n  metrics_url: https://opnsense-api.example.com\n')
+
+    expect(loadYamlConfig(config).config.services.opnsense?.metricsUrl).toBe('https://opnsense-api.example.com')
+
+    config.configFile = writeConfig('opnsense:\n  metrics_url: ftp://opnsense.example.com\n')
+    expect(loadYamlConfig(config).error?.detail).toBe('opnsense.metrics_url must be an HTTP or HTTPS URL')
+  })
+
   it('rejects the removed singular metric_provider field', () => {
     const config = getConfig()
     config.configFile = writeConfig(`
@@ -274,6 +284,41 @@ service:
         auth: {
           type: 'cookie_session',
           steps: [{ extract: { csrf: { cheerio: { selector: 'input[name=csrf]', attribute: 'value' } } } }, { method: 'POST', form: { username: { env: 'SERVICE_USERNAME', label: 'dashmark.metric_username' }, csrf: { token: 'csrf' } } }]
+        }
+      }
+    })
+    expect(metrics?.invalid).toBeUndefined()
+  })
+
+  it('parses HTTP Basic secret references and rejects incomplete credentials', () => {
+    const config = getConfig()
+    config.configFile = writeConfig(`
+service:
+  custom_metrics:
+    basic:
+      label: Basic
+      source:
+        url: https://service.example.com/info
+        auth:
+          type: basic
+          username: { env: SERVICE_API_KEY, label: dashmark.metric_api_key }
+          password: { file: /run/secrets/service_api_secret, label: dashmark.metric_api_secret }
+      jq: .value
+    invalid:
+      label: Invalid
+      source:
+        url: https://service.example.com/info
+        auth: { type: basic, username: { env: SERVICE_API_KEY } }
+      jq: .value
+`)
+
+    const metrics = loadYamlConfig(config).config.services.service?.customMetrics
+    expect(metrics?.basic).toMatchObject({
+      source: {
+        auth: {
+          type: 'basic',
+          username: { env: 'SERVICE_API_KEY', label: 'dashmark.metric_api_key' },
+          password: { file: '/run/secrets/service_api_secret', label: 'dashmark.metric_api_secret' }
         }
       }
     })

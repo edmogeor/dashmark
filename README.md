@@ -189,6 +189,7 @@ Add labels to opt a container in and configure its card.
 | --- | --- |
 | `dashmark.hidden` | Set to `true` to hide the container |
 | `dashmark.url` | Card link. May be inferred from a Traefik rule |
+| `dashmark.metrics_url` | Optional HTTP(S) API base for catalog sources using `{metrics_url}`; defaults to the card link URL |
 | `dashmark.title` | Display title. Defaults to the container name |
 | `dashmark.description` | Tooltip text; set to `none` to suppress automatic descriptions |
 | `dashmark.icon` | `selfhst:<slug>`, an image URL, a path in `ICONS_DIR`, or `placeholder` |
@@ -197,8 +198,9 @@ Add labels to opt a container in and configure its card.
 | `dashmark.metrics` | Comma-separated `cpu`, `memory`, and `network` metrics for this card; set to `none` to disable built-in metrics |
 | `dashmark.metric_providers` | Comma-separated providers allowed for catalog metrics, for example `radarr,sonarr` |
 | `dashmark.metric_api_key` | Optional literal API-key override for catalog metrics. Docker labels are visible to Docker APIs and inspect output. |
-| `dashmark.metric_username` | Optional literal username override for cookie-session catalog metrics. |
-| `dashmark.metric_password` | Optional literal password override for cookie-session catalog metrics. |
+| `dashmark.metric_api_secret` | Optional literal API-secret override for HTTP Basic catalog metrics. Docker labels are visible to Docker APIs and inspect output. |
+| `dashmark.metric_username` | Optional literal username override for authenticated catalog metrics. |
+| `dashmark.metric_password` | Optional literal password override for authenticated catalog metrics. |
 | `dashmark.metrics_access.<metric>` | Comma-separated access entries for one metric; use `.` in place of `/` in custom metric keys |
 | `dashmark.access` | Comma-separated access allow-list |
 | `dashmark.search_aliases` | Comma-separated additional search terms |
@@ -224,6 +226,7 @@ plex:
 
 backup:
   url: https://backup.example.com
+  metrics_url: http://backup:8080
   metrics: [last_run]
   metrics_poll_interval: 60
   metrics_history_period: 86400
@@ -243,7 +246,7 @@ labels:
   dashmark.metrics_access.radarr.active_downloads: media,admins
 ```
 
-Define custom metrics under the card's YAML service. Each metric has a label, an HTTP(S) source, and exactly one extractor. Header values normally reference an environment variable or file; catalog metrics may opt into the literal API-key label override described above. Only custom keys named in `metrics` are fetched and exposed.
+Define custom metrics under the card's YAML service. Each metric has a label, an HTTP(S) source, and exactly one extractor. `metrics_url` can give catalog sources a private API base while the card keeps its public link; `{metrics_url}` falls back to `{url}` when it is not configured. Header values normally reference an environment variable or file; catalog metrics may opt into the literal API-key label override described above. Only custom keys named in `metrics` are fetched and exposed.
 
 ```yaml
 radarr:
@@ -271,8 +274,9 @@ Numeric metrics default to the `number` unit. Available units are `number`, `cou
 
 `jq` expressions run against JSON responses and must produce one finite number. Prometheus sources accept standard text exposition, ignore comments, select by metric name and optional exact labels, and support `count`, `sum`, `average`, `minimum`, and `maximum` reductions.
 
-Metrics can authenticate with a cookie session by adding `source.auth` with
-`type: cookie_session`. Its bounded `steps` run sequentially with the metric's
+Metrics can authenticate with HTTP Basic credentials by adding `source.auth`
+with `type: basic`, `username`, and `password` secret references. They can also
+use a cookie session with `type: cookie_session`. Its bounded `steps` run sequentially with the metric's
 cached cookie jar. Steps can make GET or POST form/JSON requests, extract CSRF
 values from HTML with Cheerio or tokens from JSON with jq, then explicitly
 inject them into later headers, query values, JSON, or form fields. See

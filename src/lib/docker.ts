@@ -421,6 +421,7 @@ function mergeWithYaml(
   return {
     hidden: yamlService.hidden ?? labels.hidden,
     url: yamlService.url ?? labels.url,
+    metricsUrl: yamlService.metricsUrl ?? labels.metricsUrl,
     title: yamlService.title ?? labels.title,
     description: yamlService.description ?? labels.description,
     icon: yamlService.icon ?? labels.icon,
@@ -513,7 +514,7 @@ function resolveContainer(
     name: containerName(container),
     yamlKey,
     labels,
-    customMetrics: resolveMetricSources(customMetrics, url, rawLabels),
+    customMetrics: resolveMetricSources(customMetrics, url, labels.metricsUrl, rawLabels),
     customMetricErrors: yamlService?.customMetricErrors,
     url
   }
@@ -528,7 +529,7 @@ function resolveYamlMetrics(service: ServiceOverrides, url: string): ResolvedMet
   const customMetrics = { ...selectedCatalogMetrics, ...service.customMetrics }
   return {
     labels: service,
-    customMetrics: resolveMetricSources(customMetrics, url, {}),
+    customMetrics: resolveMetricSources(customMetrics, url, service.metricsUrl, {}),
     customMetricErrors: service.customMetricErrors
   }
 }
@@ -536,11 +537,15 @@ function resolveYamlMetrics(service: ServiceOverrides, url: string): ResolvedMet
 function resolveMetricSources(
   metrics: ServiceMetricOverrides,
   cardUrl: string | undefined,
+  metricsUrl: string | undefined,
   labels: Record<string, string>
 ): ServiceMetricOverrides | undefined {
   const resolveUrl = (url: string): string | undefined => {
-    if (!url.startsWith('{url}')) return url
-    return cardUrl ? `${cardUrl.replace(/\/$/, '')}${url.slice('{url}'.length)}` : undefined
+    const baseUrl = url.startsWith('{metrics_url}') ? metricsUrl ?? cardUrl : url.startsWith('{url}') ? cardUrl : undefined
+    const placeholder = url.startsWith('{metrics_url}') ? '{metrics_url}' : '{url}'
+    return baseUrl === undefined && url.startsWith('{')
+      ? undefined
+      : baseUrl ? `${baseUrl.replace(/\/$/, '')}${url.slice(placeholder.length)}` : url
   }
   const resolveReferences = (references: typeof metrics[string]['source']['headers']) => Object.fromEntries(Object.entries(references ?? {}).map(([name, reference]) => {
     if ('token' in reference) return [name, reference]
@@ -562,7 +567,7 @@ function resolveMetricSources(
       request: { ...socketio.request, ...(socketio.request.args ? { args: resolveArguments(socketio.request.args) } : {}) }
     }
   }
-  const resolveRequest = (request: Exclude<typeof metrics[string]['source']['auth'], undefined>['steps'][number]) => {
+  const resolveRequest = (request: Extract<NonNullable<typeof metrics[string]['source']['auth']>, { type: 'cookie_session' }>['steps'][number]) => {
     const url = resolveUrl(request.url)
     if (!url) return undefined
     const headers = resolveReferences(request.headers)
@@ -582,15 +587,23 @@ function resolveMetricSources(
     const request = resolveRequest({ ...metric.source, method: metric.source.method ?? 'GET' })
     if (!request) return []
     const auth = metric.source.auth
-    const steps = auth?.steps.map(resolveRequest)
+    const steps = auth?.type === 'cookie_session' ? auth.steps.map(resolveRequest) : undefined
     if (steps?.some(step => !step)) return []
+    const basicAuth = auth?.type === 'basic'
+      ? {
+          ...auth,
+          username: resolveReferences({ username: auth.username }).username!,
+          password: resolveReferences({ password: auth.password }).password!
+        }
+      : undefined
     return [[key, {
       ...metric,
       source: {
         ...request,
         ...(metric.source.transport ? { transport: metric.source.transport } : {}),
         ...(metric.source.socketio ? { socketio: resolveSocketIo(metric.source.socketio) } : {}),
-        ...(auth && steps ? { auth: { ...auth, steps: steps as typeof auth.steps } } : {})
+        ...(auth?.type === 'cookie_session' && steps ? { auth: { ...auth, steps: steps as typeof auth.steps } } : {}),
+        ...(basicAuth ? { auth: basicAuth } : {})
       }
     }]]
   }))

@@ -23,7 +23,7 @@ not sufficient. -->
 
 <!-- Add this metric as `metrics/<provider>/<metric-name>.yml`. The file path
 is its metric key, for example `radarr/active_downloads`. Include a reusable
-`source` block, normally using `{url}`, plus reusable env/file secret
+`source` block, normally using `{url}` or `{metrics_url}`, plus reusable env/file secret
 references. Do not include private URLs, hostnames, literal credentials,
 tokens, or personal card names. -->
 
@@ -48,7 +48,7 @@ the public upstream API documentation URL. -->
 ## Checklist
 
 - [ ] The definition contains no private URLs, hostnames, literal credentials, tokens, or personal identifiers.
-- [ ] The reusable source uses `{url}` and env/file secret references where required.
+- [ ] The reusable source uses `{url}` or `{metrics_url}` and env/file secret references where required.
 - [ ] I created `metrics/<provider>/<metric-name>.yml` in my fork.
 - [ ] I added the provider, metric key, graph group, and author to `metrics/CATALOG.md`.
 - [ ] I ran `npm run validate:metrics` locally.

@@ -54,6 +54,9 @@ plex:
   title: Plex
   description: Media server
   url: https://plex.home.local
+  # Optional API base for catalog sources using {metrics_url}; otherwise the
+  # card URL is used. This can point at a private address.
+  # metrics_url: http://plex:32400
   icon: selfhst:plex
   category: Media
   order: 1
@@ -93,7 +96,16 @@ plex:
    #           form:
    #             username: { env: DASHMARK_QBITTORRENT_USERNAME }
    #             password: { file: /run/secrets/qbittorrent_password }
-   #     jq: .dl_info_speed
+    #     jq: .dl_info_speed
+   #   protected_status:
+   #     label: Protected status
+   #     source:
+   #       url: https://service.example.internal/api/status
+   #       auth:
+   #         type: basic
+   #         username: { env: DASHMARK_SERVICE_API_KEY, label: dashmark.metric_api_key }
+   #         password: { file: /run/secrets/service_api_secret, label: dashmark.metric_api_secret }
+   #     jq: .status
    #   read_rate:
    #     label: Read
    #     unit: bytes_per_second

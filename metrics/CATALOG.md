@@ -21,3 +21,7 @@
 | adguard | `adguard/blocked` | `traffic` | [@edmogeor](https://github.com/edmogeor) |
 | adguard | `adguard/filtered` | `traffic` | [@edmogeor](https://github.com/edmogeor) |
 | adguard | `adguard/latency` | - | [@edmogeor](https://github.com/edmogeor) |
+| opnsense | `opnsense/cpu` | - | [@edmogeor](https://github.com/edmogeor) |
+| opnsense | `opnsense/memory` | - | [@edmogeor](https://github.com/edmogeor) |
+| opnsense | `opnsense/wan-received` | `wan` | [@edmogeor](https://github.com/edmogeor) |
+| opnsense | `opnsense/wan-transmitted` | `wan` | [@edmogeor](https://github.com/edmogeor) |

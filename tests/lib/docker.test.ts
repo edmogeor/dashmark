@@ -936,6 +936,89 @@ radarr:
     expect(new Headers(got.mock.calls[0]?.[1]?.headers).get('X-Api-Key')).toBe('label-api-key')
   })
 
+  it('falls back to the card URL for {metrics_url} metric sources', async () => {
+    server.containers = [{
+      Id: 'metrics-url-fallback', Names: ['/service'], Image: 'service', ImageID: 'sha256:service',
+      State: 'running', Status: 'Up 1 hour', Labels: {
+        'dashmark.url': 'https://service.example.com',
+        'dashmark.metrics': 'status'
+      }
+    }]
+    mockGotResponse('{"value":4}')
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.configFile = writeTempConfig(`
+service:
+  custom_metrics:
+    status:
+      label: Status
+      source: { url: "{metrics_url}/api/status" }
+      jq: .value
+`)
+
+    await getContainerMetricUsage(config, new Headers(), 'default:metrics-url-fallback')
+    expect(String(got.mock.calls[0]?.[0])).toBe('https://service.example.com/api/status')
+  })
+
+  it('uses YAML metrics_url over the Docker label for metric sources', async () => {
+    server.containers = [{
+      Id: 'metrics-url-override', Names: ['/service'], Image: 'service', ImageID: 'sha256:service',
+      State: 'running', Status: 'Up 1 hour', Labels: {
+        'dashmark.url': 'https://service.example.com',
+        'dashmark.metrics_url': 'https://label-api.example.com',
+        'dashmark.metrics': 'status'
+      }
+    }]
+    mockGotResponse('{"value":4}')
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.configFile = writeTempConfig(`
+service:
+  metrics_url: https://yaml-api.example.com
+  custom_metrics:
+    status:
+      label: Status
+      source: { url: "{metrics_url}/api/status" }
+      jq: .value
+`)
+
+    await getContainerMetricUsage(config, new Headers(), 'default:metrics-url-override')
+    expect(String(got.mock.calls[0]?.[0])).toBe('https://yaml-api.example.com/api/status')
+  })
+
+  it('resolves HTTP Basic credential labels for a Docker metric source', async () => {
+    server.containers = [{
+      Id: 'basic-metric', Names: ['/service'], Image: 'service', ImageID: 'sha256:service',
+      State: 'running', Status: 'Up 1 hour', Labels: {
+        'dashmark.url': 'https://service.example.com',
+        'dashmark.metrics': 'basic',
+        'dashmark.metric_api_key': 'container-key',
+        'dashmark.metric_api_secret': 'container-secret'
+      }
+    }]
+    mockGotResponse('{"value":4}')
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.configFile = writeTempConfig(`
+service:
+  custom_metrics:
+    basic:
+      label: Basic
+      source:
+        url: https://service.example.com/basic
+        auth:
+          type: basic
+          username: { env: SERVICE_API_KEY, label: dashmark.metric_api_key }
+          password: { env: SERVICE_API_SECRET, label: dashmark.metric_api_secret }
+      jq: .value
+`)
+
+    await expect(getContainerMetricUsage(config, new Headers(), 'default:basic-metric')).resolves.toMatchObject({
+      customMetrics: [{ key: 'basic', label: 'Basic', value: 4 }]
+    })
+    expect(new Headers(got.mock.calls[0]?.[1]?.headers).get('Authorization')).toBe(`Basic ${Buffer.from('container-key:container-secret').toString('base64')}`)
+  })
+
   it('validates metric access without collecting live values', async () => {
     server.containers = [{
       Id: 'cached-metrics', Names: ['/radarr'], Image: 'radarr', ImageID: 'sha256:radarr',

@@ -3,6 +3,7 @@ import { LABEL_PREFIX, TRAEFIK_ROUTER_RULE } from './constants'
 export type ParsedLabels = {
   hidden: boolean
   url?: string
+  metricsUrl?: string
   title?: string
   description?: string
   icon?: string
@@ -59,6 +60,7 @@ export function parseLabels(labels: Record<string, string>): ParsedLabels {
 
   const hidden = get('hidden')?.toLowerCase() === 'true'
   const url = get('url')
+  const metricsUrl = get('metrics_url')
   const title = get('title')
   const description = get('description')
   const icon = get('icon')
@@ -84,6 +86,7 @@ export function parseLabels(labels: Record<string, string>): ParsedLabels {
   return {
     hidden,
     url,
+    ...(metricsUrl !== undefined && isValidUrl(metricsUrl) ? { metricsUrl } : {}),
     title,
     description,
     icon,

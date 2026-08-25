@@ -1,0 +1,8 @@
+{
+  "interfaces": {
+    "wan": {
+      "bytes transmitted": 1234,
+      "bytes received": 5678
+    }
+  }
+}

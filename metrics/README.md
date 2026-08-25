@@ -79,7 +79,7 @@ Each entry under `custom_metrics` needs:
 | `source.url` | Yes | Explicit HTTP or HTTPS endpoint. |
 | `source.method` | No | `GET` (default) or `POST`. POST may define exactly one `form` or `json` body. |
 | `source.headers` / `source.query` | No | Header or query values referenced from an environment variable, file, or optional literal label. |
-| `source.auth` | No | Bounded cookie-session request flow for endpoints that require an authenticated browser session. |
+| `source.auth` | No | HTTP Basic credentials or a bounded cookie-session request flow. |
 | `jq` or `prometheus` | Yes | Exactly one extractor. |
 | `unit` | Numeric only | Display unit, defaults to `number`. |
 | `chart` | Numeric only | `step` (default), `line`, `area`, or `none`. |
@@ -95,6 +95,25 @@ headers:
     env: SERVICE_TOKEN
   X-Api-Key:
     file: /run/secrets/service_api_key
+```
+
+### HTTP Basic authentication
+
+Use `source.auth` with `type: basic` for APIs that use HTTP Basic credentials.
+`username` and `password` accept environment-variable or secret-file references,
+with optional Docker label overrides.
+
+```yaml
+source:
+  url: "{url}/api/status"
+  auth:
+    type: basic
+    username:
+      env: DASHMARK_SERVICE_API_KEY
+      label: dashmark.metric_api_key
+    password:
+      env: DASHMARK_SERVICE_API_SECRET
+      label: dashmark.metric_api_secret
 ```
 
 ### Cookie-session authentication
@@ -125,10 +144,38 @@ source:
 jq: .dl_info_speed
 ```
 
-Metric sources may use `{url}` for both metric and login URLs. In Docker,
-`label` values override their `env` or `file` defaults for that container.
+Metric sources may use `{url}` for both metric and login URLs. Sources that
+need a separate API base can use `{metrics_url}`, which resolves to the card's
+optional `metrics_url` and otherwise falls back to its `url`. In Docker,
+`dashmark.metrics_url` provides that API base; YAML `metrics_url` overrides
+the Docker label. `label` values override their `env` or `file` defaults for
+that container.
 Docker labels are visible through Docker APIs and inspect output, so prefer
 environment variables or secret files.
+
+### OPNsense catalog metrics
+
+The `opnsense` catalog provider uses HTTP Basic authentication with the API key
+as its username and API secret as its password. Create a dedicated API key for
+a user with the required diagnostics privileges, then select the metrics with
+`metric_providers: opnsense` and `metrics: [opnsense/cpu,
+opnsense/memory, opnsense/wan-received, opnsense/wan-transmitted]`.
+
+The defaults are `DASHMARK_OPNSENSE_API_KEY` and
+`DASHMARK_OPNSENSE_API_SECRET`. Per-container `dashmark.metric_api_key` and
+`dashmark.metric_api_secret` labels override those defaults, but labels expose
+their values through Docker APIs and should only be used when that exposure is
+acceptable. CPU use is derived from the idle CPU text returned by
+`/api/diagnostics/activity/getActivity`; active memory is converted from its
+reported K, M, G, or T value to bytes. WAN metrics use the default `wan`
+interface from `/api/diagnostics/traffic/interface` and report its cumulative
+received and transmitted byte counters.
+
+Set `metrics_url` to the OPNsense API base when it differs from the card link,
+for example when Dashmark reaches OPNsense through a private address.
+
+See the [OPNsense API documentation](https://docs.opnsense.org/development/how-tos/api.html)
+for API-key creation and HTTP Basic authentication.
 
 ### CSRF and response tokens
 
@@ -378,7 +425,8 @@ or JSON token injection, but do not follow redirects, execute JavaScript,
 interpolate values into URLs, or support arbitrary request methods. Socket.IO
 metric behavior is unchanged.
 
-A `{url}`-based metric is omitted when its card has no `url`. When a required
+A `{url}`- or `{metrics_url}`-based metric is omitted when its card has no
+resolvable base URL. When a required
 secret cannot be resolved (for example an unset environment variable), the
 metric reports `Credential ... is unavailable` and is omitted. There is no way
 to express "authenticate only if credentials are present"; a metric that
@@ -401,14 +449,14 @@ the schema fail automatically; valid definitions proceed to maintainer review.
 
 Each `.yml` file is self-contained: there is no shared source. Repeat the full
 `source` (and `auth`) block in every metric that needs it. Catalog metrics must
-define a reusable `source.url`, normally with `{url}`, because Dashmark loads
+define a reusable `source.url`, normally with `{url}` or `{metrics_url}`, because Dashmark loads
 only definitions with a source. Never include a private URL, hostname,
 credential, token, or personal identifier.
 
 Name secret environment variables `DASHMARK_<PROVIDER>_<NAME>`, for example
 `DASHMARK_RADARR_API_KEY`, and expose a per-container override label such as
 `dashmark.metric_api_key`. HTTP POST requests and bounded cookie-session flows
-are acceptable when they use portable `{url}` endpoints and secret references.
+are acceptable when they use portable `{url}` or `{metrics_url}` endpoints and secret references.
 Include public upstream API documentation for every endpoint and authentication
 flow. Socket.IO metrics are acceptable when their endpoint is portable from the
 card URL and their acknowledgement API is publicly documented.
@@ -422,8 +470,10 @@ The directory path is the metric key. For example,
 users select with `metrics: [radarr/active_downloads]`. This keeps provider
 metrics with the same name distinct, such as `sonarr/active_downloads`.
 
-The contributed YAML should define a `source` URL beginning with `{url}`.
-Dashmark replaces `{url}` with the card URL at runtime. Header and query
+The contributed YAML should define a `source` URL beginning with `{url}` or
+`{metrics_url}`. Dashmark replaces `{url}` with the card URL and
+`{metrics_url}` with the configured metrics URL, falling back to the card URL,
+at runtime. Header and query
 credentials can use a default `env` or `file` reference and an optional literal
 Docker-label override:
 

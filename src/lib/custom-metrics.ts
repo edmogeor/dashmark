@@ -153,6 +153,15 @@ function resolveHeaders(metric: MetricOverride, references = metric.source.heade
   return { headers }
 }
 
+function applyBasicAuth(metric: MetricOverride, headers: Headers): string | undefined {
+  const auth = metric.source.auth
+  if (!auth || auth.type !== 'basic') return undefined
+  const { values, error } = resolveReferences(metric, { username: auth.username, password: auth.password }, 'basic authentication')
+  if (error || !values) return error ?? 'Could not resolve basic authentication credentials'
+  headers.set('Authorization', `Basic ${Buffer.from(`${values.username!}:${values.password!}`).toString('base64')}`)
+  return undefined
+}
+
 function resolveQuery(metric: MetricOverride, url: URL, references = metric.source.query ?? {}, tokens?: Record<string, string>): string | undefined {
   const { values, error } = resolveReferences(metric, references, 'query', tokens)
   if (error || !values) return error
@@ -198,7 +207,7 @@ async function requestText(
   }
 }
 
-async function extractTokens(text: string, extract: NonNullable<NonNullable<MetricOverride['source']['auth']>['steps'][number]['extract']>): Promise<{ tokens?: Record<string, string>; error?: string }> {
+async function extractTokens(text: string, extract: NonNullable<Extract<NonNullable<MetricOverride['source']['auth']>, { type: 'cookie_session' }>['steps'][number]['extract']>): Promise<{ tokens?: Record<string, string>; error?: string }> {
   const tokens: Record<string, string> = {}
   for (const [name, extractor] of Object.entries(extract)) {
     if ('jq' in extractor) {
@@ -221,7 +230,7 @@ async function extractTokens(text: string, extract: NonNullable<NonNullable<Metr
 
 async function login(metric: MetricOverride, cookieJar: CookieJar): Promise<{ tokens?: Record<string, string>; error?: string }> {
   const auth = metric.source.auth
-  if (!auth) return { tokens: {} }
+  if (!auth || auth.type !== 'cookie_session') return { tokens: {} }
   const tokens: Record<string, string> = {}
   for (const step of auth.steps) {
     const url = new URL(step.url)
@@ -306,6 +315,8 @@ export async function collectCustomMetric(key: string, metric: MetricOverride): 
     if (authResult.error) return unavailable(key, authResult.error)
     const { headers, error: headerError } = resolveHeaders(metric, metric.source.headers ?? {}, authResult.tokens)
     if (headerError || !headers) return unavailable(key, headerError ?? 'Could not resolve a metric value')
+    const basicAuthError = applyBasicAuth(metric, headers)
+    if (basicAuthError) return unavailable(key, basicAuthError)
     const queryError = resolveQuery(metric, url, metric.source.query ?? {}, authResult.tokens)
     if (queryError) return unavailable(key, queryError)
     const bodyReferences = metric.source.form ?? metric.source.json

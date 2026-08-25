@@ -47,7 +47,7 @@ type MetricSourceOverride = {
   query?: Record<string, MetricValueReference>
   form?: Record<string, MetricValueReference>
   json?: Record<string, MetricValueReference>
-  auth?: CookieSessionMetricAuth
+  auth?: MetricHttpAuth
   socketio?: SocketIoMetricSource
 }
 
@@ -55,6 +55,14 @@ type CookieSessionMetricAuth = {
   type: 'cookie_session'
   steps: MetricHttpRequest[]
 }
+
+type BasicMetricAuth = {
+  type: 'basic'
+  username: MetricSecretReference
+  password: MetricSecretReference
+}
+
+type MetricHttpAuth = CookieSessionMetricAuth | BasicMetricAuth
 
 const CUSTOM_METRIC_UNITS = [
   'number', 'count', 'percent', 'ratio', 'bytes', 'bytes_per_second',
@@ -167,6 +175,7 @@ const SETTINGS_FIELDS = new Set([
 ])
 const SERVICE_FIELDS = new Set([
   'title', 'description', 'url', 'icon', 'category', 'order', 'hidden', 'show_status', 'metrics', 'metric_providers',
+  'metrics_url',
   'metrics_poll_interval', 'metrics_history_period', 'metrics_access', 'access', 'search_aliases', 'custom_metrics'
 ])
 
@@ -285,7 +294,7 @@ function isHttpUrl(value: string): boolean {
 }
 
 function isMetricUrl(value: string): boolean {
-  return isHttpUrl(value) || /^\{url\}(?:\/|$)/.test(value)
+  return isHttpUrl(value) || /^\{(?:url|metrics_url)\}(?:\/|$)/.test(value)
 }
 
 function metricProviders(value: unknown): string[] | undefined {
@@ -389,7 +398,7 @@ function parseMetricRequest(value: unknown, path: string): { request?: MetricHtt
     return { error: `${path} contains an unknown configuration key` }
   }
   const url = string(value.url)
-  if (!url || !isMetricUrl(url)) return { error: `${path}.url must use HTTP or HTTPS, or begin with {url}` }
+  if (!url || !isMetricUrl(url)) return { error: `${path}.url must use HTTP or HTTPS, or begin with {url} or {metrics_url}` }
   const method = value.method === undefined ? 'GET' : string(value.method)
   if (method !== 'GET' && method !== 'POST') return { error: `${path}.method must be GET or POST` }
   if (method === 'GET' && (value.form !== undefined || value.json !== undefined)) return { error: `${path} GET requests cannot define form or json` }
@@ -425,9 +434,17 @@ function parseMetricRequest(value: unknown, path: string): { request?: MetricHtt
   return { request: { url, ...(value.method === undefined ? {} : { method }), ...(headers ? { headers } : {}), ...(query ? { query } : {}), ...(form.values ? { form: form.values } : {}), ...(json.values ? { json: json.values } : {}), ...(extract ? { extract } : {}) } }
 }
 
-function parseCookieSessionAuth(value: unknown): { auth?: CookieSessionMetricAuth; error?: string } {
+function parseMetricHttpAuth(value: unknown): { auth?: MetricHttpAuth; error?: string } {
   if (value === undefined) return {}
-  if (!isRecord(value) || value.type !== 'cookie_session' || Object.keys(value).some(key => !['type', 'steps', 'login'].includes(key))) return { error: 'source.auth must define type cookie_session and a steps list' }
+  if (!isRecord(value)) return { error: 'source.auth must define a supported authentication type' }
+  if (value.type === 'basic') {
+    if (Object.keys(value).some(key => !['type', 'username', 'password'].includes(key))) return { error: 'source.auth type basic only supports username and password' }
+    const username = parseSecretReference(value.username)
+    const password = parseSecretReference(value.password)
+    if (!username || !password) return { error: 'source.auth type basic requires username and password secret references' }
+    return { auth: { type: 'basic', username, password } }
+  }
+  if (value.type !== 'cookie_session' || Object.keys(value).some(key => !['type', 'steps', 'login'].includes(key))) return { error: 'source.auth must define type basic with username and password, or type cookie_session with a steps list' }
   const configuredSteps = Array.isArray(value.steps) ? value.steps : value.login === undefined ? undefined : [value.login]
   if (!configuredSteps || configuredSteps.length === 0 || configuredSteps.length > MAX_AUTH_STEPS) return { error: `source.auth.steps must contain between 1 and ${MAX_AUTH_STEPS} requests` }
   const steps: MetricHttpRequest[] = []
@@ -519,7 +536,7 @@ function parseMetricOverrides(value: unknown, catalog = metricCatalog()): { metr
       continue
     }
     if (!isMetricUrl(url)) {
-      invalid('source.url must use HTTP or HTTPS, or begin with {url}')
+      invalid('source.url must use HTTP or HTTPS, or begin with {url} or {metrics_url}')
       continue
     }
     if (transport !== undefined && transport !== 'socketio') {
@@ -578,7 +595,7 @@ function parseMetricOverrides(value: unknown, catalog = metricCatalog()): { metr
       invalid(sourceRequest.error ?? 'source is invalid')
       continue
     }
-    const { auth, error: authError } = transport === 'socketio' ? {} : parseCookieSessionAuth(source.auth)
+    const { auth, error: authError } = transport === 'socketio' ? {} : parseMetricHttpAuth(source.auth)
     if (authError) {
       invalid(authError)
       continue
@@ -632,7 +649,8 @@ export function loadMetricCatalog(): ServiceMetricOverrides {
 function parseService(value: unknown, path: string): ServiceOverrides {
   if (!isRecord(value)) invalid(path, 'a mapping')
   validateKnownFields(value, SERVICE_FIELDS, path)
-  for (const key of ['title', 'description', 'url', 'icon', 'category'] as const) validateString(value[key], `${path}.${key}`)
+  for (const key of ['title', 'description', 'url', 'metrics_url', 'icon', 'category'] as const) validateString(value[key], `${path}.${key}`)
+  if (value.metrics_url !== undefined && (!isHttpUrl(value.metrics_url as string))) invalid(`${path}.metrics_url`, 'an HTTP or HTTPS URL')
   for (const key of ['hidden', 'show_status'] as const) validateBoolean(value[key], `${path}.${key}`)
   validateNumber(value.order, `${path}.order`)
   for (const key of ['metrics_poll_interval', 'metrics_history_period'] as const) validatePositiveInteger(value[key], `${path}.${key}`)
@@ -651,6 +669,7 @@ function parseService(value: unknown, path: string): ServiceOverrides {
     title: string(value.title),
     description: string(value.description),
     url: string(value.url),
+    metricsUrl: string(value.metrics_url),
     icon: string(value.icon),
     category: string(value.category),
     order,

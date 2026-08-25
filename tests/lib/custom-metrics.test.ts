@@ -40,6 +40,11 @@ beforeAll(async () => {
       response.end(JSON.stringify({ value: 7 }))
       return
     }
+    if (path === '/basic') {
+      response.statusCode = request.headers.authorization === `Basic ${Buffer.from('api-key:api-secret').toString('base64')}` ? 200 : 401
+      response.end(JSON.stringify({ value: 8 }))
+      return
+    }
     if (path === '/csrf') {
       response.setHeader('Set-Cookie', 'csrf-session=active; Path=/')
       response.end('<input name="csrf" value="csrf-token">')
@@ -177,6 +182,16 @@ describe('collectCustomMetric', () => {
       { body: 'username=admin&password=secret', cookie: '' },
       { body: 'username=admin&password=secret', cookie: 'metric-session=authenticated' }
     ])
+  })
+
+  it('uses HTTP Basic credentials from secret references', async () => {
+    await expect(collectCustomMetric('basic', {
+      ...metric({ jq: { expression: '.value' } }),
+      source: {
+        url: `${baseUrl}/basic`,
+        auth: { type: 'basic', username: { value: 'api-key' }, password: { value: 'api-secret' } }
+      }
+    })).resolves.toEqual({ value: 8 })
   })
 
   it('uses shared cookies and extracted HTML and JSON tokens in later requests', async () => {

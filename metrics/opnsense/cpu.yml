@@ -1,0 +1,14 @@
+label: CPU
+unit: percent
+chart: line
+source:
+  url: "{metrics_url}/api/diagnostics/activity/getActivity"
+  auth:
+    type: basic
+    username:
+      env: DASHMARK_OPNSENSE_API_KEY
+      label: dashmark.metric_api_key
+    password:
+      env: DASHMARK_OPNSENSE_API_SECRET
+      label: dashmark.metric_api_secret
+jq: '100 - (.headers[2] | capture(" (?<idle>[0-9.]+)% idle").idle | tonumber)'

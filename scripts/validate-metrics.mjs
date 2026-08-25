@@ -15,6 +15,7 @@ const reductions = new Set(['count', 'sum', 'average', 'minimum', 'maximum'])
 const charts = new Set(['step', 'line', 'area', 'none'])
 const metricName = /^[a-z][a-z0-9_-]*$/
 const prometheusName = /^[a-zA-Z_:][a-zA-Z0-9_:]*$/
+const sourceBase = /^\{(?:url|metrics_url)\}(?:\/|$)/
 const metricShape = z.looseObject({
   label: z.string().trim().min(1),
   value_type: z.enum(['number', 'string']).optional()
@@ -78,7 +79,7 @@ function validateSource(source) {
   const request = { ...value }
   delete request.auth
   validateRequest(request, 'source', false)
-  if (value.auth !== undefined) validateCookieSessionAuth(value.auth)
+  if (value.auth !== undefined) validateHttpAuth(value.auth)
 }
 
 function validateSocketIoArguments(args, context) {
@@ -99,7 +100,7 @@ function validateSocketIoEvent(event, context) {
 
 function validateSocketIoSource(source) {
   allowed(source, new Set(['url', 'transport', 'socketio']), 'source')
-  if (typeof source.url !== 'string' || !/^\{url\}(?:\/|$)/.test(source.url)) throw new Error('source.url must begin with {url}')
+  if (typeof source.url !== 'string' || !sourceBase.test(source.url)) throw new Error('source.url must begin with {url} or {metrics_url}')
   const socketio = record(source.socketio, 'source.socketio must be a mapping')
   allowed(socketio, new Set(['auth', 'login', 'request']), 'source.socketio')
   if (socketio.auth !== undefined) validateSecretMappings({ headers: socketio.auth }, 'source.socketio')
@@ -133,10 +134,16 @@ function validateSecretMappings(value, context, allowToken = false, kinds = ['he
   }
 }
 
-function validateCookieSessionAuth(auth) {
+function validateHttpAuth(auth) {
   const value = record(auth, 'source.auth must be a mapping')
+  if (value.type === 'basic') {
+    allowed(value, new Set(['type', 'username', 'password']), 'source.auth')
+    validateSecretReference('username', value.username, 'source.auth', 'basic')
+    validateSecretReference('password', value.password, 'source.auth', 'basic')
+    return
+  }
   allowed(value, new Set(['type', 'steps', 'login']), 'source.auth')
-  if (value.type !== 'cookie_session') throw new Error('source.auth.type must be cookie_session')
+  if (value.type !== 'cookie_session') throw new Error('source.auth.type must be basic or cookie_session')
   const steps = Array.isArray(value.steps) ? value.steps : value.login === undefined ? undefined : [value.login]
   if (!steps || steps.length === 0 || steps.length > 5) throw new Error('source.auth.steps must contain between 1 and 5 requests')
   steps.forEach((step, index) => validateRequest(step, `source.auth.steps.${index}`, true))
@@ -145,7 +152,7 @@ function validateCookieSessionAuth(auth) {
 function validateRequest(request, context, allowToken) {
   const value = record(request, `${context} must be a mapping`)
   allowed(value, new Set(['url', 'method', 'form', 'json', 'headers', 'query', 'extract']), context)
-  if (typeof value.url !== 'string' || !/^\{url\}(?:\/|$)/.test(value.url)) throw new Error(`${context}.url must begin with {url}`)
+  if (typeof value.url !== 'string' || !sourceBase.test(value.url)) throw new Error(`${context}.url must begin with {url} or {metrics_url}`)
   const method = value.method ?? 'GET'
   if (method !== 'GET' && method !== 'POST') throw new Error(`${context}.method must be GET or POST`)
   if (method === 'GET' && (value.form !== undefined || value.json !== undefined)) throw new Error(`${context} GET requests cannot define form or json`)
