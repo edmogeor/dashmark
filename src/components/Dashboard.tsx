@@ -20,8 +20,8 @@ import { cn } from '@/lib/utils'
 import { badgeColor } from '@/lib/badge-color'
 import { STATUS_POLL_INTERVAL_MS, TOOLTIP_DELAY_MS } from '@/lib/constants'
 import { TooltipControllerProvider, useTooltipController } from './tooltip-controller'
+import { AboutDialog } from './AboutDialog'
 
-const brandMarkPath = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/brand/logo-mark.svg`
 const COLUMN_WIDTH = 300
 const COLUMN_GUTTER = 20
 const MASONRY_OVERSCAN = 3
@@ -386,7 +386,7 @@ function DashboardSearchPanel({
     <Card className="dashmark-search-panel overflow-hidden bg-surface shadow-none">
       <CardContent className="dashmark-search-panel-content flex flex-row items-center gap-4 p-5">
         {showBranding && (
-          <img src={brandMarkPath} alt={strings.app.title} className="dashmark-brand h-8 w-8 shrink-0 max-[359px]:hidden" />
+          <AboutDialog />
         )}
         <div className="min-w-0 flex-1">
           <SearchBar value={search} onChange={setSearch} disabled={!!error} />

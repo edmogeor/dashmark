@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0-alpha.6] - 2026-08-25
+
+- Add an About dialog from the Dashmark logo with version, update, GitHub, and Buy Me a Coffee links.
+
 - **Breaking:** rename `SHOW_RESOURCE_USAGE` and `RESOURCE_USAGE_ACCESS` to `SHOW_METRICS` and `METRICS_ACCESS`.
 - Restrict individual metrics with YAML `metrics_access` or `dashmark.metrics_access.<metric>` labels, where dots in the label suffix represent metric-key slashes.
 
