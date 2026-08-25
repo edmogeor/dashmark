@@ -1,4 +1,0 @@
-label: Download
-unit: bytes_per_second
-chart: line
-jq: .DownloadRate

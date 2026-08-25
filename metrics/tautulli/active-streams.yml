@@ -1,4 +1,0 @@
-label: Active streams
-unit: count
-chart: step
-jq: .response.data.stream_count

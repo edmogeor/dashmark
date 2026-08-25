@@ -1,7 +1,0 @@
-label: DNS queries
-unit: count
-chart: step
-chart_group: dns_queries
-source:
-  url: "{url}/control/stats"
-jq: .num_dns_queries

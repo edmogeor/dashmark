@@ -67,26 +67,6 @@ Docker labels can use the equivalent `dashmark.metric_provider=radarr`.
 Locally defined unscoped metric keys, such as `active_downloads`, do not need a
 provider binding.
 
-### Catalog source bindings
-
-Catalog metrics derive their endpoint from the card URL. When required, a
-catalog metric defines its default credential environment variable. Override
-that credential for one container with a literal `dashmark.metric_api_key`
-label:
-
-```yaml
-media-radarr:
-  metric_provider: radarr
-  metrics: [radarr/queue-depth]
-  # Optional. The catalog defaults to DASHMARK_RADARR_API_KEY.
-  # Docker labels are visible through Docker APIs and inspect output.
-  # dashmark.metric_api_key: literal-api-key
-```
-
-Set the catalog's documented default variable on the Dashmark container, such
-as `DASHMARK_RADARR_API_KEY`. A literal metric label takes precedence, but is
-not recommended because Docker labels are not secret storage.
-
 ## Metric Definition
 
 Each entry under `custom_metrics` needs:
@@ -140,11 +120,10 @@ source:
 jq: .dl_info_speed
 ```
 
-Catalog metrics may use `{url}` for both metric and login URLs. In Docker,
+Metric sources may use `{url}` for both metric and login URLs. In Docker,
 `label` values override their `env` or `file` defaults for that container.
-Use `dashmark.metric_username` and `dashmark.metric_password` for the bundled
-qBittorrent metrics. Docker labels are visible through Docker APIs and inspect
-output, so prefer environment variables or secret files.
+Docker labels are visible through Docker APIs and inspect output, so prefer
+environment variables or secret files.
 
 ## jq Metrics
 

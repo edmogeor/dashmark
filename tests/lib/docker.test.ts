@@ -826,13 +826,13 @@ radarr:
     expect(server.statsRequests).toBe(0)
   })
 
-  it('collects a catalog metric from the card URL and API-key label', async () => {
+  it('collects a fixture catalog metric from the card URL and API-key label', async () => {
     server.containers = [{
-      Id: 'catalog-metric', Names: ['/radarr'], Image: 'radarr', ImageID: 'sha256:radarr',
+      Id: 'catalog-metric', Names: ['/service'], Image: 'service', ImageID: 'sha256:service',
       State: 'running', Status: 'Up 1 hour', Labels: {
-        'dashmark.url': 'https://radarr.example.com',
-        'dashmark.metric_provider': 'radarr',
-        'dashmark.metrics': 'radarr/queue-depth',
+        'dashmark.url': 'https://service.example.com',
+        'dashmark.metric_provider': 'test',
+        'dashmark.metrics': 'test/queue-depth',
         'dashmark.metric_api_key': 'label-api-key'
       }
     }]
@@ -843,34 +843,11 @@ radarr:
     await expect(getContainerMetricUsage(config, new Headers(), 'default:catalog-metric')).resolves.toEqual({
       resource: undefined,
       historyPeriodMs: config.metricsHistoryPeriodMs,
-      customMetrics: [{ key: 'radarr/queue-depth', label: 'Queue depth', unit: 'count', chart: 'step', value: 4 }],
+      customMetrics: [{ key: 'test/queue-depth', label: 'Queue depth', unit: 'count', chart: 'step', value: 4 }],
       metricErrors: []
     })
-    expect(String(got.mock.calls[0]?.[0])).toBe('https://radarr.example.com/api/v3/queue/status')
+    expect(String(got.mock.calls[0]?.[0])).toBe('https://service.example.com/api/queue')
     expect(new Headers(got.mock.calls[0]?.[1]?.headers).get('X-Api-Key')).toBe('label-api-key')
-  })
-
-  it('resolves cookie-session login labels for catalog metrics', async () => {
-    server.containers = [{
-      Id: 'qbittorrent-metric', Names: ['/qbittorrent'], Image: 'qbittorrent', ImageID: 'sha256:qbittorrent',
-      State: 'running', Status: 'Up 1 hour', Labels: {
-        'dashmark.url': 'https://qbittorrent.example.com',
-        'dashmark.metric_provider': 'qbittorrent',
-        'dashmark.metrics': 'qbittorrent/download-speed',
-        'dashmark.metric_username': 'label-user',
-        'dashmark.metric_password': 'label-password'
-      }
-    }]
-    mockGotResponse('{"dl_info_speed":4}')
-    const config = getConfig()
-    config.dockerHost = dockerHost
-
-    await expect(getContainerMetricUsage(config, new Headers(), 'default:qbittorrent-metric')).resolves.toMatchObject({
-      customMetrics: [{ key: 'qbittorrent/download-speed', value: 4 }]
-    })
-    expect(String(got.mock.calls[0]?.[0])).toBe('https://qbittorrent.example.com/api/v2/auth/login')
-    expect(got.mock.calls[0]?.[1]).toMatchObject({ method: 'POST', form: { username: 'label-user', password: 'label-password' } })
-    expect(String(got.mock.calls[1]?.[0])).toBe('https://qbittorrent.example.com/api/v2/transfer/info')
   })
 
   it('validates metric access without collecting live values', async () => {

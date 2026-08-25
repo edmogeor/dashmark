@@ -1,9 +1,0 @@
-label: Videos
-unit: count
-chart: step
-chart_group: library_items
-source:
-  url: "{url}/api/server/statistics"
-  headers:
-    x-api-key: { env: DASHMARK_IMMICH_API_KEY, label: dashmark.metric_api_key }
-jq: .videos

@@ -154,24 +154,24 @@ radarr:
     expect(loadYamlConfig(config).config.services.radarr?.metrics).toEqual(['cpu', 'active_downloads'])
   })
 
-  it('binds a catalog metric to a local source', () => {
+  it('binds a fixture catalog metric to a local source', () => {
     const config = getConfig()
     config.configFile = writeConfig(`
-radarr:
-  metric_provider: radarr
-  metrics: [radarr/queue-depth]
+service:
+  metric_provider: test
+  metrics: [test/queue-depth]
   custom_metrics:
-    radarr/queue-depth:
-      source: { url: http://radarr:7878/api/v3/queue/status }
+    test/queue-depth:
+      source: { url: http://service:8080/api/queue }
 `)
 
-    expect(loadYamlConfig(config).config.services.radarr?.customMetrics).toEqual({
-      'radarr/queue-depth': {
+    expect(loadYamlConfig(config).config.services.service?.customMetrics).toEqual({
+      'test/queue-depth': {
         label: 'Queue depth',
         valueType: 'number',
         unit: 'count',
         chart: 'step',
-        source: { url: 'http://radarr:7878/api/v3/queue/status' },
+        source: { url: 'http://service:8080/api/queue' },
         jq: { expression: '.totalCount' }
       }
     })

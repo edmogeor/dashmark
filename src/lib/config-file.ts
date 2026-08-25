@@ -306,7 +306,7 @@ function parseMetricTransform(value: unknown): MetricTransform | undefined {
 let cachedCatalog: { signature: string; metrics: Record<string, Record<string, unknown>> } | undefined
 
 function metricCatalog(): Record<string, Record<string, unknown>> {
-  const directory = path.resolve('metrics')
+  const directory = path.resolve(process.env.DASHMARK_METRICS_DIR ?? 'metrics')
   try {
     const files = fs.readdirSync(directory, { withFileTypes: true }).flatMap(provider => {
       if (!provider.isDirectory()) return []

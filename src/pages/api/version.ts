@@ -29,7 +29,7 @@ async function latestRelease(): Promise<Release | undefined> {
   }
 }
 
-export async function getVersionResponse(): Promise<Response> {
+async function getVersionResponse(): Promise<Response> {
   const release = await latestRelease()
   const body = release && isNewerVersion(release.tagName)
     ? { version: APP_VERSION, update: release }
