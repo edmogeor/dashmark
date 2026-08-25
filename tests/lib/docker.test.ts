@@ -615,6 +615,17 @@ describe('getCards', () => {
     })
   })
 
+  it('shows a configured host badge on standalone YAML cards', async () => {
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.dockerHosts = undefined
+    config.configFile = writeTempConfig('github:\n  title: GitHub\n  url: https://github.com\n  host: &external external\ngitlab:\n  url: https://gitlab.com\n  host: *external\n')
+
+    const { cards } = await getCards(config, new Headers())
+
+    expect(cards).toMatchObject([{ host: 'external', hostColor: 0 }, { host: 'external', hostColor: 0 }])
+  })
+
   it('exposes and collects custom metrics for standalone YAML cards without resource metrics', async () => {
     const config = getConfig()
     config.dockerHost = dockerHost
@@ -677,6 +688,50 @@ github:
       metricsHistoryPeriodMs: 900_000
     }])
     expect(server.statsRequests).toBe(0)
+  })
+
+  it('URL-encodes catalog metric parameters', async () => {
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.dockerHosts = undefined
+    config.configFile = writeTempConfig(`
+parameterized:
+  url: https://service.example.test
+  metric_providers: test
+  metrics: [test/url-parameter]
+  metric_parameters:
+    test/url-parameter:
+      resource: garage door/test
+    `)
+    mockGotResponse('{"state":"open"}')
+
+    await getCards(config, new Headers())
+    await expect(getContainerMetricUsage(config, new Headers(), 'yaml-parameterized')).resolves.toMatchObject({
+      customMetrics: [{ key: 'test/url-parameter', value: 'open', color: 'info' }]
+    })
+    expect(String(got.mock.calls[0]?.[0])).toBe('https://service.example.test/api/garage%20door%2Ftest')
+  })
+
+  it('binds catalog parameters into JSON request bodies', async () => {
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.dockerHosts = undefined
+    config.configFile = writeTempConfig(`
+parameterized:
+  url: https://service.example.test
+  metric_providers: test
+  metrics: [test/json-parameter]
+  metric_parameters:
+    test/json-parameter:
+      value: "{{ states('sensor.example') }}"
+`)
+    mockGotResponse('open')
+
+    await getCards(config, new Headers())
+    await expect(getContainerMetricUsage(config, new Headers(), 'yaml-parameterized')).resolves.toMatchObject({
+      customMetrics: [{ key: 'test/json-parameter', value: 'open', color: 'info' }]
+    })
+    expect(got.mock.calls[0]?.[1]).toMatchObject({ json: { value: "{{ states('sensor.example') }}" } })
   })
 
   it('filters standalone YAML metric metadata by per-metric access', async () => {

@@ -22,6 +22,52 @@ afterEach(() => {
 })
 
 describe('loadYamlConfig', () => {
+  it('parses catalog metric parameters and reports missing required values', () => {
+    const config = getConfig()
+    config.configFile = writeConfig(`
+parameterized:
+  url: https://service.example.test
+  metrics: [test/url-parameter]
+  metric_parameters:
+    test/url-parameter:
+      resource: garage_door
+missing:
+  url: https://service.example.test
+  metrics: [test/url-parameter]
+`)
+
+    const { config: parsed } = loadYamlConfig(config)
+
+    expect(parsed.services.parameterized?.metricParameters).toEqual({
+      'test/url-parameter': { resource: 'garage_door' }
+    })
+    expect(parsed.services.missing?.customMetricErrors).toEqual({
+      'test/url-parameter': 'Catalog parameter Resource is required'
+    })
+  })
+
+  it('allows a catalog metric presentation to be overridden', () => {
+    const config = getConfig()
+    config.configFile = writeConfig(`
+service:
+  url: https://service.example.test
+  metrics: [test/url-parameter]
+  metric_parameters:
+    test/url-parameter: { resource: temperature }
+  custom_metrics:
+    test/url-parameter:
+      label: Temperature
+      value_type: number
+      unit: celsius
+      chart: line
+      jq: '(.state | tonumber)'
+`)
+
+    const metric = loadYamlConfig(config).config.services.service?.customMetrics?.['test/url-parameter']
+
+    expect(metric).toMatchObject({ label: 'Temperature', valueType: 'number', unit: 'celsius', chart: 'line' })
+  })
+
   it('rejects malformed service fields instead of weakening access control', () => {
     const config = getConfig()
     config.configFile = writeConfig(`

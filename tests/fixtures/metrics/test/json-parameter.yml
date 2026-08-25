@@ -1,0 +1,14 @@
+label: Parameterized text
+value_type: state
+color: info
+parameters:
+  value:
+    label: Value
+    type: json_value
+source:
+  url: "{url}/api"
+  method: POST
+  json:
+    value:
+      parameter: value
+text: true

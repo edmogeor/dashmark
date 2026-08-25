@@ -1,0 +1,21 @@
+label: Template State
+value_type: state
+color: info
+parameters:
+  template:
+    label: Template
+    type: json_value
+source:
+  url: "{url}/api/template"
+  method: POST
+  json:
+    template:
+      parameter: template
+  auth:
+    type: token
+    header: Authorization
+    prefix: "Bearer "
+    value:
+      env: DASHMARK_HOMEASSISTANT_TOKEN
+      label: dashmark.metric_token
+text: true

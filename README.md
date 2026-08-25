@@ -368,7 +368,7 @@ vps/plex:
   url: https://plex.vps.example.com
 ```
 
-Available card fields are `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `show_status`, `metrics`, `metrics_access`, `metric_providers`, `metrics_poll_interval`, `metrics_history_period`, `custom_metrics`, `access`, and `search_aliases`. See [`data/config.yml`](data/config.yml) for a commented example.
+Available card fields are `title`, `description`, `url`, `icon`, `category`, `host`, `order`, `hidden`, `show_status`, `metrics`, `metrics_access`, `metric_providers`, `metric_parameters`, `metrics_poll_interval`, `metrics_history_period`, `custom_metrics`, `access`, and `search_aliases`. `host` adds a host badge to a standalone YAML card. Cards with the same host value share its badge color; YAML anchors can reuse a host value. See [`data/config.yml`](data/config.yml) for a commented example.
 
 ### Icons
 

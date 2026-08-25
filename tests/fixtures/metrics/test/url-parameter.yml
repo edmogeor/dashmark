@@ -1,0 +1,10 @@
+label: Parameterized state
+value_type: state
+color: info
+parameters:
+  resource:
+    label: Resource
+    type: url_component
+source:
+  url: "{url}/api/{resource}"
+jq: .state

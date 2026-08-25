@@ -514,7 +514,7 @@ function resolveContainer(
     name: containerName(container),
     yamlKey,
     labels,
-    customMetrics: resolveMetricSources(customMetrics, url, labels.metricsUrl, rawLabels),
+    customMetrics: resolveMetricSources(customMetrics, url, labels.metricsUrl, rawLabels, yamlService?.metricParameters),
     customMetricErrors: yamlService?.customMetricErrors,
     url
   }
@@ -529,7 +529,7 @@ function resolveYamlMetrics(service: ServiceOverrides, url: string): ResolvedMet
   const customMetrics = { ...selectedCatalogMetrics, ...service.customMetrics }
   return {
     labels: service,
-    customMetrics: resolveMetricSources(customMetrics, url, service.metricsUrl, {}),
+    customMetrics: resolveMetricSources(customMetrics, url, service.metricsUrl, {}, service.metricParameters),
     customMetricErrors: service.customMetricErrors
   }
 }
@@ -538,14 +538,19 @@ function resolveMetricSources(
   metrics: ServiceMetricOverrides,
   cardUrl: string | undefined,
   metricsUrl: string | undefined,
-  labels: Record<string, string>
+  labels: Record<string, string>,
+  metricParameters: ServiceOverrides['metricParameters']
 ): ServiceMetricOverrides | undefined {
-  const resolveUrl = (url: string): string | undefined => {
+  const resolveUrl = (url: string, parameters: MetricOverride['parameters'], values: Record<string, string | number | boolean> | undefined): string | undefined => {
     const baseUrl = url.startsWith('{metrics_url}') ? metricsUrl ?? cardUrl : url.startsWith('{url}') ? cardUrl : undefined
     const placeholder = url.startsWith('{metrics_url}') ? '{metrics_url}' : '{url}'
-    return baseUrl === undefined && url.startsWith('{')
+    const resolved = baseUrl === undefined && url.startsWith('{')
       ? undefined
       : baseUrl ? `${baseUrl.replace(/\/$/, '')}${url.slice(placeholder.length)}` : url
+    return resolved?.replace(/\{([a-z][a-z0-9_]*)\}/g, (match, name: string) => {
+      if (!parameters?.[name] || values?.[name] === undefined) return match
+      return encodeURIComponent(String(values[name]))
+    })
   }
   const resolveReference = (reference: unknown): unknown => {
     if (reference === null || typeof reference !== 'object' || Array.isArray(reference)) return reference
@@ -572,13 +577,21 @@ function resolveMetricSources(
       request: { ...socketio.request, ...(socketio.request.args ? { args: resolveArguments(socketio.request.args) } : {}) }
     }
   }
-  const resolveRequest = (request: Extract<NonNullable<typeof metrics[string]['source']['auth']>, { type: 'cookie_session' }>['steps'][number]) => {
-    const url = resolveUrl(request.url)
+  const resolveRequest = (request: Extract<NonNullable<typeof metrics[string]['source']['auth']>, { type: 'cookie_session' }>['steps'][number], metric: MetricOverride, values: Record<string, string | number | boolean> | undefined) => {
+    const url = resolveUrl(request.url, metric.parameters, values)
     if (!url) return undefined
     const headers = resolveReferences(request.headers)
     const query = resolveReferences(request.query)
     const form = resolveReferences(request.form)
-    const json = request.json === undefined ? undefined : resolveReference(request.json) as typeof request.json
+    const resolveJsonParameters = (value: unknown): unknown => {
+      if (value === null || typeof value !== 'object' || Array.isArray(value)) return value
+      if (Object.keys(value).length === 1 && typeof (value as { parameter?: unknown }).parameter === 'string') {
+        const name = (value as { parameter: string }).parameter
+        return metric.parameters?.[name]?.type === 'json_value' && values?.[name] !== undefined ? { __dashmarkParameterValue: values[name] } : value
+      }
+      return Object.fromEntries(Object.entries(value).map(([name, item]) => [name, resolveJsonParameters(item)]))
+    }
+    const json = request.json === undefined ? undefined : resolveJsonParameters(resolveReference(request.json)) as typeof request.json
     return {
       ...request,
       url,
@@ -589,10 +602,12 @@ function resolveMetricSources(
     }
   }
   const resolved = Object.fromEntries(Object.entries(metrics).flatMap(([key, metric]) => {
-    const request = resolveRequest({ ...metric.source, method: metric.source.method ?? 'GET' })
+    const values = metricParameters?.[key]
+    if (Object.keys(metric.parameters ?? {}).some(name => values?.[name] === undefined)) return []
+    const request = resolveRequest({ ...metric.source, method: metric.source.method ?? 'GET' }, metric, values)
     if (!request) return []
     const auth = metric.source.auth
-    const steps = auth?.type === 'cookie_session' ? auth.steps.map(resolveRequest) : undefined
+    const steps = auth?.type === 'cookie_session' ? auth.steps.map(step => resolveRequest(step, metric, values)) : undefined
     if (steps?.some(step => !step)) return []
     const basicAuth = auth?.type === 'basic'
       ? {
@@ -688,7 +703,8 @@ async function cardFromContainer(
 async function cardFromYaml(
   config: AppConfig,
   name: string,
-  service: ServiceOverrides
+  service: ServiceOverrides,
+  hostColor: number
 ): Promise<Card | null> {
   if (service.hidden || !service.url || !isValidUrl(service.url)) {
     return null
@@ -715,6 +731,8 @@ async function cardFromYaml(
     searchAliases: service.searchAliases ?? [],
     hasContainer: false,
     access: service.access ?? [],
+    host: service.host,
+    hostColor: service.host === undefined ? undefined : hostColor,
     metrics: service.metrics,
     ...(customMetrics.length > 0 ? { customMetricLabels: customMetrics.map(([key, metric]) => ({ key, label: metric.label })) } : {}),
     metricProviders: service.metricProviders,
@@ -1031,8 +1049,9 @@ async function buildAllCards(config: AppConfig): Promise<{ cards: Card[]; error?
   const cards: Card[] = []
   const matchedKeys = new Set<string>()
   const hostIds = [...new Set(containers.map(({ hostId }) => hostId))]
+  const yamlHostNames = [...new Set(Object.values(yamlServices).flatMap(service => service.host ? [service.host] : []))]
   const showHost = hostIds.length > 1
-  const hostColors = new Map(hostIds.map((hostId, index) => [hostId, index]))
+  const hostColors = new Map([...new Set([...hostIds, ...yamlHostNames])].map((hostId, index) => [hostId, index]))
 
   for (const { hostId, container } of containers) {
     const resolved = resolveContainer(yamlServices, hostId, container)
@@ -1044,7 +1063,7 @@ async function buildAllCards(config: AppConfig): Promise<{ cards: Card[]; error?
 
   for (const [name, yamlService] of Object.entries(yamlServices)) {
     if (matchedKeys.has(name)) continue
-    const card = await cardFromYaml(config, name, yamlService)
+    const card = await cardFromYaml(config, name, yamlService, hostColors.get(yamlService.host ?? '') ?? 0)
     if (card) cards.push(card)
   }
 

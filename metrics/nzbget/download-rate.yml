@@ -1,0 +1,19 @@
+label: Download
+unit: bytes_per_second
+chart: line
+source:
+  url: "{url}/jsonrpc"
+  method: POST
+  json:
+    jsonrpc: "2.0"
+    method: status
+    id: 1
+  auth:
+    type: basic
+    username:
+      env: DASHMARK_NZBGET_USERNAME
+      label: dashmark.metric_username
+    password:
+      env: DASHMARK_NZBGET_PASSWORD
+      label: dashmark.metric_password
+jq: .result.DownloadRate

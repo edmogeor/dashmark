@@ -25,3 +25,15 @@
 | opnsense | `opnsense/memory` | - | [@edmogeor](https://github.com/edmogeor) |
 | opnsense | `opnsense/wan-received` | `wan` | [@edmogeor](https://github.com/edmogeor) |
 | opnsense | `opnsense/wan-transmitted` | `wan` | [@edmogeor](https://github.com/edmogeor) |
+| homeassistant | `homeassistant/entities` | - | [@edmogeor](https://github.com/edmogeor) |
+| homeassistant | `homeassistant/entity-state` | - | [@edmogeor](https://github.com/edmogeor) |
+| homeassistant | `homeassistant/template-state` | - | [@edmogeor](https://github.com/edmogeor) |
+| paperless | `paperless/documents` | - | [@edmogeor](https://github.com/edmogeor) |
+| authentik | `authentik/users` | - | [@edmogeor](https://github.com/edmogeor) |
+| bazarr | `bazarr/wanted-movies` | - | [@edmogeor](https://github.com/edmogeor) |
+| bazarr | `bazarr/wanted-episodes` | - | [@edmogeor](https://github.com/edmogeor) |
+| nzbget | `nzbget/download-rate` | - | [@edmogeor](https://github.com/edmogeor) |
+| plex | `plex/active-streams` | - | [@edmogeor](https://github.com/edmogeor) |
+| prowlarr | `prowlarr/indexers` | - | [@edmogeor](https://github.com/edmogeor) |
+| seerr | `seerr/pending` | - | [@edmogeor](https://github.com/edmogeor) |
+| crowdsec | `crowdsec/active-bans` | - | [@edmogeor](https://github.com/edmogeor) |

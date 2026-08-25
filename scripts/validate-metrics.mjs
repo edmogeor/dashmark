@@ -77,13 +77,24 @@ function validateStateColor(color) {
   if (typeof color !== 'string' || !badgeColors.has(color)) throw new Error('color must be success, info, warning, error, or disabled')
 }
 
+function validateParameters(parameters) {
+  const value = record(parameters, 'parameters must be a mapping')
+  if (Object.keys(value).length === 0) throw new Error('parameters must not be empty')
+  for (const [name, parameter] of Object.entries(value)) {
+    if (!/^[a-z][a-z0-9_]*$/.test(name)) throw new Error('parameter name is invalid')
+    const definition = record(parameter, `parameters.${name} must be a mapping`)
+    allowed(definition, new Set(['label', 'type']), `parameters.${name}`)
+    if (typeof definition.label !== 'string' || !definition.label || !['url_component', 'json_value'].includes(definition.type)) throw new Error(`parameters.${name} must define a label and type url_component or json_value`)
+  }
+}
+
 function validateSource(source) {
   const value = record(source, 'source must be a mapping')
   if (value.transport === 'socketio') return validateSocketIoSource(value)
   allowed(value, new Set(['url', 'method', 'form', 'json', 'headers', 'query', 'auth']), 'source')
   const request = { ...value }
   delete request.auth
-  validateRequest(request, 'source', false)
+  validateRequest(request, 'source', value.auth?.type === 'cookie_session')
   if (value.auth !== undefined) validateHttpAuth(value.auth)
 }
 
@@ -129,7 +140,7 @@ function validateSecretReference(name, reference, context, kind) {
 
 function validateValueReference(name, reference, context, kind, allowToken) {
   if (typeof reference === 'string' || typeof reference === 'boolean' || (typeof reference === 'number' && Number.isFinite(reference))) return
-  if (allowToken && reference !== null && typeof reference === 'object' && !Array.isArray(reference) && Object.keys(reference).length === 1 && typeof reference.token === 'string' && metricName.test(reference.token)) return
+  if (allowToken && reference !== null && typeof reference === 'object' && !Array.isArray(reference) && typeof reference.token === 'string' && metricName.test(reference.token) && Object.keys(reference).every(key => key === 'token' || key === 'prefix') && (reference.prefix === undefined || typeof reference.prefix === 'string')) return
   validateSecretReference(name, reference, context, kind)
 }
 
@@ -208,13 +219,15 @@ function validate(file) {
   const definition = record(yaml.load(fs.readFileSync(file, 'utf8')), 'must contain a YAML mapping')
   const shape = metricShape.safeParse(definition)
   if (!shape.success) throw new Error('label must be a non-empty string and value_type must be number, string, or state')
-  allowed(definition, new Set(['label', 'source', 'unit', 'chart', 'chart_group', 'transform', 'color', 'value_type', 'jq', 'prometheus']), 'metric definition')
+  allowed(definition, new Set(['label', 'source', 'unit', 'chart', 'chart_group', 'transform', 'color', 'value_type', 'jq', 'prometheus', 'text', 'parameters']), 'metric definition')
   if (typeof definition.label !== 'string' || !definition.label.trim()) throw new Error('label must be a non-empty string')
   const valueType = definition.value_type ?? 'number'
   if (valueType !== 'number' && valueType !== 'string' && valueType !== 'state') throw new Error('value_type must be number, string, or state')
   const hasJq = definition.jq !== undefined
   const hasPrometheus = definition.prometheus !== undefined
-  if (Number(hasJq) + Number(hasPrometheus) !== 1) throw new Error('must define exactly one jq or prometheus extractor')
+  const hasText = definition.text === true
+  if (definition.text !== undefined && !hasText) throw new Error('text must be true when specified')
+  if (Number(hasJq) + Number(hasPrometheus) + Number(hasText) !== 1) throw new Error('must define exactly one jq, prometheus, or text extractor')
 
   if (valueType === 'number') {
     validateUnit(definition.unit ?? 'number')
@@ -241,6 +254,7 @@ function validate(file) {
     const extractor = record(definition.prometheus, 'prometheus must be a mapping')
     validatePrometheus(extractor, valueType)
   }
+  if (definition.parameters !== undefined) validateParameters(definition.parameters)
   if (definition.source !== undefined) validateSource(definition.source)
 
   return { key, graphGroup: definition.chart_group ?? '-' }

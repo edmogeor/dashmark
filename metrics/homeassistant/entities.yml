@@ -1,0 +1,13 @@
+label: Entities
+unit: count
+chart: none
+source:
+  url: "{url}/api/states"
+  auth:
+    type: token
+    header: Authorization
+    prefix: "Bearer "
+    value:
+      env: DASHMARK_HOMEASSISTANT_TOKEN
+      label: dashmark.metric_token
+jq: length

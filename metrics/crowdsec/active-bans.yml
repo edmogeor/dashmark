@@ -1,0 +1,25 @@
+label: Active bans
+unit: count
+chart: line
+source:
+  url: "{url}/v1/alerts?decision_type=ban&origin=crowdsec&has_active_decision=1"
+  headers:
+    User-Agent: Dashmark metrics
+    Authorization: { token: session_token, prefix: "Bearer " }
+  auth:
+    type: cookie_session
+    steps:
+      - url: "{url}/v1/watchers/login"
+        method: POST
+        headers: { User-Agent: Dashmark metrics }
+        json:
+          machine_id:
+            env: DASHMARK_CROWDSEC_MACHINE_ID
+            label: dashmark.metric_machine_id
+          password:
+            env: DASHMARK_CROWDSEC_PASSWORD
+            label: dashmark.metric_password
+          scenarios: []
+        extract:
+          session_token: { jq: .token }
+jq: length

@@ -1,0 +1,11 @@
+label: Active streams
+unit: count
+chart: step
+source:
+  url: "{url}/status/sessions"
+  headers:
+    Accept: application/json
+    X-Plex-Token:
+      env: DASHMARK_PLEX_TOKEN
+      label: dashmark.metric_token
+jq: .MediaContainer.size

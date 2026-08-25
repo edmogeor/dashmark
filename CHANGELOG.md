@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Allow cards to select catalog metrics from multiple explicit providers with `metric_providers`.
 - Add generic Socket.IO custom metrics with handshake auth, login, and request acknowledgements.
 - Add HTTP Basic authentication for custom metric sources and OPNsense CPU, active-memory, and WAN catalog metrics.
+- Add catalog metrics for Home Assistant, Paperless-ngx, Authentik, Bazarr, CrowdSec, NZBGet, Plex, Prowlarr, and Seerr.
+- Add generic URL-component parameters for reusable catalog metrics, including Home Assistant entity state.
+- Add plain-text extraction and JSON-body parameters for reusable catalog metrics.
 
 ### Changed
 

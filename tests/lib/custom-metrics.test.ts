@@ -100,6 +100,8 @@ beforeAll(async () => {
       '/items': '{"items":[1,2]}',
       '/queue': '# HELP queue_depth Current queue depth\nqueue_depth{queue="primary",instance="one"} 2\nqueue_depth{queue="secondary"} 9\nqueue_depth{queue="primary",instance="two"} 4 1710000000\n',
       '/status': '{"status":"healthy"}',
+      '/text-state': 'open\n',
+      '/text-number': ' 21.5 ',
       '/metrics': 'build_info{version="1.2.3"} 1\n'
     }
     response.end(responses[path] ?? '')
@@ -163,6 +165,15 @@ describe('collectCustomMetric', () => {
     await expect(collectCustomMetric('version', {
       label: 'Version', valueType: 'string', source: { url: `${baseUrl}/metrics` }, prometheus: { name: 'build_info', valueLabel: 'version' }
     })).resolves.toEqual({ value: '1.2.3' })
+  })
+
+  it('extracts plain-text state and numeric values', async () => {
+    await expect(collectCustomMetric('text-state', {
+      label: 'State', valueType: 'state', color: 'info', source: { url: `${baseUrl}/text-state` }, text: true
+    })).resolves.toEqual({ value: 'open' })
+    await expect(collectCustomMetric('text-number', {
+      label: 'Temperature', valueType: 'number', unit: 'celsius', chart: 'line', source: { url: `${baseUrl}/text-number` }, text: true
+    })).resolves.toEqual({ value: 21.5 })
   })
 
   it('caches cookies for each metric key and source', async () => {

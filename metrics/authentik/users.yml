@@ -1,0 +1,13 @@
+label: Users
+unit: count
+chart: none
+source:
+  url: "{url}/api/v3/core/users/?page_size=1"
+  auth:
+    type: token
+    header: Authorization
+    prefix: "Bearer "
+    value:
+      env: DASHMARK_AUTHENTIK_TOKEN
+      label: dashmark.metric_token
+jq: .pagination.count

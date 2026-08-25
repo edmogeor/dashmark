@@ -8,6 +8,8 @@ selected with the service's `metrics` list or the container's
 Custom metrics have explicit sources. Dashmark never infers service addresses,
 ports, credentials, or endpoints from a container.
 
+See the [Metric Catalog](CATALOG.md) for packaged metrics.
+
 ## Quick Start
 
 This JSON endpoint returns the number of active downloads:
@@ -69,6 +71,78 @@ use CSV, for example `dashmark.metric_providers=radarr,sonarr`.
 Locally defined unscoped metric keys, such as `active_downloads`, do not need a
 provider binding.
 
+### Catalog parameters
+
+Catalog metrics can declare reusable parameters. Set their values per card under
+`metric_parameters`. Dashmark URL-encodes `url_component` values before
+substituting them, so a value cannot change the request host or path structure.
+
+```yaml
+service:
+  url: http://service:8080
+  metric_providers: example
+  metrics: [example/status]
+  metric_parameters:
+    example/status:
+      resource: garage_door
+```
+
+The catalog definition declares the accepted names and their use:
+
+```yaml
+parameters:
+  resource:
+    label: Resource
+    type: url_component
+source:
+  url: "{url}/api/{resource}"
+```
+
+`url_component` encodes a parameter for a URL path or query component.
+`json_value` binds a scalar parameter into a JSON request body with
+`{ parameter: name }`. Every declared parameter is required when its catalog
+metric is selected.
+
+```yaml
+parameters:
+  template:
+    label: Template
+    type: json_value
+source:
+  method: POST
+  json:
+    template: { parameter: template }
+```
+
+### Catalog metric overrides
+
+Catalog metrics provide defaults. Override a selected catalog metric under
+`custom_metrics` to choose its label, extractor, value type, unit, or chart
+while retaining the catalog source and configured parameters:
+
+This is useful when one endpoint can return either a discrete value or a
+numeric reading. Set `value_type: number` with a unit and optional chart for a
+numeric reading, or retain a `state` value type and color for a discrete value.
+
+Use `text: true` instead of `jq` when an endpoint returns a plain-text value.
+Text is preserved for string and state metrics, and parsed as a finite number
+for numeric metrics.
+
+```yaml
+service:
+  metrics: [example/status]
+  metric_parameters:
+    example/status:
+      resource: temperature
+  custom_metrics:
+    example/status:
+      label: Temperature
+      value_type: number
+      unit: celsius
+      chart: line
+      jq: '(.state | tonumber)'
+```
+
 ## Metric Definition
 
 Each entry under `custom_metrics` needs:
@@ -79,13 +153,16 @@ Each entry under `custom_metrics` needs:
 | `source.url` | Yes | Explicit HTTP or HTTPS endpoint. |
 | `source.method` | No | `GET` (default) or `POST`. POST may define exactly one `form` or `json` body. |
 | `source.headers` / `source.query` | No | Scalar literal values or values referenced from an environment variable, file, or optional literal label. |
-| `source.auth` | No | HTTP Basic credentials or a bounded cookie-session request flow. |
-| `jq` or `prometheus` | Yes | Exactly one extractor. |
+| `source.form` / `source.json` | No | POST request body. JSON supports nested values, secret/token references, and declared `{ parameter: name }` bindings. |
+| `source.auth` | No | HTTP Basic, token-header, or bounded cookie-session authentication. |
+| `jq`, `prometheus`, or `text` | Yes | Exactly one extractor. Set `text: true` for a plain-text response. |
 | `unit` | Numeric only | Display unit, defaults to `number`. |
 | `chart` | Numeric only | `step` (default), `line`, `area`, or `none`. |
 | `chart_group` | Numeric only | Lowercase group ID that combines compatible selected metrics into one chart. |
 | `transform` | Numeric only | Optional `{ multiply: number, add: number }` applied after extraction. |
-| `value_type` | No | `number` (default) or `string`. |
+| `value_type` | No | `number` (default), `string`, or `state`. |
+| `color` | State only | `success`, `info`, `warning`, `error`, or `disabled`. |
+| `parameters` | Catalog only | Named `url_component` or `json_value` inputs required from each selecting card. |
 
 Do not put literal credentials in YAML. Use one secret reference per header:
 
@@ -153,6 +230,8 @@ Header, query, and form values accept scalar literals or secret references.
 JSON bodies additionally accept nested objects and arrays, with secret
 references embedded at any value. A step may extract up to 16 named values,
 which can only be injected explicitly into a later request with `{ token: name }`.
+Use an optional `prefix` when the receiving header needs a scheme, for example
+`Authorization: { token: api_token, prefix: "Bearer " }`.
 
 ```yaml
 source:
@@ -484,9 +563,10 @@ side. Secrets and URL query strings are never included in these logs.
 
 HTTP metric sources support `GET` and bounded `POST` form or JSON requests.
 Cookie-session flows support up to five sequential requests and explicit CSRF
-or JSON token injection, but do not follow redirects, execute JavaScript,
-interpolate values into URLs, or support arbitrary request methods. Socket.IO
-metric behavior is unchanged.
+or JSON token injection, but do not follow redirects, execute JavaScript, or
+support arbitrary request methods. Catalog metrics may use declared,
+URL-encoded `url_component` parameters; arbitrary URL interpolation is not
+supported. Socket.IO metric behavior is unchanged.
 
 A `{url}`- or `{metrics_url}`-based metric is omitted when its card has no
 resolvable base URL. When a required

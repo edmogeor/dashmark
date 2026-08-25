@@ -1,0 +1,17 @@
+label: Entity State
+value_type: state
+color: info
+parameters:
+  entity_id:
+    label: Entity ID
+    type: url_component
+source:
+  url: "{url}/api/states/{entity_id}"
+  auth:
+    type: token
+    header: Authorization
+    prefix: "Bearer "
+    value:
+      env: DASHMARK_HOMEASSISTANT_TOKEN
+      label: dashmark.metric_token
+jq: .state

@@ -52,6 +52,13 @@ async function extractJq(key: string, text: string, metric: MetricOverride): Pro
   return extractJqValue(key, document, metric)
 }
 
+function extractText(key: string, text: string, metric: MetricOverride): MetricResult {
+  const value = text.trim()
+  if (metric.valueType === 'string' || metric.valueType === 'state') return value ? { value } : unavailable(key, 'text extraction did not produce a string')
+  const number = Number(value)
+  return Number.isFinite(number) ? { value: number } : unavailable(key, 'text extraction did not produce a finite number')
+}
+
 function parseLabels(input: string): Record<string, string> | undefined {
   const labels: Record<string, string> = {}
   let index = 0
@@ -124,14 +131,15 @@ function credentialName(reference: { env?: string; file?: string; label?: string
 }
 
 type SecretReference = { env?: string; file?: string; label?: string; value?: string }
-type TokenReference = { token: string }
+type TokenReference = { token: string; prefix?: string }
 type ValueReference = SecretReference | TokenReference
 type RequestValue = ValueReference | string | number | boolean
 type JsonValue = RequestValue | null | JsonValue[] | { [key: string]: JsonValue }
 type ValueReferences = Record<string, RequestValue>
 
 function isTokenReference(value: unknown): value is TokenReference {
-  return typeof value === 'object' && value !== null && Object.keys(value).length === 1 && typeof (value as TokenReference).token === 'string'
+  return typeof value === 'object' && value !== null && Object.keys(value).every(key => key === 'token' || key === 'prefix')
+    && typeof (value as TokenReference).token === 'string' && ((value as TokenReference).prefix === undefined || typeof (value as TokenReference).prefix === 'string')
 }
 
 function isSecretReference(value: unknown): value is SecretReference {
@@ -148,7 +156,7 @@ function resolveReferences(metric: MetricOverride, references: ValueReferences, 
       const isReference = isToken || isSecretReference(reference)
       const secret = reference as SecretReference
       const value = isToken
-        ? tokens[reference.token]
+        ? tokens[reference.token] && `${reference.prefix ?? ''}${tokens[reference.token]}`
         : isReference
           ? secret.value ?? (secret.env === undefined ? readFileSync(secret.file!, 'utf8').trim() : process.env[secret.env])
           : String(reference)
@@ -288,6 +296,7 @@ function resolveJson(metric: MetricOverride, value: JsonValue, tokens: Record<st
     }
     return { value: values }
   }
+  if (Object.keys(value).length === 1 && '__dashmarkParameterValue' in value) return { value: (value as { __dashmarkParameterValue: JsonValue }).__dashmarkParameterValue }
   if (isTokenReference(value) || isSecretReference(value)) {
     const resolved = resolveReferences(metric, { value: value as ValueReference }, 'body', tokens)
     return resolved.error || !resolved.values ? { error: resolved.error ?? 'Could not resolve a JSON value' } : { value: resolved.values.value! }
@@ -393,7 +402,7 @@ export async function collectCustomMetric(key: string, metric: MetricOverride): 
       logger.error('metrics', 'custom metric source returned an error', { key, url: url.origin + url.pathname, status: response.status })
       return { error: `Source returned HTTP ${response.status}` }
     }
-    const result = 'jq' in metric ? await extractJq(key, response.text, metric) : extractPrometheus(key, response.text, metric)
+    const result = metric.text ? extractText(key, response.text, metric) : 'jq' in metric ? await extractJq(key, response.text, metric) : extractPrometheus(key, response.text, metric)
     return transform(key, result, metric)
   } catch (error) {
     const detail = error instanceof Error ? error.name : 'unknown error'
