@@ -22,7 +22,7 @@ import { isResourceUsageResponse, type ContainerResources, type CustomMetric, ty
 import { RESOURCE_USAGE_POLL_INTERVAL_MS, TOOLTIP_DELAY_MS } from '@/lib/constants'
 import { useTooltipController } from './tooltip-controller'
 import { badgeColor, chartColorVariable } from '@/lib/badge-color'
-import { clearErrorToast, showErrorToast } from '@/lib/error-toasts'
+import { showErrorToast, clearStaleErrorToasts } from '@/lib/error-toasts'
 
 type AppCardProps = {
   card: CardType
@@ -845,7 +845,6 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showReso
   const handleMetricDialogOpenChange = useCallback((open: boolean) => {
     if (!open) setMetricDetail(null)
   }, [])
-  const metricErrorIds = useRef(new Set<string>())
   const resourceTooltipId = `resource-${card.id}`
   const descriptionTooltipId = `description-${card.id}`
   const resourceTooltipOpen = activeTooltip === resourceTooltipId
@@ -859,19 +858,13 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showReso
   const allMetricErrors = [...(card.metricErrors ?? []), ...metricErrors]
   const metricErrorSignature = allMetricErrors.map(error => `${error.key}:${error.message}`).join('|')
   useEffect(() => {
-    const activeErrors = new Set(allMetricErrors.map(error => `${card.id}:${error.key}`))
-    for (const id of metricErrorIds.current) {
-      if (!activeErrors.has(id)) clearErrorToast(`metric-${id}`)
-    }
-    metricErrorIds.current = activeErrors
+    const activeErrors = new Set(allMetricErrors.map(error => `metric-${card.id}:${error.key}`))
     for (const error of allMetricErrors) {
       const label = card.customMetricLabels?.find(metric => metric.key === error.key)?.label ?? error.key
-      showErrorToast(`metric-${card.id}:${error.key}`, `Metric unavailable: ${label}`, `${card.title}: ${error.message}`)
+      showErrorToast(`metric-${card.id}:${error.key}`, `${card.title} metric unavailable`, `${label}: ${error.message}`)
     }
+    clearStaleErrorToasts(`metric-${card.id}:`, activeErrors)
   }, [card.id, card.title, metricErrorSignature])
-  useEffect(() => () => {
-    for (const id of metricErrorIds.current) clearErrorToast(`metric-${id}`)
-  }, [])
   useEffect(() => {
     setMetricDetail(detail => {
       if (!detail) return null

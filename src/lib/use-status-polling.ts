@@ -3,7 +3,7 @@ import type { Card } from './docker'
 import { isStatusResponse, type ContainerStatus } from './status'
 import { strings } from './strings'
 import { STATUS_TOAST_ID } from './constants'
-import { clearErrorToast, showErrorToast } from './error-toasts'
+import { clearErrorToast, rearmErrorToast, showErrorToast } from './error-toasts'
 
 export function mergeStatuses(cards: Card[], statuses: Record<string, ContainerStatus>): Card[] {
   return cards.map(card => {
@@ -50,7 +50,7 @@ export function useStatusPolling({
 
     function handleVisibilityChange() {
       if (document.visibilityState === 'hidden') {
-        clearErrorToast(STATUS_TOAST_ID)
+        clearErrorToast(STATUS_TOAST_ID, { immediate: true })
         if (timeout) clearTimeout(timeout)
         timeout = null
         requestController?.abort()
@@ -81,7 +81,8 @@ export function useStatusPolling({
           showStatusToast(data.error.message)
         } else {
           setUnavailable(false)
-          clearErrorToast(STATUS_TOAST_ID)
+          clearErrorToast(STATUS_TOAST_ID, { immediate: true })
+          rearmErrorToast(STATUS_TOAST_ID)
           setCards(prev => mergeStatuses(prev, data.statuses))
         }
       } catch {

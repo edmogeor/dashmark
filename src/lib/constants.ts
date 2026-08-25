@@ -90,6 +90,7 @@ export const RESOURCE_USAGE_POLL_INTERVAL_MS = 2_000
 export const METRICS_HISTORY_PERIOD_MS = 5 * 60_000
 export const STATUS_TOAST_ID = 'status-warning'
 export const ERROR_TOAST_DEBOUNCE_MS = 2_000
+export const ERROR_TOAST_RESOLVE_GRACE_MS = 10_000
 
 export const TOOLTIP_DELAY_MS = 100
 
