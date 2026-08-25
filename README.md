@@ -195,7 +195,7 @@ Add labels to opt a container in and configure its card.
 | `dashmark.category` | Category name; matching is case-insensitive |
 | `dashmark.show_status` | Set to `false` to hide the status badge and resource-usage tooltip for this card |
 | `dashmark.metrics` | Comma-separated `cpu`, `memory`, and `network` metrics for this card; set to `none` to disable built-in metrics |
-| `dashmark.metric_providers` | Comma-separated providers allowed for catalog metrics, for example `radarr,uptime-kuma` |
+| `dashmark.metric_providers` | Comma-separated providers allowed for catalog metrics, for example `radarr,sonarr` |
 | `dashmark.metric_api_key` | Optional literal API-key override for catalog metrics. Docker labels are visible to Docker APIs and inspect output. |
 | `dashmark.metric_username` | Optional literal username override for cookie-session catalog metrics. |
 | `dashmark.metric_password` | Optional literal password override for cookie-session catalog metrics. |
@@ -212,11 +212,10 @@ Docker-backed cards show CPU and memory progress bars plus per-container network
 
 Set `SHOW_METRICS=false` to stop metric collection and hide metric tooltips. Set `METRICS_ACCESS=admins,operators` to return metrics only to matching users. This restriction is enforced server-side, so unauthorized clients never receive metric values or history. Per-card `metrics_access` can further restrict individual metrics.
 
-Each Docker card shows all built-in metrics by default. Set `dashmark.metrics=none` to disable them for one container, or limit them with a comma-separated list such as `dashmark.metrics=cpu,memory`. Catalog metrics package their endpoint and extractor. Their provider prefix must appear in `metric_providers`, which accepts one provider, CSV, or a YAML list. Their default credential environment-variable names are documented in the catalog; literal `dashmark.metric_*` labels can override credentials for one container. Custom metric sources use `custom_metrics`, leaving `metrics` available for the unified selection list. YAML overrides support the same setting and can override polling and retention:
+Each Docker card shows all built-in metrics by default. Set `dashmark.metrics=none` to disable them for one container, or limit them with a comma-separated list such as `dashmark.metrics=cpu,memory`. Catalog metrics package their endpoint and extractor. Their provider prefix must appear in `metric_providers`, which accepts one provider, CSV, or a YAML list. Their default credential environment-variable names are documented in the catalog; literal `dashmark.metric_*` labels can override credentials for one container. Custom metric sources use `custom_metrics`, leaving `metrics` available for the unified selection list. YAML overrides support the same setting and can override polling and retention. YAML-only cards can select custom and catalog metrics too, but Docker CPU, memory, and network metrics are unavailable:
 
 ```yaml
 plex:
-  metric_providers: [plex, uptime-kuma]
   metrics:
     - cpu
     - memory
@@ -224,7 +223,16 @@ plex:
   metrics_history_period: 900
 
 backup:
-  metrics: none
+  url: https://backup.example.com
+  metrics: [last_run]
+  metrics_poll_interval: 60
+  metrics_history_period: 86400
+  custom_metrics:
+    last_run:
+      label: Last backup
+      unit: seconds
+      source: { url: https://backup.example.com/metrics }
+      jq: .last_run_seconds
 ```
 
 Restrict one metric without changing card visibility using `metrics_access`. The global `METRICS_ACCESS` policy still applies first. Docker labels use one comma-separated label per metric, replacing `/` with `.` in a custom metric key:

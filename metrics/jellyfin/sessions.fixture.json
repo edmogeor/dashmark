@@ -1,0 +1,5 @@
+[
+  { "UserName": "Example user", "NowPlayingItem": { "Name": "Example film" } },
+  { "UserName": "Idle user", "NowPlayingItem": null },
+  { "UserName": "Example user two", "NowPlayingItem": { "Name": "Example episode" } }
+]

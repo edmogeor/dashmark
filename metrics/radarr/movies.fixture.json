@@ -1,0 +1,6 @@
+[
+  { "title": "Available movie", "monitored": true, "hasFile": true, "isAvailable": true },
+  { "title": "Wanted movie", "monitored": true, "hasFile": false, "isAvailable": true },
+  { "title": "Unavailable movie", "monitored": true, "hasFile": false, "isAvailable": false },
+  { "title": "Unmonitored movie", "monitored": false, "hasFile": false, "isAvailable": true }
+]

@@ -1,0 +1,5 @@
+[
+  { "title": "Example series one", "monitored": true },
+  { "title": "Example series two", "monitored": false },
+  { "title": "Example series three", "monitored": true }
+]

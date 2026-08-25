@@ -823,9 +823,9 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showReso
   const dismissesTooltip = useRef(false)
   const hasStatus = card.health === 'starting' || card.health === 'unhealthy' || Boolean(card.state)
   const showStatusBadge = showStatus && card.showStatus !== false && (hasStatus || (isLoading && card.hasContainer))
-  const hasSelectedCustomMetric = card.metrics?.some(metric => !['cpu', 'memory', 'network', 'none'].includes(metric)) ?? false
-  const showResourceUsageTooltip = showResourceUsage && card.showStatus !== false && card.hasContainer
-    && ((card.resourceStats !== undefined && card.resourceStats.length > 0) || hasSelectedCustomMetric)
+  const hasCustomMetrics = (card.customMetricLabels?.length ?? 0) > 0 || (card.metricErrors?.length ?? 0) > 0
+  const showResourceUsageTooltip = showResourceUsage && card.showStatus !== false
+    && ((card.hasContainer && ((card.resourceStats?.length ?? 0) > 0 || hasCustomMetrics)) || (!card.hasContainer && hasCustomMetrics))
   const [resourceCardHovered, setResourceCardHovered] = useState(false)
   const [metricDetail, setMetricDetail] = useState<MetricDetail | null>(null)
   const handleMetricDialogOpen = useCallback(() => setActiveTooltip(null), [setActiveTooltip])

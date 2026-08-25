@@ -519,6 +519,20 @@ function resolveContainer(
   }
 }
 
+function resolveYamlMetrics(service: ServiceOverrides, url: string): ResolvedMetricCard {
+  const catalogMetrics = loadMetricCatalog()
+  const selectedCatalogMetrics = Object.fromEntries((service.metrics ?? []).flatMap(key => {
+    const metric = catalogMetrics[key]
+    return metric ? [[key, metric]] : []
+  }))
+  const customMetrics = { ...selectedCatalogMetrics, ...service.customMetrics }
+  return {
+    labels: service,
+    customMetrics: resolveMetricSources(customMetrics, url, {}),
+    customMetricErrors: service.customMetricErrors
+  }
+}
+
 function resolveMetricSources(
   metrics: ServiceMetricOverrides,
   cardUrl: string | undefined,
@@ -663,6 +677,9 @@ async function cardFromYaml(
     resolveIcon(config, { iconLabel: service.icon, title, containerName: name }),
     resolveCardDescription(config, service.description, { title, containerName: name })
   ])
+  const resolved = resolveYamlMetrics(service, service.url)
+  const customMetrics = selectedCustomMetrics(resolved)
+  const metricErrors = selectedCustomMetricErrors(resolved)
 
   return {
     id: `yaml-${name}`,
@@ -675,7 +692,14 @@ async function cardFromYaml(
     showStatus: service.showStatus,
     searchAliases: service.searchAliases ?? [],
     hasContainer: false,
-    access: service.access ?? []
+    access: service.access ?? [],
+    metrics: service.metrics,
+    ...(customMetrics.length > 0 ? { customMetricLabels: customMetrics.map(([key, metric]) => ({ key, label: metric.label })) } : {}),
+    metricProviders: service.metricProviders,
+    metricsPollIntervalMs: service.metricsPollIntervalMs,
+    metricsHistoryPeriodMs: service.metricsHistoryPeriodMs,
+    metricsAccess: service.metricsAccess,
+    ...(metricErrors.length > 0 ? { metricErrors } : {})
   }
 }
 
@@ -761,6 +785,11 @@ export type ContainerMetricUsage = {
 }
 
 type SelectedCustomMetric = [key: string, metric: MetricOverride]
+type ResolvedMetricCard = {
+  labels: Pick<ParsedLabels, 'resourceStats' | 'metrics' | 'metricProviders' | 'metricsHistoryPeriodMs' | 'metricsAccess'>
+  customMetrics?: ServiceMetricOverrides
+  customMetricErrors?: Record<string, string>
+}
 type ResolvedMetricDetails = {
   resourceStats: readonly ResourceStat[]
   selectedMetrics: SelectedCustomMetric[]
@@ -782,7 +811,7 @@ function missingMetricProvider(key: string, providers: string[] | undefined): st
   return key.includes('/') && !providers?.includes(provider!) ? provider : undefined
 }
 
-function selectedCustomMetrics(resolved: ResolvedContainer): SelectedCustomMetric[] {
+function selectedCustomMetrics(resolved: ResolvedMetricCard): SelectedCustomMetric[] {
   if (!resolved.customMetrics || !resolved.labels.metrics) return []
   return resolved.labels.metrics.flatMap(key => {
     if (missingMetricProvider(key, resolved.labels.metricProviders)) return []
@@ -791,7 +820,7 @@ function selectedCustomMetrics(resolved: ResolvedContainer): SelectedCustomMetri
   })
 }
 
-function selectedCustomMetricErrors(resolved: ResolvedContainer): { key: string; message: string }[] {
+function selectedCustomMetricErrors(resolved: ResolvedMetricCard): { key: string; message: string }[] {
   if (!resolved.labels.metrics) return []
   return resolved.labels.metrics.flatMap(key => {
     const provider = missingMetricProvider(key, resolved.labels.metricProviders)
@@ -803,9 +832,9 @@ function selectedCustomMetricErrors(resolved: ResolvedContainer): { key: string;
   })
 }
 
-function metricDetails(resolved: ResolvedContainer, config: AppConfig): ResolvedMetricDetails {
+function metricDetails(resolved: ResolvedMetricCard, config: AppConfig, hasContainer = true): ResolvedMetricDetails {
   return {
-    resourceStats: resolved.labels.resourceStats ?? RESOURCE_STATS,
+    resourceStats: hasContainer ? resolved.labels.resourceStats ?? RESOURCE_STATS : [],
     selectedMetrics: selectedCustomMetrics(resolved),
     metricErrors: selectedCustomMetricErrors(resolved),
     historyPeriodMs: resolved.labels.metricsHistoryPeriodMs ?? config.metricsHistoryPeriodMs,
@@ -845,6 +874,24 @@ export async function getContainerMetricUsage(
   collect = true
 ): Promise<ContainerMetricUsage | undefined> {
   if (!config.showMetrics || !hasAllowedAccess(getUser(config, headers), config.metricsAccess)) return undefined
+
+  if (cardId.startsWith('yaml-')) {
+    const name = cardId.slice('yaml-'.length)
+    const { yamlServices, containers, error } = await loadServicesAndContainers(config)
+    if (error) return undefined
+    const service = yamlServices[name]
+    if (!service || service.hidden || !service.url || !isValidUrl(service.url) || service.showStatus === false || !canAccess(config, headers, service.access ?? [])) return undefined
+    if (containers.some(({ hostId, container }) => lookupYamlService(yamlServices, hostId, container).key === name)) return undefined
+
+    const details = metricDetails(resolveYamlMetrics(service, service.url), config, false)
+    const { selectedMetrics, metricErrors, historyPeriodMs, metricsAccess } = details
+    if (selectedMetrics.length === 0 && metricErrors.length === 0) return undefined
+    if (!collect) return { historyPeriodMs, customMetrics: [], metricErrors, metricsAccess }
+
+    const collected = await collectSelectedCustomMetrics(selectedMetrics, metricErrors)
+    if (collected.customMetrics.length === 0 && collected.metricErrors.length === 0) return undefined
+    return { ...collected, historyPeriodMs, metricsAccess }
+  }
 
   const host = configuredDockerHosts(config).find(candidate => cardId.startsWith(`${candidate.id}:`))
   if (!host) return undefined
@@ -894,13 +941,15 @@ export async function collectContainerResourceUsage(
   const yamlConfig = loadYamlConfig(config)
   if (yamlConfig.error) return []
   const samples: ContainerMetricSample[] = []
+  const matchedYamlKeys = new Set<string>()
 
   await Promise.all(configuredDockerHosts(config).map(async host => {
     try {
       const containers = await getCachedContainers(host.dockerHost, DOCKER_STATUS_CACHE_TTL_MS)
       const results = await Promise.all(containers.map(async container => {
-        if (container.State !== 'running') return undefined
         const resolved = resolveContainer(yamlConfig.config.services, host.id, container)
+        if (resolved.yamlKey) matchedYamlKeys.add(resolved.yamlKey)
+        if (container.State !== 'running') return undefined
         if (resolved.labels.hidden || !resolved.url || resolved.labels.showStatus === false) return undefined
         const { resourceStats, selectedMetrics, historyPeriodMs } = metricDetails(resolved, config)
         if (resourceStats.length === 0 && selectedMetrics.length === 0) return undefined
@@ -926,6 +975,27 @@ export async function collectContainerResourceUsage(
       // Resource metrics are optional, so an unavailable host does not affect the dashboard.
     }
   }))
+
+  const standaloneSamples = await Promise.all(Object.entries(yamlConfig.config.services).map(async ([name, service]): Promise<ContainerMetricSample | undefined> => {
+    if (matchedYamlKeys.has(name) || service.hidden || !service.url || !isValidUrl(service.url) || service.showStatus === false) return undefined
+    const resolved = resolveYamlMetrics(service, service.url)
+    const { selectedMetrics, historyPeriodMs } = metricDetails(resolved, config, false)
+    if (selectedMetrics.length === 0) return undefined
+    const cardId = `yaml-${name}`
+    const metricsPollIntervalMs = service.metricsPollIntervalMs ?? config.metricsPollIntervalMs
+    if (!isDue(cardId, metricsPollIntervalMs)) return undefined
+    const collected = await collectSelectedCustomMetrics(selectedMetrics, [])
+    if (collected.customMetrics.length === 0 && collected.metricErrors.length === 0) return undefined
+    return {
+      cardId,
+      resource: undefined,
+      customMetrics: collected.customMetrics,
+      metricErrors: collected.metricErrors,
+      metricsPollIntervalMs,
+      metricsHistoryPeriodMs: historyPeriodMs
+    }
+  }))
+  samples.push(...standaloneSamples.filter((sample): sample is ContainerMetricSample => sample !== undefined))
 
   return samples
 }

@@ -21,7 +21,3 @@
 | adguard | `adguard/blocked` | `traffic` | [@edmogeor](https://github.com/edmogeor) |
 | adguard | `adguard/filtered` | `traffic` | [@edmogeor](https://github.com/edmogeor) |
 | adguard | `adguard/latency` | - | [@edmogeor](https://github.com/edmogeor) |
-| pihole | `pihole/queries` | `traffic` | [@edmogeor](https://github.com/edmogeor) |
-| pihole | `pihole/blocked` | `traffic` | [@edmogeor](https://github.com/edmogeor) |
-| pihole | `pihole/blocked_percent` | - | [@edmogeor](https://github.com/edmogeor) |
-| pihole | `pihole/gravity` | - | [@edmogeor](https://github.com/edmogeor) |

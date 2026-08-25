@@ -61,10 +61,10 @@ media-radarr:
 ```
 
 The field accepts one provider, CSV, or a YAML list. A card can select metrics
-from multiple providers, such as Plex metrics and an Uptime Kuma monitor for
-Plex. Dashmark does not infer providers from a container image or name.
+from multiple catalog providers. Dashmark does not infer providers from a
+container image or name.
 `sonarr/active_downloads` is rejected unless `sonarr` is listed. Docker labels
-use CSV, for example `dashmark.metric_providers=radarr,uptime-kuma`.
+use CSV, for example `dashmark.metric_providers=radarr,sonarr`.
 
 Locally defined unscoped metric keys, such as `active_downloads`, do not need a
 provider binding.

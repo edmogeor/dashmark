@@ -1,5 +1,0 @@
-label: Blocked percent
-unit: percent
-source:
-  url: "{url}/admin/api.php?summaryRaw"
-jq: .ads_percentage_today

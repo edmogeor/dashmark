@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { MockDockerServer } from '../mocks/docker-server'
 import { getConfig } from '@/lib/config'
-import { getCards, getContainerMetricUsage, getContainerResourceUsage, getContainerStatuses, clearDockerCache } from '@/lib/docker'
+import { getCards, getContainerMetricUsage, getContainerResourceUsage, getContainerStatuses, collectContainerResourceUsage, clearDockerCache } from '@/lib/docker'
 
 const { got } = vi.hoisted(() => ({ got: vi.fn() }))
 
@@ -613,6 +613,92 @@ describe('getCards', () => {
       url: 'https://github.com',
       hasContainer: false
     })
+  })
+
+  it('exposes and collects custom metrics for standalone YAML cards without resource metrics', async () => {
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.dockerHosts = undefined
+    config.accessGroupsHeader = 'X-Test-Groups'
+    config.configFile = writeTempConfig(`
+github:
+  url: https://github.com
+  metrics: [test/queue-depth, stars]
+  metric_providers: test
+  metrics_poll_interval: 10
+  metrics_history_period: 900
+  metrics_access:
+    stars: admins
+  custom_metrics:
+    test/queue-depth:
+      label: Queue depth
+      unit: count
+      source: { url: https://metrics.example.test/queue }
+      jq: .queue
+    stars:
+      label: Stars
+      unit: count
+      source: { url: https://metrics.example.test/stars }
+      jq: .stars
+`)
+    mockGotResponse('{"queue":4,"stars":42}')
+
+    const { cards } = await getCards(config, new Headers({ 'X-Test-Groups': 'admins' }))
+    expect(cards[0]).toMatchObject({
+      id: 'yaml-github',
+      hasContainer: false,
+      customMetricLabels: [{ key: 'test/queue-depth', label: 'Queue depth' }, { key: 'stars', label: 'Stars' }],
+      metricProviders: ['test'],
+      metricsPollIntervalMs: 10_000,
+      metricsHistoryPeriodMs: 900_000,
+      metricsAccess: { stars: ['admins'] }
+    })
+    expect(cards[0]?.resourceStats).toBeUndefined()
+
+    await expect(getContainerMetricUsage(config, new Headers(), 'yaml-github')).resolves.toEqual({
+      historyPeriodMs: 900_000,
+      customMetrics: [
+        { key: 'test/queue-depth', label: 'Queue depth', unit: 'count', chart: 'step', value: 4 },
+        { key: 'stars', label: 'Stars', unit: 'count', chart: 'step', value: 42 }
+      ],
+      metricErrors: [],
+      metricsAccess: { stars: ['admins'] }
+    })
+    mockGotResponse('{"queue":5,"stars":43}')
+    await expect(collectContainerResourceUsage(config)).resolves.toEqual([{
+      cardId: 'yaml-github',
+      resource: undefined,
+      customMetrics: [
+        { key: 'test/queue-depth', label: 'Queue depth', unit: 'count', chart: 'step', value: 5 },
+        { key: 'stars', label: 'Stars', unit: 'count', chart: 'step', value: 43 }
+      ],
+      metricErrors: [],
+      metricsPollIntervalMs: 10_000,
+      metricsHistoryPeriodMs: 900_000
+    }])
+    expect(server.statsRequests).toBe(0)
+  })
+
+  it('filters standalone YAML metric metadata by per-metric access', async () => {
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.dockerHosts = undefined
+    config.accessGroupsHeader = 'X-Test-Groups'
+    config.configFile = writeTempConfig(`
+github:
+  url: https://github.com
+  metrics: [stars]
+  metrics_access: { stars: admins }
+  custom_metrics:
+    stars:
+      label: Stars
+      unit: count
+      source: { url: https://metrics.example.test/stars }
+      jq: .stars
+`)
+
+    const { cards } = await getCards(config, new Headers({ 'X-Test-Groups': 'users' }))
+    expect(cards[0]?.customMetricLabels).toEqual([])
   })
 
   it('lets YAML override a Docker card by Compose service name', async () => {

@@ -45,7 +45,8 @@ settings:
 # Each top-level key is a service, keyed by its container name or Compose
 # service name. A key matching a running container overrides that container's
 # `dashmark.*` labels; a key with no matching container becomes a standalone
-# card (it needs a `url` and has no status badge).
+# card (it needs a `url` and has no status badge). Standalone cards support
+# custom and catalog metrics, but not Docker CPU, memory, or network metrics.
 #
 # Override the card for a container you run. Omitted fields fall back to the
 # container's labels or defaults.
@@ -58,16 +59,16 @@ plex:
   order: 1
   # Set false to hide this card's status badge.
   show_status: false
-  # Metrics default to CPU, memory, and network. Use `none` to disable them,
-  # or list the built-in and configured custom metrics this card should expose.
+# Docker cards default to CPU, memory, and network. Standalone cards only
+# expose configured custom/catalog metrics. Use `none` to disable metrics.
   metrics:
     - cpu
     - memory
   # Allow catalog metrics from one or more providers. Dashmark never infers
   # these from the container image or name.
   # metric_providers:
-  #   - plex
-  #   - uptime-kuma
+  #   - provider-one
+  #   - provider-two
   # Custom metric sources are defined separately, so they can be selected in
   # `metrics` alongside the built-in values.
   # custom_metrics:

@@ -1,0 +1,5 @@
+[
+  { "name": "Example download", "progress": 0.45, "dlspeed": 120000, "upspeed": 500 },
+  { "name": "Example seed one", "progress": 1, "dlspeed": 0, "upspeed": 1000 },
+  { "name": "Example seed two", "progress": 1, "dlspeed": 0, "upspeed": 2000 }
+]
