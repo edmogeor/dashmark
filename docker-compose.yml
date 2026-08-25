@@ -28,8 +28,8 @@ services:
       # - SHOW_SEARCH=true
       # - SHOW_STATUS=true
        # - STATUS_BADGE_ACCESS=admins,operators
-      # - SHOW_RESOURCE_USAGE=true
-      # - RESOURCE_USAGE_ACCESS=admins,operators
+       # - SHOW_METRICS=true
+       # - METRICS_ACCESS=admins,operators
       # - METRICS_DATABASE_PATH=/app/data/metrics.db
       # - METRICS_POLL_INTERVAL=2
       # - METRICS_HISTORY_PERIOD=300

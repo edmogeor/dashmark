@@ -115,16 +115,16 @@ Dashmark polls for container state and health every 30 seconds by default. Set `
 
 ## Configuration
 
-Configure Dashmark with environment variables, Docker labels, and an optional YAML file. For the same container field, YAML takes precedence over Docker labels.
+Configure Dashmark with environment variables, Docker labels, and an optional YAML file. YAML settings override environment variables, and YAML card fields override Docker labels.
 
 ### Environment variables
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `DOCKER_HOSTS` | `unix:///var/run/docker.sock` | One Docker endpoint, or comma-separated named endpoints such as `home=tcp://home-proxy:2375,vps=tcp://vps-proxy:2375` |
-| `CONFIG_FILE` | `/app/config.yml` | Optional YAML configuration file |
+| `CONFIG_FILE` | `/app/config.yml` | YAML configuration file path, environment-only |
 | `ICONS_DIR` | `/app/icons` | Directory for local icon files |
-| `PORT` | `4321` | HTTP listening port |
+| `PORT` | `4321` | HTTP listening port, overridden by YAML `port` when configured |
 | `CUSTOM_STYLESHEET` | unset | Absolute path to a mounted CSS file, served as `/custom.css` |
 | `ENABLE_ACCESS_CONTROL` | `false` | Filter cards using authenticated access entries |
 | `ACCESS_GROUPS_HEADER` | `auto` | Groups header name, or automatic provider detection |
@@ -143,8 +143,8 @@ Configure Dashmark with environment variables, Docker labels, and an optional YA
 | `SHOW_SEARCH` | `true` | Show search and the category filter |
 | `SHOW_STATUS` | `true` | Show container state and health badges |
 | `STATUS_BADGE_ACCESS` | unset | Comma-separated access entries allowed to see status badges; unset shows them to everyone |
-| `SHOW_RESOURCE_USAGE` | `true` | Fetch and show CPU, memory, received, and sent metrics for containers |
-| `RESOURCE_USAGE_ACCESS` | unset | Comma-separated access entries allowed to receive resource metrics; unset shows them to everyone |
+| `SHOW_METRICS` | `true` | Fetch and show container and custom metrics |
+| `METRICS_ACCESS` | unset | Comma-separated access entries allowed to receive metrics; unset shows them to everyone |
 | `METRICS_DATABASE_PATH` | `/app/data/metrics.db` in production | SQLite database used for resource metric history; mount its parent directory to keep history across restarts. Development uses `.astro/metrics.db` by default |
 | `METRICS_POLL_INTERVAL` | `2` | Seconds between background metric samples; card overrides may use a longer interval |
 | `METRICS_HISTORY_PERIOD` | `300` | Seconds of resource metric history displayed in live tickers |
@@ -154,7 +154,7 @@ Configure Dashmark with environment variables, Docker labels, and an optional YA
 | `ENABLE_AUTOMATIC_ICONS` | `true` | Guess icons from image names when no icon is set |
 | `SHOW_BRANDING` | `true` | Show the Dashmark logo near search |
 | `NEW_TAB` | `false` | Open card links in a new tab |
-| `AUTH_TOKEN` | unset | Require `X-Dashmark-Token: <token>` on every request |
+| `AUTH_TOKEN` | unset | Require `X-Dashmark-Token: <token>` on every request; overridden by YAML `auth_token` when configured |
 
 ### Multiple Docker hosts
 
@@ -194,6 +194,7 @@ Add labels to opt a container in and configure its card.
 | `dashmark.category` | Category name; matching is case-insensitive |
 | `dashmark.show_status` | Set to `false` to hide the status badge and resource-usage tooltip for this card |
 | `dashmark.metrics` | Comma-separated `cpu`, `memory`, and `network` metrics for this card; set to `none` to disable built-in metrics |
+| `dashmark.metrics_access.<metric>` | Comma-separated access entries for one metric; use `.` in place of `/` in custom metric keys |
 | `dashmark.access` | Comma-separated access allow-list |
 | `dashmark.search_aliases` | Comma-separated additional search terms |
 | `dashmark.order` | Sort order within a category, lower values first; cards without an order follow alphabetically by title |
@@ -204,7 +205,7 @@ Add labels to opt a container in and configure its card.
 
 Docker-backed cards show CPU and memory progress bars plus per-container network **Received** and **Sent** rates in the gauge tooltip. Each metric row includes a live ticker chart over the `METRICS_HISTORY_PERIOD` window. Dashmark samples eligible running containers every two seconds and stores those samples in SQLite, so history survives page refreshes and, when the database directory is mounted, restarts. Network rates appear after the second sample because Dashmark calculates them from consecutive Docker samples. When multiple Docker hosts are configured, the tooltip includes the host ID.
 
-Set `SHOW_RESOURCE_USAGE=false` to stop fetching Docker's stats endpoint and hide all resource tooltips. Set `RESOURCE_USAGE_ACCESS=admins,operators` to return resource metrics only to matching users. This restriction is enforced server-side, so unauthorized clients never receive the metrics. Configure an authenticated reverse proxy and trusted identity headers when using `RESOURCE_USAGE_ACCESS`.
+Set `SHOW_METRICS=false` to stop metric collection and hide metric tooltips. Set `METRICS_ACCESS=admins,operators` to return metrics only to matching users. This restriction is enforced server-side, so unauthorized clients never receive metric values or history. Per-card `metrics_access` can further restrict individual metrics.
 
 Each Docker card shows all built-in metrics by default. Set `dashmark.metrics=none` to disable them for one container, or limit them with a comma-separated list such as `dashmark.metrics=cpu,memory`. Custom metric sources use `custom_metrics`, leaving `metrics` available for the unified selection list. YAML overrides support the same setting and can override polling and retention:
 
@@ -218,6 +219,14 @@ plex:
 
 backup:
   metrics: none
+```
+
+Restrict one metric without changing card visibility using `metrics_access`. The global `METRICS_ACCESS` policy still applies first. Docker labels use one comma-separated label per metric, replacing `/` with `.` in a custom metric key:
+
+```yaml
+labels:
+  dashmark.metrics_access.cpu: admins
+  dashmark.metrics_access.radarr.active_downloads: media,admins
 ```
 
 Define custom metrics under the card's YAML service. Each metric has a label, an HTTP(S) source, and exactly one extractor. Header values must reference an environment variable or file, so secrets never live in the configuration or API response. Only custom keys named in `metrics` are fetched and exposed.
@@ -255,7 +264,34 @@ When `dashmark.url` is absent, Dashmark can derive an HTTPS URL from a Traefik r
 
 ### YAML configuration
 
-Mount a YAML file and set `CONFIG_FILE` if it is not mounted at `/app/config.yml`. Each top-level key is a container name or Compose service name. A matching key overrides that container; a non-matching key creates a standalone card and must include `url`.
+Mount a YAML file and set `CONFIG_FILE` if it is not mounted at `/app/config.yml`. Use the reserved top-level `settings` mapping for dashboard settings and top-level service keys for cards. YAML settings override environment variables, matching YAML card precedence over Docker labels.
+
+Every YAML field that accepts a list supports a YAML list, one scalar value, or a comma-separated scalar. For example, these are equivalent: `access: [admins, operators]`, `access: admins`, and `access: admins, operators`.
+
+Dashmark rejects unknown keys and invalid values rather than silently falling back to defaults. The dashboard error identifies the invalid field path, such as `settings.enable_access_control must be a boolean`.
+
+`CONFIG_FILE` remains environment-only because Dashmark needs it before it can load its YAML file. `port` overrides `PORT` when present. `auth_token` accepts exactly one `{ env: VARIABLE_NAME }` or `{ file: /path/to/secret }` reference, never a literal value; it overrides `AUTH_TOKEN`. `docker_hosts` accepts the same endpoint format as `DOCKER_HOSTS` and may use a YAML list; access settings and `category_order` are YAML lists, while poll and history intervals are in seconds.
+
+```yaml
+settings:
+  port: 4321
+  docker_hosts: home=tcp://dockerproxy:2375
+  enable_access_control: true
+  access_groups_header: X-Forwarded-Groups
+  show_search: false
+  status_badge_access: [admins, operators]
+  category_order: [Media, Home]
+  metrics_history_period: 900
+  auth_token: { file: /run/secrets/dashmark_auth_token }
+
+plex:
+  title: Plex
+  url: https://plex.example.com
+```
+
+Available settings are `port`, `docker_hosts`, `icons_dir`, `custom_stylesheet`, `enable_access_control`, `access_groups_header`, `user_name_header`, `user_username_header`, `user_email_header`, `user_first_name_header`, `user_last_name_header`, `show_header`, `show_group_tags`, `show_theme_toggle`, `custom_header`, `greeting_morning`, `greeting_afternoon`, `greeting_evening`, `auth_token`, `show_search`, `show_status`, `status_badge_access`, `show_metrics`, `metrics_access`, `metrics_database_path`, `metrics_poll_interval`, `metrics_history_period`, `status_poll_interval`, `category_order`, `enable_automatic_descriptions`, `enable_automatic_icons`, `show_branding`, and `new_tab`.
+
+Each top-level service key is a container name or Compose service name. A matching key overrides that container; a non-matching key creates a standalone card and must include `url`.
 
 With `DOCKER_HOSTS`, use `<host-id>/<container-or-service-name>` to target a container on one host. Dashmark resolves YAML overrides in this order:
 
@@ -305,7 +341,7 @@ vps/plex:
   url: https://plex.vps.example.com
 ```
 
-Available fields are `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `show_status`, `stats`, `access`, and `search_aliases`. See [`config/config.example.yml`](config/config.example.yml) for a commented example.
+Available card fields are `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `show_status`, `metrics`, `metrics_access`, `metric_provider`, `metrics_poll_interval`, `metrics_history_period`, `custom_metrics`, `access`, and `search_aliases`. See [`config/config.example.yml`](config/config.example.yml) for a commented example.
 
 ### Icons
 

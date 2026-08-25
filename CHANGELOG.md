@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **Breaking:** rename `SHOW_RESOURCE_USAGE` and `RESOURCE_USAGE_ACCESS` to `SHOW_METRICS` and `METRICS_ACCESS`.
+- Restrict individual metrics with YAML `metrics_access` or `dashmark.metrics_access.<metric>` labels, where dots in the label suffix represent metric-key slashes.
+
+- Allow dashboard settings in the YAML `settings` mapping. YAML values override environment variables, including `port`, and `auth_token` supports environment-variable or secret-file references; `CONFIG_FILE` remains environment-only.
+
 ### Added
 
 - Group compatible custom metrics into multi-series charts with `chart_group`.

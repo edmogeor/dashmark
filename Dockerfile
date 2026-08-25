@@ -17,5 +17,6 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/src/data/icons.json ./src/data/icons.json
 COPY --from=builder /app/src/data/descriptions.json ./src/data/descriptions.json
 COPY --from=builder /app/THIRD_PARTY_NOTICES.md ./
+COPY scripts/start.mjs ./scripts/start.mjs
 EXPOSE 4321
-CMD ["node", "./dist/server/entry.mjs"]
+CMD ["node", "./scripts/start.mjs"]

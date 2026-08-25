@@ -1,13 +1,52 @@
-# Dashmark service config.
+# Dashmark configuration.
 #
+# `settings` configures the dashboard and overrides environment variables.
+# CONFIG_FILE must stay in the environment. auth_token may reference an
+# environment variable or secret file, but never contains a literal secret.
+# List values accept YAML lists, one value, or a comma-separated string.
+#
+settings:
+  # port: 4321
+  # docker_hosts: home=tcp://dockerproxy:2375,vps=tcp://vps-proxy:2375
+  # docker_hosts: [home=tcp://dockerproxy:2375, vps=tcp://vps-proxy:2375]
+  # icons_dir: /app/icons
+  # custom_stylesheet: /app/custom.css
+  # enable_access_control: false
+  # access_groups_header: auto
+  # user_name_header: X-Custom-Name
+  # user_username_header: X-Custom-Username
+  # user_email_header: X-Custom-Email
+  # user_first_name_header: X-Custom-Given-Name
+  # user_last_name_header: X-Custom-Family-Name
+  # show_header: true
+  # show_group_tags: true
+  # show_theme_toggle: true
+  # custom_header: "{greeting}, {first_name}!"
+  # greeting_morning: Good morning
+  # greeting_afternoon: Good afternoon
+  # greeting_evening: Good evening
+  # auth_token: { env: DASHMARK_AUTH_TOKEN }
+  # auth_token: { file: /run/secrets/dashmark_auth_token }
+  # show_search: true
+  # show_status: true
+  # status_badge_access: admins, operators
+  # show_metrics: true
+  # metrics_access: admins, operators
+  # metrics_database_path: /app/data/metrics.db
+  # metrics_poll_interval: 2
+  # metrics_history_period: 300
+  # status_poll_interval: 30
+  # category_order: [Media, Productivity, Home]
+  # enable_automatic_descriptions: true
+  # enable_automatic_icons: true
+  # show_branding: true
+  # new_tab: false
+
 # Each top-level key is a service, keyed by its container name or Compose
 # service name. A key matching a running container overrides that container's
 # `dashmark.*` labels; a key with no matching container becomes a standalone
 # card (it needs a `url` and has no status badge).
 #
-# Limit status badges by authenticated group with the environment variable
-# STATUS_BADGE_ACCESS=admins,operators. Access matching is case-insensitive.
-
 # Override the card for a container you run. Omitted fields fall back to the
 # container's labels or defaults.
 plex:
@@ -60,6 +99,11 @@ plex:
   # METRICS_HISTORY_PERIOD for one card, in seconds.
   metrics_poll_interval: 10
   metrics_history_period: 900
+  # Restrict individual metrics without changing card visibility. Omitted keys
+  # remain visible to users permitted by the global metrics_access setting.
+  # metrics_access:
+  #   cpu: admins
+  #   radarr/active_downloads: media, operators
   search_aliases:
     - movies
     - watch later

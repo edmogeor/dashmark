@@ -94,8 +94,8 @@ Selfhst icons are analysed for luminance when resolved. If an icon is dominated 
 | `SHOW_SEARCH` | `true` | Show the search bar and category filter |
 | `SHOW_STATUS` | `true` | Show state/health badges on cards |
 | `STATUS_BADGE_ACCESS` | unset | Comma-separated access entries allowed to see status badges; unset shows them to everyone |
-| `SHOW_RESOURCE_USAGE` | `true` | Fetch and show CPU, memory, and network resource metrics |
-| `RESOURCE_USAGE_ACCESS` | unset | Comma-separated access entries allowed to receive resource metrics |
+| `SHOW_METRICS` | `true` | Fetch and show container and custom metrics |
+| `METRICS_ACCESS` | unset | Comma-separated access entries allowed to receive metrics |
 | `STATUS_POLL_INTERVAL` | `30` | Seconds between container status updates |
 | `CATEGORY_ORDER` | unset | Comma-separated category order; unlisted categories follow alphabetically |
 | `ENABLE_AUTOMATIC_DESCRIPTIONS` | `true` | When `false`, skip matching cards without explicit descriptions to the bundled selfh.st app directory index |
@@ -127,13 +127,13 @@ With no `dashmark.url` (and no YAML URL), the URL is derived from a Traefik labe
 
 ### YAML config
 
-Optional flat file at `CONFIG_FILE`, where each top-level key is a service keyed by container name or compose service name (from the `com.docker.compose.service` label; container name wins on conflict). With `DOCKER_HOSTS`, `<host-id>/<container-or-service-name>` targets one host. Resolution order is host-qualified container name, host-qualified Compose service name, unqualified container name, then unqualified Compose service name. Per-service fields: `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `show_status`, `stats`, `access`, `search_aliases`. `stats` accepts `none` or a list containing `cpu`, `memory`, and `network`. YAML values override Docker labels for a matching container; entries with no matching container still produce cards (no state badge). See `config/config.example.yml`.
+Optional file at `CONFIG_FILE`. Its reserved `settings` mapping configures runtime settings, including `port`, while `auth_token` accepts an `env` or `file` secret reference. `CONFIG_FILE` remains environment-only. YAML values override environment variables. All other top-level keys are services, keyed by container name or compose service name (from the `com.docker.compose.service` label; container name wins on conflict). With `DOCKER_HOSTS`, `<host-id>/<container-or-service-name>` targets one host. Resolution order is host-qualified container name, host-qualified Compose service name, unqualified container name, then unqualified Compose service name. YAML values override Docker labels for a matching container; entries with no matching container still produce cards (no state badge). See `config/config.example.yml`.
 
 ### Access groups
 
 When `ENABLE_ACCESS_CONTROL=true`, each request must carry the identity headers needed by configured access entries. A card is visible when its `access` entries match one of the user's groups, username, or email; cards with no `access` entries are visible to everyone. Matching is case-insensitive. A missing groups header renders an error state (`MISSING_GROUPS_HEADER`) when group-based access is required, and the `Vary` response header keys shared caches on configured identity headers. `auto` mode checks candidate group headers in order: `X-Authentik-Groups`, `Remote-Groups`, `X-Auth-Request-Groups`, `X-Forwarded-Groups`, `X-Auth-Groups`. Group values can be comma-, semicolon-, or pipe-separated, or a JSON array of strings. Keycloak, Pocket ID, and Zitadel are OIDC providers that do not set a groups header themselves; they need oauth2-proxy (or a proxy that sets `X-Forwarded-Groups` or `X-Auth-Request-Groups`) in front.
 
-`STATUS_BADGE_ACCESS` controls status badge visibility independently of card visibility. An unset value shows badges to everyone; a configured value requires a case-insensitive access match. `RESOURCE_USAGE_ACCESS` similarly restricts resource metrics server-side; unauthorized status responses omit CPU, memory, and network data.
+`STATUS_BADGE_ACCESS` controls status badge visibility independently of card visibility. An unset value shows badges to everyone; a configured value requires a case-insensitive access match. `METRICS_ACCESS` restricts all metric data server-side; per-card `metrics_access` can further restrict individual metric keys.
 
 When group tags are enabled, matching status-badge groups appear in the header even when no Card uses them for access control.
 
@@ -150,7 +150,7 @@ When group tags are enabled, matching status-badge groups appear in the header e
 
 | Module | Responsibility |
 |---|---|
-| `src/lib/config.ts` | Reads env vars into `AppConfig` |
+| `src/lib/config.ts` | Merges environment variables and YAML settings into `AppConfig` |
 | `src/lib/docker.ts` | Docker HTTP client, container -> Card mapping, access-group filtering, caching, `getCards`/`getContainerStatuses` |
 | `src/lib/labels.ts` | Parses `dashmark.*` labels, `isValidUrl`, Traefik `Host(...)` -> URL |
 | `src/lib/auth.ts` | Detects name/username/email/groups from auth headers (`getUser`) |

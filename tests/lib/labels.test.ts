@@ -14,6 +14,8 @@ describe('parseLabels', () => {
       'dashmark.show_status': 'false',
       'dashmark.metrics': 'cpu,network',
       'dashmark.metric_provider': 'plex',
+      'dashmark.metrics_access.cpu': 'admins',
+      'dashmark.metrics_access.radarr.active_downloads': 'media, admins',
       'dashmark.access': 'media, admins'
     }
 
@@ -29,6 +31,7 @@ describe('parseLabels', () => {
       resourceStats: ['cpu', 'network'],
       metrics: ['cpu', 'network'],
       metricProvider: 'plex',
+      metricsAccess: { cpu: ['admins'], 'radarr/active_downloads': ['media', 'admins'] },
       access: ['media', 'admins'],
       searchAliases: []
     })

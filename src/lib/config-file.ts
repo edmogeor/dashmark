@@ -64,7 +64,46 @@ export type MetricOverride = NumericMetricOverride | TextMetricOverride
 
 export type ServiceMetricOverrides = Record<string, MetricOverride>
 
-export type YamlConfig = Record<string, ServiceOverrides>
+export type YamlSettings = {
+  port?: number
+  dockerHosts?: string[]
+  iconsDir?: string
+  customStylesheet?: string
+  enableAccessControl?: boolean
+  accessGroupsHeader?: string
+  userNameHeader?: string
+  userUsernameHeader?: string
+  userEmailHeader?: string
+  userFirstNameHeader?: string
+  userLastNameHeader?: string
+  showSearch?: boolean
+  showStatus?: boolean
+  statusBadgeAccess?: string[]
+  showMetrics?: boolean
+  metricsAccess?: string[]
+  metricsDatabasePath?: string
+  metricsPollInterval?: number
+  metricsHistoryPeriod?: number
+  statusPollInterval?: number
+  categoryOrder?: string[]
+  enableAutomaticDescriptions?: boolean
+  enableAutomaticIcons?: boolean
+  showBranding?: boolean
+  showHeader?: boolean
+  showGroupTags?: boolean
+  showThemeToggle?: boolean
+  openInNewTab?: boolean
+  customHeader?: string
+  greetingMorning?: string
+  greetingAfternoon?: string
+  greetingEvening?: string
+  authToken?: MetricSecretReference
+}
+
+export type YamlConfig = {
+  settings: YamlSettings
+  services: Record<string, ServiceOverrides>
+}
 
 export type YamlConfigResult = {
   config: YamlConfig
@@ -79,14 +118,88 @@ type CachedConfig = {
 }
 
 const configCache = new Map<string, CachedConfig>()
+const SETTINGS_FIELDS = new Set([
+  'port', 'docker_hosts', 'icons_dir', 'custom_stylesheet', 'enable_access_control', 'access_groups_header',
+  'user_name_header', 'user_username_header', 'user_email_header', 'user_first_name_header', 'user_last_name_header',
+  'show_search', 'show_status', 'status_badge_access', 'show_metrics', 'metrics_access', 'metrics_database_path',
+  'metrics_poll_interval', 'metrics_history_period', 'status_poll_interval', 'category_order',
+  'enable_automatic_descriptions', 'enable_automatic_icons', 'show_branding', 'show_header', 'show_group_tags',
+  'show_theme_toggle', 'new_tab', 'custom_header', 'greeting_morning', 'greeting_afternoon', 'greeting_evening', 'auth_token'
+])
+const SERVICE_FIELDS = new Set([
+  'title', 'description', 'url', 'icon', 'category', 'order', 'hidden', 'show_status', 'metrics', 'metric_provider',
+  'metrics_poll_interval', 'metrics_history_period', 'metrics_access', 'access', 'search_aliases', 'custom_metrics'
+])
 
 function string(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined
 }
 
-function stringArray(value: unknown): string[] | undefined {
-  if (!Array.isArray(value) || !value.every(item => typeof item === 'string')) return undefined
-  return value
+function stringList(value: unknown): string[] | undefined {
+  const entries = typeof value === 'string' ? [value] : Array.isArray(value) ? value : undefined
+  if (!entries || !entries.every(item => typeof item === 'string')) return undefined
+  return entries.flatMap(entry => entry.split(',').map(item => item.trim()).filter(Boolean))
+}
+
+function invalid(path: string, expected: string): never {
+  throw new Error(`${path} must be ${expected}`)
+}
+
+function validateKnownFields(value: Record<string, unknown>, fields: Set<string>, path: string): void {
+  for (const key of Object.keys(value)) {
+    if (!fields.has(key)) throw new Error(`unknown configuration key: ${path}.${key}`)
+  }
+}
+
+function validateString(value: unknown, path: string): void {
+  if (value !== undefined && typeof value !== 'string') invalid(path, 'a string')
+}
+
+function validateBoolean(value: unknown, path: string): void {
+  if (value !== undefined && typeof value !== 'boolean') invalid(path, 'a boolean')
+}
+
+function validateNumber(value: unknown, path: string): void {
+  if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value))) invalid(path, 'a finite number')
+}
+
+function validatePositiveInteger(value: unknown, path: string): void {
+  if (value !== undefined && (typeof value !== 'number' || !Number.isInteger(value) || value <= 0)) invalid(path, 'a positive integer')
+}
+
+function validateStringList(value: unknown, path: string): void {
+  if (value !== undefined && (stringList(value)?.length ?? 0) === 0) invalid(path, 'a non-empty string or list of strings')
+}
+
+function metricAccess(value: unknown): Record<string, string[]> | undefined {
+  if (!isRecord(value)) return undefined
+  const entries = Object.entries(value)
+  const parsed = entries.map(([key, access]) => [key, stringList(access)] as const)
+  if (!parsed.every(([key, access]) => /^[a-z][a-z0-9_-]*(?:\/[a-z][a-z0-9_-]*)*$/.test(key) && access !== undefined)) return undefined
+  return Object.fromEntries(parsed) as Record<string, string[]>
+}
+
+function validateMetricAccess(value: unknown, path: string): void {
+  if (value === undefined) return
+  if (!isRecord(value)) invalid(path, 'a mapping of metric names to access lists')
+  for (const [key, access] of Object.entries(value)) {
+    if (!/^[a-z][a-z0-9_-]*(?:\/[a-z][a-z0-9_-]*)*$/.test(key)) invalid(`${path}.${key}`, 'a valid metric name')
+    validateStringList(access, `${path}.${key}`)
+  }
+}
+
+function validateSecretReference(value: unknown, path: string): void {
+  if (value === undefined) return
+  const reference = parseSecretReference(value)
+  if (!reference) invalid(path, 'an env or file secret reference')
+  if (reference.env && process.env[reference.env] === undefined) throw new Error(`${path}.env references an unset environment variable: ${reference.env}`)
+  if (reference.file) {
+    try {
+      fs.accessSync(reference.file, fs.constants.R_OK)
+    } catch {
+      throw new Error(`${path}.file is not readable: ${reference.file}`)
+    }
+  }
 }
 
 function parseInterval(value: unknown): number | undefined {
@@ -290,14 +403,22 @@ function parseMetricOverrides(value: unknown): { metrics?: ServiceMetricOverride
   }
 }
 
-function parseService(value: unknown): ServiceOverrides | null {
-  if (!isRecord(value)) return null
+function parseService(value: unknown, path: string): ServiceOverrides {
+  if (!isRecord(value)) invalid(path, 'a mapping')
+  validateKnownFields(value, SERVICE_FIELDS, path)
+  for (const key of ['title', 'description', 'url', 'icon', 'category', 'metric_provider'] as const) validateString(value[key], `${path}.${key}`)
+  for (const key of ['hidden', 'show_status'] as const) validateBoolean(value[key], `${path}.${key}`)
+  validateNumber(value.order, `${path}.order`)
+  for (const key of ['metrics_poll_interval', 'metrics_history_period'] as const) validatePositiveInteger(value[key], `${path}.${key}`)
+  if (value.metric_provider !== undefined && !metricProvider(value.metric_provider)) invalid(`${path}.metric_provider`, 'a lowercase provider identifier')
+  for (const key of ['metrics', 'access', 'search_aliases'] as const) validateStringList(value[key], `${path}.${key}`)
+  validateMetricAccess(value.metrics_access, `${path}.metrics_access`)
 
   const order = typeof value.order === 'number' && Number.isFinite(value.order)
     ? value.order
     : undefined
 
-  const metricKeys = Array.isArray(value.metrics) ? stringArray(value.metrics) : undefined
+  const metricKeys = stringList(value.metrics)
 
   const parsedMetrics = parseMetricOverrides(value.custom_metrics)
   return {
@@ -314,32 +435,88 @@ function parseService(value: unknown): ServiceOverrides | null {
     metricProvider: metricProvider(value.metric_provider),
     metricsPollIntervalMs: parseInterval(value.metrics_poll_interval),
     metricsHistoryPeriodMs: parseInterval(value.metrics_history_period),
-    access: stringArray(value.access),
-    searchAliases: stringArray(value.search_aliases),
+    metricsAccess: metricAccess(value.metrics_access),
+    access: stringList(value.access),
+    searchAliases: stringList(value.search_aliases),
     customMetrics: parsedMetrics.metrics,
     customMetricErrors: parsedMetrics.errors
   }
 }
 
-function parseConfig(value: unknown): YamlConfig {
-  if (!isRecord(value)) return {}
+function boolean(value: unknown): boolean | undefined {
+  return typeof value === 'boolean' ? value : undefined
+}
 
-  const services: YamlConfig = {}
+function parseSettings(value: unknown): YamlSettings {
+  if (value === undefined) return {}
+  if (!isRecord(value)) invalid('settings', 'a mapping')
+  validateKnownFields(value, SETTINGS_FIELDS, 'settings')
+  for (const key of ['icons_dir', 'custom_stylesheet', 'access_groups_header', 'user_name_header', 'user_username_header', 'user_email_header', 'user_first_name_header', 'user_last_name_header', 'metrics_database_path', 'custom_header', 'greeting_morning', 'greeting_afternoon', 'greeting_evening'] as const) validateString(value[key], `settings.${key}`)
+  for (const key of ['enable_access_control', 'show_search', 'show_status', 'show_metrics', 'enable_automatic_descriptions', 'enable_automatic_icons', 'show_branding', 'show_header', 'show_group_tags', 'show_theme_toggle', 'new_tab'] as const) validateBoolean(value[key], `settings.${key}`)
+  if (value.port !== undefined && (typeof value.port !== 'number' || !Number.isInteger(value.port) || value.port <= 0 || value.port > 65_535)) invalid('settings.port', 'an integer between 1 and 65535')
+  for (const key of ['metrics_poll_interval', 'metrics_history_period', 'status_poll_interval'] as const) validatePositiveInteger(value[key], `settings.${key}`)
+  for (const key of ['docker_hosts', 'status_badge_access', 'metrics_access', 'category_order'] as const) validateStringList(value[key], `settings.${key}`)
+  validateSecretReference(value.auth_token, 'settings.auth_token')
+
+  return {
+    port: typeof value.port === 'number' ? value.port : undefined,
+    dockerHosts: stringList(value.docker_hosts),
+    iconsDir: string(value.icons_dir),
+    customStylesheet: string(value.custom_stylesheet),
+    enableAccessControl: boolean(value.enable_access_control),
+    accessGroupsHeader: string(value.access_groups_header),
+    userNameHeader: string(value.user_name_header),
+    userUsernameHeader: string(value.user_username_header),
+    userEmailHeader: string(value.user_email_header),
+    userFirstNameHeader: string(value.user_first_name_header),
+    userLastNameHeader: string(value.user_last_name_header),
+    showSearch: boolean(value.show_search),
+    showStatus: boolean(value.show_status),
+    statusBadgeAccess: stringList(value.status_badge_access),
+    showMetrics: boolean(value.show_metrics),
+    metricsAccess: stringList(value.metrics_access),
+    metricsDatabasePath: string(value.metrics_database_path),
+    metricsPollInterval: typeof value.metrics_poll_interval === 'number' ? value.metrics_poll_interval : undefined,
+    metricsHistoryPeriod: typeof value.metrics_history_period === 'number' ? value.metrics_history_period : undefined,
+    statusPollInterval: typeof value.status_poll_interval === 'number' ? value.status_poll_interval : undefined,
+    categoryOrder: stringList(value.category_order),
+    enableAutomaticDescriptions: boolean(value.enable_automatic_descriptions),
+    enableAutomaticIcons: boolean(value.enable_automatic_icons),
+    showBranding: boolean(value.show_branding),
+    showHeader: boolean(value.show_header),
+    showGroupTags: boolean(value.show_group_tags),
+    showThemeToggle: boolean(value.show_theme_toggle),
+    openInNewTab: boolean(value.new_tab),
+    customHeader: string(value.custom_header),
+    greetingMorning: string(value.greeting_morning),
+    greetingAfternoon: string(value.greeting_afternoon),
+    greetingEvening: string(value.greeting_evening),
+    authToken: parseSecretReference(value.auth_token)
+  }
+}
+
+function parseConfig(value: unknown): YamlConfig {
+  if (!isRecord(value)) invalid('root', 'a mapping')
+
+  const services: Record<string, ServiceOverrides> = {}
   for (const [name, service] of Object.entries(value)) {
-    const parsedService = parseService(service)
-    if (parsedService) services[name] = parsedService
-    else logger.warn('config', logMessages.config.invalidYamlService, { service: name })
+    if (name === 'settings') continue
+    services[name] = parseService(service, name)
   }
 
-  return services
+  return { settings: parseSettings(value.settings), services }
 }
 
 export function loadYamlConfig(config: AppConfig): YamlConfigResult {
   let stat
   try {
     stat = fs.statSync(config.configFile)
-  } catch {
-    return { config: {} }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      const message = errorMessage(error)
+      return { config: { settings: {}, services: {} }, error: dashmarkError('CONFIG_INVALID', strings.errors.configInvalid, false, message) }
+    }
+    return { config: { settings: {}, services: {} } }
   }
 
   const cached = configCache.get(config.configFile)
@@ -362,7 +539,7 @@ export function loadYamlConfig(config: AppConfig): YamlConfigResult {
     const result: CachedConfig = {
       mtimeMs: stat.mtimeMs,
       size: stat.size,
-      config: {},
+      config: { settings: {}, services: {} },
       error: dashmarkErr
     }
     configCache.set(config.configFile, result)

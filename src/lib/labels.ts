@@ -14,12 +14,14 @@ export type ParsedLabels = {
   metricProvider?: string
   metricsPollIntervalMs?: number
   metricsHistoryPeriodMs?: number
+  metricsAccess?: Record<string, string[]>
   access: string[]
   searchAliases: string[]
 }
 
 export const RESOURCE_STATS = ['cpu', 'memory', 'network'] as const
 export type ResourceStat = typeof RESOURCE_STATS[number]
+const METRIC_KEY = /^[a-z][a-z0-9_-]*(?:\/[a-z][a-z0-9_-]*)*$/
 
 function parseCommaSeparated(value: string | undefined): string[] {
   return value?.split(',').map(item => item.trim()).filter(Boolean) ?? []
@@ -68,6 +70,13 @@ export function parseLabels(labels: Record<string, string>): ParsedLabels {
   const metricsHistoryPeriodMs = parseInterval(get('metrics_history_period'))
   const access = parseCommaSeparated(get('access'))
   const searchAliases = parseCommaSeparated(get('search_aliases'))
+  const metricsAccess: Record<string, string[]> = {}
+  for (const [key, value] of Object.entries(labels)) {
+    const encodedKey = key.slice(`${LABEL_PREFIX}.metrics_access.`.length)
+    if (!key.startsWith(`${LABEL_PREFIX}.metrics_access.`)) continue
+    const metric = encodedKey.replaceAll('.', '/')
+    if (METRIC_KEY.test(metric)) metricsAccess[metric] = parseCommaSeparated(value)
+  }
 
   return {
     hidden,
@@ -83,6 +92,7 @@ export function parseLabels(labels: Record<string, string>): ParsedLabels {
     ...(metricProvider !== undefined ? { metricProvider } : {}),
     ...(metricsPollIntervalMs !== undefined ? { metricsPollIntervalMs } : {}),
     ...(metricsHistoryPeriodMs !== undefined ? { metricsHistoryPeriodMs } : {}),
+    ...(Object.keys(metricsAccess).length > 0 ? { metricsAccess } : {}),
     access,
     searchAliases
   }

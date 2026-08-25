@@ -17,7 +17,7 @@ const imageUrl = `${origin}${assetPath('/brand/og-image.png')}`
 const { cards: initialCards, error: initialError } = await getCards(config, Astro.request.headers)
 const user = getUser(config, Astro.request.headers)
 const showStatusBadges = config.showStatus && hasAllowedAccess(user, config.statusBadgeAccess)
-const showResourceUsage = config.showResourceUsage && hasAllowedAccess(user, config.resourceUsageAccess)
+const showResourceUsage = config.showMetrics && hasAllowedAccess(user, config.metricsAccess)
 const displayedGroupNames = new Set(initialCards.flatMap(card => card.access.map(entry => entry.toLowerCase())))
 const displayedUserGroups = user.groups.filter(group => displayedGroupNames.has(group.toLowerCase()))
 const greeting = resolveGreeting(config, user)

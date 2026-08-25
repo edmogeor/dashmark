@@ -22,38 +22,77 @@ afterEach(() => {
 })
 
 describe('loadYamlConfig', () => {
-  it('ignores malformed service fields instead of returning unsafe values', () => {
+  it('rejects malformed service fields instead of weakening access control', () => {
     const config = getConfig()
     config.configFile = writeConfig(`
 valid:
   url: https://valid.example.com
   order: 2
   show_status: false
-  access: [admins]
+  access: admins, operators
+  metrics: cpu,memory
+  search_aliases: movies, watch later
+  metrics_access:
+    cpu: admins
+    radarr/active_downloads: media, operators
 invalid:
-  hidden: "false"
-  access: admins
+  access: 1
 not-a-service: null
 `)
 
-    expect(loadYamlConfig(config)).toEqual({
-      config: {
-        valid: {
-          url: 'https://valid.example.com',
-          order: 2,
-          showStatus: false,
-           access: ['admins']
-        },
-        invalid: {}
-      }
-    })
+    const result = loadYamlConfig(config)
+
+    expect(result.config).toEqual({ settings: {}, services: {} })
+    expect(result.error?.detail).toBe('invalid.access must be a non-empty string or list of strings')
+  })
+
+  it('reports unknown and invalid settings with their paths', () => {
+    const config = getConfig()
+    config.configFile = writeConfig(`
+settings:
+  enable_access_contol: true
+`)
+    expect(loadYamlConfig(config).error?.detail).toBe('unknown configuration key: settings.enable_access_contol')
+
+    config.configFile = writeConfig(`
+settings:
+  enable_access_control: "true"
+`)
+    expect(loadYamlConfig(config).error?.detail).toBe('settings.enable_access_control must be a boolean')
+  })
+
+  it('rejects malformed metric access and missing secret references', () => {
+    const config = getConfig()
+    config.configFile = writeConfig(`
+plex:
+  url: https://plex.example.com
+  metrics_access:
+    cpu: 1
+`)
+    expect(loadYamlConfig(config).error?.detail).toBe('plex.metrics_access.cpu must be a non-empty string or list of strings')
+
+    config.configFile = writeConfig(`
+settings:
+  auth_token: { env: DASHMARK_TEST_MISSING_TOKEN }
+`)
+    delete process.env.DASHMARK_TEST_MISSING_TOKEN
+    expect(loadYamlConfig(config).error?.detail).toBe('settings.auth_token.env references an unset environment variable: DASHMARK_TEST_MISSING_TOKEN')
   })
 
   it('returns an empty config with no error when the file is missing', () => {
     const config = getConfig()
     config.configFile = path.join(os.tmpdir(), 'definitely-missing-config.yml')
 
-    expect(loadYamlConfig(config)).toEqual({ config: {} })
+    expect(loadYamlConfig(config)).toEqual({ config: { settings: {}, services: {} } })
+  })
+
+  it('returns an error when the config path cannot be read', () => {
+    const config = getConfig()
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dashmark-'))
+    tempDirectories.push(directory)
+    config.configFile = directory
+
+    expect(loadYamlConfig(config).error?.code).toBe('CONFIG_INVALID')
   })
 
   it('returns an error for malformed YAML', () => {
@@ -62,7 +101,7 @@ not-a-service: null
 
     const result = loadYamlConfig(config)
 
-    expect(result.config).toEqual({})
+    expect(result.config).toEqual({ settings: {}, services: {} })
     expect(result.error?.code).toBe('CONFIG_INVALID')
     expect(result.error?.message).toBeDefined()
   })
@@ -72,13 +111,13 @@ not-a-service: null
     const configPath = writeConfig('a:\n  url: https://a.example.com\n')
     config.configFile = configPath
 
-    expect(loadYamlConfig(config).config.a).toEqual({ url: 'https://a.example.com' })
+    expect(loadYamlConfig(config).config.services.a).toEqual({ url: 'https://a.example.com' })
 
     fs.writeFileSync(configPath, 'b:\n  url: https://b.example.com\n  title: B\n')
 
     const result = loadYamlConfig(config)
-    expect(result.config.b).toEqual({ url: 'https://b.example.com', title: 'B' })
-    expect(result.config.a).toBeUndefined()
+    expect(result.config.services.b).toEqual({ url: 'https://b.example.com', title: 'B' })
+    expect(result.config.services.a).toBeUndefined()
   })
 
   it('parses explicit custom metric sources and overrides', () => {
@@ -102,7 +141,7 @@ radarr:
         reduce: sum
 `)
 
-    expect(loadYamlConfig(config).config.radarr?.customMetrics).toEqual({
+    expect(loadYamlConfig(config).config.services.radarr?.customMetrics).toEqual({
       active_downloads: {
         label: 'Active downloads',
         valueType: 'number',
@@ -115,7 +154,7 @@ radarr:
         json: { path: '/records', valuePath: '/queue/size', reduce: 'sum' }
       }
     })
-    expect(loadYamlConfig(config).config.radarr?.metrics).toEqual(['cpu', 'active_downloads'])
+    expect(loadYamlConfig(config).config.services.radarr?.metrics).toEqual(['cpu', 'active_downloads'])
   })
 
   it('requires one valid extractor for each custom metric', () => {
@@ -141,7 +180,7 @@ service:
       json: { path: value }
 `)
 
-    expect(loadYamlConfig(config).config.service?.customMetrics).toEqual({
+    expect(loadYamlConfig(config).config.services.service?.customMetrics).toEqual({
       valid: {
         label: 'Requests',
         valueType: 'number',
@@ -182,7 +221,7 @@ service:
       json: { path: /value }
 `)
 
-    expect(loadYamlConfig(config).config.service?.customMetrics).toEqual({
+    expect(loadYamlConfig(config).config.services.service?.customMetrics).toEqual({
       build: {
         label: 'Build',
         valueType: 'string',
@@ -221,7 +260,7 @@ service:
       json: { path: /write }
 `)
 
-    const service = loadYamlConfig(config).config.service
+    const service = loadYamlConfig(config).config.services.service
     expect(service?.customMetrics).toMatchObject({
       read_rate: { chartGroup: 'disk_io' },
       write_rate: { chartGroup: 'disk_io' }
@@ -249,7 +288,7 @@ service:
       json: { path: /bytes }
 `)
 
-    const service = loadYamlConfig(config).config.service
+    const service = loadYamlConfig(config).config.services.service
     expect(service?.customMetrics).toBeUndefined()
     expect(service?.customMetricErrors?.requests).toBe('chart_group traffic metrics must use the same unit and chart')
     expect(service?.customMetricErrors?.bytes).toBe('chart_group traffic metrics must use the same unit and chart')
@@ -266,6 +305,6 @@ service:
 
     const result = loadYamlConfig(config)
     expect(result.error).toBeUndefined()
-    expect(result.config.a).toEqual({ url: 'https://a.example.com' })
+    expect(result.config.services.a).toEqual({ url: 'https://a.example.com' })
   })
 })

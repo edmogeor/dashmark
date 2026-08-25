@@ -4,6 +4,10 @@ import { getConfig } from '@/lib/config'
 const trackedVars = [
   'DOCKER_HOST',
   'DOCKER_HOSTS',
+  'PORT',
+  'CONFIG_FILE',
+  'AUTH_TOKEN',
+  'YAML_AUTH_TOKEN',
   'ACCESS_GROUPS_HEADER',
   'USER_NAME_HEADER',
   'USER_USERNAME_HEADER',
@@ -14,8 +18,8 @@ const trackedVars = [
   'SHOW_SEARCH',
   'SHOW_STATUS',
   'STATUS_BADGE_ACCESS',
-  'SHOW_RESOURCE_USAGE',
-  'RESOURCE_USAGE_ACCESS',
+  'SHOW_METRICS',
+  'METRICS_ACCESS',
   'METRICS_DATABASE_PATH',
   'METRICS_POLL_INTERVAL',
   'METRICS_HISTORY_PERIOD',
@@ -196,18 +200,18 @@ describe('getConfig status polling', () => {
     expect(getConfig().statusBadgeAccess).toEqual([])
   })
 
-  it('defaults resource usage to on for everyone', () => {
-    delete process.env.SHOW_RESOURCE_USAGE
-    delete process.env.RESOURCE_USAGE_ACCESS
-    expect(getConfig()).toMatchObject({ showResourceUsage: true, resourceUsageAccess: [] })
+  it('defaults metrics to on for everyone', () => {
+    delete process.env.SHOW_METRICS
+    delete process.env.METRICS_ACCESS
+    expect(getConfig()).toMatchObject({ showMetrics: true, metricsAccess: [] })
   })
 
-  it('reads resource usage controls', () => {
-    process.env.SHOW_RESOURCE_USAGE = 'false'
-    process.env.RESOURCE_USAGE_ACCESS = 'admins, operators, admins'
+  it('reads metric controls', () => {
+    process.env.SHOW_METRICS = 'false'
+    process.env.METRICS_ACCESS = 'admins, operators, admins'
     expect(getConfig()).toMatchObject({
-      showResourceUsage: false,
-      resourceUsageAccess: ['admins', 'operators']
+      showMetrics: false,
+      metricsAccess: ['admins', 'operators']
     })
   })
 
@@ -253,6 +257,61 @@ describe('getConfig category order', () => {
   it('reads unique, trimmed category names', () => {
     process.env.CATEGORY_ORDER = ' Media, Home, media, Monitoring '
     expect(getConfig().categoryOrder).toEqual(['Media', 'Home', 'Monitoring'])
+  })
+})
+
+describe('getConfig YAML settings', () => {
+  it('uses YAML settings when the corresponding environment variable is unset', async () => {
+    const { writeFile, mkdtemp } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const directory = await mkdtemp(join(tmpdir(), 'dashmark-'))
+    const configFile = join(directory, 'config.yml')
+    await writeFile(configFile, `
+settings:
+  port: 9876
+  docker_hosts:
+    - home=tcp://dockerproxy:2375
+  show_search: false
+  status_badge_access: admins, operators
+  metrics_access: admins
+  category_order: Media, Home
+  greeting_morning: Hello
+  auth_token: { env: YAML_AUTH_TOKEN }
+`)
+    process.env.CONFIG_FILE = configFile
+    delete process.env.DOCKER_HOSTS
+    process.env.PORT = '9999'
+    delete process.env.SHOW_SEARCH
+    delete process.env.STATUS_BADGE_ACCESS
+    delete process.env.CATEGORY_ORDER
+    delete process.env.GREETING_MORNING
+    process.env.YAML_AUTH_TOKEN = 'yaml-secret'
+    process.env.AUTH_TOKEN = 'env-secret'
+
+    expect(getConfig()).toMatchObject({
+      port: 9876,
+      dockerHosts: [{ id: 'home', dockerHost: 'tcp://dockerproxy:2375' }],
+      showSearch: false,
+      statusBadgeAccess: ['admins', 'operators'],
+      metricsAccess: ['admins'],
+      categoryOrder: ['Media', 'Home'],
+      greetingMorning: 'Hello',
+      authToken: 'yaml-secret'
+    })
+  })
+
+  it('prefers YAML settings over environment variables', async () => {
+    const { writeFile, mkdtemp } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const directory = await mkdtemp(join(tmpdir(), 'dashmark-'))
+    const configFile = join(directory, 'config.yml')
+    await writeFile(configFile, 'settings:\n  show_search: false\n')
+    process.env.CONFIG_FILE = configFile
+    process.env.SHOW_SEARCH = 'true'
+
+    expect(getConfig().showSearch).toBe(false)
   })
 })
 

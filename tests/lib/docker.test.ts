@@ -36,6 +36,25 @@ describe('getCards', () => {
     clearDockerCache()
   })
 
+  it('filters card metric metadata using namespaced metric access labels', async () => {
+    server.containers = [{
+      Id: 'metric-access', Names: ['/metric-access'], Image: 'nginx', ImageID: 'sha256:metric-access',
+      State: 'running', Status: 'Up 1 hour', Labels: {
+        'dashmark.url': 'https://metrics.example.com',
+        'dashmark.metrics': 'cpu,memory,network',
+        'dashmark.metrics_access.cpu': 'admins',
+        'dashmark.metrics_access.network': 'admins'
+      }
+    }]
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.accessGroupsHeader = 'X-Test-Groups'
+
+    const { cards } = await getCards(config, new Headers({ 'X-Test-Groups': 'media' }))
+
+    expect(cards[0]?.resourceStats).toEqual(['memory'])
+  })
+
   afterEach(async () => {
     await server.stop()
   })
@@ -708,14 +727,14 @@ describe('getContainerStatuses', () => {
     }
     const config = getConfig()
     config.dockerHost = dockerHost
-    config.showResourceUsage = false
+    config.showMetrics = false
 
     const disabled = await getContainerResourceUsage(config, new Headers(), 'default:restricted-resources')
     expect(disabled).toBeUndefined()
     expect(server.statsRequests).toBe(0)
 
-    config.showResourceUsage = true
-    config.resourceUsageAccess = ['admins']
+    config.showMetrics = true
+    config.metricsAccess = ['admins']
     config.accessGroupsHeader = 'X-Test-Groups'
     const unauthorized = await getContainerResourceUsage(config, new Headers({ 'X-Test-Groups': 'users' }), 'default:restricted-resources')
     expect(unauthorized).toBeUndefined()

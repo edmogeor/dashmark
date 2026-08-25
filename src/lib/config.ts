@@ -1,6 +1,8 @@
+import fs from 'node:fs'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
 import { AUTO_ACCESS_GROUPS_HEADER, ACCESS_GROUPS_HEADER_TOKEN, DEFAULT_PORT, MAX_PORT, METRICS_HISTORY_PERIOD_MS, STATUS_POLL_INTERVAL_MS } from './constants'
+import { loadYamlConfig } from './config-file'
 
 export type AppConfig = {
   dockerHost: string
@@ -19,8 +21,8 @@ export type AppConfig = {
   showSearch: boolean
   showStatus: boolean
   statusBadgeAccess: string[]
-  showResourceUsage: boolean
-  resourceUsageAccess: string[]
+  showMetrics: boolean
+  metricsAccess: string[]
   metricsDatabasePath: string
   metricsPollIntervalMs: number
   metricsHistoryPeriodMs: number
@@ -37,6 +39,7 @@ export type AppConfig = {
   greetingMorning?: string
   greetingAfternoon?: string
   greetingEvening?: string
+  authToken?: string
 }
 
 export type DockerHostConfig = {
@@ -78,15 +81,8 @@ function parseInterval(value: string | undefined, defaultValue: number): number 
   return Number.isInteger(seconds) && seconds > 0 ? seconds * 1_000 : defaultValue
 }
 
-function parseCategoryOrder(value: string | undefined): string[] {
-  const categories = new Map<string, string>()
-  for (const name of value?.split(',') ?? []) {
-    const category = name.trim()
-    if (category && !categories.has(category.toLowerCase())) {
-      categories.set(category.toLowerCase(), category)
-    }
-  }
-  return [...categories.values()]
+function parseStringArray(value: string[] | undefined): string[] {
+  return parseAccess(value?.join(','))
 }
 
 function parseAccess(value: string | undefined): string[] {
@@ -102,6 +98,16 @@ function parseAccess(value: string | undefined): string[] {
 
 function optionalString(value: string | undefined): string | undefined {
   return value?.trim() || undefined
+}
+
+function resolveSecret(value: { env?: string; file?: string } | undefined): string | undefined {
+  if (!value) return undefined
+  if (value.env) return process.env[value.env]
+  try {
+    return value.file ? fs.readFileSync(value.file, 'utf-8') : undefined
+  } catch {
+    return undefined
+  }
 }
 
 function parseDockerHosts(value: string | undefined): DockerHostConfig[] | undefined {
@@ -127,44 +133,62 @@ function parseDockerHosts(value: string | undefined): DockerHostConfig[] | undef
 }
 
 export function getConfig(): AppConfig {
-  const enableAccessControl = parseBool(process.env.ENABLE_ACCESS_CONTROL, false)
-  const accessGroupsHeader = parseAccessGroupsHeader(process.env.ACCESS_GROUPS_HEADER)
-  const customHeader = optionalString(process.env.CUSTOM_HEADER)
+  const configFile = process.env.CONFIG_FILE || '/app/config.yml'
+  const settings = loadYamlConfig({ configFile } as AppConfig).config.settings
+  const yamlOrEnv = <T>(name: string, value: T | undefined): string | T | undefined => value ?? process.env[name]
+  const stringValue = (name: string, value: string | undefined) => optionalString(yamlOrEnv(name, value) as string | undefined)
+  const boolValue = (name: string, value: boolean | undefined, defaultValue: boolean) => {
+    const configured = yamlOrEnv(name, value)
+    return typeof configured === 'boolean' ? configured : parseBool(configured, defaultValue)
+  }
+  const intervalValue = (name: string, value: number | undefined, defaultValue: number) => {
+    const configured = yamlOrEnv(name, value)
+    return parseInterval(configured === undefined ? undefined : String(configured), defaultValue)
+  }
+  const accessValue = (name: string, value: string[] | undefined) => {
+    const configured = yamlOrEnv(name, value)
+    return Array.isArray(configured) ? parseStringArray(configured) : parseAccess(configured)
+  }
+  const categoryOrder = accessValue('CATEGORY_ORDER', settings.categoryOrder)
+  const enableAccessControl = boolValue('ENABLE_ACCESS_CONTROL', settings.enableAccessControl, false)
+  const accessGroupsHeader = parseAccessGroupsHeader(stringValue('ACCESS_GROUPS_HEADER', settings.accessGroupsHeader))
+  const customHeader = stringValue('CUSTOM_HEADER', settings.customHeader)
 
   return {
     dockerHost: 'unix:///var/run/docker.sock',
-    dockerHosts: parseDockerHosts(process.env.DOCKER_HOSTS),
-    configFile: process.env.CONFIG_FILE || '/app/config.yml',
-    iconsDir: process.env.ICONS_DIR || '/app/icons',
-    customStylesheet: optionalString(process.env.CUSTOM_STYLESHEET),
+    dockerHosts: parseDockerHosts(settings.dockerHosts?.join(',') ?? process.env.DOCKER_HOSTS),
+    configFile,
+    iconsDir: stringValue('ICONS_DIR', settings.iconsDir) || '/app/icons',
+    customStylesheet: stringValue('CUSTOM_STYLESHEET', settings.customStylesheet),
     enableAccessControl,
     accessGroupsHeader,
-    userNameHeader: parseUserHeader(process.env.USER_NAME_HEADER),
-    userUsernameHeader: parseUserHeader(process.env.USER_USERNAME_HEADER),
-    userEmailHeader: parseUserHeader(process.env.USER_EMAIL_HEADER),
-    userFirstNameHeader: parseUserHeader(process.env.USER_FIRST_NAME_HEADER),
-    userLastNameHeader: parseUserHeader(process.env.USER_LAST_NAME_HEADER),
-    port: parsePort(process.env.PORT, DEFAULT_PORT),
-    showSearch: parseBool(process.env.SHOW_SEARCH, true),
-    showStatus: parseBool(process.env.SHOW_STATUS, true),
-    statusBadgeAccess: parseAccess(process.env.STATUS_BADGE_ACCESS),
-    showResourceUsage: parseBool(process.env.SHOW_RESOURCE_USAGE, true),
-    resourceUsageAccess: parseAccess(process.env.RESOURCE_USAGE_ACCESS),
-    metricsDatabasePath: process.env.METRICS_DATABASE_PATH || (process.env.NODE_ENV === 'production' ? '/app/data/metrics.db' : '.astro/metrics.db'),
-    metricsPollIntervalMs: parseInterval(process.env.METRICS_POLL_INTERVAL, 2_000),
-    metricsHistoryPeriodMs: parseInterval(process.env.METRICS_HISTORY_PERIOD, METRICS_HISTORY_PERIOD_MS),
-    statusPollIntervalMs: parseInterval(process.env.STATUS_POLL_INTERVAL, STATUS_POLL_INTERVAL_MS),
-    categoryOrder: parseCategoryOrder(process.env.CATEGORY_ORDER),
-    enableAutomaticDescriptions: parseBool(process.env.ENABLE_AUTOMATIC_DESCRIPTIONS, true),
-    enableAutomaticIcons: parseBool(process.env.ENABLE_AUTOMATIC_ICONS, true),
-    showBranding: parseBool(process.env.SHOW_BRANDING, true),
-    showHeader: parseBool(process.env.SHOW_HEADER, true),
-    showGroupTags: parseBool(process.env.SHOW_GROUP_TAGS, true),
-    showThemeToggle: parseBool(process.env.SHOW_THEME_TOGGLE, true),
-    openInNewTab: parseBool(process.env.NEW_TAB, false),
+    userNameHeader: parseUserHeader(stringValue('USER_NAME_HEADER', settings.userNameHeader)),
+    userUsernameHeader: parseUserHeader(stringValue('USER_USERNAME_HEADER', settings.userUsernameHeader)),
+    userEmailHeader: parseUserHeader(stringValue('USER_EMAIL_HEADER', settings.userEmailHeader)),
+    userFirstNameHeader: parseUserHeader(stringValue('USER_FIRST_NAME_HEADER', settings.userFirstNameHeader)),
+    userLastNameHeader: parseUserHeader(stringValue('USER_LAST_NAME_HEADER', settings.userLastNameHeader)),
+    port: parsePort(settings.port === undefined ? process.env.PORT : String(settings.port), DEFAULT_PORT),
+    showSearch: boolValue('SHOW_SEARCH', settings.showSearch, true),
+    showStatus: boolValue('SHOW_STATUS', settings.showStatus, true),
+    statusBadgeAccess: accessValue('STATUS_BADGE_ACCESS', settings.statusBadgeAccess),
+    showMetrics: boolValue('SHOW_METRICS', settings.showMetrics, true),
+    metricsAccess: accessValue('METRICS_ACCESS', settings.metricsAccess),
+    metricsDatabasePath: stringValue('METRICS_DATABASE_PATH', settings.metricsDatabasePath) || (process.env.NODE_ENV === 'production' ? '/app/data/metrics.db' : '.astro/metrics.db'),
+    metricsPollIntervalMs: intervalValue('METRICS_POLL_INTERVAL', settings.metricsPollInterval, 2_000),
+    metricsHistoryPeriodMs: intervalValue('METRICS_HISTORY_PERIOD', settings.metricsHistoryPeriod, METRICS_HISTORY_PERIOD_MS),
+    statusPollIntervalMs: intervalValue('STATUS_POLL_INTERVAL', settings.statusPollInterval, STATUS_POLL_INTERVAL_MS),
+    categoryOrder,
+    enableAutomaticDescriptions: boolValue('ENABLE_AUTOMATIC_DESCRIPTIONS', settings.enableAutomaticDescriptions, true),
+    enableAutomaticIcons: boolValue('ENABLE_AUTOMATIC_ICONS', settings.enableAutomaticIcons, true),
+    showBranding: boolValue('SHOW_BRANDING', settings.showBranding, true),
+    showHeader: boolValue('SHOW_HEADER', settings.showHeader, true),
+    showGroupTags: boolValue('SHOW_GROUP_TAGS', settings.showGroupTags, true),
+    showThemeToggle: boolValue('SHOW_THEME_TOGGLE', settings.showThemeToggle, true),
+    openInNewTab: boolValue('NEW_TAB', settings.openInNewTab, false),
     customHeader,
-    greetingMorning: optionalString(process.env.GREETING_MORNING),
-    greetingAfternoon: optionalString(process.env.GREETING_AFTERNOON),
-    greetingEvening: optionalString(process.env.GREETING_EVENING)
+    greetingMorning: stringValue('GREETING_MORNING', settings.greetingMorning),
+    greetingAfternoon: stringValue('GREETING_AFTERNOON', settings.greetingAfternoon),
+    greetingEvening: stringValue('GREETING_EVENING', settings.greetingEvening),
+    authToken: resolveSecret(settings.authToken) ?? process.env.AUTH_TOKEN
   }
 }

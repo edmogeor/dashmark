@@ -184,7 +184,7 @@ export function getLatestMetricUsage(cardId: string): ContainerMetricUsage | und
 }
 
 export function startMetricsCollection(config: AppConfig): void {
-  if (collectionStarted || !config.showResourceUsage) return
+  if (collectionStarted || !config.showMetrics) return
   collectionStarted = true
   collectInBackground(config)
   const timer = setInterval(() => collectInBackground(config), config.metricsPollIntervalMs)
