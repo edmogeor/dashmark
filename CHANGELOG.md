@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0-alpha.13] - 2026-08-25
+
+### Added
+
+- Map state metric values to custom badge text with `state_labels`, falling back to the raw value with underscores humanized.
+
+### Changed
+
+- Render state metric badges with the shadcn badge pill, truncating long labels instead of clipping.
+
 ## [0.3.0-alpha.12] - 2026-08-25
 
 ### Fixed

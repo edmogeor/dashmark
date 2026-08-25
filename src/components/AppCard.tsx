@@ -16,6 +16,7 @@ import { getInitials } from '@/lib/initials'
 import { strings } from '@/lib/strings'
 import { useIsDark } from '@/lib/use-is-dark'
 import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart'
+import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { isResourceUsageResponse, type ContainerResources, type CustomMetric, type CustomMetricChart, type CustomMetricStateColor, type CustomMetricUnit, type NumericCustomMetric, type ResourceMetricSample } from '@/lib/status'
 import { RESOURCE_USAGE_POLL_INTERVAL_MS, TOOLTIP_DELAY_MS } from '@/lib/constants'
@@ -510,8 +511,8 @@ function ResourceMetric({ label, value, metricKey, pending = false, onSelect }: 
         onSelect()
       } : undefined}
     >
-      <span className="dashmark-app-resource-metric-label text-muted-foreground">{label}</span>
-      <div className="dashmark-app-resource-metric-value ml-auto min-w-0">
+      <span className="dashmark-app-resource-metric-label min-w-0 truncate text-muted-foreground">{label}</span>
+      <div className="dashmark-app-resource-metric-value ml-auto shrink-0">
         <span className="dashmark-app-resource-metric-number font-medium tabular-nums">{value}</span>
       </div>
     </div>
@@ -566,8 +567,16 @@ function UnavailableResourceMetric({ label, metricKey }: { label: string; metric
   return <ResourceMetric label={label} metricKey={metricKey} value={strings.card.unavailable} pending />
 }
 
-function MetricBadge({ value, color }: { value: string; color: CustomMetricStateColor }) {
-  return <span className={cn('dashmark-custom-metric-badge dashmark-state-badge', `dashmark-state-${color}`)}>{value}</span>
+function formatStateValue(value: string): string {
+  return value.replace(/_/g, ' ')
+}
+
+function MetricBadge({ value, valueLabel, color }: { value: string; valueLabel?: string; color: CustomMetricStateColor }) {
+  return (
+    <Badge className={cn('dashmark-state-badge max-w-full rounded-full', `dashmark-state-${color}`)}>
+      {valueLabel ?? formatStateValue(value)}
+    </Badge>
+  )
 }
 
 function ResourceUsageTooltip({ card, resources, history, historyPeriodMs, customMetrics, loading, onDetailSelect }: {
@@ -710,7 +719,7 @@ function ResourceUsageTooltip({ card, resources, history, historyPeriodMs, custo
             const metric = customMetrics.find(candidate => candidate.key === selectedMetric.key)
             if (!metric) return <UnavailableResourceMetric key={selectedMetric.key} label={selectedMetric.label} metricKey={selectedMetric.key} />
             if (!('unit' in metric)) {
-              return <ResourceMetric key={metric.key} label={metric.label} metricKey={metric.key} value={'color' in metric ? <MetricBadge value={metric.value} color={metric.color} /> : metric.value} />
+              return <ResourceMetric key={metric.key} label={metric.label} metricKey={metric.key} value={'color' in metric ? <MetricBadge value={metric.value} valueLabel={metric.valueLabel} color={metric.color} /> : metric.value} />
             }
             if (metric.chart === 'none') {
               return <ResourceMetric key={metric.key} label={metric.label} metricKey={metric.key} value={formatCustomMetric(metric.value, metric.unit)} />
