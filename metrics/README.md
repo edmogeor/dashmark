@@ -125,6 +125,13 @@ Metric sources may use `{url}` for both metric and login URLs. In Docker,
 Docker labels are visible through Docker APIs and inspect output, so prefer
 environment variables or secret files.
 
+## Choosing an Extractor
+
+Prefer `jq` when the service exposes a JSON REST API: it selects and aggregates
+individual fields precisely. Prefer `prometheus` only when the service natively
+exposes a Prometheus text endpoint (`/metrics`) and no JSON API is available.
+Do not require a separate exporter sidecar just to use `prometheus`.
+
 ## jq Metrics
 
 `jq` expressions select and transform values from JSON responses. Each
@@ -289,6 +296,21 @@ specific validation message. Fetch and extraction failures also display an
 availability toast, omit the metric from the tooltip, and are logged server
 side. Secrets and URL query strings are never included in these logs.
 
+## Limitations
+
+Metric sources are fetched with a plain `GET`. There is no support for POST
+bodies, CSRF handshakes, or token-from-response authentication; only
+cookie-session login (`source.auth`) handles services that need a session. An
+RPC-style endpoint (for example Transmission) or a token returned by a login
+response (for example Pi-hole v6) cannot be collected until those flows are
+supported.
+
+A `{url}`-based metric is omitted when its card has no `url`. When a required
+secret cannot be resolved (for example an unset environment variable), the
+metric reports `Credential ... is unavailable` and is omitted. There is no way
+to express "authenticate only if credentials are present"; a metric that
+declares a header always requires it.
+
 ## Contributing Metrics
 
 You do not need to contribute a metric to use it. To share a reusable metric:
@@ -303,6 +325,16 @@ You do not need to contribute a metric to use it. To share a reusable metric:
 
 The pull request runs `npm run validate:metrics`. Definitions that do not meet
 the schema fail automatically; valid definitions proceed to maintainer review.
+
+Each `.yml` file is self-contained: there is no shared source. Repeat the full
+`source` (and `auth`) block in every metric that needs it. Name secret
+environment variables `DASHMARK_<PROVIDER>_<NAME>`, for example
+`DASHMARK_RADARR_API_KEY`, and expose a per-container override label such as
+`dashmark.metric_api_key`.
+
+`CATALOG.md` is validated strictly against the metric files. Every file must
+have exactly one row, and every row must match a file. List the graph group in
+backticks, or a bare `-` when the metric has no `chart_group`.
 
 The directory path is the metric key. For example,
 `metrics/radarr/active_downloads.yml` becomes `radarr/active_downloads`, which
