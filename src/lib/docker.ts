@@ -822,7 +822,7 @@ export async function getContainerStatuses(
 export type CollectedCustomMetric =
   | { key: string; label: string; unit: Extract<MetricOverride, { valueType: 'number' }>['unit']; chart: Extract<MetricOverride, { valueType: 'number' }>['chart']; chartGroup?: string; value: number }
   | { key: string; label: string; value: string }
-  | { key: string; label: string; color: Extract<MetricOverride, { valueType: 'state' }>['color']; value: string }
+  | { key: string; label: string; color: Extract<MetricOverride, { valueType: 'state' }>['color']; valueLabel?: string; value: string }
 
 export type ContainerMetricUsage = {
   resource?: ContainerResources
@@ -892,7 +892,10 @@ function metricDetails(resolved: ResolvedMetricCard, config: AppConfig, hasConta
 
 function collectedCustomMetric(key: string, metric: MetricOverride, value: number | string): CollectedCustomMetric | undefined {
   if (metric.valueType === 'string' && typeof value === 'string') return { key, label: metric.label, value }
-  if (metric.valueType === 'state' && typeof value === 'string') return { key, label: metric.label, color: metric.stateColors?.[value] ?? metric.color, value }
+  if (metric.valueType === 'state' && typeof value === 'string') {
+    const valueLabel = metric.stateLabels?.[value]
+    return { key, label: metric.label, ...(valueLabel === undefined ? {} : { valueLabel }), color: metric.stateColors?.[value] ?? metric.color, value }
+  }
   if (metric.valueType === 'number' && typeof value === 'number') {
     return { key, label: metric.label, unit: metric.unit, chart: metric.chart, ...(metric.chartGroup === undefined ? {} : { chartGroup: metric.chartGroup }), value }
   }

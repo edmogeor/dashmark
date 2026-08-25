@@ -430,6 +430,21 @@ service:
       label: State
       value_type: state
       color: warning
+      state_colors: { open: success }
+      state_labels: { open: Open now }
+      source: { url: https://service.example.com/status }
+      jq: .state
+    invalid_labels:
+      label: Invalid labels
+      value_type: state
+      color: warning
+      state_labels: { open: '' }
+      source: { url: https://service.example.com/status }
+      jq: .state
+    numeric_labels:
+      label: Numeric labels
+      unit: count
+      state_labels: { open: 'Open now' }
       source: { url: https://service.example.com/status }
       jq: .state
     invalid:
@@ -440,7 +455,9 @@ service:
 `)
 
     const metrics = loadYamlConfig(config).config.services.service?.customMetrics
-    expect(metrics?.state).toMatchObject({ valueType: 'state', color: 'warning' })
+    expect(metrics?.state).toMatchObject({ valueType: 'state', color: 'warning', stateColors: { open: 'success' }, stateLabels: { open: 'Open now' } })
+    expect(metrics?.invalid_labels).toBeUndefined()
+    expect(metrics?.numeric_labels).toBeUndefined()
     expect(metrics?.invalid).toBeUndefined()
   })
 

@@ -138,6 +138,7 @@ export type StateMetricOverride = MetricCommon & {
   valueType: 'state'
   color: CustomMetricStateColor
   stateColors?: Record<string, CustomMetricStateColor>
+  stateLabels?: Record<string, string>
 } & ({ jq: JqMetricExtractor; prometheus?: never; text?: never; forEach?: never } | { prometheus: PrometheusMetricExtractor; jq?: never; text?: never; forEach?: never } | { text: true; jq?: never; prometheus?: never; forEach?: never })
 
 export type MetricOverride = NumericMetricOverride | TextMetricOverride | StateMetricOverride
@@ -333,6 +334,16 @@ function parseMetricStateColors(value: unknown): Record<string, CustomMetricStat
     colors[name] = parsed
   }
   return colors
+}
+
+function parseMetricStateLabels(value: unknown): Record<string, string> | undefined {
+  if (!isRecord(value) || Object.keys(value).length === 0) return undefined
+  const labels: Record<string, string> = {}
+  for (const [name, label] of Object.entries(value)) {
+    if (!name || typeof label !== 'string' || !label.trim() || label.length > 32) return undefined
+    labels[name] = label
+  }
+  return labels
 }
 
 function parseMetricParameters(value: unknown): Record<string, MetricParameter> | undefined {
@@ -670,6 +681,7 @@ function parseCustomMetric(key: string, configuredMetric: unknown, catalog: Reco
   const transform = metric.transform === undefined ? undefined : parseMetricTransform(metric.transform)
   const color = metric.color === undefined ? undefined : parseMetricStateColor(metric.color)
   const stateColors = metric.state_colors === undefined ? undefined : parseMetricStateColors(metric.state_colors)
+  const stateLabels = metric.state_labels === undefined ? undefined : parseMetricStateLabels(metric.state_labels)
   const parameters = metric.parameters === undefined ? undefined : parseMetricParameters(metric.parameters)
   const text = metric.text === true
   const forEach = metric.for_each === undefined ? undefined : parseForEachMetric(metric.for_each)
@@ -692,6 +704,7 @@ function parseCustomMetric(key: string, configuredMetric: unknown, catalog: Reco
   if (metric.transform !== undefined && !transform) return { error: 'transform must define finite multiply and/or add values' }
   if (metric.color !== undefined && !color) return { error: 'color must be success, info, warning, error, or disabled' }
   if (metric.state_colors !== undefined && !stateColors) return { error: 'state_colors must map non-empty values to success, info, warning, error, or disabled' }
+  if (metric.state_labels !== undefined && !stateLabels) return { error: 'state_labels must map non-empty values to display labels of at most 32 characters' }
   if (metric.parameters !== undefined && !parameters) return { error: 'parameters must define named URL-component parameters' }
   if (metric.chart_group !== undefined && (!chartGroup || !/^[a-z][a-z0-9_-]*$/.test(chartGroup))) return { error: 'chart_group must be a lowercase identifier' }
   if ((valueType === 'string' || valueType === 'state') && (metric.unit !== undefined || metric.chart !== undefined || metric.chart_group !== undefined || metric.transform !== undefined || prometheus?.reduce !== undefined || (prometheus && !prometheus.valueLabel))) {
@@ -699,6 +712,7 @@ function parseCustomMetric(key: string, configuredMetric: unknown, catalog: Reco
   }
   if ((valueType === 'number' || valueType === 'string') && color !== undefined) return { error: 'color requires value_type state' }
   if ((valueType === 'number' || valueType === 'string') && stateColors !== undefined) return { error: 'state_colors requires value_type state' }
+  if ((valueType === 'number' || valueType === 'string') && stateLabels !== undefined) return { error: 'state_labels requires value_type state' }
   if (valueType === 'state' && color === undefined) return { error: 'state metrics require a color' }
   if (valueType === 'number' && (!unit || prometheus?.valueLabel !== undefined || (chartGroup !== undefined && chart === 'none'))) {
     return {
@@ -732,7 +746,8 @@ function parseCustomMetric(key: string, configuredMetric: unknown, catalog: Reco
   if (valueType === 'string') return { metric: text ? { ...common, valueType, text: true } : jq ? { ...common, valueType, jq } : { ...common, valueType, prometheus: prometheus! } }
   if (valueType === 'state') {
     const colors = stateColors ? { stateColors } : {}
-    return { metric: text ? { ...common, valueType, color: color!, ...colors, text: true } : jq ? { ...common, valueType, color: color!, ...colors, jq } : { ...common, valueType, color: color!, ...colors, prometheus: prometheus! } }
+    const labels = stateLabels ? { stateLabels } : {}
+    return { metric: text ? { ...common, valueType, color: color!, ...colors, ...labels, text: true } : jq ? { ...common, valueType, color: color!, ...colors, ...labels, jq } : { ...common, valueType, color: color!, ...colors, ...labels, prometheus: prometheus! } }
   }
   const numeric = { ...common, valueType: 'number' as const, unit: unit!, chart, ...(chartGroup === undefined ? {} : { chartGroup }), ...(transform === undefined ? {} : { transform }) }
   return { metric: forEach ? { ...numeric, forEach } : text ? { ...numeric, text: true } : jq ? { ...numeric, jq } : { ...numeric, prometheus: prometheus! } }
