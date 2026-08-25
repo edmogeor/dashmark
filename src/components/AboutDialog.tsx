@@ -44,7 +44,7 @@ export function AboutDialog() {
         </button>
       </DialogTrigger>
       <DialogContent className="max-w-md">
-        <DialogHeader className="items-center text-center sm:items-start sm:text-left">
+        <DialogHeader className="items-center text-center">
           <img src={brandMarkPath} alt="" className="mb-2 h-10 w-10" />
           <DialogTitle>Dashmark</DialogTitle>
           <DialogDescription>A lightweight dashboard of links to your Docker services.</DialogDescription>
