@@ -155,7 +155,8 @@ Each entry under `custom_metrics` needs:
 | `source.headers` / `source.query` | No | Scalar literal values or values referenced from an environment variable, file, or optional literal label. |
 | `source.form` / `source.json` | No | POST request body. JSON supports nested values, secret/token references, and declared `{ parameter: name }` bindings. |
 | `source.auth` | No | HTTP Basic, token-header, or bounded cookie-session authentication. |
-| `jq`, `prometheus`, or `text` | Yes | Exactly one extractor. Set `text: true` for a plain-text response. |
+| `jq`, `prometheus`, `text`, or `for_each` | Yes | Exactly one extractor. Set `text: true` for a plain-text response. |
+| `for_each` | Numeric only | Discovers items, requests each item, extracts a numeric value, and reduces the results. |
 | `unit` | Numeric only | Display unit, defaults to `number`. |
 | `chart` | Numeric only | `step` (default), `line`, `area`, or `none`. |
 | `chart_group` | Numeric only | Lowercase group ID that combines compatible selected metrics into one chart. |
@@ -181,6 +182,33 @@ headers:
   Accept: application/json
   User-Agent: Dashmark metrics
 ```
+
+### Dynamic aggregation
+
+Use `for_each` when a provider exposes totals per library or resource rather
+than a single aggregate endpoint. The source request discovers an array of item
+IDs, and each child request inherits its authentication, headers, and session.
+
+```yaml
+label: Movies
+unit: count
+source:
+  url: "{url}/library/sections"
+for_each:
+  items: '[.MediaContainer.Directory[] | select(.type == "movie") | .key]'
+  request:
+    url: "{url}/library/sections/{item}/all"
+  value: '.MediaContainer.totalSize'
+  reduce: sum
+```
+
+`items` must produce an array of strings or finite numbers. `{item}` is URL
+component encoded before each child GET request. Catalog child request URLs must
+use `{url}` or `{metrics_url}` as their base. Dashmark deduplicates items,
+permits at most 32 child requests, runs four at a time, and treats a failed child,
+invalid value, or empty item set as an unavailable metric rather than reporting
+a partial total. `for_each` is limited to numeric HTTP metrics and cannot be
+nested.
 
 ### HTTP Basic authentication
 

@@ -102,6 +102,13 @@ export type PrometheusMetricExtractor = {
 
 export type JqMetricExtractor = { expression: string }
 
+export type ForEachMetric = {
+  items: JqMetricExtractor
+  requestUrl: string
+  value: JqMetricExtractor
+  reduce: CustomMetricReduction
+}
+
 export type MetricTransform = {
   multiply?: number
   add?: number
@@ -121,16 +128,16 @@ export type NumericMetricOverride = MetricCommon & {
   chart: CustomMetricChart
   chartGroup?: string
   transform?: MetricTransform
-} & ({ jq: JqMetricExtractor; prometheus?: never; text?: never } | { prometheus: PrometheusMetricExtractor; jq?: never; text?: never } | { text: true; jq?: never; prometheus?: never })
+} & ({ jq: JqMetricExtractor; prometheus?: never; text?: never; forEach?: never } | { prometheus: PrometheusMetricExtractor; jq?: never; text?: never; forEach?: never } | { text: true; jq?: never; prometheus?: never; forEach?: never } | { forEach: ForEachMetric; jq?: never; prometheus?: never; text?: never })
 
 export type TextMetricOverride = MetricCommon & {
   valueType: 'string'
-} & ({ jq: JqMetricExtractor; prometheus?: never; text?: never } | { prometheus: PrometheusMetricExtractor; jq?: never; text?: never } | { text: true; jq?: never; prometheus?: never })
+} & ({ jq: JqMetricExtractor; prometheus?: never; text?: never; forEach?: never } | { prometheus: PrometheusMetricExtractor; jq?: never; text?: never; forEach?: never } | { text: true; jq?: never; prometheus?: never; forEach?: never })
 
 export type StateMetricOverride = MetricCommon & {
   valueType: 'state'
   color: CustomMetricStateColor
-} & ({ jq: JqMetricExtractor; prometheus?: never; text?: never } | { prometheus: PrometheusMetricExtractor; jq?: never; text?: never } | { text: true; jq?: never; prometheus?: never })
+} & ({ jq: JqMetricExtractor; prometheus?: never; text?: never; forEach?: never } | { prometheus: PrometheusMetricExtractor; jq?: never; text?: never; forEach?: never } | { text: true; jq?: never; prometheus?: never; forEach?: never })
 
 export type MetricOverride = NumericMetricOverride | TextMetricOverride | StateMetricOverride
 
@@ -382,6 +389,16 @@ function parseJqExtractor(value: unknown): JqMetricExtractor | undefined {
   return expression?.trim() ? { expression } : undefined
 }
 
+function parseForEachMetric(value: unknown): ForEachMetric | undefined {
+  if (!isRecord(value) || Object.keys(value).some(key => !['items', 'request', 'value', 'reduce'].includes(key)) || !isRecord(value.request)) return undefined
+  const items = parseJqExtractor(value.items)
+  const requestUrl = string(value.request.url)
+  const itemValue = parseJqExtractor(value.value)
+  const reduction = parseReduction(value.reduce)
+  if (!items || !requestUrl || !itemValue || !reduction || Object.keys(value.request).some(key => key !== 'url') || !isMetricUrl(requestUrl) || !requestUrl.includes('{item}')) return undefined
+  return { items, requestUrl, value: itemValue, reduce: reduction }
+}
+
 function parseMetricTransform(value: unknown): MetricTransform | undefined {
   if (!isRecord(value)) return undefined
   const multiply = value.multiply
@@ -617,6 +634,7 @@ function parseMetricOverrides(value: unknown, catalog = metricCatalog()): { metr
     const color = metric.color === undefined ? undefined : parseMetricStateColor(metric.color)
     const parameters = metric.parameters === undefined ? undefined : parseMetricParameters(metric.parameters)
     const text = metric.text === true
+    const forEach = metric.for_each === undefined ? undefined : parseForEachMetric(metric.for_each)
     const source = isRecord(metric.source) ? metric.source : undefined
     const url = string(source?.url)
     const transport = source?.transport === undefined ? undefined : string(source.transport)
@@ -642,8 +660,12 @@ function parseMetricOverrides(value: unknown, catalog = metricCatalog()): { metr
       invalid('prometheus.name, labels, reduction, or value_label is invalid')
       continue
     }
-    if (Number(jq !== undefined) + Number(prometheus !== undefined) + Number(text) !== 1) {
-      invalid('define exactly one valid jq, prometheus, or text extractor')
+    if (metric.for_each !== undefined && !forEach) {
+      invalid('for_each requires item and value jq expressions, a child URL containing {item}, and a reduction')
+      continue
+    }
+    if (Number(jq !== undefined) + Number(prometheus !== undefined) + Number(text) + Number(forEach !== undefined) !== 1) {
+      invalid('define exactly one valid jq, prometheus, text, or for_each extractor')
       continue
     }
     if (valueType !== 'number' && valueType !== 'string' && valueType !== 'state') {
@@ -688,6 +710,10 @@ function parseMetricOverrides(value: unknown, catalog = metricCatalog()): { metr
         : 'numeric metrics require a valid unit and cannot use value_label')
       continue
     }
+    if (forEach && (valueType !== 'number' || transport === 'socketio')) {
+      invalid('for_each requires a numeric HTTP metric')
+      continue
+    }
 
     const socketio = transport === 'socketio' ? parseSocketIoSource(source) : {}
     if (socketio.error) {
@@ -728,7 +754,7 @@ function parseMetricOverrides(value: unknown, catalog = metricCatalog()): { metr
     else if (valueType === 'state') metrics[key] = text ? { ...common, valueType, color: color!, text: true } : jq ? { ...common, valueType, color: color!, jq } : { ...common, valueType, color: color!, prometheus: prometheus! }
     else {
       const numeric = { ...common, valueType: 'number' as const, unit: unit!, chart, ...(chartGroup === undefined ? {} : { chartGroup }), ...(transform === undefined ? {} : { transform }) }
-      metrics[key] = text ? { ...numeric, text: true } : jq ? { ...numeric, jq } : { ...numeric, prometheus: prometheus! }
+      metrics[key] = forEach ? { ...numeric, forEach } : text ? { ...numeric, text: true } : jq ? { ...numeric, jq } : { ...numeric, prometheus: prometheus! }
     }
   }
 

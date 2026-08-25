@@ -604,6 +604,8 @@ function resolveMetricSources(
   const resolved = Object.fromEntries(Object.entries(metrics).flatMap(([key, metric]) => {
     const values = metricParameters?.[key]
     if (Object.keys(metric.parameters ?? {}).some(name => values?.[name] === undefined)) return []
+    const forEachUrl = metric.forEach ? resolveUrl(metric.forEach.requestUrl, metric.parameters, values) : undefined
+    if (metric.forEach && !forEachUrl) return []
     const request = resolveRequest({ ...metric.source, method: metric.source.method ?? 'GET' }, metric, values)
     if (!request) return []
     const auth = metric.source.auth
@@ -621,6 +623,7 @@ function resolveMetricSources(
       : undefined
     return [[key, {
       ...metric,
+      ...(metric.forEach && forEachUrl ? { forEach: { ...metric.forEach, requestUrl: forEachUrl } } : {}),
       source: {
         ...request,
         ...(metric.source.transport ? { transport: metric.source.transport } : {}),

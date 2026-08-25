@@ -16,6 +16,7 @@ type MetricDefinition = {
   transform?: { multiply?: number; add?: number }
   jq?: string
   text?: true
+  for_each?: { items: string; request: { url: string }; value: string; reduce: 'count' | 'sum' | 'average' | 'minimum' | 'maximum' }
   parameters?: Record<string, { type: 'url_component' | 'json_value' }>
   source: {
     url: string
@@ -40,7 +41,7 @@ function resolveParameterValues(value: unknown, values: Record<string, string>):
 }
 
 function resolveUrl(url: string, baseUrl: string, values: Record<string, string>): string {
-  return url.replace('{url}', baseUrl).replace('{metrics_url}', baseUrl).replace(/\{([a-z][a-z0-9_]*)\}/g, (_, name: string) => encodeURIComponent(values[name] ?? `{${name}}`))
+  return url.replace('{url}', baseUrl).replace('{metrics_url}', baseUrl).replace(/\{([a-z][a-z0-9_]*)\}/g, (_, name: string) => values[name] === undefined ? `{${name}}` : encodeURIComponent(values[name]))
 }
 
 function loadMetric(definitionUrl: URL, baseUrl: string): MetricOverride {
@@ -84,7 +85,9 @@ function loadMetric(definitionUrl: URL, baseUrl: string): MetricOverride {
           }
         : {})
     },
-    ...(definition.text ? { text: true } : { jq: { expression: definition.jq! } }),
+    ...(definition.for_each
+      ? { forEach: { items: { expression: definition.for_each.items }, requestUrl: resolveUrl(definition.for_each.request.url, baseUrl, parameters), value: { expression: definition.for_each.value }, reduce: definition.for_each.reduce } }
+      : definition.text ? { text: true } : { jq: { expression: definition.jq! } }),
     ...(definition.color ? { color: definition.color } : {})
   } as MetricOverride
 }
@@ -122,6 +125,12 @@ export async function expectFixtureMetric(definitionUrl: URL, fixture: unknown, 
       return
     }
 
+    if (definition.for_each && request.url !== expectedPath) {
+      expect(request.headers['x-plex-token']).toBe('test-secret')
+      response.setHeader('Content-Type', 'application/json')
+      response.end(JSON.stringify({ MediaContainer: { totalSize: 2 } }))
+      return
+    }
     expect(request.url).toBe(expectedPath)
     if (requiresCookieSession) expect(request.headers.cookie).toContain('metric-session=active')
     if (requiresBasicAuth) expect(request.headers.authorization).toBe(`Basic ${Buffer.from('test-username:test-password').toString('base64')}`)

@@ -1,0 +1,16 @@
+label: Movies
+unit: count
+chart: step
+source:
+  url: "{url}/library/sections"
+  headers:
+    Accept: application/json
+    X-Plex-Token:
+      env: DASHMARK_PLEX_TOKEN
+      label: dashmark.metric_token
+for_each:
+  items: '[.MediaContainer.Directory[] | select(.type == "movie") | .key]'
+  request:
+    url: "{url}/library/sections/{item}/all"
+  value: '.MediaContainer.totalSize'
+  reduce: sum

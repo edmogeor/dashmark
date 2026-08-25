@@ -88,6 +88,17 @@ function validateParameters(parameters) {
   }
 }
 
+function validateForEach(forEach) {
+  const value = record(forEach, 'for_each must be a mapping')
+  allowed(value, new Set(['items', 'request', 'value', 'reduce']), 'for_each')
+  if (typeof value.items !== 'string' || !value.items.trim()) throw new Error('for_each.items must be a non-empty jq expression')
+  if (typeof value.value !== 'string' || !value.value.trim()) throw new Error('for_each.value must be a non-empty jq expression')
+  if (typeof value.reduce !== 'string' || !reductions.has(value.reduce)) throw new Error('for_each.reduce is invalid')
+  const request = record(value.request, 'for_each.request must be a mapping')
+  allowed(request, new Set(['url']), 'for_each.request')
+  if (typeof request.url !== 'string' || !sourceBase.test(request.url) || !request.url.includes('{item}')) throw new Error('for_each.request.url must begin with {url} or {metrics_url} and contain {item}')
+}
+
 function validateSource(source) {
   const value = record(source, 'source must be a mapping')
   if (value.transport === 'socketio') return validateSocketIoSource(value)
@@ -219,15 +230,16 @@ function validate(file) {
   const definition = record(yaml.load(fs.readFileSync(file, 'utf8')), 'must contain a YAML mapping')
   const shape = metricShape.safeParse(definition)
   if (!shape.success) throw new Error('label must be a non-empty string and value_type must be number, string, or state')
-  allowed(definition, new Set(['label', 'source', 'unit', 'chart', 'chart_group', 'transform', 'color', 'value_type', 'jq', 'prometheus', 'text', 'parameters']), 'metric definition')
+  allowed(definition, new Set(['label', 'source', 'unit', 'chart', 'chart_group', 'transform', 'color', 'value_type', 'jq', 'prometheus', 'text', 'parameters', 'for_each']), 'metric definition')
   if (typeof definition.label !== 'string' || !definition.label.trim()) throw new Error('label must be a non-empty string')
   const valueType = definition.value_type ?? 'number'
   if (valueType !== 'number' && valueType !== 'string' && valueType !== 'state') throw new Error('value_type must be number, string, or state')
   const hasJq = definition.jq !== undefined
   const hasPrometheus = definition.prometheus !== undefined
   const hasText = definition.text === true
+  const hasForEach = definition.for_each !== undefined
   if (definition.text !== undefined && !hasText) throw new Error('text must be true when specified')
-  if (Number(hasJq) + Number(hasPrometheus) + Number(hasText) !== 1) throw new Error('must define exactly one jq, prometheus, or text extractor')
+  if (Number(hasJq) + Number(hasPrometheus) + Number(hasText) + Number(hasForEach) !== 1) throw new Error('must define exactly one jq, prometheus, text, or for_each extractor')
 
   if (valueType === 'number') {
     validateUnit(definition.unit ?? 'number')
@@ -253,6 +265,10 @@ function validate(file) {
   if (hasPrometheus) {
     const extractor = record(definition.prometheus, 'prometheus must be a mapping')
     validatePrometheus(extractor, valueType)
+  }
+  if (hasForEach) {
+    if (valueType !== 'number' || definition.source?.transport === 'socketio') throw new Error('for_each requires a numeric HTTP metric')
+    validateForEach(definition.for_each)
   }
   if (definition.parameters !== undefined) validateParameters(definition.parameters)
   if (definition.source !== undefined) validateSource(definition.source)

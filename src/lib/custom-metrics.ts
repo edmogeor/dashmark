@@ -10,6 +10,8 @@ import { logger } from './logger'
 
 const REQUEST_TIMEOUT_MS = 5_000
 const MAX_RESPONSE_BYTES = 1_048_576
+const MAX_FOR_EACH_ITEMS = 32
+const FOR_EACH_CONCURRENCY = 4
 const cookieJars = new Map<string, CookieJar>()
 
 export type MetricResult = { value: number | string } | { error: string }
@@ -50,6 +52,40 @@ async function extractJq(key: string, text: string, metric: MetricOverride): Pro
     return unavailable(key, 'response is not valid JSON')
   }
   return extractJqValue(key, document, metric)
+}
+
+async function collectForEachMetric(key: string, text: string, metric: MetricOverride, headers: Headers, cookieJar: CookieJar): Promise<MetricResult> {
+  const forEach = metric.forEach
+  if (!forEach) return unavailable(key, 'for_each extractor was not configured')
+
+  try {
+    const document = JSON.parse(text) as JsonInput
+    const extracted = await jq.run(forEach.items.expression, document, { input: 'json', output: 'json' })
+    if (!Array.isArray(extracted) || !extracted.every(item => typeof item === 'string' || (typeof item === 'number' && Number.isFinite(item)))) {
+      return unavailable(key, 'for_each item extraction did not produce an array of strings or finite numbers')
+    }
+    const items = [...new Set(extracted.map(String))]
+    if (items.length === 0) return unavailable(key, 'for_each item extraction did not produce any items')
+    if (items.length > MAX_FOR_EACH_ITEMS) return unavailable(key, `for_each item extraction exceeded the ${MAX_FOR_EACH_ITEMS} item limit`)
+
+    const values: number[] = []
+    for (let index = 0; index < items.length; index += FOR_EACH_CONCURRENCY) {
+      const batch = await Promise.all(items.slice(index, index + FOR_EACH_CONCURRENCY).map(async item => {
+        const url = new URL(forEach.requestUrl.replaceAll('{item}', encodeURIComponent(item)))
+        const response = await requestText(url, new Headers(headers), cookieJar, 'GET')
+        if (response.status < 200 || response.status >= 300) throw new Error(`child request returned HTTP ${response.status}`)
+        const childDocument = JSON.parse(response.text) as JsonInput
+        const value = await jq.run(forEach.value.expression, childDocument, { input: 'json', output: 'json' })
+        if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error('child value extraction did not produce a finite number')
+        return value
+      }))
+      values.push(...batch)
+    }
+    const value = reduce(values, forEach.reduce)
+    return value === undefined ? unavailable(key, 'for_each reduction did not produce a value') : { value }
+  } catch {
+    return unavailable(key, 'for_each collection failed')
+  }
 }
 
 function extractText(key: string, text: string, metric: MetricOverride): MetricResult {
@@ -402,7 +438,9 @@ export async function collectCustomMetric(key: string, metric: MetricOverride): 
       logger.error('metrics', 'custom metric source returned an error', { key, url: url.origin + url.pathname, status: response.status })
       return { error: `Source returned HTTP ${response.status}` }
     }
-    const result = metric.text ? extractText(key, response.text, metric) : 'jq' in metric ? await extractJq(key, response.text, metric) : extractPrometheus(key, response.text, metric)
+    const result = metric.forEach
+      ? await collectForEachMetric(key, response.text, metric, headers, cookieJar)
+      : metric.text ? extractText(key, response.text, metric) : 'jq' in metric ? await extractJq(key, response.text, metric) : extractPrometheus(key, response.text, metric)
     return transform(key, result, metric)
   } catch (error) {
     const detail = error instanceof Error ? error.name : 'unknown error'

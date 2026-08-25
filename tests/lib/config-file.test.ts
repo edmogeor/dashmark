@@ -479,6 +479,44 @@ service:
     })
   })
 
+  it('parses numeric for_each metrics with bounded child request definitions', () => {
+    const config = getConfig()
+    config.configFile = writeConfig(`
+service:
+  custom_metrics:
+    library:
+      label: Library items
+      unit: count
+      source: { url: https://service.example.com/sections }
+      for_each:
+        items: '[.sections[] | .id]'
+        request: { url: 'https://service.example.com/sections/{item}/items' }
+        value: .total
+        reduce: sum
+    invalid:
+      label: Invalid
+      value_type: string
+      source: { url: https://service.example.com/sections }
+      for_each:
+        items: .sections
+        request: { url: 'https://service.example.com/sections/items' }
+        value: .total
+        reduce: sum
+`)
+
+    const metrics = loadYamlConfig(config).config.services.service?.customMetrics
+    expect(metrics?.library).toMatchObject({
+      valueType: 'number', unit: 'count',
+      forEach: {
+        items: { expression: '[.sections[] | .id]' },
+        requestUrl: 'https://service.example.com/sections/{item}/items',
+        value: { expression: '.total' },
+        reduce: 'sum'
+      }
+    })
+    expect(metrics?.invalid).toBeUndefined()
+  })
+
   it('supports text metrics and custom numeric suffixes', () => {
     const config = getConfig()
     config.configFile = writeConfig(`

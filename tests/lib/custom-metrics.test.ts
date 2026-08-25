@@ -12,6 +12,7 @@ let loginRequests: { body: string; cookie: string }[] = []
 let socketServer: SocketIoServer
 let socketEvents: { event: string; args: unknown[] }[] = []
 let socketHeaders: Record<string, string | string[] | undefined>[] = []
+let forEachRequests: string[] = []
 
 beforeAll(async () => {
   server = createServer((request, response) => {
@@ -93,6 +94,16 @@ beforeAll(async () => {
       })
       return
     }
+    if (path === '/for-each/discover') {
+      response.end(JSON.stringify({ ids: ['movie', 'music / 1', 'movie'] }))
+      return
+    }
+    if (path.startsWith('/for-each/')) {
+      forEachRequests.push(path)
+      response.statusCode = request.headers.authorization === 'Bearer aggregate-token' ? 200 : 401
+      response.end(JSON.stringify({ total: path === '/for-each/movie' ? 2 : 3 }))
+      return
+    }
     const responses: Record<string, string> = {
       '/data': '{"stats":{"value":12.5}}',
       '/sum': '{"items":[{"value":2},{"value":3}]}',
@@ -137,6 +148,21 @@ describe('collectCustomMetric', () => {
   it('extracts scalar and aggregated JSON values with jq', async () => {
     await expect(collectCustomMetric('scalar', metric({ jq: { expression: '.stats.value' } }))).resolves.toEqual({ value: 12.5 })
     await expect(collectCustomMetric('sum', { ...metric({ jq: { expression: '[.items[].value] | add' } }), source: { url: `${baseUrl}/sum` } })).resolves.toEqual({ value: 5 })
+  })
+
+  it('collects bounded, encoded child requests and reduces their numeric values', async () => {
+    forEachRequests = []
+    await expect(collectCustomMetric('for-each', {
+      label: 'Library items', valueType: 'number', unit: 'count', chart: 'step',
+      source: { url: `${baseUrl}/for-each/discover`, auth: { type: 'token', header: 'Authorization', prefix: 'Bearer ', value: { value: 'aggregate-token' } } },
+      forEach: {
+        items: { expression: '.ids' },
+        requestUrl: `${baseUrl}/for-each/{item}`,
+        value: { expression: '.total' },
+        reduce: 'sum'
+      }
+    })).resolves.toEqual({ value: 5 })
+    expect(forEachRequests.sort()).toEqual(['/for-each/movie', '/for-each/music%20%2F%201'])
   })
 
   it('applies numeric transforms after extraction', async () => {
