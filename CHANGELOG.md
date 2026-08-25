@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0-alpha.12] - 2026-08-25
+
+### Fixed
+
+- Bind all catalog metric sources to the `{metrics_url}` base so `dashmark.metrics_url` can redirect collection to a private API base behind authenticated reverse proxies.
+
+### Changed
+
+- Persist error toasts until dismissed, with a close button and a two-second debounce, matching the server-disconnect toast.
+- Center the About dialog header.
+
 ## [0.3.0-alpha.11] - 2026-08-25
 
 ### Added
