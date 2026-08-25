@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0-alpha.8] - 2026-08-25
+
+### Fixed
+
+- Mock icon resolution in Docker unit tests to avoid external selfh.st requests in CI.
+
 ## [0.3.0-alpha.7] - 2026-08-25
 
 ### Added

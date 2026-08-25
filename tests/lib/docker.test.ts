@@ -10,6 +10,10 @@ vi.mock('@/lib/descriptions', () => ({
   resolveDescription: vi.fn(() => 'Automatic description')
 }))
 
+vi.mock('@/lib/icons', () => ({
+  resolveIcon: vi.fn(async () => ({ type: 'placeholder', initials: 'D' }))
+}))
+
 const tempDirectories: string[] = []
 
 function writeTempConfig(content: string): string {
