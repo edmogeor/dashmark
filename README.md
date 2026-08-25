@@ -32,6 +32,7 @@ Dashmark discovers labeled Docker containers and turns them into dashboard cards
 - [Security](#security)
 - [Development](#development)
 - [Donations](#donations)
+- [AI assistance](#ai-assistance)
 - [License](#license)
 
 ## Features
@@ -414,6 +415,10 @@ Contributions are welcome. Please open an issue or pull request with a clear des
 Feel free to donate if you'd like to support the development of Dashmark.
 
 <a href="https://www.buymeacoffee.com/edmogeor" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;"></a>
+
+## AI assistance
+
+Dashmark is developed with assistance from AI tools. The maintainer reviews and remains responsible for all changes.
 
 ## Thanks
 

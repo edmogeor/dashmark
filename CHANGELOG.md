@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0-alpha.7] - 2026-08-25
+
+### Added
+
+- Disclose AI-assisted development in the README.
+
+### Fixed
+
+- Close mock Docker server connections during test teardown to prevent CI timeouts.
+
 ## [0.3.0-alpha.6] - 2026-08-25
 
 - Add an About dialog from the Dashmark logo with version, update, GitHub, and Buy Me a Coffee links.
