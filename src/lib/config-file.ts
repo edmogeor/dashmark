@@ -14,24 +14,46 @@ export type ServiceOverrides = Partial<ParsedLabels> & {
 }
 
 type MetricSecretReference = { env?: string; file?: string; label?: string; value?: string }
+type MetricTokenReference = { token: string }
+type MetricValueReference = MetricSecretReference | MetricTokenReference
+
+type MetricTokenExtractor =
+  | { cheerio: { selector: string; attribute?: string } }
+  | { jq: string }
+
+type MetricHttpRequest = {
+  url: string
+  method?: 'GET' | 'POST'
+  headers?: Record<string, MetricValueReference>
+  query?: Record<string, MetricValueReference>
+  form?: Record<string, MetricValueReference>
+  json?: Record<string, MetricValueReference>
+  extract?: Record<string, MetricTokenExtractor>
+}
+
+type SocketIoArgument = string | number | boolean | MetricSecretReference
+
+type SocketIoMetricSource = {
+  auth?: Record<string, MetricValueReference>
+  login?: { event: string; args?: SocketIoArgument[] }
+  request: { event: string; args?: SocketIoArgument[] }
+}
 
 type MetricSourceOverride = {
   url: string
-  headers?: Record<string, MetricSecretReference>
-  query?: Record<string, MetricSecretReference>
+  method?: 'GET' | 'POST'
+  transport?: 'socketio'
+  headers?: Record<string, MetricValueReference>
+  query?: Record<string, MetricValueReference>
+  form?: Record<string, MetricValueReference>
+  json?: Record<string, MetricValueReference>
   auth?: CookieSessionMetricAuth
+  socketio?: SocketIoMetricSource
 }
 
 type CookieSessionMetricAuth = {
   type: 'cookie_session'
-  login: {
-    url: string
-    method: 'POST'
-    form?: Record<string, MetricSecretReference>
-    json?: Record<string, MetricSecretReference>
-    headers?: Record<string, MetricSecretReference>
-    query?: Record<string, MetricSecretReference>
-  }
+  steps: MetricHttpRequest[]
 }
 
 const CUSTOM_METRIC_UNITS = [
@@ -144,7 +166,7 @@ const SETTINGS_FIELDS = new Set([
   'show_theme_toggle', 'new_tab', 'custom_header', 'greeting_morning', 'greeting_afternoon', 'greeting_evening', 'auth_token'
 ])
 const SERVICE_FIELDS = new Set([
-  'title', 'description', 'url', 'icon', 'category', 'order', 'hidden', 'show_status', 'metrics', 'metric_provider',
+  'title', 'description', 'url', 'icon', 'category', 'order', 'hidden', 'show_status', 'metrics', 'metric_providers',
   'metrics_poll_interval', 'metrics_history_period', 'metrics_access', 'access', 'search_aliases', 'custom_metrics'
 ])
 
@@ -266,9 +288,11 @@ function isMetricUrl(value: string): boolean {
   return isHttpUrl(value) || /^\{url\}(?:\/|$)/.test(value)
 }
 
-function metricProvider(value: unknown): string | undefined {
-  const provider = string(value)
-  return provider !== undefined && /^[a-z][a-z0-9_-]*$/.test(provider) ? provider : undefined
+function metricProviders(value: unknown): string[] | undefined {
+  const providers = stringList(value)
+  return providers && providers.length > 0 && providers.every(provider => /^[a-z][a-z0-9_-]*$/.test(provider))
+    ? [...new Set(providers)]
+    : undefined
 }
 
 function parsePrometheusExtractor(value: unknown): PrometheusMetricExtractor | undefined {
@@ -330,68 +354,132 @@ function metricCatalog(): Record<string, Record<string, unknown>> {
   }
 }
 
-function parseMetricHeaders(source: Record<string, unknown>): { headers?: Record<string, MetricSecretReference>; query?: Record<string, MetricSecretReference>; error?: string } {
-  const references = (value: unknown, kind: string): { values?: Record<string, MetricSecretReference>; error?: string } => {
+function parseMetricHeaders(source: Record<string, unknown>): { headers?: Record<string, MetricValueReference>; query?: Record<string, MetricValueReference>; error?: string } {
+  const references = (value: unknown, kind: string): { values?: Record<string, MetricValueReference>; error?: string } => {
     if (value === undefined) return {}
     if (!isRecord(value)) return { error: `${kind} must be a mapping` }
-    const values: Record<string, MetricSecretReference> = {}
+    const values: Record<string, MetricValueReference> = {}
     for (const [name, reference] of Object.entries(value)) {
-      const secret = parseSecretReference(reference)
-      if (!secret || !name) return { error: `${kind} must use valid names and env, file, or label references` }
-      values[name] = secret
+      const value = parseValueReference(reference)
+      if (!value || !name) return { error: `${kind} must use valid names and secret or token references` }
+      values[name] = value
     }
     return { values }
   }
 
   const headers = references(source.headers, 'headers')
-  if (headers.error || (headers.values && !Object.keys(headers.values).every(header => /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(header)))) return { error: headers.error ?? 'headers must use valid names and env, file, or label references' }
+  if (headers.error || (headers.values && !Object.keys(headers.values).every(header => /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(header)))) return { error: headers.error ?? 'headers must use valid names and secret or token references' }
   const query = references(source.query, 'query')
   if (query.error) return { error: query.error }
   return { ...(headers.values && Object.keys(headers.values).length > 0 ? { headers: headers.values } : {}), ...(query.values && Object.keys(query.values).length > 0 ? { query: query.values } : {}) }
 }
 
-function parseCookieSessionAuth(value: unknown): { auth?: CookieSessionMetricAuth; error?: string } {
-  if (value === undefined) return {}
-  if (!isRecord(value) || value.type !== 'cookie_session' || !isRecord(value.login)) {
-    return { error: 'source.auth must define type cookie_session and a login mapping' }
+function parseValueReference(value: unknown): MetricValueReference | undefined {
+  const secret = parseSecretReference(value)
+  if (secret) return secret
+  if (!isRecord(value) || typeof value.token !== 'string' || !/^[a-z][a-z0-9_-]*$/.test(value.token) || Object.keys(value).length !== 1) return undefined
+  return { token: value.token }
+}
+
+const MAX_AUTH_STEPS = 5
+const MAX_EXTRACTED_TOKENS = 16
+
+function parseMetricRequest(value: unknown, path: string): { request?: MetricHttpRequest; error?: string } {
+  if (!isRecord(value) || Object.keys(value).some(key => !['url', 'method', 'headers', 'query', 'form', 'json', 'extract'].includes(key))) {
+    return { error: `${path} contains an unknown configuration key` }
   }
-  const login = value.login
-  if (!['type', 'login'].every(key => key in value) || Object.keys(value).some(key => !['type', 'login'].includes(key))
-    || Object.keys(login).some(key => !['url', 'method', 'form', 'json', 'headers', 'query'].includes(key))) {
-    return { error: 'source.auth contains an unknown configuration key' }
-  }
-  const url = string(login.url)
-  if (!url || !isMetricUrl(url)) return { error: 'source.auth.login.url must use HTTP or HTTPS, or begin with {url}' }
-  if (login.method !== 'POST') return { error: 'source.auth.login.method must be POST' }
-  const parseBody = (body: unknown, kind: string): { values?: Record<string, MetricSecretReference>; error?: string } => {
-    if (!isRecord(body) || Object.keys(body).length === 0) return { error: `source.auth.login.${kind} must be a non-empty mapping of secret references` }
-    const values: Record<string, MetricSecretReference> = {}
+  const url = string(value.url)
+  if (!url || !isMetricUrl(url)) return { error: `${path}.url must use HTTP or HTTPS, or begin with {url}` }
+  const method = value.method === undefined ? 'GET' : string(value.method)
+  if (method !== 'GET' && method !== 'POST') return { error: `${path}.method must be GET or POST` }
+  if (method === 'GET' && (value.form !== undefined || value.json !== undefined)) return { error: `${path} GET requests cannot define form or json` }
+  if (method === 'POST' && Number(value.form !== undefined) + Number(value.json !== undefined) > 1) return { error: `${path} must define at most one form or json body` }
+  const { headers, query, error } = parseMetricHeaders(value)
+  if (error) return { error: `${path}.${error}` }
+  const parseBody = (body: unknown, kind: string): { values?: Record<string, MetricValueReference>; error?: string } => {
+    if (body === undefined) return {}
+    if (!isRecord(body) || Object.keys(body).length === 0) return { error: `${path}.${kind} must be a non-empty mapping of secret or token references` }
+    const values: Record<string, MetricValueReference> = {}
     for (const [name, reference] of Object.entries(body)) {
-      const secret = parseSecretReference(reference)
-      if (!name || !secret) return { error: `source.auth.login.${kind} must be a non-empty mapping of secret references` }
-      values[name] = secret
+      const parsed = parseValueReference(reference)
+      if (!name || !parsed) return { error: `${path}.${kind} must be a non-empty mapping of secret or token references` }
+      values[name] = parsed
     }
     return { values }
   }
-  if (Number(login.form !== undefined) + Number(login.json !== undefined) !== 1) {
-    return { error: 'source.auth.login must define exactly one form or json body mapping' }
-  }
-  const form = login.form === undefined ? {} : parseBody(login.form, 'form')
-  const json = login.json === undefined ? {} : parseBody(login.json, 'json')
+  const form = parseBody(value.form, 'form')
+  const json = parseBody(value.json, 'json')
   if (form.error || json.error) return { error: form.error ?? json.error }
-  const { headers, query, error } = parseMetricHeaders(login)
-  if (error) return { error: `source.auth.login.${error}` }
+  let extract: Record<string, MetricTokenExtractor> | undefined
+  if (value.extract !== undefined) {
+    if (!isRecord(value.extract) || Object.keys(value.extract).length === 0 || Object.keys(value.extract).length > MAX_EXTRACTED_TOKENS) return { error: `${path}.extract must define between 1 and ${MAX_EXTRACTED_TOKENS} tokens` }
+    extract = {}
+    for (const [name, extractor] of Object.entries(value.extract)) {
+      if (!/^[a-z][a-z0-9_-]*$/.test(name) || !isRecord(extractor) || Object.keys(extractor).length !== 1) return { error: `${path}.extract must use valid token names and one extractor` }
+      if (typeof extractor.jq === 'string' && extractor.jq.trim()) extract[name] = { jq: extractor.jq }
+      else if (isRecord(extractor.cheerio) && typeof extractor.cheerio.selector === 'string' && extractor.cheerio.selector.trim() && extractor.cheerio.selector.length <= 256 && (extractor.cheerio.attribute === undefined || typeof extractor.cheerio.attribute === 'string')) {
+        extract[name] = { cheerio: { selector: extractor.cheerio.selector, ...(typeof extractor.cheerio.attribute === 'string' ? { attribute: extractor.cheerio.attribute } : {}) } }
+      } else return { error: `${path}.extract.${name} must define jq or a bounded cheerio selector` }
+    }
+  }
+  return { request: { url, ...(value.method === undefined ? {} : { method }), ...(headers ? { headers } : {}), ...(query ? { query } : {}), ...(form.values ? { form: form.values } : {}), ...(json.values ? { json: json.values } : {}), ...(extract ? { extract } : {}) } }
+}
+
+function parseCookieSessionAuth(value: unknown): { auth?: CookieSessionMetricAuth; error?: string } {
+  if (value === undefined) return {}
+  if (!isRecord(value) || value.type !== 'cookie_session' || Object.keys(value).some(key => !['type', 'steps', 'login'].includes(key))) return { error: 'source.auth must define type cookie_session and a steps list' }
+  const configuredSteps = Array.isArray(value.steps) ? value.steps : value.login === undefined ? undefined : [value.login]
+  if (!configuredSteps || configuredSteps.length === 0 || configuredSteps.length > MAX_AUTH_STEPS) return { error: `source.auth.steps must contain between 1 and ${MAX_AUTH_STEPS} requests` }
+  const steps: MetricHttpRequest[] = []
+  for (const [index, step] of configuredSteps.entries()) {
+    const parsed = parseMetricRequest(step, `source.auth.steps.${index}`)
+    if (parsed.error || !parsed.request) return { error: parsed.error ?? 'source.auth step is invalid' }
+    steps.push(parsed.request)
+  }
+  return { auth: { type: 'cookie_session', steps } }
+}
+
+function parseSocketIoArguments(value: unknown, path: string): { args?: SocketIoArgument[]; error?: string } {
+  if (value === undefined) return {}
+  if (!Array.isArray(value)) return { error: `${path} must be a list of strings, numbers, booleans, or secret references` }
+  const args: SocketIoArgument[] = []
+  for (const argument of value) {
+    if (typeof argument === 'string' || typeof argument === 'boolean' || (typeof argument === 'number' && Number.isFinite(argument))) {
+      args.push(argument)
+      continue
+    }
+    const secret = parseSecretReference(argument)
+    if (!secret) return { error: `${path} must be a list of strings, numbers, booleans, or secret references` }
+    args.push(secret)
+  }
+  return args.length > 0 ? { args } : {}
+}
+
+function parseSocketIoEvent(value: unknown, path: string, requireArgs = false): { event?: { event: string; args?: SocketIoArgument[] }; error?: string } {
+  if (!isRecord(value) || typeof value.event !== 'string' || !value.event || Object.keys(value).some(key => !['event', 'args'].includes(key))) {
+    return { error: `${path} must define an event name and optional arguments` }
+  }
+  if (requireArgs && value.args === undefined) return { error: `${path}.args is required` }
+  const { args, error } = parseSocketIoArguments(value.args, `${path}.args`)
+  return error ? { error } : { event: { event: value.event, ...(args ? { args } : {}) } }
+}
+
+function parseSocketIoSource(value: unknown): { socketio?: SocketIoMetricSource; error?: string } {
+  if (!isRecord(value) || !isRecord(value.socketio)) return { error: 'source.socketio must define a request event' }
+  if (Object.keys(value).some(key => !['url', 'transport', 'socketio'].includes(key))) return { error: 'Socket.IO sources only support url, transport, and socketio' }
+  const socketio = value.socketio
+  if (Object.keys(socketio).some(key => !['auth', 'login', 'request'].includes(key))) return { error: 'source.socketio contains an unknown configuration key' }
+  const auth = socketio.auth === undefined ? {} : parseMetricHeaders({ headers: socketio.auth })
+  if (auth.error) return { error: `source.socketio.auth ${auth.error}` }
+  const login = socketio.login === undefined ? {} : parseSocketIoEvent(socketio.login, 'source.socketio.login')
+  if (login.error) return { error: login.error }
+  const request = parseSocketIoEvent(socketio.request, 'source.socketio.request')
+  if (request.error || !request.event) return { error: request.error ?? 'source.socketio.request is required' }
   return {
-    auth: {
-      type: 'cookie_session',
-      login: {
-        url,
-        method: 'POST',
-        ...(form.values ? { form: form.values } : {}),
-        ...(json.values ? { json: json.values } : {}),
-        ...(headers ? { headers } : {}),
-        ...(query ? { query } : {})
-      }
+    socketio: {
+      ...(auth.headers ? { auth: auth.headers } : {}),
+      ...(login.event ? { login: login.event } : {}),
+      request: request.event
     }
   }
 }
@@ -419,6 +507,7 @@ function parseMetricOverrides(value: unknown, catalog = metricCatalog()): { metr
     const transform = metric.transform === undefined ? undefined : parseMetricTransform(metric.transform)
     const source = isRecord(metric.source) ? metric.source : undefined
     const url = string(source?.url)
+    const transport = source?.transport === undefined ? undefined : string(source.transport)
     const jq = parseJqExtractor(metric.jq)
     const prometheus = parsePrometheusExtractor(metric.prometheus)
     if (!label) {
@@ -431,6 +520,10 @@ function parseMetricOverrides(value: unknown, catalog = metricCatalog()): { metr
     }
     if (!isMetricUrl(url)) {
       invalid('source.url must use HTTP or HTTPS, or begin with {url}')
+      continue
+    }
+    if (transport !== undefined && transport !== 'socketio') {
+      invalid('source.transport must be socketio when specified')
       continue
     }
     if (metric.prometheus !== undefined && !prometheus) {
@@ -468,18 +561,35 @@ function parseMetricOverrides(value: unknown, catalog = metricCatalog()): { metr
       continue
     }
 
-    const { headers, query, error } = parseMetricHeaders(source)
-    if (error) {
-      invalid(error)
+    const socketio = transport === 'socketio' ? parseSocketIoSource(source) : {}
+    if (socketio.error) {
+      invalid(socketio.error)
       continue
     }
-    const { auth, error: authError } = parseCookieSessionAuth(source.auth)
+    if (transport === 'socketio' && prometheus) {
+      invalid('Socket.IO sources require a jq extractor')
+      continue
+    }
+    const sourceRequest = transport === 'socketio' ? {} : parseMetricRequest(
+      Object.fromEntries(Object.entries(source).filter(([key]) => key !== 'auth')),
+      'source'
+    )
+    if (sourceRequest.error || (transport !== 'socketio' && !sourceRequest.request)) {
+      invalid(sourceRequest.error ?? 'source is invalid')
+      continue
+    }
+    const { auth, error: authError } = transport === 'socketio' ? {} : parseCookieSessionAuth(source.auth)
     if (authError) {
       invalid(authError)
       continue
     }
 
-    const common = { label, source: { url, ...(headers ? { headers } : {}), ...(query ? { query } : {}), ...(auth ? { auth } : {}) } }
+    const common = {
+      label,
+      source: transport === 'socketio'
+        ? { url, transport: 'socketio' as const, socketio: socketio.socketio! }
+        : { ...sourceRequest.request!, ...(auth ? { auth } : {}) }
+    }
     if (valueType === 'string') metrics[key] = jq ? { ...common, valueType, jq } : { ...common, valueType, prometheus: prometheus! }
     else {
       const numeric = { ...common, valueType: 'number' as const, unit: unit!, chart, ...(chartGroup === undefined ? {} : { chartGroup }), ...(transform === undefined ? {} : { transform }) }
@@ -522,11 +632,11 @@ export function loadMetricCatalog(): ServiceMetricOverrides {
 function parseService(value: unknown, path: string): ServiceOverrides {
   if (!isRecord(value)) invalid(path, 'a mapping')
   validateKnownFields(value, SERVICE_FIELDS, path)
-  for (const key of ['title', 'description', 'url', 'icon', 'category', 'metric_provider'] as const) validateString(value[key], `${path}.${key}`)
+  for (const key of ['title', 'description', 'url', 'icon', 'category'] as const) validateString(value[key], `${path}.${key}`)
   for (const key of ['hidden', 'show_status'] as const) validateBoolean(value[key], `${path}.${key}`)
   validateNumber(value.order, `${path}.order`)
   for (const key of ['metrics_poll_interval', 'metrics_history_period'] as const) validatePositiveInteger(value[key], `${path}.${key}`)
-  if (value.metric_provider !== undefined && !metricProvider(value.metric_provider)) invalid(`${path}.metric_provider`, 'a lowercase provider identifier')
+  if (value.metric_providers !== undefined && !metricProviders(value.metric_providers)) invalid(`${path}.metric_providers`, 'a lowercase provider identifier or non-empty list of identifiers')
   for (const key of ['metrics', 'access', 'search_aliases'] as const) validateStringList(value[key], `${path}.${key}`)
   validateMetricAccess(value.metrics_access, `${path}.metrics_access`)
 
@@ -548,7 +658,7 @@ function parseService(value: unknown, path: string): ServiceOverrides {
     showStatus: typeof value.show_status === 'boolean' ? value.show_status : undefined,
     resourceStats: metricKeys ? parseResourceStats(metricKeys) : undefined,
     metrics: metricKeys,
-    metricProvider: metricProvider(value.metric_provider),
+    metricProviders: metricProviders(value.metric_providers),
     metricsPollIntervalMs: parseInterval(value.metrics_poll_interval),
     metricsHistoryPeriodMs: parseInterval(value.metrics_history_period),
     metricsAccess: metricAccess(value.metrics_access),

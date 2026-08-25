@@ -73,9 +73,10 @@ function validateTransform(transform) {
 
 function validateSource(source) {
   const value = record(source, 'source must be a mapping')
-  allowed(value, new Set(['url', 'headers', 'query', 'auth']), 'source')
-  if (typeof value.url !== 'string' || !/^\{url\}(?:\/|$)/.test(value.url)) throw new Error('source.url must begin with {url}')
-  validateSecretMappings(value, 'source')
+  allowed(value, new Set(['url', 'method', 'form', 'json', 'headers', 'query', 'auth']), 'source')
+  const request = { ...value }
+  delete request.auth
+  validateRequest(request, 'source', false)
   if (value.auth !== undefined) validateCookieSessionAuth(value.auth)
 }
 
@@ -90,34 +91,51 @@ function validateSecretReference(name, reference, context, kind) {
   }
 }
 
-function validateSecretMappings(value, context) {
-  for (const kind of ['headers', 'query']) {
+function validateValueReference(name, reference, context, kind, allowToken) {
+  if (allowToken && reference !== null && typeof reference === 'object' && !Array.isArray(reference) && Object.keys(reference).length === 1 && typeof reference.token === 'string' && metricName.test(reference.token)) return
+  validateSecretReference(name, reference, context, kind)
+}
+
+function validateSecretMappings(value, context, allowToken = false, kinds = ['headers', 'query']) {
+  for (const kind of kinds) {
     if (value[kind] === undefined) continue
     const references = record(value[kind], `${context}.${kind} must be a mapping`)
     for (const [name, reference] of Object.entries(references)) {
-      validateSecretReference(name, reference, context, kind)
+      validateValueReference(name, reference, context, kind, allowToken)
     }
   }
 }
 
 function validateCookieSessionAuth(auth) {
   const value = record(auth, 'source.auth must be a mapping')
-  allowed(value, new Set(['type', 'login']), 'source.auth')
+  allowed(value, new Set(['type', 'steps', 'login']), 'source.auth')
   if (value.type !== 'cookie_session') throw new Error('source.auth.type must be cookie_session')
-  const login = record(value.login, 'source.auth.login must be a mapping')
-  allowed(login, new Set(['url', 'method', 'form', 'json', 'headers', 'query']), 'source.auth.login')
-  if (typeof login.url !== 'string' || !/^\{url\}(?:\/|$)/.test(login.url)) throw new Error('source.auth.login.url must begin with {url}')
-  if (login.method !== 'POST') throw new Error('source.auth.login.method must be POST')
-  if (Number(login.form !== undefined) + Number(login.json !== undefined) !== 1) throw new Error('source.auth.login must define exactly one form or json body mapping')
-  for (const kind of ['form', 'json']) {
-    if (login[kind] === undefined) continue
-    const body = record(login[kind], `source.auth.login.${kind} must be a mapping`)
-    if (Object.keys(body).length === 0) throw new Error(`source.auth.login.${kind} must not be empty`)
-    for (const [name, reference] of Object.entries(body)) {
-      validateSecretReference(name, reference, 'source.auth.login', kind)
-    }
+  const steps = Array.isArray(value.steps) ? value.steps : value.login === undefined ? undefined : [value.login]
+  if (!steps || steps.length === 0 || steps.length > 5) throw new Error('source.auth.steps must contain between 1 and 5 requests')
+  steps.forEach((step, index) => validateRequest(step, `source.auth.steps.${index}`, true))
+}
+
+function validateRequest(request, context, allowToken) {
+  const value = record(request, `${context} must be a mapping`)
+  allowed(value, new Set(['url', 'method', 'form', 'json', 'headers', 'query', 'extract']), context)
+  if (typeof value.url !== 'string' || !/^\{url\}(?:\/|$)/.test(value.url)) throw new Error(`${context}.url must begin with {url}`)
+  const method = value.method ?? 'GET'
+  if (method !== 'GET' && method !== 'POST') throw new Error(`${context}.method must be GET or POST`)
+  if (method === 'GET' && (value.form !== undefined || value.json !== undefined)) throw new Error(`${context} GET requests cannot define form or json`)
+  if (Number(value.form !== undefined) + Number(value.json !== undefined) > 1) throw new Error(`${context} must define at most one form or json body`)
+  validateSecretMappings(value, context, allowToken, ['headers', 'query', 'form', 'json'])
+  if (value.extract === undefined) return
+  const extract = record(value.extract, `${context}.extract must be a mapping`)
+  if (Object.keys(extract).length === 0 || Object.keys(extract).length > 16) throw new Error(`${context}.extract must define between 1 and 16 tokens`)
+  for (const [name, extractor] of Object.entries(extract)) {
+    if (!metricName.test(name)) throw new Error(`${context}.extract token name is invalid`)
+    const value = record(extractor, `${context}.extract.${name} must be a mapping`)
+    allowed(value, new Set(['jq', 'cheerio']), `${context}.extract.${name}`)
+    const hasJq = typeof value.jq === 'string' && Boolean(value.jq.trim())
+    const cheerio = value.cheerio
+    const hasCheerio = cheerio !== null && typeof cheerio === 'object' && !Array.isArray(cheerio) && typeof cheerio.selector === 'string' && cheerio.selector.trim().length <= 256 && (cheerio.attribute === undefined || typeof cheerio.attribute === 'string') && Object.keys(cheerio).every(key => key === 'selector' || key === 'attribute')
+    if (Number(hasJq) + Number(hasCheerio) !== 1) throw new Error(`${context}.extract.${name} must define jq or a bounded cheerio selector`)
   }
-  validateSecretMappings(login, 'source.auth.login')
 }
 
 function validate(file) {

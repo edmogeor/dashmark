@@ -63,9 +63,11 @@ plex:
   metrics:
     - cpu
     - memory
-  # Bind provider-scoped metrics such as `radarr/active_downloads` to this
-  # card. Dashmark never infers this from the container image or name.
-  # metric_provider: radarr
+  # Allow catalog metrics from one or more providers. Dashmark never infers
+  # these from the container image or name.
+  # metric_providers:
+  #   - plex
+  #   - uptime-kuma
   # Custom metric sources are defined separately, so they can be selected in
   # `metrics` alongside the built-in values.
   # custom_metrics:

@@ -52,17 +52,19 @@ include the built-ins you want to retain alongside custom metrics.
 
 Contributed metrics are provider-scoped. A catalog metric at
 `metrics/radarr/active_downloads.yml` has the key `radarr/active_downloads` and
-can only be selected by a card explicitly bound to `radarr`:
+can only be selected by a card that lists `radarr` in `metric_providers`:
 
 ```yaml
 media-radarr:
-  metric_provider: radarr
+  metric_providers: radarr
   metrics: [cpu, memory, network, radarr/active_downloads]
 ```
 
-The card name can be anything. Dashmark does not infer the provider from a
-container image or name. `sonarr/active_downloads` on this card is rejected.
-Docker labels can use the equivalent `dashmark.metric_provider=radarr`.
+The field accepts one provider, CSV, or a YAML list. A card can select metrics
+from multiple providers, such as Plex metrics and an Uptime Kuma monitor for
+Plex. Dashmark does not infer providers from a container image or name.
+`sonarr/active_downloads` is rejected unless `sonarr` is listed. Docker labels
+use CSV, for example `dashmark.metric_providers=radarr,uptime-kuma`.
 
 Locally defined unscoped metric keys, such as `active_downloads`, do not need a
 provider binding.
@@ -75,8 +77,9 @@ Each entry under `custom_metrics` needs:
 | --- | --- | --- |
 | `label` | Yes | Display label in the Metrics tooltip. |
 | `source.url` | Yes | Explicit HTTP or HTTPS endpoint. |
+| `source.method` | No | `GET` (default) or `POST`. POST may define exactly one `form` or `json` body. |
 | `source.headers` / `source.query` | No | Header or query values referenced from an environment variable, file, or optional literal label. |
-| `source.auth` | No | Cookie-session login request for endpoints that require an authenticated browser session. |
+| `source.auth` | No | Bounded cookie-session request flow for endpoints that require an authenticated browser session. |
 | `jq` or `prometheus` | Yes | Exactly one extractor. |
 | `unit` | Numeric only | Display unit, defaults to `number`. |
 | `chart` | Numeric only | `step` (default), `line`, `area`, or `none`. |
@@ -96,27 +99,29 @@ headers:
 
 ### Cookie-session authentication
 
-Use `source.auth` when a metric endpoint first requires a login that sets a
-session cookie. Dashmark sends the login request with the metric's cached
-cookie jar, then fetches the metric with that same jar. The login method is
-always `POST`; it must define exactly one non-empty `form` or `json` mapping.
-Header, query, and body values all use secret references:
+Use `source.auth` when a metric endpoint needs a session cookie or an
+anti-forgery handshake. Its one to five `steps` run in order with the metric's
+cached cookie jar, then Dashmark fetches the metric with that same jar. A step
+uses `GET` by default or `POST`; a POST may define one `form` or `json` body.
+Header, query, and body values use secret references. A step may extract up to
+16 named values, which can only be injected explicitly into a later request
+with `{ token: name }`.
 
 ```yaml
 source:
   url: "{url}/api/v2/transfer/info"
   auth:
     type: cookie_session
-    login:
-      url: "{url}/api/v2/auth/login"
-      method: POST
-      form:
-        username:
-          env: DASHMARK_QBITTORRENT_USERNAME
-          label: dashmark.metric_username
-        password:
-          env: DASHMARK_QBITTORRENT_PASSWORD
-          label: dashmark.metric_password
+    steps:
+      - url: "{url}/api/v2/auth/login"
+        method: POST
+        form:
+          username:
+            env: DASHMARK_QBITTORRENT_USERNAME
+            label: dashmark.metric_username
+          password:
+            env: DASHMARK_QBITTORRENT_PASSWORD
+            label: dashmark.metric_password
 jq: .dl_info_speed
 ```
 
@@ -124,6 +129,75 @@ Metric sources may use `{url}` for both metric and login URLs. In Docker,
 `label` values override their `env` or `file` defaults for that container.
 Docker labels are visible through Docker APIs and inspect output, so prefer
 environment variables or secret files.
+
+### CSRF and response tokens
+
+`extract` accepts exactly one extractor per token. Use `cheerio` to select an
+HTML element and read its text or named attribute, or `jq` to select one
+non-empty JSON string. The token is not interpolated into URLs or strings. Add
+it deliberately to a later `headers`, `query`, `json`, or `form` mapping:
+
+```yaml
+source:
+  url: http://service:8080/api/metric
+  method: POST
+  headers:
+    X-Api-Token: { token: api_token }
+  query:
+    token: { token: api_token }
+  json:
+    token: { token: api_token }
+  auth:
+    type: cookie_session
+    steps:
+      - url: http://service:8080/login
+        extract:
+          csrf:
+            cheerio:
+              selector: 'input[name="csrf"]'
+              attribute: value
+      - url: http://service:8080/session
+        method: POST
+        form:
+          csrf: { token: csrf }
+        extract:
+          api_token: { jq: .token }
+```
+
+This keeps values out of logs and limits them to explicit request fields. An
+unavailable or empty token fails that metric collection safely.
+
+### Socket.IO request metrics
+
+Use `transport: socketio` for APIs that return a metric through a Socket.IO
+event acknowledgement. Dashmark opens a connection for each poll, applies
+optional handshake authentication and login, then emits the request event and
+passes its acknowledgement to `jq`.
+
+```yaml
+custom_metrics:
+  private_status:
+    label: Status
+    unit: boolean
+    source:
+      transport: socketio
+      url: http://service:3001
+      socketio:
+        auth:
+          token: { env: SERVICE_TOKEN }
+        login:
+          event: loginByToken
+          args: [metrics]
+        request:
+          event: getMonitor
+          args: [42]
+    jq: 'if .status == 1 then 1 else 0 end'
+```
+
+`socketio.auth` values are secret references. `login` and `request` event
+arguments may be strings, finite numbers, booleans, or secret references.
+Socket.IO sources require `jq`; Prometheus extraction and streaming event
+subscriptions are not supported.
 
 ## Choosing an Extractor
 
@@ -298,12 +372,11 @@ side. Secrets and URL query strings are never included in these logs.
 
 ## Limitations
 
-Metric sources are fetched with a plain `GET`. There is no support for POST
-bodies, CSRF handshakes, or token-from-response authentication; only
-cookie-session login (`source.auth`) handles services that need a session. An
-RPC-style endpoint (for example Transmission) or a token returned by a login
-response (for example Pi-hole v6) cannot be collected until those flows are
-supported.
+HTTP metric sources support `GET` and bounded `POST` form or JSON requests.
+Cookie-session flows support up to five sequential requests and explicit CSRF
+or JSON token injection, but do not follow redirects, execute JavaScript,
+interpolate values into URLs, or support arbitrary request methods. Socket.IO
+metric behavior is unchanged.
 
 A `{url}`-based metric is omitted when its card has no `url`. When a required
 secret cannot be resolved (for example an unset environment variable), the

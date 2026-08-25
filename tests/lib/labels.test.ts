@@ -13,7 +13,7 @@ describe('parseLabels', () => {
       'dashmark.hidden': 'true',
       'dashmark.show_status': 'false',
       'dashmark.metrics': 'cpu,network',
-      'dashmark.metric_provider': 'plex',
+      'dashmark.metric_providers': 'plex,uptime-kuma',
       'dashmark.metrics_access.cpu': 'admins',
       'dashmark.metrics_access.radarr.active_downloads': 'media, admins',
       'dashmark.access': 'media, admins'
@@ -30,7 +30,7 @@ describe('parseLabels', () => {
       showStatus: false,
       resourceStats: ['cpu', 'network'],
       metrics: ['cpu', 'network'],
-      metricProvider: 'plex',
+      metricProviders: ['plex', 'uptime-kuma'],
       metricsAccess: { cpu: ['admins'], 'radarr/active_downloads': ['media', 'admins'] },
       access: ['media', 'admins'],
       searchAliases: []
@@ -77,9 +77,9 @@ describe('parseLabels', () => {
     expect(parseLabels({ 'dashmark.stats': 'cpu' }).resourceStats).toBeUndefined()
   })
 
-  it('accepts valid metric providers only', () => {
-    expect(parseLabels({ 'dashmark.metric_provider': 'radarr' }).metricProvider).toBe('radarr')
-    expect(parseLabels({ 'dashmark.metric_provider': 'Radarr' }).metricProvider).toBeUndefined()
+  it('accepts comma-separated metric providers only', () => {
+    expect(parseLabels({ 'dashmark.metric_providers': 'radarr,sonarr,radarr' }).metricProviders).toEqual(['radarr', 'sonarr'])
+    expect(parseLabels({ 'dashmark.metric_providers': 'radarr,Sonarr' }).metricProviders).toBeUndefined()
   })
 
   it('ignores non-finite order values', () => {

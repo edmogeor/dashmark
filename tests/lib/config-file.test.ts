@@ -154,18 +154,28 @@ radarr:
     expect(loadYamlConfig(config).config.services.radarr?.metrics).toEqual(['cpu', 'active_downloads'])
   })
 
-  it('binds a fixture catalog metric to a local source', () => {
+  it('parses scalar, CSV, and list metric providers', () => {
     const config = getConfig()
     config.configFile = writeConfig(`
+scalar:
+  metric_providers: test
+csv:
+  metric_providers: test, radarr, test
+list:
+  metric_providers: [test, radarr]
 service:
-  metric_provider: test
+  metric_providers: test
   metrics: [test/queue-depth]
   custom_metrics:
     test/queue-depth:
       source: { url: http://service:8080/api/queue }
 `)
 
-    expect(loadYamlConfig(config).config.services.service?.customMetrics).toEqual({
+    const services = loadYamlConfig(config).config.services
+    expect(services.scalar?.metricProviders).toEqual(['test'])
+    expect(services.csv?.metricProviders).toEqual(['test', 'radarr'])
+    expect(services.list?.metricProviders).toEqual(['test', 'radarr'])
+    expect(services.service?.customMetrics).toEqual({
       'test/queue-depth': {
         label: 'Queue depth',
         valueType: 'number',
@@ -177,7 +187,52 @@ service:
     })
   })
 
-  it('parses cookie-session metric authentication and rejects invalid login bodies', () => {
+  it('rejects the removed singular metric_provider field', () => {
+    const config = getConfig()
+    config.configFile = writeConfig(`
+plex:
+  metric_provider: plex
+`)
+
+    expect(loadYamlConfig(config).error?.detail).toBe('unknown configuration key: plex.metric_provider')
+  })
+
+  it('parses Socket.IO metric sources', () => {
+    const config = getConfig()
+    config.configFile = writeConfig(`
+uptime-kuma:
+  custom_metrics:
+    status:
+      label: Status
+      unit: boolean
+      source:
+        transport: socketio
+        url: http://uptime-kuma:3001
+        socketio:
+          auth:
+            token: { env: UPTIME_KUMA_TOKEN }
+          login:
+            event: loginByToken
+            args: [metrics]
+          request:
+            event: getMonitor
+            args: [42]
+      jq: .status
+`)
+
+    expect(loadYamlConfig(config).config.services['uptime-kuma']?.customMetrics?.status).toMatchObject({
+      source: {
+        transport: 'socketio',
+        socketio: {
+          auth: { token: { env: 'UPTIME_KUMA_TOKEN' } },
+          login: { event: 'loginByToken', args: ['metrics'] },
+          request: { event: 'getMonitor', args: [42] }
+        }
+      }
+    })
+  })
+
+  it('parses bounded cookie-session request flows and rejects invalid request bodies', () => {
     const config = getConfig()
     config.configFile = writeConfig(`
 service:
@@ -188,12 +243,16 @@ service:
         url: https://service.example.com/info
         auth:
           type: cookie_session
-          login:
-            url: https://service.example.com/login
-            method: POST
-            form:
-              username: { env: SERVICE_USERNAME, label: dashmark.metric_username }
-              password: { file: /run/secrets/service_password }
+          steps:
+            - url: https://service.example.com/csrf
+              extract:
+                csrf: { cheerio: { selector: 'input[name=csrf]', attribute: value } }
+            - url: https://service.example.com/login
+              method: POST
+              form:
+                username: { env: SERVICE_USERNAME, label: dashmark.metric_username }
+                password: { file: /run/secrets/service_password }
+                csrf: { token: csrf }
       jq: .value
     invalid:
       label: Invalid
@@ -201,11 +260,11 @@ service:
         url: https://service.example.com/info
         auth:
           type: cookie_session
-          login:
-            url: https://service.example.com/login
-            method: POST
-            form: { username: { env: SERVICE_USERNAME } }
-            json: { password: { env: SERVICE_PASSWORD } }
+          steps:
+            - url: https://service.example.com/login
+              method: POST
+              form: { username: { env: SERVICE_USERNAME } }
+              json: { password: { env: SERVICE_PASSWORD } }
       jq: .value
 `)
 
@@ -214,7 +273,7 @@ service:
       source: {
         auth: {
           type: 'cookie_session',
-          login: { method: 'POST', form: { username: { env: 'SERVICE_USERNAME', label: 'dashmark.metric_username' } } }
+          steps: [{ extract: { csrf: { cheerio: { selector: 'input[name=csrf]', attribute: 'value' } } } }, { method: 'POST', form: { username: { env: 'SERVICE_USERNAME', label: 'dashmark.metric_username' }, csrf: { token: 'csrf' } } }]
         }
       }
     })

@@ -1,5 +1,6 @@
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
+import { Server as SocketIoServer } from 'socket.io'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { collectCustomMetric } from '@/lib/custom-metrics'
 import type { MetricOverride } from '@/lib/config-file'
@@ -8,6 +9,8 @@ let server: Server
 let baseUrl: string
 let cookieRequests: string[] = []
 let loginRequests: { body: string; cookie: string }[] = []
+let socketServer: SocketIoServer
+let socketEvents: { event: string; args: unknown[] }[] = []
 
 beforeAll(async () => {
   server = createServer((request, response) => {
@@ -37,6 +40,40 @@ beforeAll(async () => {
       response.end(JSON.stringify({ value: 7 }))
       return
     }
+    if (path === '/csrf') {
+      response.setHeader('Set-Cookie', 'csrf-session=active; Path=/')
+      response.end('<input name="csrf" value="csrf-token">')
+      return
+    }
+    if (path === '/session') {
+      let body = ''
+      request.on('data', chunk => { body += chunk })
+      request.on('end', () => {
+        const valid = request.headers.cookie?.includes('csrf-session=active') && body === 'csrf=csrf-token'
+        if (valid) response.setHeader('Set-Cookie', 'metric-session=token; Path=/')
+        response.statusCode = valid ? 200 : 403
+        response.end(JSON.stringify({ token: valid ? 'api-token' : '' }))
+      })
+      return
+    }
+    if (path === '/post-metric?token=api-token') {
+      let body = ''
+      request.on('data', chunk => { body += chunk })
+      request.on('end', () => {
+        const valid = request.headers.cookie?.includes('metric-session=token')
+          && request.headers['x-api-token'] === 'api-token'
+          && body === JSON.stringify({ token: 'api-token' })
+        response.statusCode = valid ? 200 : 403
+        response.end(JSON.stringify({ value: valid ? 11 : 0 }))
+      })
+      return
+    }
+    if (path === '/form-metric') {
+      let body = ''
+      request.on('data', chunk => { body += chunk })
+      request.on('end', () => response.end(JSON.stringify({ value: body === 'scope=metrics' ? 13 : 0 })))
+      return
+    }
     const responses: Record<string, string> = {
       '/data': '{"stats":{"value":12.5}}',
       '/sum': '{"items":[{"value":2},{"value":3}]}',
@@ -48,11 +85,27 @@ beforeAll(async () => {
     }
     response.end(responses[path] ?? '')
   })
+  socketServer = new SocketIoServer(server)
+  socketServer.use((socket, next) => socket.handshake.auth.token === 'socket-token' ? next() : next(new Error('Unauthorized')))
+  socketServer.on('connection', socket => {
+    socket.on('login', (...args) => {
+      const callback = args.pop()
+      socketEvents.push({ event: 'login', args })
+      callback({ ok: true })
+    })
+    socket.on('metric', (...args) => {
+      const callback = args.pop()
+      socketEvents.push({ event: 'metric', args })
+      callback({ value: 42 })
+    })
+  })
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
 })
 
-afterAll(async () => { await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())) })
+afterAll(async () => {
+  await new Promise<void>(resolve => socketServer.close(() => resolve()))
+})
 
 function metric(extractor: Pick<MetricOverride, 'jq'> | Pick<MetricOverride, 'prometheus'>): MetricOverride {
   return { label: 'Test metric', unit: 'number', source: { url: `${baseUrl}/data` }, ...extractor } as MetricOverride
@@ -110,10 +163,10 @@ describe('collectCustomMetric', () => {
         url: `${baseUrl}/protected`,
         auth: {
           type: 'cookie_session' as const,
-          login: {
+          steps: [{
             url: `${baseUrl}/login`, method: 'POST' as const,
             form: { username: { value: 'admin' }, password: { value: 'secret' } }
-          }
+          }]
         }
       }
     }
@@ -123,6 +176,59 @@ describe('collectCustomMetric', () => {
     expect(loginRequests).toEqual([
       { body: 'username=admin&password=secret', cookie: '' },
       { body: 'username=admin&password=secret', cookie: 'metric-session=authenticated' }
+    ])
+  })
+
+  it('uses shared cookies and extracted HTML and JSON tokens in later requests', async () => {
+    const authenticatedPostMetric = {
+      label: 'Authenticated POST metric', valueType: 'number' as const, unit: 'count', chart: 'step' as const,
+      source: {
+        url: `${baseUrl}/post-metric`, method: 'POST' as const,
+        headers: { 'X-Api-Token': { token: 'api-token' } },
+        query: { token: { token: 'api-token' } },
+        json: { token: { token: 'api-token' } },
+        auth: {
+          type: 'cookie_session' as const,
+          steps: [
+            { url: `${baseUrl}/csrf`, method: 'GET' as const, extract: { csrf: { cheerio: { selector: 'input[name="csrf"]', attribute: 'value' } } } },
+            { url: `${baseUrl}/session`, method: 'POST' as const, form: { csrf: { token: 'csrf' } }, extract: { 'api-token': { jq: '.token' } } }
+          ]
+        }
+      },
+      jq: { expression: '.value' }
+    } as MetricOverride
+
+    await expect(collectCustomMetric('csrf-post', authenticatedPostMetric)).resolves.toEqual({ value: 11 })
+  })
+
+  it('sends form POST metric sources', async () => {
+    await expect(collectCustomMetric('form-post', {
+      label: 'Form POST metric', valueType: 'number', unit: 'count', chart: 'step',
+      source: { url: `${baseUrl}/form-metric`, method: 'POST', form: { scope: { value: 'metrics' } } },
+      jq: { expression: '.value' }
+    } as MetricOverride)).resolves.toEqual({ value: 13 })
+  })
+
+  it('collects a Socket.IO acknowledgement with handshake auth and login', async () => {
+    socketEvents = []
+    const socketMetric = {
+      label: 'Socket metric', valueType: 'number' as const, unit: 'count', chart: 'step' as const,
+      source: {
+        url: baseUrl,
+        transport: 'socketio' as const,
+        socketio: {
+          auth: { token: { value: 'socket-token' } },
+          login: { event: 'login', args: ['metric-reader'] },
+          request: { event: 'metric', args: [42] }
+        }
+      },
+      jq: { expression: '.value' }
+    } as MetricOverride
+
+    await expect(collectCustomMetric('socket', socketMetric)).resolves.toEqual({ value: 42 })
+    expect(socketEvents).toEqual([
+      { event: 'login', args: ['metric-reader'] },
+      { event: 'metric', args: [42] }
     ])
   })
 

@@ -195,7 +195,7 @@ Add labels to opt a container in and configure its card.
 | `dashmark.category` | Category name; matching is case-insensitive |
 | `dashmark.show_status` | Set to `false` to hide the status badge and resource-usage tooltip for this card |
 | `dashmark.metrics` | Comma-separated `cpu`, `memory`, and `network` metrics for this card; set to `none` to disable built-in metrics |
-| `dashmark.metric_provider` | Provider for catalog metrics, for example `radarr` |
+| `dashmark.metric_providers` | Comma-separated providers allowed for catalog metrics, for example `radarr,uptime-kuma` |
 | `dashmark.metric_api_key` | Optional literal API-key override for catalog metrics. Docker labels are visible to Docker APIs and inspect output. |
 | `dashmark.metric_username` | Optional literal username override for cookie-session catalog metrics. |
 | `dashmark.metric_password` | Optional literal password override for cookie-session catalog metrics. |
@@ -212,10 +212,11 @@ Docker-backed cards show CPU and memory progress bars plus per-container network
 
 Set `SHOW_METRICS=false` to stop metric collection and hide metric tooltips. Set `METRICS_ACCESS=admins,operators` to return metrics only to matching users. This restriction is enforced server-side, so unauthorized clients never receive metric values or history. Per-card `metrics_access` can further restrict individual metrics.
 
-Each Docker card shows all built-in metrics by default. Set `dashmark.metrics=none` to disable them for one container, or limit them with a comma-separated list such as `dashmark.metrics=cpu,memory`. Catalog metrics package their endpoint and extractor, so a provider-bound card can select them directly. Their default credential environment-variable names are documented in the catalog; literal `dashmark.metric_*` labels can override credentials for one container. Custom metric sources use `custom_metrics`, leaving `metrics` available for the unified selection list. YAML overrides support the same setting and can override polling and retention:
+Each Docker card shows all built-in metrics by default. Set `dashmark.metrics=none` to disable them for one container, or limit them with a comma-separated list such as `dashmark.metrics=cpu,memory`. Catalog metrics package their endpoint and extractor. Their provider prefix must appear in `metric_providers`, which accepts one provider, CSV, or a YAML list. Their default credential environment-variable names are documented in the catalog; literal `dashmark.metric_*` labels can override credentials for one container. Custom metric sources use `custom_metrics`, leaving `metrics` available for the unified selection list. YAML overrides support the same setting and can override polling and retention:
 
 ```yaml
 plex:
+  metric_providers: [plex, uptime-kuma]
   metrics:
     - cpu
     - memory
@@ -263,11 +264,12 @@ Numeric metrics default to the `number` unit. Available units are `number`, `cou
 `jq` expressions run against JSON responses and must produce one finite number. Prometheus sources accept standard text exposition, ignore comments, select by metric name and optional exact labels, and support `count`, `sum`, `average`, `minimum`, and `maximum` reductions.
 
 Metrics can authenticate with a cookie session by adding `source.auth` with
-`type: cookie_session`. Its `login` request uses a `POST` URL plus exactly one
-`form` or `json` secret-reference mapping, and can define secret-reference
-headers or query values. Dashmark logs in using the metric's cached cookie jar
-before each metric request. See [Custom Metrics](metrics/README.md#cookie-session-authentication)
-for the complete schema and qBittorrent example.
+`type: cookie_session`. Its bounded `steps` run sequentially with the metric's
+cached cookie jar. Steps can make GET or POST form/JSON requests, extract CSRF
+values from HTML with Cheerio or tokens from JSON with jq, then explicitly
+inject them into later headers, query values, JSON, or form fields. See
+[Custom Metrics](metrics/README.md#cookie-session-authentication) for the
+complete schema and qBittorrent example.
 
 Set `value_type: string` for a current text metric. jq expressions must resolve to one string. Prometheus text metrics require `value_label`, which returns that label value from exactly one matching sample. Text metrics have no unit, chart, or history.
 
@@ -352,7 +354,7 @@ vps/plex:
   url: https://plex.vps.example.com
 ```
 
-Available card fields are `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `show_status`, `metrics`, `metrics_access`, `metric_provider`, `metrics_poll_interval`, `metrics_history_period`, `custom_metrics`, `access`, and `search_aliases`. See [`config/config.example.yml`](config/config.example.yml) for a commented example.
+Available card fields are `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `show_status`, `metrics`, `metrics_access`, `metric_providers`, `metrics_poll_interval`, `metrics_history_period`, `custom_metrics`, `access`, and `search_aliases`. See [`config/config.example.yml`](config/config.example.yml) for a commented example.
 
 ### Icons
 

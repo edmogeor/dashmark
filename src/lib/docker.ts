@@ -38,7 +38,7 @@ export type Card = {
   resourceStats?: ResourceStat[]
   metrics?: string[]
   customMetricLabels?: { key: string; label: string }[]
-  metricProvider?: string
+  metricProviders?: string[]
   metricsPollIntervalMs?: number
   metricsHistoryPeriodMs?: number
   metricsAccess?: Record<string, string[]>
@@ -429,7 +429,7 @@ function mergeWithYaml(
     showStatus: yamlService.showStatus ?? labels.showStatus,
     resourceStats: yamlService.resourceStats ?? labels.resourceStats,
     metrics: yamlService.metrics ?? labels.metrics,
-    metricProvider: yamlService.metricProvider ?? labels.metricProvider,
+    metricProviders: yamlService.metricProviders ?? labels.metricProviders,
     metricsPollIntervalMs: yamlService.metricsPollIntervalMs ?? labels.metricsPollIntervalMs,
     metricsHistoryPeriodMs: yamlService.metricsHistoryPeriodMs ?? labels.metricsHistoryPeriodMs,
     metricsAccess: yamlService.metricsAccess ?? labels.metricsAccess,
@@ -529,26 +529,56 @@ function resolveMetricSources(
     return cardUrl ? `${cardUrl.replace(/\/$/, '')}${url.slice('{url}'.length)}` : undefined
   }
   const resolveReferences = (references: typeof metrics[string]['source']['headers']) => Object.fromEntries(Object.entries(references ?? {}).map(([name, reference]) => {
+    if ('token' in reference) return [name, reference]
     const value = reference.label === undefined ? undefined : labels[reference.label]
     return [name, value === undefined ? reference : { ...reference, value }]
   }))
+  const resolveSocketIo = (socketio: NonNullable<typeof metrics[string]['source']['socketio']>) => {
+    const resolveArguments = (args: typeof socketio.request.args) => args?.map(argument => {
+      if (typeof argument !== 'object') return argument
+      if ('token' in argument) return argument
+      const value = argument.label === undefined ? undefined : labels[argument.label]
+      return value === undefined ? argument : { ...argument, value }
+    })
+    const auth = resolveReferences(socketio.auth)
+    return {
+      ...socketio,
+      ...(Object.keys(auth).length > 0 ? { auth } : {}),
+      ...(socketio.login ? { login: { ...socketio.login, ...(socketio.login.args ? { args: resolveArguments(socketio.login.args) } : {}) } } : {}),
+      request: { ...socketio.request, ...(socketio.request.args ? { args: resolveArguments(socketio.request.args) } : {}) }
+    }
+  }
+  const resolveRequest = (request: Exclude<typeof metrics[string]['source']['auth'], undefined>['steps'][number]) => {
+    const url = resolveUrl(request.url)
+    if (!url) return undefined
+    const headers = resolveReferences(request.headers)
+    const query = resolveReferences(request.query)
+    const form = resolveReferences(request.form)
+    const json = resolveReferences(request.json)
+    return {
+      ...request,
+      url,
+      ...(Object.keys(headers).length > 0 ? { headers } : {}),
+      ...(Object.keys(query).length > 0 ? { query } : {}),
+      ...(Object.keys(form).length > 0 ? { form } : {}),
+      ...(Object.keys(json).length > 0 ? { json } : {})
+    }
+  }
   const resolved = Object.fromEntries(Object.entries(metrics).flatMap(([key, metric]) => {
-    const url = resolveUrl(metric.source.url)
-    if (!url) return []
-    const headers = resolveReferences(metric.source.headers)
-    const query = resolveReferences(metric.source.query)
+    const request = resolveRequest({ ...metric.source, method: metric.source.method ?? 'GET' })
+    if (!request) return []
     const auth = metric.source.auth
-    const loginUrl = auth ? resolveUrl(auth.login.url) : undefined
-    if (auth && !loginUrl) return []
-    const login = auth && loginUrl ? {
-      ...auth.login,
-      url: loginUrl,
-      ...(auth.login.headers ? { headers: resolveReferences(auth.login.headers) } : {}),
-      ...(auth.login.query ? { query: resolveReferences(auth.login.query) } : {}),
-      ...(auth.login.form ? { form: resolveReferences(auth.login.form) } : {}),
-      ...(auth.login.json ? { json: resolveReferences(auth.login.json) } : {})
-    } : undefined
-    return [[key, { ...metric, source: { url, ...(Object.keys(headers).length > 0 ? { headers } : {}), ...(Object.keys(query).length > 0 ? { query } : {}), ...(auth && login ? { auth: { ...auth, login } } : {}) } }]]
+    const steps = auth?.steps.map(resolveRequest)
+    if (steps?.some(step => !step)) return []
+    return [[key, {
+      ...metric,
+      source: {
+        ...request,
+        ...(metric.source.transport ? { transport: metric.source.transport } : {}),
+        ...(metric.source.socketio ? { socketio: resolveSocketIo(metric.source.socketio) } : {}),
+        ...(auth && steps ? { auth: { ...auth, steps: steps as typeof auth.steps } } : {})
+      }
+    }]]
   }))
   return Object.keys(resolved).length > 0 ? resolved : undefined
 }
@@ -611,7 +641,7 @@ async function cardFromContainer(
     resourceStats: labels.resourceStats ?? [...RESOURCE_STATS],
     metrics: labels.metrics,
     ...(customMetrics.length > 0 ? { customMetricLabels: customMetrics.map(([key, metric]) => ({ key, label: metric.label })) } : {}),
-    metricProvider: labels.metricProvider,
+    metricProviders: labels.metricProviders,
     metricsPollIntervalMs: labels.metricsPollIntervalMs,
     metricsHistoryPeriodMs: labels.metricsHistoryPeriodMs,
     metricsAccess: labels.metricsAccess,
@@ -747,11 +777,15 @@ type ContainerMetricSample = {
   metricsHistoryPeriodMs: number
 }
 
+function missingMetricProvider(key: string, providers: string[] | undefined): string | undefined {
+  const [provider] = key.split('/', 2)
+  return key.includes('/') && !providers?.includes(provider!) ? provider : undefined
+}
+
 function selectedCustomMetrics(resolved: ResolvedContainer): SelectedCustomMetric[] {
   if (!resolved.customMetrics || !resolved.labels.metrics) return []
   return resolved.labels.metrics.flatMap(key => {
-    const [provider] = key.split('/', 2)
-    if (key.includes('/') && provider !== resolved.labels.metricProvider) return []
+    if (missingMetricProvider(key, resolved.labels.metricProviders)) return []
     const metric = resolved.customMetrics?.[key]
     return metric ? [[key, metric]] : []
   })
@@ -760,12 +794,9 @@ function selectedCustomMetrics(resolved: ResolvedContainer): SelectedCustomMetri
 function selectedCustomMetricErrors(resolved: ResolvedContainer): { key: string; message: string }[] {
   if (!resolved.labels.metrics) return []
   return resolved.labels.metrics.flatMap(key => {
-    const [provider] = key.split('/', 2)
-    if (key.includes('/') && !resolved.labels.metricProvider) {
-      return [{ key, message: `metric_provider is required for ${key}` }]
-    }
-    if (key.includes('/') && provider !== resolved.labels.metricProvider) {
-      return [{ key, message: `${key} requires metric_provider: ${provider}` }]
+    const provider = missingMetricProvider(key, resolved.labels.metricProviders)
+    if (provider) {
+      return [{ key, message: `${key} requires metric_providers to include ${provider}` }]
     }
     const message = resolved.customMetricErrors?.[key]
     return message ? [{ key, message }] : []

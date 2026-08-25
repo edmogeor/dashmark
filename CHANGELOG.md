@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add starter custom metrics for popular monitoring, media, and download services, including grouped charts.
 - Bind catalog metrics to private local sources and apply numeric transforms after extraction.
+- Allow cards to select catalog metrics from multiple explicit providers with `metric_providers`.
+- Add generic Socket.IO custom metrics with handshake auth, login, and request acknowledgements.
 
 ## [0.3.0-alpha.8] - 2026-08-25
 

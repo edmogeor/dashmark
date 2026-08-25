@@ -831,7 +831,7 @@ radarr:
       Id: 'catalog-metric', Names: ['/service'], Image: 'service', ImageID: 'sha256:service',
       State: 'running', Status: 'Up 1 hour', Labels: {
         'dashmark.url': 'https://service.example.com',
-        'dashmark.metric_provider': 'test',
+        'dashmark.metric_providers': 'test',
         'dashmark.metrics': 'test/queue-depth',
         'dashmark.metric_api_key': 'label-api-key'
       }
@@ -879,12 +879,12 @@ radarr:
     expect(server.statsRequests).toBe(0)
   })
 
-  it('rejects custom metrics from a different provider', async () => {
+  it('collects custom metrics from any configured provider', async () => {
     server.containers = [{
       Id: 'provider-metrics', Names: ['/radarr'], Image: 'radarr', ImageID: 'sha256:radarr',
       State: 'running', Status: 'Up 1 hour', Labels: {
         'dashmark.url': 'https://radarr.example.com',
-        'dashmark.metric_provider': 'radarr',
+        'dashmark.metric_providers': 'radarr,sonarr',
         'dashmark.metrics': 'sonarr/active_downloads'
       }
     }]
@@ -900,12 +900,44 @@ radarr:
       jq: .totalRecords
 `)
 
+    mockGotResponse('{"totalRecords":4}')
+
     await expect(getContainerMetricUsage(config, new Headers(), 'default:provider-metrics')).resolves.toEqual({
       resource: undefined,
       historyPeriodMs: config.metricsHistoryPeriodMs,
-      customMetrics: [],
-      metricErrors: [{ key: 'sonarr/active_downloads', message: 'sonarr/active_downloads requires metric_provider: sonarr' }]
+      customMetrics: [{ key: 'sonarr/active_downloads', label: 'Active downloads', unit: 'count', chart: 'step', value: 4 }],
+      metricErrors: []
     })
+  })
+
+  it('rejects custom metrics from unconfigured providers', async () => {
+    server.containers = [{
+      Id: 'unconfigured-provider', Names: ['/plex'], Image: 'plex', ImageID: 'sha256:plex',
+      State: 'running', Status: 'Up 1 hour', Labels: {
+        'dashmark.url': 'https://plex.example.com',
+        'dashmark.metric_providers': 'plex',
+        'dashmark.metrics': 'uptime-kuma/status'
+      }
+    }]
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.configFile = writeTempConfig(`
+plex:
+  custom_metrics:
+    uptime-kuma/status:
+      label: Uptime
+      unit: boolean
+      source: { url: https://kuma.example.test/status }
+      jq: .status
+`)
+
+    await expect(getContainerMetricUsage(config, new Headers(), 'default:unconfigured-provider')).resolves.toEqual({
+      resource: undefined,
+      historyPeriodMs: config.metricsHistoryPeriodMs,
+      customMetrics: [],
+      metricErrors: [{ key: 'uptime-kuma/status', message: 'uptime-kuma/status requires metric_providers to include uptime-kuma' }]
+    })
+    expect(got).not.toHaveBeenCalled()
   })
 
   it('omits hidden containers', async () => {
