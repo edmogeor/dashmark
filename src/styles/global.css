@@ -136,7 +136,23 @@
   --dashmark-chart-color-5: oklch(0.55 0.19 290);
   --dashmark-chart-color-6: oklch(0.5 0.16 25);
   --dashmark-chart-color-7: oklch(0.5 0.04 255);
+  --dashmark-status-success: var(--success);
+  --dashmark-status-info: var(--info);
+  --dashmark-status-warning: var(--warning);
+  --dashmark-status-error: var(--destructive);
+  --dashmark-status-disabled: var(--muted-foreground);
 }
+
+.dashmark-state-badge {
+  background-color: color-mix(in oklab, var(--dashmark-state-color) 15%, transparent);
+  color: var(--dashmark-state-color);
+}
+
+.dashmark-state-success { --dashmark-state-color: var(--dashmark-status-success); }
+.dashmark-state-info { --dashmark-state-color: var(--dashmark-status-info); }
+.dashmark-state-warning { --dashmark-state-color: var(--dashmark-status-warning); }
+.dashmark-state-error { --dashmark-state-color: var(--dashmark-status-error); }
+.dashmark-state-disabled { --dashmark-state-color: var(--dashmark-status-disabled); }
 
 .dark {
   --background: oklch(0.145 0 0);

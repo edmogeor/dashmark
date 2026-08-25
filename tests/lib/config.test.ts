@@ -4,6 +4,7 @@ import { getConfig } from '@/lib/config'
 const trackedVars = [
   'DOCKER_HOST',
   'DOCKER_HOSTS',
+  'NODE_ENV',
   'PORT',
   'CONFIG_FILE',
   'AUTH_TOKEN',
@@ -224,6 +225,12 @@ describe('getConfig status polling', () => {
     expect(getConfig()).toMatchObject({ metricsHistoryPeriodMs: 60_000, metricsDatabasePath: '/tmp/metrics.db' })
   })
 
+  it('keeps production metric history in the container filesystem by default', () => {
+    process.env.NODE_ENV = 'production'
+    delete process.env.METRICS_DATABASE_PATH
+    expect(getConfig().metricsDatabasePath).toBe('/tmp/dashmark/metrics.db')
+  })
+
   it('defaults metric collection to two seconds and accepts a custom interval', () => {
     delete process.env.METRICS_POLL_INTERVAL
     expect(getConfig().metricsPollIntervalMs).toBe(2_000)
@@ -349,7 +356,15 @@ describe('getConfig custom stylesheet', () => {
   })
 
   it('trims and reads the custom stylesheet path', () => {
-    process.env.CUSTOM_STYLESHEET = '  /app/custom.css  '
-    expect(getConfig().customStylesheet).toBe('/app/custom.css')
+    process.env.CUSTOM_STYLESHEET = '  /data/custom.css  '
+    expect(getConfig().customStylesheet).toBe('/data/custom.css')
+  })
+})
+
+describe('getConfig data paths', () => {
+  it('uses /data defaults for user-managed configuration and icons', () => {
+    delete process.env.CONFIG_FILE
+    delete process.env.ICONS_DIR
+    expect(getConfig()).toMatchObject({ configFile: '/data/config.yml', iconsDir: '/data/icons' })
   })
 })

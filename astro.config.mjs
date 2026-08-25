@@ -7,7 +7,7 @@ import yaml from 'js-yaml'
 
 function yamlPort() {
   try {
-    const configFile = process.env.CONFIG_FILE || '/app/config.yml'
+    const configFile = process.env.CONFIG_FILE || '/data/config.yml'
     return yaml.load(fs.readFileSync(configFile, 'utf-8'))?.settings?.port
   } catch {
     return undefined

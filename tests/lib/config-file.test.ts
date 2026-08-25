@@ -325,6 +325,79 @@ service:
     expect(metrics?.invalid).toBeUndefined()
   })
 
+  it('parses static request values, token auth, nested JSON, and Socket.IO sessions', () => {
+    const config = getConfig()
+    config.configFile = writeConfig(`
+service:
+  custom_metrics:
+    token:
+      label: Token
+      source:
+        url: https://service.example.com/status
+        headers: { Accept: application/json }
+        auth:
+          type: token
+          header: Authorization
+          prefix: "Bearer "
+          value: { env: SERVICE_TOKEN }
+      jq: .value
+    json:
+      label: JSON
+      source:
+        url: https://service.example.com/rpc
+        method: POST
+        json:
+          method: status
+          params: []
+          auth: { token: { env: SERVICE_TOKEN } }
+      jq: .value
+    socket:
+      label: Socket
+      source:
+        transport: socketio
+        url: https://service.example.com
+        headers: { X-Client: dashmark }
+        auth:
+          type: cookie_session
+          login:
+            url: https://service.example.com/login
+            method: POST
+            form: { username: admin }
+        socketio:
+          path: /socket.io
+          request: { event: getStatus }
+      jq: .value
+`)
+
+    const metrics = loadYamlConfig(config).config.services.service?.customMetrics
+    expect(metrics?.token?.source).toMatchObject({ headers: { Accept: 'application/json' }, auth: { type: 'token', header: 'Authorization', prefix: 'Bearer ', value: { env: 'SERVICE_TOKEN' } } })
+    expect(metrics?.json?.source.json).toEqual({ method: 'status', params: [], auth: { token: { env: 'SERVICE_TOKEN' } } })
+    expect(metrics?.socket?.source).toMatchObject({ headers: { 'X-Client': 'dashmark' }, auth: { type: 'cookie_session' }, socketio: { path: '/socket.io' } })
+  })
+
+  it('parses state metrics without permitting graphs', () => {
+    const config = getConfig()
+    config.configFile = writeConfig(`
+service:
+  custom_metrics:
+    state:
+      label: State
+      value_type: state
+      color: warning
+      source: { url: https://service.example.com/status }
+      jq: .state
+    invalid:
+      label: Invalid
+      color: error
+      source: { url: https://service.example.com/status }
+      jq: .state
+`)
+
+    const metrics = loadYamlConfig(config).config.services.service?.customMetrics
+    expect(metrics?.state).toMatchObject({ valueType: 'state', color: 'warning' })
+    expect(metrics?.invalid).toBeUndefined()
+  })
+
   it('requires one valid extractor for each custom metric', () => {
     const config = getConfig()
     config.configFile = writeConfig(`

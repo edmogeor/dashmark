@@ -17,7 +17,7 @@ import { strings } from '@/lib/strings'
 import { useIsDark } from '@/lib/use-is-dark'
 import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { isResourceUsageResponse, type ContainerResources, type CustomMetric, type CustomMetricChart, type CustomMetricUnit, type NumericCustomMetric, type ResourceMetricSample } from '@/lib/status'
+import { isResourceUsageResponse, type ContainerResources, type CustomMetric, type CustomMetricChart, type CustomMetricStateColor, type CustomMetricUnit, type NumericCustomMetric, type ResourceMetricSample } from '@/lib/status'
 import { RESOURCE_USAGE_POLL_INTERVAL_MS, TOOLTIP_DELAY_MS } from '@/lib/constants'
 import { useTooltipController } from './tooltip-controller'
 import { badgeColor, chartColorVariable } from '@/lib/badge-color'
@@ -566,6 +566,10 @@ function UnavailableResourceMetric({ label, metricKey }: { label: string; metric
   return <ResourceMetric label={label} metricKey={metricKey} value={strings.card.unavailable} pending />
 }
 
+function MetricBadge({ value, color }: { value: string; color: CustomMetricStateColor }) {
+  return <span className={cn('dashmark-custom-metric-badge dashmark-state-badge', `dashmark-state-${color}`)}>{value}</span>
+}
+
 function ResourceUsageTooltip({ card, resources, history, historyPeriodMs, customMetrics, loading, onDetailSelect }: {
   card: CardType
   resources: ContainerResources | null
@@ -706,7 +710,7 @@ function ResourceUsageTooltip({ card, resources, history, historyPeriodMs, custo
             const metric = customMetrics.find(candidate => candidate.key === selectedMetric.key)
             if (!metric) return <UnavailableResourceMetric key={selectedMetric.key} label={selectedMetric.label} metricKey={selectedMetric.key} />
             if (!('unit' in metric)) {
-              return <ResourceMetric key={metric.key} label={metric.label} metricKey={metric.key} value={metric.value} />
+              return <ResourceMetric key={metric.key} label={metric.label} metricKey={metric.key} value={'color' in metric ? <MetricBadge value={metric.value} color={metric.color} /> : metric.value} />
             }
             if (metric.chart === 'none') {
               return <ResourceMetric key={metric.key} label={metric.label} metricKey={metric.key} value={formatCustomMetric(metric.value, metric.unit)} />

@@ -33,7 +33,7 @@ async function extractJqValue(key: string, document: unknown, metric: MetricOver
   if (!metric.jq) return unavailable(key, 'jq extractor was not configured')
   try {
     const value = await jq.run(metric.jq.expression, document as JsonInput, { input: 'json', output: 'json' })
-    if (metric.valueType === 'string') return typeof value === 'string' ? { value } : unavailable(key, 'jq extraction did not produce a string')
+    if (metric.valueType === 'string' || metric.valueType === 'state') return typeof value === 'string' ? { value } : unavailable(key, 'jq extraction did not produce a string')
     return typeof value === 'number' && Number.isFinite(value)
       ? { value }
       : unavailable(key, 'jq extraction did not produce a finite number')
@@ -96,7 +96,7 @@ function extractPrometheus(key: string, text: string, metric: MetricOverride): M
     if (!match || match[1] !== extractor.name) continue
     const labels = match[2] === undefined ? {} : parseLabels(match[2])
     if (!labels || !Object.entries(extractor.labels ?? {}).every(([key, value]) => labels[key] === value)) continue
-    if (metric.valueType === 'string') {
+    if (metric.valueType === 'string' || metric.valueType === 'state') {
       const value = labels[extractor.valueLabel!]
       if (value !== undefined) textValues.push(value)
       continue
@@ -104,7 +104,7 @@ function extractPrometheus(key: string, text: string, metric: MetricOverride): M
     const value = Number(match[3])
     if (Number.isFinite(value)) values.push(value)
   }
-  if (metric.valueType === 'string') {
+  if (metric.valueType === 'string' || metric.valueType === 'state') {
     return textValues.length === 1 ? { value: textValues[0] } : unavailable(key, 'Prometheus extraction did not produce one matching label value')
   }
   const value = reduce(values, extractor.reduce)
@@ -126,20 +126,37 @@ function credentialName(reference: { env?: string; file?: string; label?: string
 type SecretReference = { env?: string; file?: string; label?: string; value?: string }
 type TokenReference = { token: string }
 type ValueReference = SecretReference | TokenReference
-type ValueReferences = Record<string, ValueReference>
+type RequestValue = ValueReference | string | number | boolean
+type JsonValue = RequestValue | null | JsonValue[] | { [key: string]: JsonValue }
+type ValueReferences = Record<string, RequestValue>
+
+function isTokenReference(value: unknown): value is TokenReference {
+  return typeof value === 'object' && value !== null && Object.keys(value).length === 1 && typeof (value as TokenReference).token === 'string'
+}
+
+function isSecretReference(value: unknown): value is SecretReference {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    && Object.keys(value).every(key => ['env', 'file', 'label', 'value'].includes(key))
+    && (typeof (value as SecretReference).env === 'string' || typeof (value as SecretReference).file === 'string' || typeof (value as SecretReference).label === 'string' || typeof (value as SecretReference).value === 'string')
+}
 
 function resolveReferences(metric: MetricOverride, references: ValueReferences, kind: string, tokens: Record<string, string> = {}): { values?: Record<string, string>; error?: string } {
   const values: Record<string, string> = {}
   for (const [name, reference] of Object.entries(references)) {
     try {
-      const value = 'token' in reference
+      const isToken = isTokenReference(reference)
+      const isReference = isToken || isSecretReference(reference)
+      const secret = reference as SecretReference
+      const value = isToken
         ? tokens[reference.token]
-        : reference.value ?? (reference.env === undefined ? readFileSync(reference.file!, 'utf8').trim() : process.env[reference.env])
-      if (!value) throw new Error('token' in reference ? 'authentication token is unavailable' : reference.env === undefined ? 'secret file is empty' : 'environment variable is unset')
+        : isReference
+          ? secret.value ?? (secret.env === undefined ? readFileSync(secret.file!, 'utf8').trim() : process.env[secret.env])
+          : String(reference)
+      if (!value) throw new Error(isToken ? 'authentication token is unavailable' : isReference && secret.env === undefined ? 'secret file is empty' : 'environment variable is unset')
       values[name] = value
     } catch (error) {
       logger.error('metrics', 'failed to resolve custom metric secret', { metric: metric.label, [kind]: name, error: error instanceof Error ? error.message : 'unknown error' })
-      return { error: 'token' in reference ? `Authentication token ${reference.token} is unavailable` : `Credential ${credentialName(reference)} is unavailable` }
+      return { error: typeof reference === 'object' && 'token' in reference ? `Authentication token ${reference.token} is unavailable` : `Credential ${credentialName(reference as SecretReference)} is unavailable` }
     }
   }
   return { values }
@@ -162,6 +179,15 @@ function applyBasicAuth(metric: MetricOverride, headers: Headers): string | unde
   return undefined
 }
 
+function applyTokenAuth(metric: MetricOverride, headers: Headers): string | undefined {
+  const auth = metric.source.auth
+  if (!auth || auth.type !== 'token') return undefined
+  const { values, error } = resolveReferences(metric, { value: auth.value }, 'token authentication')
+  if (error || !values) return error ?? 'Could not resolve token authentication credentials'
+  headers.set(auth.header, `${auth.prefix ?? ''}${values.value!}`)
+  return undefined
+}
+
 function resolveQuery(metric: MetricOverride, url: URL, references = metric.source.query ?? {}, tokens?: Record<string, string>): string | undefined {
   const { values, error } = resolveReferences(metric, references, 'query', tokens)
   if (error || !values) return error
@@ -174,7 +200,7 @@ async function requestText(
   headers: Headers,
   cookieJar: CookieJar,
   method: 'GET' | 'POST',
-  body?: { form?: Record<string, string>; json?: Record<string, string> }
+  body?: { form?: Record<string, string>; json?: Record<string, JsonValue> }
 ): Promise<{ status: number; text: string }> {
   const controller = new AbortController()
   let responseTooLarge = false
@@ -238,10 +264,9 @@ async function login(metric: MetricOverride, cookieJar: CookieJar): Promise<{ to
     if (headerError || !headers) return { error: headerError ?? 'Could not resolve an authentication value' }
     const queryError = resolveQuery(metric, url, step.query ?? {}, tokens)
     if (queryError) return { error: queryError }
-    const bodyReferences = step.form ?? step.json
-    const { values, error: bodyError } = resolveReferences(metric, bodyReferences ?? {}, 'authentication body', tokens)
-    if (bodyError || !values) return { error: bodyError ?? 'Could not resolve an authentication value' }
-    const response = await requestText(url, headers, cookieJar, step.method ?? 'GET', step.form ? { form: values } : step.json ? { json: values } : undefined)
+    const body = resolveBody(metric, step.form, step.json, tokens)
+    if (body.error || !body.value) return { error: body.error ?? 'Could not resolve an authentication value' }
+    const response = await requestText(url, headers, cookieJar, step.method ?? 'GET', body.value)
     if (response.status < 200 || response.status >= 300) return { error: `Authentication returned HTTP ${response.status}` }
     if (step.extract) {
       const result = await extractTokens(response.text, step.extract)
@@ -250,6 +275,42 @@ async function login(metric: MetricOverride, cookieJar: CookieJar): Promise<{ to
     }
   }
   return { tokens }
+}
+
+function resolveJson(metric: MetricOverride, value: JsonValue, tokens: Record<string, string>): { value?: JsonValue; error?: string } {
+  if (value === null || typeof value !== 'object') return { value }
+  if (Array.isArray(value)) {
+    const values: JsonValue[] = []
+    for (const item of value) {
+      const resolved = resolveJson(metric, item, tokens)
+      if (resolved.error || resolved.value === undefined) return { error: resolved.error ?? 'Could not resolve a JSON value' }
+      values.push(resolved.value)
+    }
+    return { value: values }
+  }
+  if (isTokenReference(value) || isSecretReference(value)) {
+    const resolved = resolveReferences(metric, { value: value as ValueReference }, 'body', tokens)
+    return resolved.error || !resolved.values ? { error: resolved.error ?? 'Could not resolve a JSON value' } : { value: resolved.values.value! }
+  }
+  const entries: Record<string, JsonValue> = {}
+  for (const [name, item] of Object.entries(value)) {
+    const resolved = resolveJson(metric, item, tokens)
+    if (resolved.error || resolved.value === undefined) return { error: resolved.error ?? 'Could not resolve a JSON value' }
+    entries[name] = resolved.value
+  }
+  return { value: entries }
+}
+
+function resolveBody(metric: MetricOverride, form: Record<string, RequestValue> | undefined, json: Record<string, JsonValue> | undefined, tokens: Record<string, string>): { value?: { form?: Record<string, string>; json?: Record<string, JsonValue> }; error?: string } {
+  if (form) {
+    const resolved = resolveReferences(metric, form, 'body', tokens)
+    return resolved.error || !resolved.values ? { error: resolved.error ?? 'Could not resolve a metric value' } : { value: { form: resolved.values } }
+  }
+  if (!json) return { value: {} }
+  const resolved = resolveJson(metric, json, tokens)
+  return resolved.error || !resolved.value || Array.isArray(resolved.value) || typeof resolved.value !== 'object'
+    ? { error: resolved.error ?? 'Could not resolve a metric value' }
+    : { value: { json: resolved.value as Record<string, JsonValue> } }
 }
 
 function socketIoArguments(metric: MetricOverride, args: (string | number | boolean | { env?: string; file?: string; label?: string; value?: string })[] | undefined): { values?: (string | number | boolean)[]; error?: string } {
@@ -267,7 +328,7 @@ function socketIoArguments(metric: MetricOverride, args: (string | number | bool
   return { values }
 }
 
-async function collectSocketIoMetric(key: string, metric: MetricOverride, url: URL): Promise<MetricResult> {
+async function collectSocketIoMetric(key: string, metric: MetricOverride, url: URL, headers: Headers, cookieJar: CookieJar): Promise<MetricResult> {
   const socketio = metric.source.socketio
   if (!socketio) return unavailable(key, 'Socket.IO source was not configured')
   const auth = resolveReferences(metric, socketio.auth ?? {}, 'Socket.IO auth')
@@ -277,7 +338,10 @@ async function collectSocketIoMetric(key: string, metric: MetricOverride, url: U
   const requestArguments = socketIoArguments(metric, socketio.request.args)
   if (requestArguments.error || !requestArguments.values) return unavailable(key, requestArguments.error ?? 'Could not resolve a Socket.IO argument')
 
-  const socket = io(url.origin, { autoConnect: false, auth: auth.values })
+  const cookie = await cookieJar.getCookieString(url.toString())
+  if (cookie) headers.set('Cookie', cookie)
+  const extraHeaders = Object.fromEntries(headers)
+  const socket = io(url.origin, { autoConnect: false, auth: auth.values, ...(socketio.path ? { path: socketio.path } : {}), ...(Object.keys(extraHeaders).length > 0 ? { extraHeaders } : {}) })
   try {
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('Socket.IO connection timed out')), REQUEST_TIMEOUT_MS)
@@ -306,7 +370,6 @@ export async function collectCustomMetric(key: string, metric: MetricOverride): 
     logger.error('metrics', 'custom metric has an invalid source URL', { key })
     return unavailable(key, 'Source URL is invalid')
   }
-  if (metric.source.transport === 'socketio') return collectSocketIoMetric(key, metric, url)
   try {
     const jarKey = `${key}\0${metric.source.url}`
     const cookieJar = cookieJars.get(jarKey) ?? new CookieJar()
@@ -317,12 +380,14 @@ export async function collectCustomMetric(key: string, metric: MetricOverride): 
     if (headerError || !headers) return unavailable(key, headerError ?? 'Could not resolve a metric value')
     const basicAuthError = applyBasicAuth(metric, headers)
     if (basicAuthError) return unavailable(key, basicAuthError)
+    const tokenAuthError = applyTokenAuth(metric, headers)
+    if (tokenAuthError) return unavailable(key, tokenAuthError)
+    if (metric.source.transport === 'socketio') return collectSocketIoMetric(key, metric, url, headers, cookieJar)
     const queryError = resolveQuery(metric, url, metric.source.query ?? {}, authResult.tokens)
     if (queryError) return unavailable(key, queryError)
-    const bodyReferences = metric.source.form ?? metric.source.json
-    const { values, error: bodyError } = resolveReferences(metric, bodyReferences ?? {}, 'body', authResult.tokens)
-    if (bodyError || !values) return unavailable(key, bodyError ?? 'Could not resolve a metric value')
-    const response = await requestText(url, headers, cookieJar, metric.source.method ?? 'GET', metric.source.form ? { form: values } : metric.source.json ? { json: values } : undefined)
+    const body = resolveBody(metric, metric.source.form, metric.source.json, authResult.tokens ?? {})
+    if (body.error || !body.value) return unavailable(key, body.error ?? 'Could not resolve a metric value')
+    const response = await requestText(url, headers, cookieJar, metric.source.method ?? 'GET', body.value)
     if (response.status >= 300 && response.status < 400) throw new Error('source redirected')
     if (response.status < 200 || response.status >= 300) {
       logger.error('metrics', 'custom metric source returned an error', { key, url: url.origin + url.pathname, status: response.status })

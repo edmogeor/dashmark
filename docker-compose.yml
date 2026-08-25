@@ -5,10 +5,7 @@ services:
     ports:
       - "127.0.0.1:4321:4321"
     volumes:
-      - ./config/config.example.yml:/app/config.yml:ro
-      - ./icons:/app/icons:ro
-      - ./data:/app/data
-      # - ./custom.css:/app/custom.css:ro
+      - ./data:/data
     environment:
       # Points Dashmark at the socket-proxy sidecar below. When unset, Dashmark
       # uses the local Docker socket at unix:///var/run/docker.sock.
@@ -20,9 +17,9 @@ services:
 
       # Optional settings, shown with their defaults. Uncomment one to change it.
       # - PORT=4321
-      # - CONFIG_FILE=/app/config.yml
-      # - ICONS_DIR=/app/icons
-      # - CUSTOM_STYLESHEET=/app/custom.css
+       # - CONFIG_FILE=/data/config.yml
+       # - ICONS_DIR=/data/icons
+       # - CUSTOM_STYLESHEET=/data/custom.css
        # - ENABLE_ACCESS_CONTROL=false
       # - ACCESS_GROUPS_HEADER=auto
       # - SHOW_SEARCH=true
@@ -30,7 +27,8 @@ services:
        # - STATUS_BADGE_ACCESS=admins,operators
        # - SHOW_METRICS=true
        # - METRICS_ACCESS=admins,operators
-      # - METRICS_DATABASE_PATH=/app/data/metrics.db
+       # Set an explicit mounted path to retain history across container restarts.
+       # - METRICS_DATABASE_PATH=/data/metrics.db
       # - METRICS_POLL_INTERVAL=2
       # - METRICS_HISTORY_PERIOD=300
       # - STATUS_POLL_INTERVAL=30

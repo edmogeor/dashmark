@@ -75,8 +75,8 @@ Selfhst icons are analysed for luminance when resolved. If an icon is dominated 
 | Variable | Default | Purpose |
 |---|---|---|
 | `DOCKER_HOSTS` | `unix:///var/run/docker.sock` | One endpoint, or comma-separated `<host-id>=<endpoint>` Docker endpoints |
-| `CONFIG_FILE` | `/app/config.yml` | Optional YAML config file path |
-| `ICONS_DIR` | `/app/icons` | Directory for custom icon files |
+| `CONFIG_FILE` | `/data/config.yml` | Optional YAML config file path |
+| `ICONS_DIR` | `/data/icons` | Directory for custom icon files |
 | `ENABLE_ACCESS_CONTROL` | `false` | When `true`, filter cards by authenticated access entries |
 | `ACCESS_GROUPS_HEADER` | `auto` | Group header; `auto` detects `X-Authentik-Groups` (Authentik), `Remote-Groups` (Authelia), `X-Forwarded-Groups` or `X-Auth-Request-Groups` (oauth2-proxy for Keycloak/Pocket ID/Zitadel), `X-Auth-Groups` (Keycloak Gatekeeper) |
 | `USER_NAME_HEADER` | auto | Custom header for `{full_name}` |
@@ -127,7 +127,7 @@ With no `dashmark.url` (and no YAML URL), the URL is derived from a Traefik labe
 
 ### YAML config
 
-Optional file at `CONFIG_FILE`. Its reserved `settings` mapping configures runtime settings, including `port`, while `auth_token` accepts an `env` or `file` secret reference. `CONFIG_FILE` remains environment-only. YAML values override environment variables. All other top-level keys are services, keyed by container name or compose service name (from the `com.docker.compose.service` label; container name wins on conflict). With `DOCKER_HOSTS`, `<host-id>/<container-or-service-name>` targets one host. Resolution order is host-qualified container name, host-qualified Compose service name, unqualified container name, then unqualified Compose service name. YAML values override Docker labels for a matching container; entries with no matching container still produce cards (no state badge). See `config/config.example.yml`.
+Optional file at `CONFIG_FILE`, defaulting to `/data/config.yml`. Its reserved `settings` mapping configures runtime settings, including `port`, while `auth_token` accepts an `env` or `file` secret reference. `CONFIG_FILE` remains environment-only. YAML values override environment variables. All other top-level keys are services, keyed by container name or compose service name (from the `com.docker.compose.service` label; container name wins on conflict). With `DOCKER_HOSTS`, `<host-id>/<container-or-service-name>` targets one host. Resolution order is host-qualified container name, host-qualified Compose service name, unqualified container name, then unqualified Compose service name. YAML values override Docker labels for a matching container; entries with no matching container still produce cards (no state badge). See `data/config.yml`.
 
 ### Access groups
 
@@ -144,7 +144,7 @@ When group tags are enabled, matching status-badge groups appear in the header e
 - For remote hosts, use a restricted socket proxy over a private network. Do not expose the Docker daemon or socket proxy publicly.
 - The socket proxy needs read access to `/version`, `/containers/json`, and `/containers/<id>/stats` for resource-usage tooltips.
 - Serve behind a reverse proxy with authentication when `ENABLE_ACCESS_CONTROL=true` so identity headers are trustworthy.
-- `docker-compose.yml` mounts `config/config.example.yml` -> `/app/config.yml` and `./icons` -> `/app/icons`, and routes Docker access through a `wollomatic/socket-proxy` sidecar (`DOCKER_HOSTS=tcp://dockerproxy:2375`).
+- `docker-compose.yml` mounts `./data` -> `/data` for configuration, icons, and stylesheets, and routes Docker access through a `wollomatic/socket-proxy` sidecar (`DOCKER_HOSTS=tcp://dockerproxy:2375`).
 
 ## Key modules
 

@@ -16,6 +16,9 @@ export type ServiceOverrides = Partial<ParsedLabels> & {
 type MetricSecretReference = { env?: string; file?: string; label?: string; value?: string }
 type MetricTokenReference = { token: string }
 type MetricValueReference = MetricSecretReference | MetricTokenReference
+type MetricLiteral = string | number | boolean
+type MetricRequestValue = MetricValueReference | MetricLiteral
+type MetricJsonValue = MetricRequestValue | null | MetricJsonValue[] | { [key: string]: MetricJsonValue }
 
 type MetricTokenExtractor =
   | { cheerio: { selector: string; attribute?: string } }
@@ -24,17 +27,18 @@ type MetricTokenExtractor =
 type MetricHttpRequest = {
   url: string
   method?: 'GET' | 'POST'
-  headers?: Record<string, MetricValueReference>
-  query?: Record<string, MetricValueReference>
-  form?: Record<string, MetricValueReference>
-  json?: Record<string, MetricValueReference>
+  headers?: Record<string, MetricRequestValue>
+  query?: Record<string, MetricRequestValue>
+  form?: Record<string, MetricRequestValue>
+  json?: Record<string, MetricJsonValue>
   extract?: Record<string, MetricTokenExtractor>
 }
 
 type SocketIoArgument = string | number | boolean | MetricSecretReference
 
 type SocketIoMetricSource = {
-  auth?: Record<string, MetricValueReference>
+  path?: string
+  auth?: Record<string, MetricRequestValue>
   login?: { event: string; args?: SocketIoArgument[] }
   request: { event: string; args?: SocketIoArgument[] }
 }
@@ -43,10 +47,10 @@ type MetricSourceOverride = {
   url: string
   method?: 'GET' | 'POST'
   transport?: 'socketio'
-  headers?: Record<string, MetricValueReference>
-  query?: Record<string, MetricValueReference>
-  form?: Record<string, MetricValueReference>
-  json?: Record<string, MetricValueReference>
+  headers?: Record<string, MetricRequestValue>
+  query?: Record<string, MetricRequestValue>
+  form?: Record<string, MetricRequestValue>
+  json?: Record<string, MetricJsonValue>
   auth?: MetricHttpAuth
   socketio?: SocketIoMetricSource
 }
@@ -62,7 +66,14 @@ type BasicMetricAuth = {
   password: MetricSecretReference
 }
 
-type MetricHttpAuth = CookieSessionMetricAuth | BasicMetricAuth
+type TokenMetricAuth = {
+  type: 'token'
+  header: string
+  prefix?: string
+  value: MetricSecretReference
+}
+
+type MetricHttpAuth = CookieSessionMetricAuth | BasicMetricAuth | TokenMetricAuth
 
 const CUSTOM_METRIC_UNITS = [
   'number', 'count', 'percent', 'ratio', 'bytes', 'bytes_per_second',
@@ -75,6 +86,8 @@ const CUSTOM_METRIC_REDUCTIONS = ['count', 'sum', 'average', 'minimum', 'maximum
 export type CustomMetricReduction = typeof CUSTOM_METRIC_REDUCTIONS[number]
 const CUSTOM_METRIC_CHARTS = ['step', 'line', 'area', 'none'] as const
 type CustomMetricChart = typeof CUSTOM_METRIC_CHARTS[number]
+const CUSTOM_METRIC_BADGE_COLORS = ['success', 'info', 'warning', 'error', 'disabled'] as const
+export type CustomMetricStateColor = typeof CUSTOM_METRIC_BADGE_COLORS[number]
 
 export type PrometheusMetricExtractor = {
   name: string
@@ -107,7 +120,12 @@ export type TextMetricOverride = MetricCommon & {
   valueType: 'string'
 } & ({ jq: JqMetricExtractor; prometheus?: never } | { prometheus: PrometheusMetricExtractor; jq?: never })
 
-export type MetricOverride = NumericMetricOverride | TextMetricOverride
+export type StateMetricOverride = MetricCommon & {
+  valueType: 'state'
+  color: CustomMetricStateColor
+} & ({ jq: JqMetricExtractor; prometheus?: never } | { prometheus: PrometheusMetricExtractor; jq?: never })
+
+export type MetricOverride = NumericMetricOverride | TextMetricOverride | StateMetricOverride
 
 export type ServiceMetricOverrides = Record<string, MetricOverride>
 
@@ -284,6 +302,12 @@ function parseChart(value: unknown): CustomMetricChart | undefined {
     : undefined
 }
 
+function parseMetricStateColor(value: unknown): CustomMetricStateColor | undefined {
+  return typeof value === 'string' && CUSTOM_METRIC_BADGE_COLORS.includes(value as CustomMetricStateColor)
+    ? value as CustomMetricStateColor
+    : undefined
+}
+
 function isHttpUrl(value: string): boolean {
   try {
     const url = new URL(value)
@@ -363,21 +387,21 @@ function metricCatalog(): Record<string, Record<string, unknown>> {
   }
 }
 
-function parseMetricHeaders(source: Record<string, unknown>): { headers?: Record<string, MetricValueReference>; query?: Record<string, MetricValueReference>; error?: string } {
-  const references = (value: unknown, kind: string): { values?: Record<string, MetricValueReference>; error?: string } => {
+function parseMetricHeaders(source: Record<string, unknown>): { headers?: Record<string, MetricRequestValue>; query?: Record<string, MetricRequestValue>; error?: string } {
+  const references = (value: unknown, kind: string): { values?: Record<string, MetricRequestValue>; error?: string } => {
     if (value === undefined) return {}
     if (!isRecord(value)) return { error: `${kind} must be a mapping` }
-    const values: Record<string, MetricValueReference> = {}
+    const values: Record<string, MetricRequestValue> = {}
     for (const [name, reference] of Object.entries(value)) {
-      const value = parseValueReference(reference)
-      if (!value || !name) return { error: `${kind} must use valid names and secret or token references` }
+      const value = parseRequestValue(reference)
+      if (value === undefined || !name) return { error: `${kind} must use valid names and scalar values, secret, or token references` }
       values[name] = value
     }
     return { values }
   }
 
   const headers = references(source.headers, 'headers')
-  if (headers.error || (headers.values && !Object.keys(headers.values).every(header => /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(header)))) return { error: headers.error ?? 'headers must use valid names and secret or token references' }
+  if (headers.error || (headers.values && !Object.keys(headers.values).every(header => /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(header)))) return { error: headers.error ?? 'headers must use valid names and scalar values, secret, or token references' }
   const query = references(source.query, 'query')
   if (query.error) return { error: query.error }
   return { ...(headers.values && Object.keys(headers.values).length > 0 ? { headers: headers.values } : {}), ...(query.values && Object.keys(query.values).length > 0 ? { query: query.values } : {}) }
@@ -388,6 +412,24 @@ function parseValueReference(value: unknown): MetricValueReference | undefined {
   if (secret) return secret
   if (!isRecord(value) || typeof value.token !== 'string' || !/^[a-z][a-z0-9_-]*$/.test(value.token) || Object.keys(value).length !== 1) return undefined
   return { token: value.token }
+}
+
+function parseRequestValue(value: unknown): MetricRequestValue | undefined {
+  return parseValueReference(value) ?? (typeof value === 'string' || typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value)) ? value : undefined)
+}
+
+function parseJsonValue(value: unknown): MetricJsonValue | undefined {
+  const requestValue = parseRequestValue(value)
+  if (requestValue !== undefined || value === null) return requestValue ?? null
+  if (Array.isArray(value)) {
+    const values = value.map(parseJsonValue)
+    return values.every(item => item !== undefined) ? values as MetricJsonValue[] : undefined
+  }
+  if (!isRecord(value)) return undefined
+  const entries = Object.entries(value).map(([name, item]) => [name, parseJsonValue(item)] as const)
+  return entries.every(([, item]) => item !== undefined)
+    ? Object.fromEntries(entries) as { [key: string]: MetricJsonValue }
+    : undefined
 }
 
 const MAX_AUTH_STEPS = 5
@@ -405,13 +447,13 @@ function parseMetricRequest(value: unknown, path: string): { request?: MetricHtt
   if (method === 'POST' && Number(value.form !== undefined) + Number(value.json !== undefined) > 1) return { error: `${path} must define at most one form or json body` }
   const { headers, query, error } = parseMetricHeaders(value)
   if (error) return { error: `${path}.${error}` }
-  const parseBody = (body: unknown, kind: string): { values?: Record<string, MetricValueReference>; error?: string } => {
+  const parseBody = (body: unknown, kind: 'form' | 'json'): { values?: Record<string, MetricRequestValue> | Record<string, MetricJsonValue>; error?: string } => {
     if (body === undefined) return {}
     if (!isRecord(body) || Object.keys(body).length === 0) return { error: `${path}.${kind} must be a non-empty mapping of secret or token references` }
-    const values: Record<string, MetricValueReference> = {}
+    const values: Record<string, MetricRequestValue> | Record<string, MetricJsonValue> = {}
     for (const [name, reference] of Object.entries(body)) {
-      const parsed = parseValueReference(reference)
-      if (!name || !parsed) return { error: `${path}.${kind} must be a non-empty mapping of secret or token references` }
+      const parsed = kind === 'json' ? parseJsonValue(reference) : parseRequestValue(reference)
+      if (!name || parsed === undefined) return { error: `${path}.${kind} must be a non-empty mapping of scalar values, secret or token references${kind === 'json' ? ', arrays, or objects' : ''}` }
       values[name] = parsed
     }
     return { values }
@@ -431,7 +473,7 @@ function parseMetricRequest(value: unknown, path: string): { request?: MetricHtt
       } else return { error: `${path}.extract.${name} must define jq or a bounded cheerio selector` }
     }
   }
-  return { request: { url, ...(value.method === undefined ? {} : { method }), ...(headers ? { headers } : {}), ...(query ? { query } : {}), ...(form.values ? { form: form.values } : {}), ...(json.values ? { json: json.values } : {}), ...(extract ? { extract } : {}) } }
+  return { request: { url, ...(value.method === undefined ? {} : { method }), ...(headers ? { headers } : {}), ...(query ? { query } : {}), ...(form.values ? { form: form.values as Record<string, MetricRequestValue> } : {}), ...(json.values ? { json: json.values as Record<string, MetricJsonValue> } : {}), ...(extract ? { extract } : {}) } }
 }
 
 function parseMetricHttpAuth(value: unknown): { auth?: MetricHttpAuth; error?: string } {
@@ -444,7 +486,13 @@ function parseMetricHttpAuth(value: unknown): { auth?: MetricHttpAuth; error?: s
     if (!username || !password) return { error: 'source.auth type basic requires username and password secret references' }
     return { auth: { type: 'basic', username, password } }
   }
-  if (value.type !== 'cookie_session' || Object.keys(value).some(key => !['type', 'steps', 'login'].includes(key))) return { error: 'source.auth must define type basic with username and password, or type cookie_session with a steps list' }
+  if (value.type === 'token') {
+    if (Object.keys(value).some(key => !['type', 'header', 'prefix', 'value'].includes(key)) || typeof value.header !== 'string' || !/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(value.header) || (value.prefix !== undefined && typeof value.prefix !== 'string')) return { error: 'source.auth type token requires a valid header and optional string prefix' }
+    const token = parseSecretReference(value.value)
+    if (!token) return { error: 'source.auth type token requires a secret value reference' }
+    return { auth: { type: 'token', header: value.header, ...(value.prefix === undefined ? {} : { prefix: value.prefix }), value: token } }
+  }
+  if (value.type !== 'cookie_session' || Object.keys(value).some(key => !['type', 'steps', 'login'].includes(key))) return { error: 'source.auth must define type basic, token, or cookie_session' }
   const configuredSteps = Array.isArray(value.steps) ? value.steps : value.login === undefined ? undefined : [value.login]
   if (!configuredSteps || configuredSteps.length === 0 || configuredSteps.length > MAX_AUTH_STEPS) return { error: `source.auth.steps must contain between 1 and ${MAX_AUTH_STEPS} requests` }
   const steps: MetricHttpRequest[] = []
@@ -483,9 +531,10 @@ function parseSocketIoEvent(value: unknown, path: string, requireArgs = false): 
 
 function parseSocketIoSource(value: unknown): { socketio?: SocketIoMetricSource; error?: string } {
   if (!isRecord(value) || !isRecord(value.socketio)) return { error: 'source.socketio must define a request event' }
-  if (Object.keys(value).some(key => !['url', 'transport', 'socketio'].includes(key))) return { error: 'Socket.IO sources only support url, transport, and socketio' }
+  if (Object.keys(value).some(key => !['url', 'transport', 'headers', 'auth', 'socketio'].includes(key))) return { error: 'Socket.IO sources only support url, transport, headers, auth, and socketio' }
   const socketio = value.socketio
-  if (Object.keys(socketio).some(key => !['auth', 'login', 'request'].includes(key))) return { error: 'source.socketio contains an unknown configuration key' }
+  if (Object.keys(socketio).some(key => !['path', 'auth', 'login', 'request'].includes(key))) return { error: 'source.socketio contains an unknown configuration key' }
+  if (socketio.path !== undefined && (typeof socketio.path !== 'string' || !socketio.path.startsWith('/'))) return { error: 'source.socketio.path must begin with /' }
   const auth = socketio.auth === undefined ? {} : parseMetricHeaders({ headers: socketio.auth })
   if (auth.error) return { error: `source.socketio.auth ${auth.error}` }
   const login = socketio.login === undefined ? {} : parseSocketIoEvent(socketio.login, 'source.socketio.login')
@@ -495,6 +544,7 @@ function parseSocketIoSource(value: unknown): { socketio?: SocketIoMetricSource;
   return {
     socketio: {
       ...(auth.headers ? { auth: auth.headers } : {}),
+      ...(typeof socketio.path === 'string' ? { path: socketio.path } : {}),
       ...(login.event ? { login: login.event } : {}),
       request: request.event
     }
@@ -522,6 +572,7 @@ function parseMetricOverrides(value: unknown, catalog = metricCatalog()): { metr
     const chart = metric.chart === undefined ? 'step' : parseChart(metric.chart)
     const chartGroup = metric.chart_group === undefined ? undefined : string(metric.chart_group)
     const transform = metric.transform === undefined ? undefined : parseMetricTransform(metric.transform)
+    const color = metric.color === undefined ? undefined : parseMetricStateColor(metric.color)
     const source = isRecord(metric.source) ? metric.source : undefined
     const url = string(source?.url)
     const transport = source?.transport === undefined ? undefined : string(source.transport)
@@ -551,8 +602,8 @@ function parseMetricOverrides(value: unknown, catalog = metricCatalog()): { metr
       invalid('define exactly one valid jq or prometheus extractor')
       continue
     }
-    if (valueType !== 'number' && valueType !== 'string') {
-      invalid('value_type must be number or string')
+    if (valueType !== 'number' && valueType !== 'string' && valueType !== 'state') {
+      invalid('value_type must be number, string, or state')
       continue
     }
     if (!chart) {
@@ -563,12 +614,24 @@ function parseMetricOverrides(value: unknown, catalog = metricCatalog()): { metr
       invalid('transform must define finite multiply and/or add values')
       continue
     }
+    if (metric.color !== undefined && !color) {
+      invalid('color must be success, info, warning, error, or disabled')
+      continue
+    }
     if (metric.chart_group !== undefined && (!chartGroup || !/^[a-z][a-z0-9_-]*$/.test(chartGroup))) {
       invalid('chart_group must be a lowercase identifier')
       continue
     }
-    if (valueType === 'string' && (metric.unit !== undefined || metric.chart !== undefined || metric.chart_group !== undefined || metric.transform !== undefined || prometheus?.reduce !== undefined || (prometheus && !prometheus.valueLabel))) {
+    if ((valueType === 'string' || valueType === 'state') && (metric.unit !== undefined || metric.chart !== undefined || metric.chart_group !== undefined || metric.transform !== undefined || prometheus?.reduce !== undefined || (prometheus && !prometheus.valueLabel))) {
       invalid('string metrics cannot use units, reductions, or charts')
+      continue
+    }
+    if ((valueType === 'number' || valueType === 'string') && color !== undefined) {
+      invalid('color requires value_type state')
+      continue
+    }
+    if (valueType === 'state' && color === undefined) {
+      invalid('state metrics require a color')
       continue
     }
     if (valueType === 'number' && (!unit || prometheus?.valueLabel !== undefined || (chartGroup !== undefined && chart === 'none'))) {
@@ -595,7 +658,12 @@ function parseMetricOverrides(value: unknown, catalog = metricCatalog()): { metr
       invalid(sourceRequest.error ?? 'source is invalid')
       continue
     }
-    const { auth, error: authError } = transport === 'socketio' ? {} : parseMetricHttpAuth(source.auth)
+    const socketHeaders = transport === 'socketio' ? parseMetricHeaders(source) : {}
+    if (socketHeaders.error) {
+      invalid(socketHeaders.error)
+      continue
+    }
+    const { auth, error: authError } = parseMetricHttpAuth(source.auth)
     if (authError) {
       invalid(authError)
       continue
@@ -604,10 +672,11 @@ function parseMetricOverrides(value: unknown, catalog = metricCatalog()): { metr
     const common = {
       label,
       source: transport === 'socketio'
-        ? { url, transport: 'socketio' as const, socketio: socketio.socketio! }
+        ? { url, transport: 'socketio' as const, ...(socketHeaders.headers ? { headers: socketHeaders.headers } : {}), ...(auth ? { auth } : {}), socketio: socketio.socketio! }
         : { ...sourceRequest.request!, ...(auth ? { auth } : {}) }
     }
     if (valueType === 'string') metrics[key] = jq ? { ...common, valueType, jq } : { ...common, valueType, prometheus: prometheus! }
+    else if (valueType === 'state') metrics[key] = jq ? { ...common, valueType, color: color!, jq } : { ...common, valueType, color: color!, prometheus: prometheus! }
     else {
       const numeric = { ...common, valueType: 'number' as const, unit: unit!, chart, ...(chartGroup === undefined ? {} : { chartGroup }), ...(transform === undefined ? {} : { transform }) }
       metrics[key] = jq ? { ...numeric, jq } : { ...numeric, prometheus: prometheus! }

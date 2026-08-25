@@ -13,12 +13,13 @@ const units = new Set([
 ])
 const reductions = new Set(['count', 'sum', 'average', 'minimum', 'maximum'])
 const charts = new Set(['step', 'line', 'area', 'none'])
+const badgeColors = new Set(['success', 'info', 'warning', 'error', 'disabled'])
 const metricName = /^[a-z][a-z0-9_-]*$/
 const prometheusName = /^[a-zA-Z_:][a-zA-Z0-9_:]*$/
 const sourceBase = /^\{(?:url|metrics_url)\}(?:\/|$)/
 const metricShape = z.looseObject({
   label: z.string().trim().min(1),
-  value_type: z.enum(['number', 'string']).optional()
+  value_type: z.enum(['number', 'string', 'state']).optional()
 })
 
 function files(directory) {
@@ -60,7 +61,7 @@ function validatePrometheus(extractor, valueType) {
   if (typeof extractor.name !== 'string' || !prometheusName.test(extractor.name)) throw new Error('prometheus.name is invalid')
   if (extractor.labels !== undefined && (extractor.labels === null || typeof extractor.labels !== 'object' || Array.isArray(extractor.labels) || !Object.values(extractor.labels).every(value => typeof value === 'string'))) throw new Error('prometheus.labels must map strings to strings')
   if (extractor.reduce !== undefined && (typeof extractor.reduce !== 'string' || !reductions.has(extractor.reduce))) throw new Error('prometheus.reduce is invalid')
-  if (valueType === 'string' && (typeof extractor.value_label !== 'string' || !extractor.value_label || extractor.reduce !== undefined)) throw new Error('string Prometheus metrics require value_label and cannot use reduce')
+  if (valueType !== 'number' && (typeof extractor.value_label !== 'string' || !extractor.value_label || extractor.reduce !== undefined)) throw new Error('text and state Prometheus metrics require value_label and cannot use reduce')
   if (valueType === 'number' && extractor.value_label !== undefined) throw new Error('numeric Prometheus metrics cannot use value_label')
 }
 
@@ -70,6 +71,10 @@ function validateTransform(transform) {
   if (Object.keys(value).length === 0 || !Object.values(value).every(number => typeof number === 'number' && Number.isFinite(number))) {
     throw new Error('transform must define finite multiply and/or add values')
   }
+}
+
+function validateStateColor(color) {
+  if (typeof color !== 'string' || !badgeColors.has(color)) throw new Error('color must be success, info, warning, error, or disabled')
 }
 
 function validateSource(source) {
@@ -99,10 +104,13 @@ function validateSocketIoEvent(event, context) {
 }
 
 function validateSocketIoSource(source) {
-  allowed(source, new Set(['url', 'transport', 'socketio']), 'source')
+  allowed(source, new Set(['url', 'transport', 'headers', 'auth', 'socketio']), 'source')
   if (typeof source.url !== 'string' || !sourceBase.test(source.url)) throw new Error('source.url must begin with {url} or {metrics_url}')
+  validateSecretMappings(source, 'source', false, ['headers'])
+  if (source.auth !== undefined) validateHttpAuth(source.auth)
   const socketio = record(source.socketio, 'source.socketio must be a mapping')
-  allowed(socketio, new Set(['auth', 'login', 'request']), 'source.socketio')
+  allowed(socketio, new Set(['path', 'auth', 'login', 'request']), 'source.socketio')
+  if (socketio.path !== undefined && (typeof socketio.path !== 'string' || !socketio.path.startsWith('/'))) throw new Error('source.socketio.path must begin with /')
   if (socketio.auth !== undefined) validateSecretMappings({ headers: socketio.auth }, 'source.socketio')
   if (socketio.login !== undefined) validateSocketIoEvent(socketio.login, 'source.socketio.login')
   validateSocketIoEvent(socketio.request, 'source.socketio.request')
@@ -120,8 +128,18 @@ function validateSecretReference(name, reference, context, kind) {
 }
 
 function validateValueReference(name, reference, context, kind, allowToken) {
+  if (typeof reference === 'string' || typeof reference === 'boolean' || (typeof reference === 'number' && Number.isFinite(reference))) return
   if (allowToken && reference !== null && typeof reference === 'object' && !Array.isArray(reference) && Object.keys(reference).length === 1 && typeof reference.token === 'string' && metricName.test(reference.token)) return
   validateSecretReference(name, reference, context, kind)
+}
+
+function validateJsonValue(value, context) {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value))) return
+  if (Array.isArray(value)) return value.forEach(item => validateJsonValue(item, context))
+  const object = record(value, `${context} must contain JSON values`)
+  if (Object.keys(object).some(key => !key)) throw new Error(`${context} must use non-empty property names`)
+  if (Object.keys(object).some(key => ['env', 'file', 'label', 'token'].includes(key))) return validateValueReference('value', object, context, 'json', true)
+  Object.values(object).forEach(item => validateJsonValue(item, context))
 }
 
 function validateSecretMappings(value, context, allowToken = false, kinds = ['headers', 'query']) {
@@ -142,6 +160,12 @@ function validateHttpAuth(auth) {
     validateSecretReference('password', value.password, 'source.auth', 'basic')
     return
   }
+  if (value.type === 'token') {
+    allowed(value, new Set(['type', 'header', 'prefix', 'value']), 'source.auth')
+    if (typeof value.header !== 'string' || !value.header || (value.prefix !== undefined && typeof value.prefix !== 'string')) throw new Error('source.auth token requires a header and optional string prefix')
+    validateSecretReference('value', value.value, 'source.auth', 'token')
+    return
+  }
   allowed(value, new Set(['type', 'steps', 'login']), 'source.auth')
   if (value.type !== 'cookie_session') throw new Error('source.auth.type must be basic or cookie_session')
   const steps = Array.isArray(value.steps) ? value.steps : value.login === undefined ? undefined : [value.login]
@@ -157,7 +181,12 @@ function validateRequest(request, context, allowToken) {
   if (method !== 'GET' && method !== 'POST') throw new Error(`${context}.method must be GET or POST`)
   if (method === 'GET' && (value.form !== undefined || value.json !== undefined)) throw new Error(`${context} GET requests cannot define form or json`)
   if (Number(value.form !== undefined) + Number(value.json !== undefined) > 1) throw new Error(`${context} must define at most one form or json body`)
-  validateSecretMappings(value, context, allowToken, ['headers', 'query', 'form', 'json'])
+  validateSecretMappings(value, context, allowToken, ['headers', 'query', 'form'])
+  if (value.json !== undefined) {
+    const json = record(value.json, `${context}.json must be a mapping`)
+    if (Object.keys(json).length === 0) throw new Error(`${context}.json must not be empty`)
+    Object.values(json).forEach(item => validateJsonValue(item, `${context}.json`))
+  }
   if (value.extract === undefined) return
   const extract = record(value.extract, `${context}.extract must be a mapping`)
   if (Object.keys(extract).length === 0 || Object.keys(extract).length > 16) throw new Error(`${context}.extract must define between 1 and 16 tokens`)
@@ -178,11 +207,11 @@ function validate(file) {
 
   const definition = record(yaml.load(fs.readFileSync(file, 'utf8')), 'must contain a YAML mapping')
   const shape = metricShape.safeParse(definition)
-  if (!shape.success) throw new Error('label must be a non-empty string and value_type must be number or string')
-  allowed(definition, new Set(['label', 'source', 'unit', 'chart', 'chart_group', 'transform', 'value_type', 'jq', 'prometheus']), 'metric definition')
+  if (!shape.success) throw new Error('label must be a non-empty string and value_type must be number, string, or state')
+  allowed(definition, new Set(['label', 'source', 'unit', 'chart', 'chart_group', 'transform', 'color', 'value_type', 'jq', 'prometheus']), 'metric definition')
   if (typeof definition.label !== 'string' || !definition.label.trim()) throw new Error('label must be a non-empty string')
   const valueType = definition.value_type ?? 'number'
-  if (valueType !== 'number' && valueType !== 'string') throw new Error('value_type must be number or string')
+  if (valueType !== 'number' && valueType !== 'string' && valueType !== 'state') throw new Error('value_type must be number, string, or state')
   const hasJq = definition.jq !== undefined
   const hasPrometheus = definition.prometheus !== undefined
   if (Number(hasJq) + Number(hasPrometheus) !== 1) throw new Error('must define exactly one jq or prometheus extractor')
@@ -197,8 +226,14 @@ function validate(file) {
     }
     if (definition.chart_group !== undefined && definition.chart === 'none') throw new Error('chart_group requires a visible chart')
     if (definition.transform !== undefined) validateTransform(definition.transform)
+    if (definition.color !== undefined) throw new Error('color requires value_type state')
   } else if (definition.unit !== undefined || definition.chart !== undefined || definition.chart_group !== undefined || definition.transform !== undefined) {
-    throw new Error('string metrics cannot define a unit or chart group')
+    throw new Error('text and state metrics cannot define a unit or chart group')
+  }
+  if (valueType === 'string' && definition.color !== undefined) throw new Error('color requires value_type state')
+  if (valueType === 'state') {
+    if (definition.color === undefined) throw new Error('state metrics require color')
+    validateStateColor(definition.color)
   }
 
   if (hasJq && (typeof definition.jq !== 'string' || !definition.jq.trim())) throw new Error('jq must be a non-empty expression')

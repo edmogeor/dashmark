@@ -78,7 +78,7 @@ Each entry under `custom_metrics` needs:
 | `label` | Yes | Display label in the Metrics tooltip. |
 | `source.url` | Yes | Explicit HTTP or HTTPS endpoint. |
 | `source.method` | No | `GET` (default) or `POST`. POST may define exactly one `form` or `json` body. |
-| `source.headers` / `source.query` | No | Header or query values referenced from an environment variable, file, or optional literal label. |
+| `source.headers` / `source.query` | No | Scalar literal values or values referenced from an environment variable, file, or optional literal label. |
 | `source.auth` | No | HTTP Basic credentials or a bounded cookie-session request flow. |
 | `jq` or `prometheus` | Yes | Exactly one extractor. |
 | `unit` | Numeric only | Display unit, defaults to `number`. |
@@ -95,6 +95,14 @@ headers:
     env: SERVICE_TOKEN
   X-Api-Key:
     file: /run/secrets/service_api_key
+```
+
+Safe protocol values, such as response negotiation, can be literals:
+
+```yaml
+headers:
+  Accept: application/json
+  User-Agent: Dashmark metrics
 ```
 
 ### HTTP Basic authentication
@@ -116,15 +124,35 @@ source:
       label: dashmark.metric_api_secret
 ```
 
+### Token authentication
+
+Use `type: token` for an API token sent in a request header. `prefix` is
+optional, allowing both `Bearer <token>` and service-specific schemes such as
+`Token <token>` without storing a composed credential in an environment
+variable.
+
+```yaml
+source:
+  url: "{url}/api/status"
+  auth:
+    type: token
+    header: Authorization
+    prefix: "Bearer "
+    value:
+      env: DASHMARK_SERVICE_TOKEN
+      label: dashmark.metric_token
+```
+
 ### Cookie-session authentication
 
 Use `source.auth` when a metric endpoint needs a session cookie or an
 anti-forgery handshake. Its one to five `steps` run in order with the metric's
 cached cookie jar, then Dashmark fetches the metric with that same jar. A step
 uses `GET` by default or `POST`; a POST may define one `form` or `json` body.
-Header, query, and body values use secret references. A step may extract up to
-16 named values, which can only be injected explicitly into a later request
-with `{ token: name }`.
+Header, query, and form values accept scalar literals or secret references.
+JSON bodies additionally accept nested objects and arrays, with secret
+references embedded at any value. A step may extract up to 16 named values,
+which can only be injected explicitly into a later request with `{ token: name }`.
 
 ```yaml
 source:
@@ -219,7 +247,10 @@ unavailable or empty token fails that metric collection safely.
 Use `transport: socketio` for APIs that return a metric through a Socket.IO
 event acknowledgement. Dashmark opens a connection for each poll, applies
 optional handshake authentication and login, then emits the request event and
-passes its acknowledgement to `jq`.
+passes its acknowledgement to `jq`. Socket.IO sources can define `headers` and
+the same HTTP `auth` flow as HTTP sources. Dashmark runs that flow first and
+forwards its cookie jar and headers to the Node Socket.IO client. Set
+`socketio.path` when the server does not use `/socket.io`.
 
 ```yaml
 custom_metrics:
@@ -229,7 +260,17 @@ custom_metrics:
     source:
       transport: socketio
       url: http://service:3001
+      headers: { X-Metric-Client: dashmark }
+      auth:
+        type: cookie_session
+        login:
+          url: http://service:3001/login
+          method: POST
+          form:
+            username: { env: SERVICE_USERNAME }
+            password: { env: SERVICE_PASSWORD }
       socketio:
+        path: /socket.io
         auth:
           token: { env: SERVICE_TOKEN }
         login:
@@ -324,6 +365,28 @@ custom_metrics:
       url: http://service:8080/status
     jq: .status
 ```
+
+### State badges
+
+State metrics render their current string value as a colored badge. Choose one
+of `success`, `info`, `warning`, `error`, or `disabled`. They have no history
+and do not open a chart.
+
+```yaml
+custom_metrics:
+  service_state:
+    label: State
+    value_type: state
+    color: success
+    source:
+      url: http://service:8080/status
+    jq: .state
+```
+
+The named colors use Dashmark's shared `--dashmark-status-success`,
+`--dashmark-status-info`, `--dashmark-status-warning`,
+`--dashmark-status-error`, and `--dashmark-status-disabled` CSS variables.
+They also color container status badges.
 
 For Prometheus info metrics, select one matching sample and use `value_label`:
 

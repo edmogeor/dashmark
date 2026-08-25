@@ -9,8 +9,8 @@ settings:
   # port: 4321
   # docker_hosts: home=tcp://dockerproxy:2375,vps=tcp://vps-proxy:2375
   # docker_hosts: [home=tcp://dockerproxy:2375, vps=tcp://vps-proxy:2375]
-  # icons_dir: /app/icons
-  # custom_stylesheet: /app/custom.css
+  # icons_dir: /data/icons
+  # custom_stylesheet: /data/custom.css
   # enable_access_control: false
   # access_groups_header: auto
   # user_name_header: X-Custom-Name
@@ -32,7 +32,8 @@ settings:
   # status_badge_access: admins, operators
   # show_metrics: true
   # metrics_access: admins, operators
-  # metrics_database_path: /app/data/metrics.db
+  # Set a mounted path to retain metric history across container restarts.
+  # metrics_database_path: /data/metrics.db
   # metrics_poll_interval: 2
   # metrics_history_period: 300
   # status_poll_interval: 30

@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add generic Socket.IO custom metrics with handshake auth, login, and request acknowledgements.
 - Add HTTP Basic authentication for custom metric sources and OPNsense CPU, active-memory, and WAN catalog metrics.
 
+### Changed
+
+- **Breaking:** consolidate user-mounted files under `/data`. The default configuration file is now `/data/config.yml`, custom icons are read from `/data/icons`, and custom stylesheets can be mounted at `/data/custom.css`. Update existing `/app/config.yml` and `/app/icons` mounts or set the corresponding path overrides.
+
 ## [0.3.0-alpha.8] - 2026-08-25
 
 ### Fixed

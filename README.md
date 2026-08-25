@@ -57,10 +57,12 @@ Dashmark discovers labeled Docker containers and turns them into dashboard cards
 
    ```yaml
    services:
-     dashmark:
-       image: ghcr.io/edmogeor/dashmark:latest
-       ports:
-         - "127.0.0.1:4321:4321"
+      dashmark:
+        image: ghcr.io/edmogeor/dashmark:latest
+        ports:
+          - "127.0.0.1:4321:4321"
+        volumes:
+          - ./data:/data
        environment:
           - DOCKER_HOSTS=default=tcp://dockerproxy:2375
        depends_on:
@@ -123,10 +125,10 @@ Configure Dashmark with environment variables, Docker labels, and an optional YA
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `DOCKER_HOSTS` | `unix:///var/run/docker.sock` | One Docker endpoint, or comma-separated named endpoints such as `home=tcp://home-proxy:2375,vps=tcp://vps-proxy:2375` |
-| `CONFIG_FILE` | `/app/config.yml` | YAML configuration file path, environment-only |
-| `ICONS_DIR` | `/app/icons` | Directory for local icon files |
+| `CONFIG_FILE` | `/data/config.yml` | YAML configuration file path, environment-only |
+| `ICONS_DIR` | `/data/icons` | Directory for local icon files |
 | `PORT` | `4321` | HTTP listening port, overridden by YAML `port` when configured |
-| `CUSTOM_STYLESHEET` | unset | Absolute path to a mounted CSS file, served as `/custom.css` |
+| `CUSTOM_STYLESHEET` | unset | Absolute path to a mounted CSS file, such as `/data/custom.css`, served as `/custom.css` |
 | `ENABLE_ACCESS_CONTROL` | `false` | Filter cards using authenticated access entries |
 | `ACCESS_GROUPS_HEADER` | `auto` | Groups header name, or automatic provider detection |
 | `SHOW_HEADER` | `true` | Show the greeting header |
@@ -146,7 +148,7 @@ Configure Dashmark with environment variables, Docker labels, and an optional YA
 | `STATUS_BADGE_ACCESS` | unset | Comma-separated access entries allowed to see status badges; unset shows them to everyone |
 | `SHOW_METRICS` | `true` | Fetch and show container and custom metrics |
 | `METRICS_ACCESS` | unset | Comma-separated access entries allowed to receive metrics; unset shows them to everyone |
-| `METRICS_DATABASE_PATH` | `/app/data/metrics.db` in production | SQLite database used for resource metric history; mount its parent directory to keep history across restarts. Development uses `.astro/metrics.db` by default |
+| `METRICS_DATABASE_PATH` | `/tmp/dashmark/metrics.db` in production | SQLite database used for resource metric history. The default is in the container filesystem and is lost on restart. Set a mounted path explicitly to retain history. Development uses `.astro/metrics.db` by default |
 | `METRICS_POLL_INTERVAL` | `2` | Seconds between background metric samples; card overrides may use a longer interval |
 | `METRICS_HISTORY_PERIOD` | `300` | Seconds of resource metric history displayed in live tickers |
 | `STATUS_POLL_INTERVAL` | `30` | Seconds between container status updates |
@@ -210,7 +212,7 @@ Add labels to opt a container in and configure its card.
 
 ### Resource usage
 
-Docker-backed cards show CPU and memory progress bars plus per-container network **Received** and **Sent** rates in the gauge tooltip. Each metric row includes a live ticker chart over the `METRICS_HISTORY_PERIOD` window. Dashmark samples eligible running containers every two seconds and stores those samples in SQLite, so history survives page refreshes and, when the database directory is mounted, restarts. Network rates appear after the second sample because Dashmark calculates them from consecutive Docker samples. When multiple Docker hosts are configured, the tooltip includes the host ID.
+Docker-backed cards show CPU and memory progress bars plus per-container network **Received** and **Sent** rates in the gauge tooltip. Each metric row includes a live ticker chart over the `METRICS_HISTORY_PERIOD` window. Dashmark samples eligible running containers every two seconds and stores those samples in SQLite. By default the database is in the container filesystem, so history survives page refreshes but is lost when the container is replaced or restarted. Set `METRICS_DATABASE_PATH` to an explicitly mounted location only when persistent history is wanted. Network rates appear after the second sample because Dashmark calculates them from consecutive Docker samples. When multiple Docker hosts are configured, the tooltip includes the host ID.
 
 Set `SHOW_METRICS=false` to stop metric collection and hide metric tooltips. Set `METRICS_ACCESS=admins,operators` to return metrics only to matching users. This restriction is enforced server-side, so unauthorized clients never receive metric values or history. Per-card `metrics_access` can further restrict individual metrics.
 
@@ -289,7 +291,7 @@ When `dashmark.url` is absent, Dashmark can derive an HTTPS URL from a Traefik r
 
 ### YAML configuration
 
-Mount a YAML file and set `CONFIG_FILE` if it is not mounted at `/app/config.yml`. Use the reserved top-level `settings` mapping for dashboard settings and top-level service keys for cards. YAML settings override environment variables, matching YAML card precedence over Docker labels.
+Mount one host directory at `/data`. Dashmark reads an optional YAML file from `/data/config.yml`, local icons from `/data/icons`, and an optional stylesheet from `/data/custom.css`. Use the reserved top-level `settings` mapping for dashboard settings and top-level service keys for cards. YAML settings override environment variables, matching YAML card precedence over Docker labels. Set `CONFIG_FILE`, `ICONS_DIR`, or `CUSTOM_STYLESHEET` only when using another layout.
 
 Every YAML field that accepts a list supports a YAML list, one scalar value, or a comma-separated scalar. For example, these are equivalent: `access: [admins, operators]`, `access: admins`, and `access: admins, operators`.
 
@@ -366,7 +368,7 @@ vps/plex:
   url: https://plex.vps.example.com
 ```
 
-Available card fields are `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `show_status`, `metrics`, `metrics_access`, `metric_providers`, `metrics_poll_interval`, `metrics_history_period`, `custom_metrics`, `access`, and `search_aliases`. See [`config/config.example.yml`](config/config.example.yml) for a commented example.
+Available card fields are `title`, `description`, `url`, `icon`, `category`, `order`, `hidden`, `show_status`, `metrics`, `metrics_access`, `metric_providers`, `metrics_poll_interval`, `metrics_history_period`, `custom_metrics`, `access`, and `search_aliases`. See [`data/config.yml`](data/config.yml) for a commented example.
 
 ### Icons
 
@@ -391,9 +393,9 @@ Mount a stylesheet and set `CUSTOM_STYLESHEET` to its absolute container path. D
 services:
   dashmark:
     volumes:
-      - ./custom.css:/app/custom.css:ro
+      - ./data:/data
     environment:
-      - CUSTOM_STYLESHEET=/app/custom.css
+      - CUSTOM_STYLESHEET=/data/custom.css
 ```
 
 [`config/custom.css.example`](config/custom.css.example) lists every supported styling class.

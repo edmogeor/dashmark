@@ -1,5 +1,7 @@
 import { isDashmarkError, isRecord, type DashmarkError } from './errors'
 
+export type CustomMetricStateColor = 'success' | 'info' | 'warning' | 'error' | 'disabled'
+
 export type ContainerStatus = {
   state?: string
   health?: string
@@ -36,7 +38,8 @@ export type NumericCustomMetric = {
   historyPeriodMs: number
 }
 export type TextCustomMetric = { key: string; label: string; value: string }
-export type CustomMetric = NumericCustomMetric | TextCustomMetric
+export type StateCustomMetric = TextCustomMetric & { color: CustomMetricStateColor }
+export type CustomMetric = NumericCustomMetric | TextCustomMetric | StateCustomMetric
 export type MetricError = { key: string; message: string }
 
 export type StatusResponse =
@@ -94,7 +97,7 @@ function isCustomMetricSample(value: unknown): value is CustomMetricSample {
 function isCustomMetric(value: unknown): value is CustomMetric {
   return isRecord(value)
     && typeof value.key === 'string' && typeof value.label === 'string'
-    && (typeof value.value === 'string' || (
+    && (typeof value.value === 'string' && (value.color === undefined || isCustomMetricStateColor(value.color)) || (
       typeof value.value === 'number' && Number.isFinite(value.value)
       && isCustomMetricUnit(value.unit)
       && isCustomMetricChart(value.chart)
@@ -102,6 +105,10 @@ function isCustomMetric(value: unknown): value is CustomMetric {
       && Array.isArray(value.history) && value.history.every(isCustomMetricSample)
       && typeof value.historyPeriodMs === 'number' && value.historyPeriodMs > 0
     ))
+}
+
+function isCustomMetricStateColor(value: unknown): value is CustomMetricStateColor {
+  return value === 'success' || value === 'info' || value === 'warning' || value === 'error' || value === 'disabled'
 }
 
 function isCustomMetricUnit(value: unknown): value is CustomMetricUnit {

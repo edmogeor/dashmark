@@ -1,6 +1,6 @@
 /*
  * Copy this file to custom.css, mount it into the container, and set
- * CUSTOM_STYLESHEET=/app/custom.css.
+ * CUSTOM_STYLESHEET=/data/custom.css.
  */
 
 :root {
@@ -27,6 +27,13 @@
    * --dashmark-chart-color-5
    * --dashmark-chart-color-6
    * --dashmark-chart-color-7
+   */
+  /* Shared card-status and custom metric badge colors:
+   * --dashmark-status-success
+   * --dashmark-status-info
+   * --dashmark-status-warning
+   * --dashmark-status-error
+   * --dashmark-status-disabled
    */
 }
 
@@ -180,6 +187,10 @@
 
 .dashmark-app-resource-metric-number {
   /* The displayed value or loading indicator. */
+}
+
+.dashmark-custom-metric-badge {
+  /* A colored state badge configured with custom_metrics.<key>.color. */
 }
 
 .dashmark-metric-dialog {

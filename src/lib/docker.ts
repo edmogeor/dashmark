@@ -547,17 +547,22 @@ function resolveMetricSources(
       ? undefined
       : baseUrl ? `${baseUrl.replace(/\/$/, '')}${url.slice(placeholder.length)}` : url
   }
-  const resolveReferences = (references: typeof metrics[string]['source']['headers']) => Object.fromEntries(Object.entries(references ?? {}).map(([name, reference]) => {
-    if ('token' in reference) return [name, reference]
-    const value = reference.label === undefined ? undefined : labels[reference.label]
-    return [name, value === undefined ? reference : { ...reference, value }]
-  }))
+  const resolveReference = (reference: unknown): unknown => {
+    if (reference === null || typeof reference !== 'object' || Array.isArray(reference)) return reference
+    const keys = Object.keys(reference)
+    if (keys.length === 1 && typeof (reference as { token?: unknown }).token === 'string') return reference
+    if (keys.every(key => ['env', 'file', 'label', 'value'].includes(key)) && keys.some(key => typeof (reference as Record<string, unknown>)[key] === 'string')) {
+      const secret = reference as { label?: string }
+      const value = secret.label === undefined ? undefined : labels[secret.label]
+      return value === undefined ? reference : { ...reference, value }
+    }
+    return Object.fromEntries(Object.entries(reference).map(([name, value]) => [name, resolveReference(value)]))
+  }
+  const resolveReferences = (references: typeof metrics[string]['source']['headers']) => Object.fromEntries(Object.entries(references ?? {}).map(([name, reference]) => [name, resolveReference(reference)])) as NonNullable<typeof references>
   const resolveSocketIo = (socketio: NonNullable<typeof metrics[string]['source']['socketio']>) => {
     const resolveArguments = (args: typeof socketio.request.args) => args?.map(argument => {
       if (typeof argument !== 'object') return argument
-      if ('token' in argument) return argument
-      const value = argument.label === undefined ? undefined : labels[argument.label]
-      return value === undefined ? argument : { ...argument, value }
+      return resolveReference(argument) as typeof argument
     })
     const auth = resolveReferences(socketio.auth)
     return {
@@ -573,14 +578,14 @@ function resolveMetricSources(
     const headers = resolveReferences(request.headers)
     const query = resolveReferences(request.query)
     const form = resolveReferences(request.form)
-    const json = resolveReferences(request.json)
+    const json = request.json === undefined ? undefined : resolveReference(request.json) as typeof request.json
     return {
       ...request,
       url,
       ...(Object.keys(headers).length > 0 ? { headers } : {}),
       ...(Object.keys(query).length > 0 ? { query } : {}),
       ...(Object.keys(form).length > 0 ? { form } : {}),
-      ...(Object.keys(json).length > 0 ? { json } : {})
+      ...(json && Object.keys(json).length > 0 ? { json } : {})
     }
   }
   const resolved = Object.fromEntries(Object.entries(metrics).flatMap(([key, metric]) => {
@@ -592,9 +597,12 @@ function resolveMetricSources(
     const basicAuth = auth?.type === 'basic'
       ? {
           ...auth,
-          username: resolveReferences({ username: auth.username }).username!,
-          password: resolveReferences({ password: auth.password }).password!
+          username: resolveReferences({ username: auth.username }).username! as typeof auth.username,
+          password: resolveReferences({ password: auth.password }).password! as typeof auth.password
         }
+      : undefined
+    const tokenAuth = auth?.type === 'token'
+      ? { ...auth, value: resolveReferences({ value: auth.value }).value! as typeof auth.value }
       : undefined
     return [[key, {
       ...metric,
@@ -603,11 +611,12 @@ function resolveMetricSources(
         ...(metric.source.transport ? { transport: metric.source.transport } : {}),
         ...(metric.source.socketio ? { socketio: resolveSocketIo(metric.source.socketio) } : {}),
         ...(auth?.type === 'cookie_session' && steps ? { auth: { ...auth, steps: steps as typeof auth.steps } } : {}),
-        ...(basicAuth ? { auth: basicAuth } : {})
+        ...(basicAuth ? { auth: basicAuth } : {}),
+        ...(tokenAuth ? { auth: tokenAuth } : {})
       }
     }]]
   }))
-  return Object.keys(resolved).length > 0 ? resolved : undefined
+  return Object.keys(resolved).length > 0 ? resolved as ServiceMetricOverrides : undefined
 }
 
 function isVisibleContainer(config: AppConfig, headers: Headers, { labels, url }: ResolvedContainer): boolean {
@@ -788,6 +797,7 @@ export async function getContainerStatuses(
 export type CollectedCustomMetric =
   | { key: string; label: string; unit: Extract<MetricOverride, { valueType: 'number' }>['unit']; chart: Extract<MetricOverride, { valueType: 'number' }>['chart']; chartGroup?: string; value: number }
   | { key: string; label: string; value: string }
+  | { key: string; label: string; color: Extract<MetricOverride, { valueType: 'state' }>['color']; value: string }
 
 export type ContainerMetricUsage = {
   resource?: ContainerResources
@@ -857,6 +867,7 @@ function metricDetails(resolved: ResolvedMetricCard, config: AppConfig, hasConta
 
 function collectedCustomMetric(key: string, metric: MetricOverride, value: number | string): CollectedCustomMetric | undefined {
   if (metric.valueType === 'string' && typeof value === 'string') return { key, label: metric.label, value }
+  if (metric.valueType === 'state' && typeof value === 'string') return { key, label: metric.label, color: metric.color, value }
   if (metric.valueType === 'number' && typeof value === 'number') {
     return { key, label: metric.label, unit: metric.unit, chart: metric.chart, ...(metric.chartGroup === undefined ? {} : { chartGroup: metric.chartGroup }), value }
   }

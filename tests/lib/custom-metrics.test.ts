@@ -11,6 +11,7 @@ let cookieRequests: string[] = []
 let loginRequests: { body: string; cookie: string }[] = []
 let socketServer: SocketIoServer
 let socketEvents: { event: string; args: unknown[] }[] = []
+let socketHeaders: Record<string, string | string[] | undefined>[] = []
 
 beforeAll(async () => {
   server = createServer((request, response) => {
@@ -79,6 +80,19 @@ beforeAll(async () => {
       request.on('end', () => response.end(JSON.stringify({ value: body === 'scope=metrics' ? 13 : 0 })))
       return
     }
+    if (path === '/token') {
+      response.statusCode = request.headers.authorization === 'Bearer metric-token' && request.headers.accept === 'application/json' ? 200 : 401
+      response.end(JSON.stringify({ value: 14 }))
+      return
+    }
+    if (path === '/json-metric') {
+      let body = ''
+      request.on('data', chunk => { body += chunk })
+      request.on('end', () => {
+        response.end(JSON.stringify({ value: body === JSON.stringify({ method: 'status', params: [], credentials: { token: 'nested-token' } }) ? 15 : 0 }))
+      })
+      return
+    }
     const responses: Record<string, string> = {
       '/data': '{"stats":{"value":12.5}}',
       '/sum': '{"items":[{"value":2},{"value":3}]}',
@@ -93,6 +107,7 @@ beforeAll(async () => {
   socketServer = new SocketIoServer(server)
   socketServer.use((socket, next) => socket.handshake.auth.token === 'socket-token' ? next() : next(new Error('Unauthorized')))
   socketServer.on('connection', socket => {
+    socketHeaders.push(socket.handshake.headers)
     socket.on('login', (...args) => {
       const callback = args.pop()
       socketEvents.push({ event: 'login', args })
@@ -194,6 +209,16 @@ describe('collectCustomMetric', () => {
     })).resolves.toEqual({ value: 8 })
   })
 
+  it('sends static headers and prefixed token authentication', async () => {
+    await expect(collectCustomMetric('token', {
+      ...metric({ jq: { expression: '.value' } }),
+      source: {
+        url: `${baseUrl}/token`, headers: { Accept: 'application/json' },
+        auth: { type: 'token', header: 'Authorization', prefix: 'Bearer ', value: { value: 'metric-token' } }
+      }
+    })).resolves.toEqual({ value: 14 })
+  })
+
   it('uses shared cookies and extracted HTML and JSON tokens in later requests', async () => {
     const authenticatedPostMetric = {
       label: 'Authenticated POST metric', valueType: 'number' as const, unit: 'count', chart: 'step' as const,
@@ -224,8 +249,20 @@ describe('collectCustomMetric', () => {
     } as MetricOverride)).resolves.toEqual({ value: 13 })
   })
 
+  it('sends literal and secret values in nested JSON request bodies', async () => {
+    await expect(collectCustomMetric('json-post', {
+      label: 'JSON POST metric', valueType: 'number', unit: 'count', chart: 'step',
+      source: {
+        url: `${baseUrl}/json-metric`, method: 'POST',
+        json: { method: 'status', params: [], credentials: { token: { value: 'nested-token' } } }
+      },
+      jq: { expression: '.value' }
+    } as MetricOverride)).resolves.toEqual({ value: 15 })
+  })
+
   it('collects a Socket.IO acknowledgement with handshake auth and login', async () => {
     socketEvents = []
+    socketHeaders = []
     const socketMetric = {
       label: 'Socket metric', valueType: 'number' as const, unit: 'count', chart: 'step' as const,
       source: {
@@ -245,6 +282,25 @@ describe('collectCustomMetric', () => {
       { event: 'login', args: ['metric-reader'] },
       { event: 'metric', args: [42] }
     ])
+  })
+
+  it('uses cookie-session authentication and explicit headers for Socket.IO metrics', async () => {
+    socketHeaders = []
+    const socketMetric = {
+      label: 'Socket session metric', valueType: 'number' as const, unit: 'count', chart: 'step' as const,
+      source: {
+        url: baseUrl, transport: 'socketio' as const, headers: { 'X-Metric-Client': 'dashmark' },
+        auth: {
+          type: 'cookie_session' as const,
+          steps: [{ url: `${baseUrl}/login`, method: 'POST' as const, form: { username: { value: 'admin' }, password: { value: 'secret' } } }]
+        },
+        socketio: { path: '/socket.io', auth: { token: { value: 'socket-token' } }, request: { event: 'metric' } }
+      },
+      jq: { expression: '.value' }
+    } as MetricOverride
+
+    await expect(collectCustomMetric('socket-session', socketMetric)).resolves.toEqual({ value: 42 })
+    expect(socketHeaders).toContainEqual(expect.objectContaining({ cookie: expect.stringContaining('metric-session=authenticated'), 'x-metric-client': 'dashmark' }))
   })
 
   it('rejects responses larger than one megabyte', async () => {

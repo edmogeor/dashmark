@@ -10,16 +10,16 @@ type StatusBadgeProps = {
 }
 
 const STATUS_COLOR_CLASSES: Record<string, string> = {
-  running: 'bg-success/15 text-success',
-  healthy: 'bg-success/15 text-success',
-  starting: 'bg-warning/15 text-warning',
-  paused: 'bg-warning/15 text-warning',
-  created: 'bg-info/15 text-info',
-  restarting: 'bg-info/15 text-info',
-  unhealthy: 'bg-destructive/15 text-destructive',
-  exited: 'bg-destructive/15 text-destructive',
-  dead: 'bg-destructive/15 text-destructive',
-  removing: 'bg-destructive/15 text-destructive'
+  running: 'dashmark-state-success',
+  healthy: 'dashmark-state-success',
+  starting: 'dashmark-state-warning',
+  paused: 'dashmark-state-warning',
+  created: 'dashmark-state-info',
+  restarting: 'dashmark-state-info',
+  unhealthy: 'dashmark-state-error',
+  exited: 'dashmark-state-error',
+  dead: 'dashmark-state-error',
+  removing: 'dashmark-state-error'
 }
 
 function getColorClass(status: string): string {
@@ -51,7 +51,7 @@ export function StatusBadge({ state, health, loading, asCard = false }: StatusBa
   return (
     <span
       className={cn(
-        'dashmark-app-status inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+        'dashmark-app-status dashmark-state-badge inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
         colorClass
       )}
     >

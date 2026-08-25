@@ -133,7 +133,7 @@ function parseDockerHosts(value: string | undefined): DockerHostConfig[] | undef
 }
 
 export function getConfig(): AppConfig {
-  const configFile = process.env.CONFIG_FILE || '/app/config.yml'
+  const configFile = process.env.CONFIG_FILE || '/data/config.yml'
   const settings = loadYamlConfig({ configFile } as AppConfig).config.settings
   const yamlOrEnv = <T>(name: string, value: T | undefined): string | T | undefined => value ?? process.env[name]
   const stringValue = (name: string, value: string | undefined) => optionalString(yamlOrEnv(name, value) as string | undefined)
@@ -158,7 +158,7 @@ export function getConfig(): AppConfig {
     dockerHost: 'unix:///var/run/docker.sock',
     dockerHosts: parseDockerHosts(settings.dockerHosts?.join(',') ?? process.env.DOCKER_HOSTS),
     configFile,
-    iconsDir: stringValue('ICONS_DIR', settings.iconsDir) || '/app/icons',
+    iconsDir: stringValue('ICONS_DIR', settings.iconsDir) || '/data/icons',
     customStylesheet: stringValue('CUSTOM_STYLESHEET', settings.customStylesheet),
     enableAccessControl,
     accessGroupsHeader,
@@ -173,7 +173,7 @@ export function getConfig(): AppConfig {
     statusBadgeAccess: accessValue('STATUS_BADGE_ACCESS', settings.statusBadgeAccess),
     showMetrics: boolValue('SHOW_METRICS', settings.showMetrics, true),
     metricsAccess: accessValue('METRICS_ACCESS', settings.metricsAccess),
-    metricsDatabasePath: stringValue('METRICS_DATABASE_PATH', settings.metricsDatabasePath) || (process.env.NODE_ENV === 'production' ? '/app/data/metrics.db' : '.astro/metrics.db'),
+    metricsDatabasePath: stringValue('METRICS_DATABASE_PATH', settings.metricsDatabasePath) || (process.env.NODE_ENV === 'production' ? '/tmp/dashmark/metrics.db' : '.astro/metrics.db'),
     metricsPollIntervalMs: intervalValue('METRICS_POLL_INTERVAL', settings.metricsPollInterval, 2_000),
     metricsHistoryPeriodMs: intervalValue('METRICS_HISTORY_PERIOD', settings.metricsHistoryPeriod, METRICS_HISTORY_PERIOD_MS),
     statusPollIntervalMs: intervalValue('STATUS_POLL_INTERVAL', settings.statusPollInterval, STATUS_POLL_INTERVAL_MS),
