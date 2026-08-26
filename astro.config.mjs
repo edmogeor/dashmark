@@ -19,6 +19,7 @@ const port = Number.isInteger(parsedPort) && parsedPort > 0 && parsedPort <= 65_
   ? parsedPort
   : 4321
 const demoEnabled = process.env.DASHMARK_DEMO === 'true'
+const demoVersion = process.env.DASHMARK_DEMO_VERSION?.replace(/^v/, '') ?? ''
 
 export default defineConfig({
   output: 'server',
@@ -28,7 +29,8 @@ export default defineConfig({
   integrations: [react()],
   vite: {
     define: {
-      __DASHMARK_DEMO__: JSON.stringify(demoEnabled)
+      __DASHMARK_DEMO__: JSON.stringify(demoEnabled),
+      __DASHMARK_DEMO_VERSION__: JSON.stringify(demoVersion)
     },
     plugins: [tailwindcss()],
     resolve: {

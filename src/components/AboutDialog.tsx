@@ -9,6 +9,7 @@ type VersionResponse = { version: string; update?: { tagName: string; url: strin
 const brandMarkPath = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/brand/logo-mark.svg`
 const versionApiPath = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/api/version`
 const isDemo = __DASHMARK_DEMO__
+const displayedVersion = isDemo && __DASHMARK_DEMO_VERSION__ ? __DASHMARK_DEMO_VERSION__ : undefined
 
 function GitHubIcon() {
   return (
@@ -55,7 +56,7 @@ export function AboutDialog() {
         <div className="space-y-3 rounded-md border bg-muted/30 p-4 text-sm">
           <div className="flex items-center justify-between gap-4">
             <span className="text-muted-foreground">{isDemo ? 'Latest stable version' : 'Installed version'}</span>
-            <code className="font-medium">v{version?.version ?? APP_VERSION}</code>
+            <code className="font-medium">v{displayedVersion ?? version?.version ?? APP_VERSION}</code>
           </div>
           {loading && <div className="flex items-center gap-2 text-muted-foreground"><LoaderCircle className="h-4 w-4 animate-spin" /> Checking for updates</div>}
           {version?.update && (
