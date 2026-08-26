@@ -11,7 +11,7 @@ ENV HOST=0.0.0.0
 ENV PORT=4321
 WORKDIR /app
 COPY package*.json ./
-RUN apk add --no-cache jq && npm ci --omit=dev && npm cache clean --force
+RUN apk add --no-cache jq && npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/src/data/icons.json ./src/data/icons.json
 COPY --from=builder /app/src/data/descriptions.json ./src/data/descriptions.json
