@@ -1,18 +1,9 @@
-label: Leeches
-unit: count
-chart_group: queue
+display:
+  label: Leeches
+  chart: queue
+value:
+  unit: count
 source:
   url: "{metrics_url}/api/v2/torrents/info"
-  auth:
-    type: cookie_session
-    login:
-      url: "{metrics_url}/api/v2/auth/login"
-      method: POST
-      form:
-        username:
-          env: DASHMARK_QBITTORRENT_USERNAME
-          label: dashmark.metric_username
-        password:
-          env: DASHMARK_QBITTORRENT_PASSWORD
-          label: dashmark.metric_password
-jq: '[.[] | select(.progress < 1)] | length'
+extract:
+  jq: '[.[] | select(.progress < 1)] | length'

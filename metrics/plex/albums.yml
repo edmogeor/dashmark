@@ -1,16 +1,14 @@
-label: Albums
-unit: count
-chart: step
+display:
+  label: Albums
+  chart: step
+value:
+  unit: count
 source:
   url: "{metrics_url}/library/sections"
-  headers:
-    Accept: application/json
-    X-Plex-Token:
-      env: DASHMARK_PLEX_TOKEN
-      label: dashmark.metric_token
-for_each:
-  items: '[.MediaContainer.Directory[] | select(.type == "artist") | .key]'
-  request:
-    url: "{metrics_url}/library/sections/{item}/all"
-  value: '.MediaContainer.size // .MediaContainer.totalSize // 0'
-  reduce: sum
+extract:
+  for_each:
+    items: '[.MediaContainer.Directory[] | select(.type == "artist") | .key]'
+    request:
+      url: "{metrics_url}/library/sections/{item}/all"
+    value: '.MediaContainer.size // .MediaContainer.totalSize // 0'
+    reduce: sum

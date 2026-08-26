@@ -1,10 +1,9 @@
-label: Series
-unit: count
-chart_group: library
+display:
+  label: Series
+  chart: library
+value:
+  unit: count
 source:
   url: "{metrics_url}/api/v3/series"
-  headers:
-    X-Api-Key:
-      env: DASHMARK_SONARR_API_KEY
-      label: dashmark.metric_api_key
-jq: length
+extract:
+  jq: length

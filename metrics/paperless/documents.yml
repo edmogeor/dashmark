@@ -1,13 +1,16 @@
-label: Documents
-unit: count
-chart: none
+display:
+  label: Documents
+  chart: none
+value:
+  unit: count
 source:
   url: "{metrics_url}/api/statistics/?format=json"
-  auth:
-    type: token
+  authentication:
+    kind: token
     header: Authorization
     prefix: "Token "
     value:
       env: DASHMARK_PAPERLESS_TOKEN
       label: dashmark.metric_token
-jq: .documents_total
+extract:
+  jq: .documents_total

@@ -1,34 +1,60 @@
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import yaml from 'js-yaml'
 import { expect } from 'vitest'
 import { collectCustomMetric } from '@/lib/custom-metrics'
 import type { MetricOverride } from '@/lib/config-file'
 
 type MetricDefinition = {
-  label: string
-  value_type?: 'number' | 'string' | 'state'
-  color?: 'success' | 'info' | 'warning' | 'error' | 'disabled'
-  state_colors?: Record<string, 'success' | 'info' | 'warning' | 'error' | 'disabled'>
-  state_labels?: Record<string, string>
-  unit?: string
-  chart?: 'step' | 'line' | 'area' | 'none'
-  chart_group?: string
-  transform?: { multiply?: number; add?: number }
-  jq?: string
-  text?: true
-  for_each?: { items: string; request: { url: string }; value: string; reduce: 'count' | 'sum' | 'average' | 'minimum' | 'maximum' }
+  display: { label: string; chart?: string }
+  value: {
+    kind?: 'number' | 'string' | 'state'
+    unit?: string
+    transform?: { multiply?: number; add?: number }
+    default_color?: 'success' | 'info' | 'warning' | 'error' | 'disabled'
+    colors?: Record<string, 'success' | 'info' | 'warning' | 'error' | 'disabled'>
+    labels?: Record<string, string>
+  }
+  extract: {
+    jq?: string
+    text?: true
+    for_each?: { items: string; request: { url: string }; value: string; reduce: 'count' | 'sum' | 'average' | 'minimum' | 'maximum' }
+  }
   parameters?: Record<string, { type: 'url_component' | 'json_value' }>
   source: {
     url: string
     method?: 'GET' | 'POST'
     headers?: Record<string, unknown>
+    query?: Record<string, unknown>
+    form?: Record<string, unknown>
     json?: Record<string, unknown>
-    auth?:
-      | { type: 'basic'; username: unknown; password: unknown }
-      | { type: 'token'; header: string; prefix?: string; value: unknown }
-      | { type: 'cookie_session'; login?: { url: string; method: 'POST'; form?: Record<string, unknown>; extract?: Record<string, unknown> }; steps?: { url: string; method?: 'GET' | 'POST'; form?: Record<string, unknown>; extract?: Record<string, unknown> }[] }
+    authentication?:
+      | { kind: 'basic'; username: unknown; password: unknown }
+      | { kind: 'token'; header: string; prefix?: string; value: unknown }
+      | { kind: 'cookie_session'; requests: { url: string; method?: 'GET' | 'POST'; form?: Record<string, unknown>; extract?: Record<string, unknown> }[] }
+  }
+}
+
+type ProviderDefinition = {
+  source?: Pick<MetricDefinition['source'], 'headers' | 'authentication'> & { query?: Record<string, unknown> }
+  charts?: Record<string, 'step' | 'line' | 'area'>
+}
+
+function loadDefinition(definitionUrl: URL): [MetricDefinition, ProviderDefinition] {
+  const definition = yaml.load(readFileSync(definitionUrl, 'utf8')) as MetricDefinition
+  const providerUrl = new URL('./provider.yml', definitionUrl)
+  const provider = existsSync(providerUrl) ? yaml.load(readFileSync(providerUrl, 'utf8')) as ProviderDefinition : {}
+  return [definition, provider]
+}
+
+function sourceFor(definition: MetricDefinition, provider: ProviderDefinition): MetricDefinition['source'] {
+  const defaults = provider.source ?? {}
+  return {
+    ...defaults,
+    ...definition.source,
+    ...(defaults.headers || definition.source.headers ? { headers: { ...defaults.headers, ...definition.source.headers } } : {}),
+    ...(defaults.query || definition.source.query ? { query: { ...defaults.query, ...definition.source.query } } : {})
   }
 }
 
@@ -46,30 +72,38 @@ function resolveUrl(url: string, baseUrl: string, values: Record<string, string>
   return url.replace('{url}', baseUrl).replace('{metrics_url}', baseUrl).replace(/\{([a-z][a-z0-9_]*)\}/g, (_, name: string) => values[name] === undefined ? `{${name}}` : encodeURIComponent(values[name]))
 }
 
+function requestValues(values: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+  return values && Object.fromEntries(Object.entries(values).map(([name, value]) => [name, value !== null && typeof value === 'object' && 'token' in value ? value : { value: 'test-secret' }]))
+}
+
 function loadMetric(definitionUrl: URL, baseUrl: string): MetricOverride {
-  const definition = yaml.load(readFileSync(definitionUrl, 'utf8')) as MetricDefinition
-  const source = definition.source
+  const [definition, provider] = loadDefinition(definitionUrl)
+  const source = sourceFor(definition, provider)
   const parameters = parameterValues(definition)
-  const headers = source.headers && Object.fromEntries(Object.entries(source.headers).map(([name, value]) => [name, value !== null && typeof value === 'object' && 'token' in value ? value : { value: 'test-secret' }]))
-  const basic = source.auth?.type === 'basic'
+  const headers = requestValues(source.headers)
+  const query = requestValues(source.query)
+  const form = requestValues(source.form)
+  const basic = source.authentication?.kind === 'basic'
     ? { type: 'basic' as const, username: { value: 'test-username' }, password: { value: 'test-password' } }
     : undefined
-  const token = source.auth?.type === 'token'
-    ? { type: 'token' as const, header: source.auth.header, ...(source.auth.prefix ? { prefix: source.auth.prefix } : {}), value: { value: 'test-token' } }
+  const token = source.authentication?.kind === 'token'
+    ? { type: 'token' as const, header: source.authentication.header, ...(source.authentication.prefix ? { prefix: source.authentication.prefix } : {}), value: { value: 'test-token' } }
     : undefined
-  const loginSteps = source.auth?.type === 'cookie_session' ? source.auth.steps ?? (source.auth.login ? [source.auth.login] : []) : []
+  const loginSteps = source.authentication?.kind === 'cookie_session' ? source.authentication.requests : []
 
   return {
-    label: definition.label,
-    valueType: definition.value_type ?? 'number',
-    unit: definition.unit ?? 'number',
-    chart: definition.chart ?? 'step',
-    ...(definition.chart_group ? { chartGroup: definition.chart_group } : {}),
-    ...(definition.transform ? { transform: definition.transform } : {}),
+    label: definition.display.label,
+    valueType: definition.value.kind ?? 'number',
+    unit: definition.value.unit ?? 'number',
+    chart: provider.charts?.[definition.display.chart ?? ''] ?? definition.display.chart ?? 'step',
+    ...(definition.display.chart && provider.charts?.[definition.display.chart] ? { chartGroup: definition.display.chart } : {}),
+    ...(definition.value.transform ? { transform: definition.value.transform } : {}),
     source: {
       url: resolveUrl(source.url, baseUrl, parameters),
       ...(source.method ? { method: source.method } : {}),
       ...(headers ? { headers } : {}),
+      ...(query ? { query } : {}),
+      ...(form ? { form } : {}),
       ...(source.json ? { json: resolveParameterValues(source.json, parameters) } : {}),
       ...(basic ? { auth: basic } : {}),
       ...(token ? { auth: token } : {}),
@@ -87,32 +121,34 @@ function loadMetric(definitionUrl: URL, baseUrl: string): MetricOverride {
           }
         : {})
     },
-    ...(definition.for_each
-      ? { forEach: { items: { expression: definition.for_each.items }, requestUrl: resolveUrl(definition.for_each.request.url, baseUrl, parameters), value: { expression: definition.for_each.value }, reduce: definition.for_each.reduce } }
-      : definition.text ? { text: true } : { jq: { expression: definition.jq! } }),
-    ...(definition.color ? { color: definition.color } : {}),
-    ...(definition.state_colors ? { stateColors: definition.state_colors } : {}),
-    ...(definition.state_labels ? { stateLabels: definition.state_labels } : {})
+    ...(definition.extract.for_each
+      ? { forEach: { items: { expression: definition.extract.for_each.items }, requestUrl: resolveUrl(definition.extract.for_each.request.url, baseUrl, parameters), value: { expression: definition.extract.for_each.value }, reduce: definition.extract.for_each.reduce } }
+      : definition.extract.text ? { text: true } : { jq: { expression: definition.extract.jq! } }),
+    ...(definition.value.default_color ? { color: definition.value.default_color } : {}),
+    ...(definition.value.colors ? { stateColors: definition.value.colors } : {}),
+    ...(definition.value.labels ? { stateLabels: definition.value.labels } : {})
   } as MetricOverride
 }
 
 export async function expectFixtureMetric(definitionUrl: URL, fixture: unknown, expected: number | string): Promise<void> {
-  const definition = yaml.load(readFileSync(definitionUrl, 'utf8')) as MetricDefinition
+  const [definition, provider] = loadDefinition(definitionUrl)
+  const source = sourceFor(definition, provider)
   const parameters = parameterValues(definition)
-  const expectedUrl = new URL(resolveUrl(definition.source.url, 'http://metrics.test', parameters))
+  const expectedUrl = new URL(resolveUrl(source.url, 'http://metrics.test', parameters))
+  for (const name of Object.keys(source.query ?? {})) expectedUrl.searchParams.set(name, 'test-secret')
   const expectedPath = `${expectedUrl.pathname}${expectedUrl.search}`
-  const requiresCookieSession = definition.source.auth?.type === 'cookie_session'
-  const requiresBasicAuth = definition.source.auth?.type === 'basic'
-  const requiresTokenAuth = definition.source.auth?.type === 'token'
-  const tokenPrefix = definition.source.auth?.type === 'token' ? definition.source.auth.prefix ?? '' : ''
-  const loginPath = definition.source.auth?.type === 'cookie_session'
-    ? new URL((definition.source.auth.steps ?? (definition.source.auth.login ? [definition.source.auth.login] : []))[0]?.url.replace('{url}', 'http://metrics.test').replace('{metrics_url}', 'http://metrics.test') ?? 'http://metrics.test/unconfigured').pathname
+  const requiresCookieSession = source.authentication?.kind === 'cookie_session'
+  const requiresBasicAuth = source.authentication?.kind === 'basic'
+  const requiresTokenAuth = source.authentication?.kind === 'token'
+  const tokenPrefix = source.authentication?.kind === 'token' ? source.authentication.prefix ?? '' : ''
+  const loginPath = source.authentication?.kind === 'cookie_session'
+    ? new URL(source.authentication.requests[0]?.url.replace('{url}', 'http://metrics.test').replace('{metrics_url}', 'http://metrics.test') ?? 'http://metrics.test/unconfigured').pathname
     : undefined
-  const loginForm = definition.source.auth?.type === 'cookie_session'
-    ? (definition.source.auth.steps ?? (definition.source.auth.login ? [definition.source.auth.login] : []))[0]?.form
+  const loginForm = source.authentication?.kind === 'cookie_session'
+    ? source.authentication.requests[0]?.form
     : undefined
-  const headerNames = Object.keys(definition.source.headers ?? {})
-  const sessionAuthorization = definition.source.headers?.Authorization
+  const headerNames = Object.keys(source.headers ?? {})
+  const sessionAuthorization = source.headers?.Authorization
   const sessionAuthorizationReference = sessionAuthorization as { token?: unknown; prefix?: unknown } | undefined
   const sessionTokenPrefix = typeof sessionAuthorizationReference?.token === 'string' && typeof sessionAuthorizationReference.prefix === 'string'
     ? sessionAuthorizationReference.prefix
@@ -129,7 +165,7 @@ export async function expectFixtureMetric(definitionUrl: URL, fixture: unknown, 
       return
     }
 
-    if (definition.for_each && request.url !== expectedPath) {
+    if (definition.extract.for_each && request.url !== expectedPath) {
       expect(request.headers['x-plex-token']).toBe('test-secret')
       response.setHeader('Content-Type', 'application/json')
       response.end(JSON.stringify({ MediaContainer: { size: 2 } }))
@@ -144,8 +180,8 @@ export async function expectFixtureMetric(definitionUrl: URL, fixture: unknown, 
       expect(request.headers[name.toLowerCase()]).toBe('test-secret')
     }
     if (sessionTokenPrefix !== undefined) expect(request.headers.authorization).toBe(`${sessionTokenPrefix}test-token`)
-    response.setHeader('Content-Type', definition.text ? 'text/plain' : 'application/json')
-    response.end(definition.text ? String(fixture) : JSON.stringify(fixture))
+    response.setHeader('Content-Type', definition.extract.text ? 'text/plain' : 'application/json')
+    response.end(definition.extract.text ? String(fixture) : JSON.stringify(fixture))
   })
 
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))

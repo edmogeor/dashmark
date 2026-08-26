@@ -4,7 +4,6 @@ on:
   pull_request:
     paths:
       - 'metrics/**/*.yml'
-      - 'metrics/CATALOG.md'
       - 'scripts/validate-metrics.mjs'
       - '.github/PULL_REQUEST_TEMPLATE/metric.md'
       - 'package.json'

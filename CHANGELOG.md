@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** replace the YAML metric list and related per-service metric keys with the canonical `service.metrics` mapping. Use `source_url`, `collection`, `container`, `charts`, `catalog`, and `local`; `collection.interval` and `collection.retention` now use duration strings.
+- Add `shared_metric_sources` for local metrics that use the same HTTP API connection across cards.
+
+### Removed
+
+- **Breaking:** remove YAML `metrics` lists, `metric_providers`, `metrics_url`, `metric_parameters`, `metrics_poll_interval`, `metrics_history_period`, `metrics_access`, and `custom_metrics`, with no aliases. Docker labels remain accepted separately, and catalog metrics no longer need a provider label gate.
+
 ## [0.3.0-alpha.14] - 2026-08-25
 
 ### Fixed

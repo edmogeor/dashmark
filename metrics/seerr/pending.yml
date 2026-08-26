@@ -1,10 +1,13 @@
-label: Pending requests
-unit: count
-chart: step
+display:
+  label: Pending requests
+  chart: step
+value:
+  unit: count
 source:
   url: "{metrics_url}/api/v1/request/count"
   headers:
     X-Api-Key:
       env: DASHMARK_SEERR_API_KEY
       label: dashmark.metric_api_key
-jq: .pending
+extract:
+  jq: .pending

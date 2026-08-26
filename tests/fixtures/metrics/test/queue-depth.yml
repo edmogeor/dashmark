@@ -1,9 +1,12 @@
-label: Queue depth
-unit: count
+display:
+  label: Queue depth
+value:
+  unit: count
 source:
   url: "{url}/api/queue"
   headers:
     X-Api-Key:
       env: DASHMARK_TEST_API_KEY
       label: dashmark.metric_api_key
-jq: .totalCount
+extract:
+  jq: .totalCount

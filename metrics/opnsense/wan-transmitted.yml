@@ -1,15 +1,9 @@
-label: WAN transmitted
-unit: bytes
-chart: line
-chart_group: wan
+display:
+  label: WAN transmitted
+  chart: wan
+value:
+  unit: bytes
 source:
   url: "{metrics_url}/api/diagnostics/traffic/interface"
-  auth:
-    type: basic
-    username:
-      env: DASHMARK_OPNSENSE_API_KEY
-      label: dashmark.metric_api_key
-    password:
-      env: DASHMARK_OPNSENSE_API_SECRET
-      label: dashmark.metric_api_secret
-jq: '.interfaces.wan["bytes transmitted"]'
+extract:
+  jq: '.interfaces.wan["bytes transmitted"] | tonumber'

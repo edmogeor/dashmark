@@ -31,11 +31,8 @@ settings:
   # show_status: true
   # status_badge_access: admins, operators
   # show_metrics: true
-  # metrics_access: admins, operators
   # Set a mounted path to retain metric history across container restarts.
   # metrics_database_path: /data/metrics.db
-  # metrics_poll_interval: 2
-  # metrics_history_period: 300
   # status_poll_interval: 30
   # category_order: [Media, Productivity, Home]
   # enable_automatic_descriptions: true
@@ -43,11 +40,23 @@ settings:
   # show_branding: true
   # new_tab: false
 
+# Reuse an HTTP API address, authentication, headers, or query values across
+# local metrics on different cards. A metric uses one with `source.use` and an
+# absolute `source.path`.
+# shared_metric_sources:
+#   home_assistant:
+#     base_url: http://homeassistant:8123
+#     authentication:
+#       kind: token
+#       header: Authorization
+#       prefix: "Bearer "
+#       value: { env: HOME_ASSISTANT_TOKEN }
+
 # Each top-level key is a service, keyed by its container name or Compose
 # service name. A key matching a running container overrides that container's
 # `dashmark.*` labels; a key with no matching container becomes a standalone
-# card (it needs a `url` and has no status badge). Standalone cards support
-# custom and catalog metrics, but not Docker CPU, memory, or network metrics.
+# card (it needs a `url` and has no status badge). Standalone cards can define
+# local and catalog metrics, but not Docker CPU, memory, or network metrics.
 #
 # Override the card for a container you run. Omitted fields fall back to the
 # container's labels or defaults.
@@ -55,82 +64,38 @@ plex:
   title: Plex
   description: Media server
   url: https://plex.home.local
-  # Optional API base for catalog sources using {metrics_url}; otherwise the
-  # card URL is used. This can point at a private address.
-  # metrics_url: http://plex:32400
   icon: selfhst:plex
   category: Media
   order: 1
   # Set false to hide this card's status badge.
   show_status: false
-# Docker cards default to CPU, memory, and network. Standalone cards only
-# expose configured custom/catalog metrics. Use `none` to disable metrics.
+# All YAML metric configuration lives under `metrics`. Docker labels remain a
+# separate input path. These YAML keys have no aliases: `metrics` lists,
+# `metric_providers`, `metrics_url`, `metric_parameters`,
+# `metrics_poll_interval`, `metrics_history_period`, `metrics_access`, and
+# `custom_metrics` are removed.
   metrics:
-    - cpu
-    - memory
-  # Allow catalog metrics from one or more providers. Dashmark never infers
-  # these from the container image or name.
-  # metric_providers:
-  #   - provider-one
-  #   - provider-two
-  # Custom metric sources are defined separately, so they can be selected in
-  # `metrics` alongside the built-in values.
-  # custom_metrics:
-  #   active_downloads:
-  #     label: Active downloads
-  #     unit: count
-  #     source:
-  #       url: http://metrics.example.internal/radarr
-   #       headers:
-   #         X-Api-Key: { env: RADARR_API_KEY }
-    #     jq: '.queue.records | length'
-   #   download_speed:
-   #     label: Download
-   #     unit: bytes_per_second
-   #     source:
-   #       url: http://qbittorrent:8080/api/v2/transfer/info
-   #       auth:
-   #         type: cookie_session
-   #         login:
-   #           url: http://qbittorrent:8080/api/v2/auth/login
-   #           method: POST
-   #           form:
-   #             username: { env: DASHMARK_QBITTORRENT_USERNAME }
-   #             password: { file: /run/secrets/qbittorrent_password }
-    #     jq: .dl_info_speed
-   #   protected_status:
-   #     label: Protected status
-   #     source:
-   #       url: https://service.example.internal/api/status
-   #       auth:
-   #         type: basic
-   #         username: { env: DASHMARK_SERVICE_API_KEY, label: dashmark.metric_api_key }
-   #         password: { file: /run/secrets/service_api_secret, label: dashmark.metric_api_secret }
-   #     jq: .status
-   #   read_rate:
-   #     label: Read
-   #     unit: bytes_per_second
-   #     chart: line
-   #     chart_group: disk_io
-   #     source: { url: http://metrics.example.internal/io }
-   #     jq: .read_bytes_per_second
-  #   version:
-  #     label: Version
-  #     value_type: string
-  #     source:
-  #       url: http://metrics.example.internal/metrics
-  #     prometheus:
-  #       name: app_build_info
-  #       value_label: version
-  # Override the defaults from METRICS_POLL_INTERVAL and
-  # METRICS_HISTORY_PERIOD for one card, in seconds.
-  metrics_poll_interval: 10
-  metrics_history_period: 900
-  # Restrict individual metrics without changing card visibility. Omitted keys
-  # remain visible to users permitted by the global metrics_access setting.
-  # metrics_access:
-  #   cpu: admins
-  #   radarr/active_downloads: media, operators
+    # source_url: http://plex:32400
+    collection:
+      interval: 10s
+      retention: 15m
+    container:
+      cpu: { visible_to: admins }
+      memory: {}
+      network: {}
+    charts:
+      library: { label: Library, unit: count, style: step }
+    catalog:
+      plex:
+        movies: {}
+    local:
+      active_sessions:
+        display: { label: Active sessions, chart: library }
+        value: { kind: number, unit: count }
+        source:
+          url: http://plex:32400/status/sessions
+          headers: { X-Plex-Token: { env: PLEX_TOKEN } }
+        extract: { jq: '.MediaContainer.size' }
   search_aliases:
     - movies
     - watch later

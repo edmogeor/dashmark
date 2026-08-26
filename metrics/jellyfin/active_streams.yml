@@ -1,9 +1,8 @@
-label: Active streams
-unit: count
+display:
+  label: Active streams
+value:
+  unit: count
 source:
   url: "{metrics_url}/emby/Sessions"
-  headers:
-    X-Emby-Token:
-      env: DASHMARK_JELLYFIN_API_KEY
-      label: dashmark.metric_api_key
-jq: '[.[] | select(.NowPlayingItem != null)] | length'
+extract:
+  jq: '[.[] | select(.NowPlayingItem != null)] | length'

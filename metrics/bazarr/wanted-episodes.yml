@@ -1,10 +1,9 @@
-label: Wanted episodes
-unit: count
-chart: none
+display:
+  label: Wanted episodes
+  chart: none
+value:
+  unit: count
 source:
   url: "{metrics_url}/api/episodes/wanted"
-  query:
-    apikey:
-      env: DASHMARK_BAZARR_API_KEY
-      label: dashmark.metric_api_key
-jq: .total
+extract:
+  jq: .total

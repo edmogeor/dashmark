@@ -1,29 +1,32 @@
-label: Backup health
-value_type: state
-color: info
-state_colors:
-  success: success
-  warning: warning
-  error: error
-  in_progress: info
-  unknown: disabled
-state_labels:
-  success: Backed up
-  warning: Backup warning
-  error: Backup failed
-  in_progress: Backing up
+display:
+  label: Backup health
+value:
+  kind: state
+  default_color: info
+  colors:
+    success: success
+    warning: warning
+    error: error
+    in_progress: info
+    unknown: disabled
+  labels:
+    success: Backed up
+    warning: Backup warning
+    error: Backup failed
+    in_progress: Backing up
 source:
   url: "{metrics_url}/api/v1/backups"
   headers:
     X-API-Key:
       env: DASHMARK_ZEROBYTE_API_KEY
       label: dashmark.metric_api_key
-jq: |-
-  [.[] | select(.enabled)]
-  | if length == 0 then "unknown"
-    elif any(.[]; .lastBackupStatus == "error") then "error"
-    elif any(.[]; .lastBackupStatus == "warning") then "warning"
-    elif any(.[]; .lastBackupStatus == "in_progress") then "in_progress"
-    elif any(.[]; .lastBackupStatus == null) then "unknown"
-    else "success"
-    end
+extract:
+  jq: |-
+    [.[] | select(.enabled)]
+    | if length == 0 then "unknown"
+      elif any(.[]; .lastBackupStatus == "error") then "error"
+      elif any(.[]; .lastBackupStatus == "warning") then "warning"
+      elif any(.[]; .lastBackupStatus == "in_progress") then "in_progress"
+      elif any(.[]; .lastBackupStatus == null) then "unknown"
+      else "success"
+      end

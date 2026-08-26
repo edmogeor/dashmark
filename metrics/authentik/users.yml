@@ -1,13 +1,16 @@
-label: Users
-unit: count
-chart: none
+display:
+  label: Users
+  chart: none
+value:
+  unit: count
 source:
   url: "{metrics_url}/api/v3/core/users/?page_size=1"
-  auth:
-    type: token
+  authentication:
+    kind: token
     header: Authorization
     prefix: "Bearer "
     value:
       env: DASHMARK_AUTHENTIK_TOKEN
       label: dashmark.metric_token
-jq: .pagination.count
+extract:
+  jq: .pagination.count

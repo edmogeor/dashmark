@@ -1,6 +1,8 @@
-label: Template State
-value_type: state
-color: info
+display:
+  label: Template State
+value:
+  kind: state
+  default_color: info
 parameters:
   template:
     label: Template
@@ -11,11 +13,5 @@ source:
   json:
     template:
       parameter: template
-  auth:
-    type: token
-    header: Authorization
-    prefix: "Bearer "
-    value:
-      env: DASHMARK_HOMEASSISTANT_TOKEN
-      label: dashmark.metric_token
-text: true
+extract:
+  text: true

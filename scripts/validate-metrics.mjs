@@ -2,10 +2,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import yaml from 'js-yaml'
-import { z } from 'zod'
 
 const metricsDirectory = path.resolve('metrics')
-const catalogPath = path.join(metricsDirectory, 'CATALOG.md')
 const units = new Set([
   'number', 'count', 'percent', 'ratio', 'bytes', 'bytes_per_second',
   'bits', 'bits_per_second', 'seconds', 'milliseconds', 'microseconds',
@@ -17,16 +15,12 @@ const badgeColors = new Set(['success', 'info', 'warning', 'error', 'disabled'])
 const metricName = /^[a-z][a-z0-9_-]*$/
 const prometheusName = /^[a-zA-Z_:][a-zA-Z0-9_:]*$/
 const sourceBase = /^\{(?:url|metrics_url)\}(?:\/|$)/
-const metricShape = z.looseObject({
-  label: z.string().trim().min(1),
-  value_type: z.enum(['number', 'string', 'state']).optional()
-})
 
 function files(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
     const file = path.join(directory, entry.name)
     if (entry.isDirectory()) return files(file)
-    return entry.name.endsWith('.yml') ? [file] : []
+    return entry.name.endsWith('.yml') && entry.name !== 'provider.yml' ? [file] : []
   })
 }
 
@@ -116,11 +110,41 @@ function validateForEach(forEach) {
 function validateSource(source) {
   const value = record(source, 'source must be a mapping')
   if (value.transport === 'socketio') return validateSocketIoSource(value)
-  allowed(value, new Set(['url', 'method', 'form', 'json', 'headers', 'query', 'auth']), 'source')
+  allowed(value, new Set(['url', 'method', 'form', 'json', 'headers', 'query', 'authentication']), 'source')
   const request = { ...value }
-  delete request.auth
-  validateRequest(request, 'source', value.auth?.type === 'cookie_session')
-  if (value.auth !== undefined) validateHttpAuth(value.auth)
+  delete request.authentication
+  validateRequest(request, 'source', value.authentication?.kind === 'cookie_session')
+  if (value.authentication !== undefined) validateHttpAuth(value.authentication)
+}
+
+function validateProvider(definition) {
+  const provider = record(definition, 'provider.yml must contain a YAML mapping')
+  allowed(provider, new Set(['source', 'charts']), 'provider definition')
+  if (provider.source !== undefined) {
+    const source = record(provider.source, 'provider source must be a mapping')
+    allowed(source, new Set(['headers', 'query', 'authentication']), 'provider source')
+    validateSecretMappings(source, 'provider source')
+    if (source.authentication !== undefined) validateHttpAuth(source.authentication)
+  }
+  if (provider.charts !== undefined) {
+    const chartDefinitions = record(provider.charts, 'provider charts must be a mapping')
+    for (const [group, chart] of Object.entries(chartDefinitions)) {
+      if (!metricName.test(group) || typeof chart !== 'string' || !charts.has(chart) || chart === 'none') {
+        throw new Error('provider charts must map lowercase group IDs to visible chart styles')
+      }
+    }
+  }
+  return provider
+}
+
+function composeSource(provider, source) {
+  const defaults = provider.source ?? {}
+  return {
+    ...defaults,
+    ...source,
+    ...(defaults.headers || source.headers ? { headers: { ...defaults.headers, ...source.headers } } : {}),
+    ...(defaults.query || source.query ? { query: { ...defaults.query, ...source.query } } : {})
+  }
 }
 
 function validateSocketIoArguments(args, context) {
@@ -140,10 +164,10 @@ function validateSocketIoEvent(event, context) {
 }
 
 function validateSocketIoSource(source) {
-  allowed(source, new Set(['url', 'transport', 'headers', 'auth', 'socketio']), 'source')
+  allowed(source, new Set(['url', 'transport', 'headers', 'authentication', 'socketio']), 'source')
   if (typeof source.url !== 'string' || !sourceBase.test(source.url)) throw new Error('source.url must begin with {url} or {metrics_url}')
   validateSecretMappings(source, 'source', false, ['headers'])
-  if (source.auth !== undefined) validateHttpAuth(source.auth)
+  if (source.authentication !== undefined) validateHttpAuth(source.authentication)
   const socketio = record(source.socketio, 'source.socketio must be a mapping')
   allowed(socketio, new Set(['path', 'auth', 'login', 'request']), 'source.socketio')
   if (socketio.path !== undefined && (typeof socketio.path !== 'string' || !socketio.path.startsWith('/'))) throw new Error('source.socketio.path must begin with /')
@@ -188,25 +212,24 @@ function validateSecretMappings(value, context, allowToken = false, kinds = ['he
   }
 }
 
-function validateHttpAuth(auth) {
-  const value = record(auth, 'source.auth must be a mapping')
-  if (value.type === 'basic') {
-    allowed(value, new Set(['type', 'username', 'password']), 'source.auth')
-    validateSecretReference('username', value.username, 'source.auth', 'basic')
-    validateSecretReference('password', value.password, 'source.auth', 'basic')
+function validateHttpAuth(authentication) {
+  const value = record(authentication, 'source.authentication must be a mapping')
+  if (value.kind === 'basic') {
+    allowed(value, new Set(['kind', 'username', 'password']), 'source.authentication')
+    validateSecretReference('username', value.username, 'source.authentication', 'basic')
+    validateSecretReference('password', value.password, 'source.authentication', 'basic')
     return
   }
-  if (value.type === 'token') {
-    allowed(value, new Set(['type', 'header', 'prefix', 'value']), 'source.auth')
-    if (typeof value.header !== 'string' || !value.header || (value.prefix !== undefined && typeof value.prefix !== 'string')) throw new Error('source.auth token requires a header and optional string prefix')
-    validateSecretReference('value', value.value, 'source.auth', 'token')
+  if (value.kind === 'token') {
+    allowed(value, new Set(['kind', 'header', 'prefix', 'value']), 'source.authentication')
+    if (typeof value.header !== 'string' || !value.header || (value.prefix !== undefined && typeof value.prefix !== 'string')) throw new Error('source.authentication token requires a header and optional string prefix')
+    validateSecretReference('value', value.value, 'source.authentication', 'token')
     return
   }
-  allowed(value, new Set(['type', 'steps', 'login']), 'source.auth')
-  if (value.type !== 'cookie_session') throw new Error('source.auth.type must be basic or cookie_session')
-  const steps = Array.isArray(value.steps) ? value.steps : value.login === undefined ? undefined : [value.login]
-  if (!steps || steps.length === 0 || steps.length > 5) throw new Error('source.auth.steps must contain between 1 and 5 requests')
-  steps.forEach((step, index) => validateRequest(step, `source.auth.steps.${index}`, true))
+  allowed(value, new Set(['kind', 'requests']), 'source.authentication')
+  if (value.kind !== 'cookie_session') throw new Error('source.authentication.kind must be basic, token, or cookie_session')
+  if (!Array.isArray(value.requests) || value.requests.length === 0 || value.requests.length > 5) throw new Error('source.authentication.requests must contain between 1 and 5 requests')
+  value.requests.forEach((request, index) => validateRequest(request, `source.authentication.requests.${index}`, true))
 }
 
 function validateRequest(request, context, allowToken) {
@@ -237,102 +260,72 @@ function validateRequest(request, context, allowToken) {
   }
 }
 
-function validate(file) {
+function validate(file, provider) {
   validatePath(file)
-  const key = path.relative(metricsDirectory, file).replace(/\.yml$/, '').split(path.sep).join('/')
-
   const definition = record(yaml.load(fs.readFileSync(file, 'utf8')), 'must contain a YAML mapping')
-  const shape = metricShape.safeParse(definition)
-  if (!shape.success) throw new Error('label must be a non-empty string and value_type must be number, string, or state')
-  allowed(definition, new Set(['label', 'source', 'unit', 'chart', 'chart_group', 'transform', 'color', 'state_colors', 'state_labels', 'value_type', 'jq', 'prometheus', 'text', 'parameters', 'for_each']), 'metric definition')
-  if (typeof definition.label !== 'string' || !definition.label.trim()) throw new Error('label must be a non-empty string')
-  const valueType = definition.value_type ?? 'number'
-  if (valueType !== 'number' && valueType !== 'string' && valueType !== 'state') throw new Error('value_type must be number, string, or state')
-  const hasJq = definition.jq !== undefined
-  const hasPrometheus = definition.prometheus !== undefined
-  const hasText = definition.text === true
-  const hasForEach = definition.for_each !== undefined
-  if (definition.text !== undefined && !hasText) throw new Error('text must be true when specified')
-  if (Number(hasJq) + Number(hasPrometheus) + Number(hasText) + Number(hasForEach) !== 1) throw new Error('must define exactly one jq, prometheus, text, or for_each extractor')
+  allowed(definition, new Set(['display', 'value', 'source', 'extract', 'parameters']), 'metric definition')
+  const display = record(definition.display, 'display must be a mapping')
+  allowed(display, new Set(['label', 'chart']), 'display')
+  if (typeof display.label !== 'string' || !display.label.trim()) throw new Error('display.label must be a non-empty string')
+  if (display.chart !== undefined && (typeof display.chart !== 'string' || (!charts.has(display.chart) && provider.charts?.[display.chart] === undefined))) {
+    throw new Error('display.chart must be a chart style or provider chart group')
+  }
+  const value = record(definition.value ?? {}, 'value must be a mapping')
+  allowed(value, new Set(['kind', 'unit', 'transform', 'default_color', 'colors', 'labels']), 'value')
+  const valueType = value.kind ?? 'number'
+  if (valueType !== 'number' && valueType !== 'string' && valueType !== 'state') throw new Error('value.kind must be number, string, or state')
+  const extract = record(definition.extract, 'extract must be a mapping')
+  allowed(extract, new Set(['jq', 'prometheus', 'text', 'for_each']), 'extract')
+  const hasJq = extract.jq !== undefined
+  const hasPrometheus = extract.prometheus !== undefined
+  const hasText = extract.text === true
+  const hasForEach = extract.for_each !== undefined
+  if (extract.text !== undefined && !hasText) throw new Error('extract.text must be true when specified')
+  if (Number(hasJq) + Number(hasPrometheus) + Number(hasText) + Number(hasForEach) !== 1) throw new Error('extract must define exactly one jq, prometheus, text, or for_each extractor')
 
   if (valueType === 'number') {
-    validateUnit(definition.unit ?? 'number')
-    if (definition.chart !== undefined && (typeof definition.chart !== 'string' || !charts.has(definition.chart))) {
-      throw new Error('chart must be step, line, area, or none')
-    }
-    if (definition.chart_group !== undefined && (typeof definition.chart_group !== 'string' || !metricName.test(definition.chart_group))) {
-      throw new Error('chart_group must be a lowercase identifier')
-    }
-    if (definition.chart_group !== undefined && definition.chart === 'none') throw new Error('chart_group requires a visible chart')
-    if (definition.transform !== undefined) validateTransform(definition.transform)
-    if (definition.color !== undefined || definition.state_colors !== undefined || definition.state_labels !== undefined) throw new Error('color requires value_type state')
-  } else if (definition.unit !== undefined || definition.chart !== undefined || definition.chart_group !== undefined || definition.transform !== undefined) {
-    throw new Error('text and state metrics cannot define a unit or chart group')
+    validateUnit(value.unit ?? 'number')
+    if (value.transform !== undefined) validateTransform(value.transform)
+    if (value.default_color !== undefined || value.colors !== undefined || value.labels !== undefined) throw new Error('value colors require kind state')
+  } else if (value.unit !== undefined || value.transform !== undefined) {
+    throw new Error('string and state metrics cannot define a unit or transform')
   }
-  if (valueType === 'string' && (definition.color !== undefined || definition.state_colors !== undefined || definition.state_labels !== undefined)) throw new Error('color requires value_type state')
+  if (valueType === 'string' && (value.default_color !== undefined || value.colors !== undefined || value.labels !== undefined)) throw new Error('value colors require kind state')
   if (valueType === 'state') {
-    if (definition.color === undefined) throw new Error('state metrics require color')
-    validateStateColor(definition.color)
-    if (definition.state_colors !== undefined) validateStateColors(definition.state_colors)
-    if (definition.state_labels !== undefined) validateStateLabels(definition.state_labels)
+    if (value.default_color === undefined) throw new Error('state metrics require value.default_color')
+    validateStateColor(value.default_color)
+    if (value.colors !== undefined) validateStateColors(value.colors)
+    if (value.labels !== undefined) validateStateLabels(value.labels)
   }
 
-  if (hasJq && (typeof definition.jq !== 'string' || !definition.jq.trim())) throw new Error('jq must be a non-empty expression')
+  if (hasJq && (typeof extract.jq !== 'string' || !extract.jq.trim())) throw new Error('extract.jq must be a non-empty expression')
   if (hasPrometheus) {
-    const extractor = record(definition.prometheus, 'prometheus must be a mapping')
+    const extractor = record(extract.prometheus, 'extract.prometheus must be a mapping')
     validatePrometheus(extractor, valueType)
   }
   if (hasForEach) {
     if (valueType !== 'number' || definition.source?.transport === 'socketio') throw new Error('for_each requires a numeric HTTP metric')
-    validateForEach(definition.for_each)
+    validateForEach(extract.for_each)
   }
   if (definition.parameters !== undefined) validateParameters(definition.parameters)
-  if (definition.source !== undefined) validateSource(definition.source)
-
-  return { key, graphGroup: definition.chart_group ?? '-' }
-}
-
-function validateCatalog(metrics) {
-  if (!fs.existsSync(catalogPath)) throw new Error('metrics/CATALOG.md is required')
-  const lines = fs.readFileSync(catalogPath, 'utf8').split(/\r?\n/)
-  const header = '| Provider | Metric key | Graph group | Author |'
-  const index = lines.indexOf(header)
-  if (index === -1 || lines[index + 1] !== '| --- | --- | --- | --- |') {
-    throw new Error('metrics/CATALOG.md must contain the catalog table headers')
-  }
-
-  const catalog = new Map()
-  for (const line of lines.slice(index + 2)) {
-    if (!line.startsWith('|')) break
-    const [provider, metricKey, graphGroup, author] = line.split('|').slice(1, -1).map(value => value.trim())
-    const key = /^`([a-z][a-z0-9_-]*\/[a-z][a-z0-9_-]*)`$/.exec(metricKey ?? '')?.[1]
-    const group = /^`([a-z][a-z0-9_-]*)`$/.exec(graphGroup ?? '')?.[1] ?? (graphGroup === '-' ? '-' : undefined)
-    if (!provider || !author || !key || !group || catalog.has(key)) throw new Error(`invalid catalog row: ${line}`)
-    catalog.set(key, group)
-  }
-
-  for (const metric of metrics) {
-    if (catalog.get(metric.key) !== metric.graphGroup) throw new Error(`metrics/CATALOG.md must list ${metric.key} with graph group ${metric.graphGroup}`)
-    catalog.delete(metric.key)
-  }
-  for (const key of catalog.keys()) throw new Error(`metrics/CATALOG.md lists missing metric ${key}`)
+  if (definition.source === undefined) throw new Error('source must be defined')
+  validateSource(composeSource(provider, definition.source))
 }
 
 const errors = []
-const metrics = []
+const providers = new Map()
 for (const file of files(metricsDirectory)) {
   try {
-    metrics.push(validate(file))
+    const providerDirectory = path.dirname(file)
+    if (!providers.has(providerDirectory)) {
+      const providerFile = path.join(providerDirectory, 'provider.yml')
+      providers.set(providerDirectory, fs.existsSync(providerFile) ? validateProvider(yaml.load(fs.readFileSync(providerFile, 'utf8'))) : {})
+    }
+    validate(file, providers.get(providerDirectory))
   } catch (error) {
     errors.push(`${path.relative(process.cwd(), file)}: ${error instanceof Error ? error.message : 'invalid definition'}`)
   }
 }
-try {
-  validateCatalog(metrics)
-} catch (error) {
-  errors.push(error instanceof Error ? error.message : 'metrics/CATALOG.md is invalid')
-}
-
 if (errors.length > 0) {
   console.error(errors.join('\n'))
   process.exitCode = 1

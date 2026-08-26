@@ -634,23 +634,19 @@ describe('getCards', () => {
     config.configFile = writeTempConfig(`
 github:
   url: https://github.com
-  metrics: [test/queue-depth, stars]
-  metric_providers: test
-  metrics_poll_interval: 10
-  metrics_history_period: 900
-  metrics_access:
-    stars: admins
-  custom_metrics:
-    test/queue-depth:
-      label: Queue depth
-      unit: count
-      source: { url: https://metrics.example.test/queue }
-      jq: .queue
-    stars:
-      label: Stars
-      unit: count
-      source: { url: https://metrics.example.test/stars }
-      jq: .stars
+  metrics:
+    collection: { interval: 10s, retention: 15m }
+    local:
+      test/queue-depth:
+        display: { label: Queue depth }
+        value: { unit: count }
+        source: { url: https://metrics.example.test/queue }
+        extract: { jq: .queue }
+      stars:
+        display: { label: Stars }
+        value: { unit: count }
+        source: { url: https://metrics.example.test/stars }
+        extract: { jq: .stars }
 `)
     mockGotResponse('{"queue":4,"stars":42}')
 
@@ -659,10 +655,8 @@ github:
       id: 'yaml-github',
       hasContainer: false,
       customMetricLabels: [{ key: 'test/queue-depth', label: 'Queue depth' }, { key: 'stars', label: 'Stars' }],
-      metricProviders: ['test'],
       metricsPollIntervalMs: 10_000,
-      metricsHistoryPeriodMs: 900_000,
-      metricsAccess: { stars: ['admins'] }
+      metricsHistoryPeriodMs: 900_000
     })
     expect(cards[0]?.resourceStats).toBeUndefined()
 
@@ -672,8 +666,7 @@ github:
         { key: 'test/queue-depth', label: 'Queue depth', unit: 'count', chart: 'step', value: 4 },
         { key: 'stars', label: 'Stars', unit: 'count', chart: 'step', value: 42 }
       ],
-      metricErrors: [],
-      metricsAccess: { stars: ['admins'] }
+      metricErrors: []
     })
     mockGotResponse('{"queue":5,"stars":43}')
     await expect(collectContainerResourceUsage(config)).resolves.toEqual([{
@@ -697,11 +690,12 @@ github:
     config.configFile = writeTempConfig(`
 parameterized:
   url: https://service.example.test
-  metric_providers: test
-  metrics: [test/url-parameter]
-  metric_parameters:
-    test/url-parameter:
-      resource: garage door/test
+  metrics:
+    catalog:
+      test:
+        url-parameter:
+          inputs:
+            resource: garage door/test
     `)
     mockGotResponse('{"state":"open"}')
 
@@ -719,11 +713,12 @@ parameterized:
     config.configFile = writeTempConfig(`
 parameterized:
   url: https://service.example.test
-  metric_providers: test
-  metrics: [test/json-parameter]
-  metric_parameters:
-    test/json-parameter:
-      value: "{{ states('sensor.example') }}"
+  metrics:
+    catalog:
+      test:
+        json-parameter:
+          inputs:
+            value: "{{ states('sensor.example') }}"
 `)
     mockGotResponse('open')
 
@@ -742,14 +737,11 @@ parameterized:
     config.configFile = writeTempConfig(`
 github:
   url: https://github.com
-  metrics: [stars]
-  metrics_access: { stars: admins }
-  custom_metrics:
-    stars:
-      label: Stars
-      unit: count
-      source: { url: https://metrics.example.test/stars }
-      jq: .stars
+  metrics:
+    catalog:
+      test:
+        queue-depth:
+          visible_to: admins
 `)
 
     const { cards } = await getCards(config, new Headers({ 'X-Test-Groups': 'users' }))
@@ -932,7 +924,7 @@ describe('getContainerStatuses', () => {
     expect(server.statsRequests).toBe(1)
   })
 
-  it('collects only custom metrics selected by the unified metric list', async () => {
+  it('collects configured local YAML metrics', async () => {
     server.containers = [{
       Id: 'custom-metrics', Names: ['/radarr'], Image: 'radarr', ImageID: 'sha256:radarr',
       State: 'running', Status: 'Up 1 hour', Labels: {
@@ -945,16 +937,13 @@ describe('getContainerStatuses', () => {
     config.dockerHost = dockerHost
     config.configFile = writeTempConfig(`
 radarr:
-  custom_metrics:
-    active_downloads:
-      label: Active downloads
-      unit: count
-      source: { url: https://metrics.example.test/radarr }
-      jq: .totalRecords
-    ignored:
-      label: Ignored
-      source: { url: https://metrics.example.test/ignored }
-      jq: .value
+  metrics:
+    local:
+      active_downloads:
+        display: { label: Active downloads }
+        value: { unit: count }
+        source: { url: https://metrics.example.test/radarr }
+        extract: { jq: .totalRecords }
 `)
 
     await expect(getContainerMetricUsage(config, new Headers(), 'default:custom-metrics')).resolves.toEqual({
@@ -979,15 +968,17 @@ radarr:
     config.dockerHost = dockerHost
     config.configFile = writeTempConfig(`
 backup:
-  custom_metrics:
-    health:
-      label: Backup health
-      value_type: state
-      color: info
-      state_colors: { success: success, in_progress: info }
-      state_labels: { success: 'Backed up', in_progress: 'Backing up' }
-      source: { url: https://metrics.example.test/backups }
-      jq: .status
+  metrics:
+    local:
+      health:
+        display: { label: Backup health }
+        value:
+          kind: state
+          default_color: info
+          colors: { success: success, in_progress: info }
+          labels: { success: 'Backed up', in_progress: 'Backing up' }
+        source: { url: https://metrics.example.test/backups }
+        extract: { jq: .status }
 `)
 
     mockGotResponse('{"status":"in_progress"}')
@@ -1025,7 +1016,7 @@ backup:
     expect(new Headers(got.mock.calls[0]?.[1]?.headers).get('X-Api-Key')).toBe('label-api-key')
   })
 
-  it('falls back to the card URL for {metrics_url} metric sources', async () => {
+  it('falls back to the card URL for {metrics_url} local metric sources', async () => {
     server.containers = [{
       Id: 'metrics-url-fallback', Names: ['/service'], Image: 'service', ImageID: 'sha256:service',
       State: 'running', Status: 'Up 1 hour', Labels: {
@@ -1038,18 +1029,20 @@ backup:
     config.dockerHost = dockerHost
     config.configFile = writeTempConfig(`
 service:
-  custom_metrics:
-    status:
-      label: Status
-      source: { url: "{metrics_url}/api/status" }
-      jq: .value
+  metrics:
+    local:
+      status:
+        display: { label: Status }
+        value: { unit: number }
+        source: { url: "{metrics_url}/api/status" }
+        extract: { jq: .value }
 `)
 
     await getContainerMetricUsage(config, new Headers(), 'default:metrics-url-fallback')
     expect(String(got.mock.calls[0]?.[0])).toBe('https://service.example.com/api/status')
   })
 
-  it('uses YAML metrics_url over the Docker label for metric sources', async () => {
+  it('uses YAML source_url over the Docker label for local metric sources', async () => {
     server.containers = [{
       Id: 'metrics-url-override', Names: ['/service'], Image: 'service', ImageID: 'sha256:service',
       State: 'running', Status: 'Up 1 hour', Labels: {
@@ -1063,12 +1056,14 @@ service:
     config.dockerHost = dockerHost
     config.configFile = writeTempConfig(`
 service:
-  metrics_url: https://yaml-api.example.com
-  custom_metrics:
-    status:
-      label: Status
-      source: { url: "{metrics_url}/api/status" }
-      jq: .value
+  metrics:
+    source_url: https://yaml-api.example.com
+    local:
+      status:
+        display: { label: Status }
+        value: { unit: number }
+        source: { url: "{metrics_url}/api/status" }
+        extract: { jq: .value }
 `)
 
     await getContainerMetricUsage(config, new Headers(), 'default:metrics-url-override')
@@ -1090,16 +1085,18 @@ service:
     config.dockerHost = dockerHost
     config.configFile = writeTempConfig(`
 service:
-  custom_metrics:
-    basic:
-      label: Basic
-      source:
-        url: https://service.example.com/basic
-        auth:
-          type: basic
-          username: { env: SERVICE_API_KEY, label: dashmark.metric_api_key }
-          password: { env: SERVICE_API_SECRET, label: dashmark.metric_api_secret }
-      jq: .value
+  metrics:
+    local:
+      basic:
+        display: { label: Basic }
+        value: { unit: number }
+        source:
+          url: https://service.example.com/basic
+          authentication:
+            kind: basic
+            username: { env: SERVICE_API_KEY, label: dashmark.metric_api_key }
+            password: { env: SERVICE_API_SECRET, label: dashmark.metric_api_secret }
+        extract: { jq: .value }
 `)
 
     await expect(getContainerMetricUsage(config, new Headers(), 'default:basic-metric')).resolves.toMatchObject({
@@ -1120,12 +1117,13 @@ service:
     config.dockerHost = dockerHost
     config.configFile = writeTempConfig(`
 radarr:
-  custom_metrics:
-    active_downloads:
-      label: Active downloads
-      unit: count
-      source: { url: https://metrics.example.test/radarr }
-      jq: .totalRecords
+  metrics:
+    local:
+      active_downloads:
+        display: { label: Active downloads }
+        value: { unit: count }
+        source: { url: https://metrics.example.test/radarr }
+        extract: { jq: .totalRecords }
 `)
 
     await expect(getContainerMetricUsage(config, new Headers(), 'default:cached-metrics', false)).resolves.toEqual({
@@ -1137,65 +1135,32 @@ radarr:
     expect(server.statsRequests).toBe(0)
   })
 
-  it('collects custom metrics from any configured provider', async () => {
+  it('collects catalog metrics without a metric provider admission gate', async () => {
     server.containers = [{
       Id: 'provider-metrics', Names: ['/radarr'], Image: 'radarr', ImageID: 'sha256:radarr',
       State: 'running', Status: 'Up 1 hour', Labels: {
         'dashmark.url': 'https://radarr.example.com',
-        'dashmark.metric_providers': 'radarr,sonarr',
-        'dashmark.metrics': 'sonarr/active_downloads'
+        'dashmark.metric_api_key': 'label-api-key'
       }
     }]
     const config = getConfig()
     config.dockerHost = dockerHost
     config.configFile = writeTempConfig(`
 radarr:
-  custom_metrics:
-    sonarr/active_downloads:
-      label: Active downloads
-      unit: count
-      source: { url: https://metrics.example.test/sonarr }
-      jq: .totalRecords
+  metrics:
+    catalog:
+      test:
+        queue-depth: {}
 `)
 
-    mockGotResponse('{"totalRecords":4}')
+    mockGotResponse('{"totalCount":4}')
 
     await expect(getContainerMetricUsage(config, new Headers(), 'default:provider-metrics')).resolves.toEqual({
       resource: undefined,
       historyPeriodMs: config.metricsHistoryPeriodMs,
-      customMetrics: [{ key: 'sonarr/active_downloads', label: 'Active downloads', unit: 'count', chart: 'step', value: 4 }],
+      customMetrics: [{ key: 'test/queue-depth', label: 'Queue depth', unit: 'count', chart: 'step', value: 4 }],
       metricErrors: []
     })
-  })
-
-  it('rejects custom metrics from unconfigured providers', async () => {
-    server.containers = [{
-      Id: 'unconfigured-provider', Names: ['/plex'], Image: 'plex', ImageID: 'sha256:plex',
-      State: 'running', Status: 'Up 1 hour', Labels: {
-        'dashmark.url': 'https://plex.example.com',
-        'dashmark.metric_providers': 'plex',
-        'dashmark.metrics': 'uptime-kuma/status'
-      }
-    }]
-    const config = getConfig()
-    config.dockerHost = dockerHost
-    config.configFile = writeTempConfig(`
-plex:
-  custom_metrics:
-    uptime-kuma/status:
-      label: Uptime
-      unit: boolean
-      source: { url: https://kuma.example.test/status }
-      jq: .status
-`)
-
-    await expect(getContainerMetricUsage(config, new Headers(), 'default:unconfigured-provider')).resolves.toEqual({
-      resource: undefined,
-      historyPeriodMs: config.metricsHistoryPeriodMs,
-      customMetrics: [],
-      metricErrors: [{ key: 'uptime-kuma/status', message: 'uptime-kuma/status requires metric_providers to include uptime-kuma' }]
-    })
-    expect(got).not.toHaveBeenCalled()
   })
 
   it('omits hidden containers', async () => {

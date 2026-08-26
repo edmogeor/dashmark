@@ -1,0 +1,11 @@
+source:
+  authentication:
+    kind: basic
+    username:
+      env: DASHMARK_OPNSENSE_API_KEY
+      label: dashmark.metric_api_key
+    password:
+      env: DASHMARK_OPNSENSE_API_SECRET
+      label: dashmark.metric_api_secret
+charts:
+  wan: line

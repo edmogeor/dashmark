@@ -1,6 +1,8 @@
-label: Parameterized text
-value_type: state
-color: info
+display:
+  label: Parameterized text
+value:
+  kind: state
+  default_color: info
 parameters:
   value:
     label: Value
@@ -11,4 +13,5 @@ source:
   json:
     value:
       parameter: value
-text: true
+extract:
+  text: true

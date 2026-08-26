@@ -28,15 +28,18 @@ references. Do not include private URLs, hostnames, literal credentials,
 tokens, or personal card names. -->
 
 ```yaml
-label: Example
-unit: count
+display:
+  label: Example
+value:
+  unit: count
 source:
   url: "{url}/api/stats"
   headers:
     X-Api-Key:
       env: DASHMARK_PROVIDER_API_KEY
       label: dashmark.metric_api_key
-jq: .value
+extract:
+  jq: .value
 ```
 
 ## Validation
@@ -50,7 +53,6 @@ the public upstream API documentation URL. -->
 - [ ] The definition contains no private URLs, hostnames, literal credentials, tokens, or personal identifiers.
 - [ ] The reusable source uses `{url}` or `{metrics_url}` and env/file secret references where required.
 - [ ] I created `metrics/<provider>/<metric-name>.yml` in my fork.
-- [ ] I added the provider, metric key, graph group, and author to `metrics/CATALOG.md`.
 - [ ] I ran `npm run validate:metrics` locally.
 - [ ] I added `metrics/<provider>/<metric-name>.test.ts`, with a sibling sanitized fixture when useful.
 - [ ] I documented the metric in its provider-specific documentation.

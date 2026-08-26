@@ -1,14 +1,9 @@
-label: Active memory
-unit: bytes
-chart: line
+display:
+  label: Active memory
+  chart: line
+value:
+  unit: bytes
 source:
   url: "{metrics_url}/api/diagnostics/activity/getActivity"
-  auth:
-    type: basic
-    username:
-      env: DASHMARK_OPNSENSE_API_KEY
-      label: dashmark.metric_api_key
-    password:
-      env: DASHMARK_OPNSENSE_API_SECRET
-      label: dashmark.metric_api_secret
-jq: '(.headers[3] | capture("Mem: (?<active>[0-9.]+)(?<unit>[KMGT]?) Active,") | (.active | tonumber) * ({"": 1, "K": 1024, "M": 1048576, "G": 1073741824, "T": 1099511627776}[.unit]))'
+extract:
+  jq: '(.headers[3] | capture("Mem: (?<active>[0-9.]+)(?<unit>[KMGT]?) Active,") | (.active | tonumber) * ({"": 1, "K": 1024, "M": 1048576, "G": 1073741824, "T": 1099511627776}[.unit]))'

@@ -1,9 +1,8 @@
-label: Queued
-unit: count
+display:
+  label: Queued
+value:
+  unit: count
 source:
   url: "{metrics_url}/api/v3/queue"
-  headers:
-    X-Api-Key:
-      env: DASHMARK_SONARR_API_KEY
-      label: dashmark.metric_api_key
-jq: .totalRecords
+extract:
+  jq: .totalRecords

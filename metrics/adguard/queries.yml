@@ -1,6 +1,9 @@
-label: DNS queries
-unit: count
-chart_group: traffic
+display:
+  label: DNS queries
+  chart: traffic
+value:
+  unit: count
 source:
   url: "{metrics_url}/control/stats"
-jq: .num_dns_queries
+extract:
+  jq: .num_dns_queries

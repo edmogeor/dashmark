@@ -1,0 +1,5 @@
+source:
+  query:
+    apikey:
+      env: DASHMARK_BAZARR_API_KEY
+      label: dashmark.metric_api_key

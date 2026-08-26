@@ -1,10 +1,9 @@
-label: Wanted
-unit: count
-chart_group: library
+display:
+  label: Wanted
+  chart: library
+value:
+  unit: count
 source:
   url: "{metrics_url}/api/v3/wanted/missing"
-  headers:
-    X-Api-Key:
-      env: DASHMARK_SONARR_API_KEY
-      label: dashmark.metric_api_key
-jq: .totalRecords
+extract:
+  jq: .totalRecords

@@ -1,11 +1,9 @@
-label: Active streams
-unit: count
-chart: step
+display:
+  label: Active streams
+  chart: step
+value:
+  unit: count
 source:
   url: "{metrics_url}/status/sessions"
-  headers:
-    Accept: application/json
-    X-Plex-Token:
-      env: DASHMARK_PLEX_TOKEN
-      label: dashmark.metric_token
-jq: .MediaContainer.size
+extract:
+  jq: .MediaContainer.size

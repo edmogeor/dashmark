@@ -198,7 +198,6 @@ Add labels to opt a container in and configure its card.
 | `dashmark.category` | Category name; matching is case-insensitive |
 | `dashmark.show_status` | Set to `false` to hide the status badge and resource-usage tooltip for this card |
 | `dashmark.metrics` | Comma-separated `cpu`, `memory`, and `network` metrics for this card; set to `none` to disable built-in metrics |
-| `dashmark.metric_providers` | Comma-separated providers allowed for catalog metrics, for example `radarr,sonarr` |
 | `dashmark.metric_api_key` | Optional literal API-key override for catalog metrics. Docker labels are visible to Docker APIs and inspect output. |
 | `dashmark.metric_api_secret` | Optional literal API-secret override for HTTP Basic catalog metrics. Docker labels are visible to Docker APIs and inspect output. |
 | `dashmark.metric_username` | Optional literal username override for authenticated catalog metrics. |
@@ -214,78 +213,36 @@ Add labels to opt a container in and configure its card.
 
 Docker-backed cards show CPU and memory progress bars plus per-container network **Received** and **Sent** rates in the gauge tooltip. Each metric row includes a live ticker chart over the `METRICS_HISTORY_PERIOD` window. Dashmark samples eligible running containers every two seconds and stores those samples in SQLite. By default the database is in the container filesystem, so history survives page refreshes but is lost when the container is replaced or restarted. Set `METRICS_DATABASE_PATH` to an explicitly mounted location only when persistent history is wanted. Network rates appear after the second sample because Dashmark calculates them from consecutive Docker samples. When multiple Docker hosts are configured, the tooltip includes the host ID.
 
-Set `SHOW_METRICS=false` to stop metric collection and hide metric tooltips. Set `METRICS_ACCESS=admins,operators` to return metrics only to matching users. This restriction is enforced server-side, so unauthorized clients never receive metric values or history. Per-card `metrics_access` can further restrict individual metrics.
+Set `SHOW_METRICS=false` to stop metric collection and hide metric tooltips. Set `METRICS_ACCESS=admins,operators` to return metrics only to matching users. This restriction is enforced server-side, so unauthorized clients never receive metric values or history.
 
-Each Docker card shows all built-in metrics by default. Set `dashmark.metrics=none` to disable them for one container, or limit them with a comma-separated list such as `dashmark.metrics=cpu,memory`. Catalog metrics package their endpoint and extractor. Their provider prefix must appear in `metric_providers`, which accepts one provider, CSV, or a YAML list. Their default credential environment-variable names are documented in the catalog; literal `dashmark.metric_*` labels can override credentials for one container. Custom metric sources use `custom_metrics`, leaving `metrics` available for the unified selection list. YAML overrides support the same setting and can override polling and retention. YAML-only cards can select custom and catalog metrics too, but Docker CPU, memory, and network metrics are unavailable:
-
-```yaml
-plex:
-  metrics:
-    - cpu
-    - memory
-  metrics_poll_interval: 10
-  metrics_history_period: 900
-
-backup:
-  url: https://backup.example.com
-  metrics_url: http://backup:8080
-  metrics: [last_run]
-  metrics_poll_interval: 60
-  metrics_history_period: 86400
-  custom_metrics:
-    last_run:
-      label: Last backup
-      unit: seconds
-      source: { url: https://backup.example.com/metrics }
-      jq: .last_run_seconds
-```
-
-Restrict one metric without changing card visibility using `metrics_access`. The global `METRICS_ACCESS` policy still applies first. Docker labels use one comma-separated label per metric, replacing `/` with `.` in a custom metric key:
-
-```yaml
-labels:
-  dashmark.metrics_access.cpu: admins
-  dashmark.metrics_access.radarr.active_downloads: media,admins
-```
-
-Define custom metrics under the card's YAML service. Each metric has a label, an HTTP(S) source, and exactly one extractor. Catalog sources use the `{metrics_url}` base, which resolves to `metrics_url` when configured and otherwise falls back to the card link; this keeps collection on a private API base while the card stays public. Header values normally reference an environment variable or file; catalog metrics may opt into the literal API-key label override described above. Only custom keys named in `metrics` are fetched and exposed.
+Docker labels remain accepted separately for Docker-backed cards, including `dashmark.metrics` for built-in container metrics. YAML metrics use the canonical `service.metrics` mapping. Catalog selections do not require a provider label gate. YAML-only cards can define catalog and local metrics, but cannot collect Docker CPU, memory, or network metrics.
 
 ```yaml
 radarr:
-  metrics: [cpu, active_downloads, queue_depth]
-  custom_metrics:
-    active_downloads:
-      label: Active downloads
-      unit: count
-      source:
-        url: http://radarr:7878/api/v3/queue/status
-        headers:
-          X-Api-Key: { env: RADARR_API_KEY }
-      jq: .totalRecords
-    queue_depth:
-      label: Primary queue depth
-      source:
-        url: http://metrics:9090/metrics
-      prometheus:
-        name: app_queue_depth
-        labels: { queue: primary }
-        reduce: maximum
+  metrics:
+    source_url: http://radarr:7878
+    collection: { interval: 30s, retention: 14d }
+    container: [cpu, memory, network]
+    charts:
+      queue: { label: Queue, unit: count, style: line }
+    catalog:
+      radarr:
+        queue: { visible_to: media }
+    local:
+      active_downloads:
+        display: { label: Active downloads, chart: queue }
+        value: { kind: number, unit: count }
+        source:
+          url: http://radarr:7878/api/v3/queue/status
+          headers: { X-Api-Key: { env: RADARR_API_KEY } }
+        extract: { jq: .totalRecords }
 ```
 
-Numeric metrics default to the `number` unit. Available units are `number`, `count`, `percent`, `ratio`, `bytes`, `bytes_per_second`, `bits`, `bits_per_second`, `seconds`, `milliseconds`, `microseconds`, `duration`, `hertz`, `watts`, `volts`, `amperes`, `celsius`, `fahrenheit`, and `boolean`, or `{ suffix: rpm }` for a custom suffix. Numeric charts default to `chart: step`; use `line` or `area` to change the rendering, or `none` to show the current value without a chart dialog.
+Every YAML metric setting belongs under `service.metrics`: `source_url`, `collection`, `container`, `charts`, `catalog`, and `local`. `collection.interval` and `collection.retention` are positive duration strings such as `30s`, `15m`, or `14d`. `container` is a list of `cpu`, `memory`, and `network`, or a mapping that can set `visible_to` per metric. `source_url` supplies the `{metrics_url}` base for catalog sources.
 
-`jq` expressions run against JSON responses and must produce one finite number. Prometheus sources accept standard text exposition, ignore comments, select by metric name and optional exact labels, and support `count`, `sum`, `average`, `minimum`, and `maximum` reductions.
+`catalog` is nested by provider and metric. Each selected metric may set scalar `inputs`, `overrides`, and `visible_to`. `local` is a mapping of locally named metric definitions. A local definition has semantic `display`, `value`, `source`, and `extract` mappings. `display` contains `label` and optional `chart`; `value` contains `kind`, `unit`, `transform`, `default_color`, `colors`, and `labels`; `source` currently retains `url`, `method`, `headers`, `query`, `form`, `json`, `auth`, `transport`, and `socketio`; `extract` contains exactly one of `jq`, `prometheus`, `text`, or `for_each`.
 
-Metrics can authenticate with HTTP Basic credentials by adding `source.auth`
-with `type: basic`, `username`, and `password` secret references. They can also
-use a cookie session with `type: cookie_session`. Its bounded `steps` run sequentially with the metric's
-cached cookie jar. Steps can make GET or POST form/JSON requests, extract CSRF
-values from HTML with Cheerio or tokens from JSON with jq, then explicitly
-inject them into later headers, query values, JSON, or form fields. See
-[Custom Metrics](metrics/README.md#cookie-session-authentication) for the
-complete schema and qBittorrent example.
-
-Set `value_type: string` for a current text metric. jq expressions must resolve to one string. Prometheus text metrics require `value_label`, which returns that label value from exactly one matching sample. Text metrics have no unit, chart, or history.
+Shipped catalog files use `display`, `value`, `source`, and `extract`; provider defaults are in the colocated `provider.yml`. See [Metrics](metrics/README.md) for the canonical schema and catalog layout.
 
 When `dashmark.url` is absent, Dashmark can derive an HTTPS URL from a Traefik router label such as `traefik.http.routers.plex.rule=Host(\`plex.example.com\`)`. Add another `dashmark.*` label to opt the container in.
 
@@ -297,7 +254,7 @@ Every YAML field that accepts a list supports a YAML list, one scalar value, or 
 
 Dashmark rejects unknown keys and invalid values rather than silently falling back to defaults. The dashboard error identifies the invalid field path, such as `settings.enable_access_control must be a boolean`.
 
-`CONFIG_FILE` remains environment-only because Dashmark needs it before it can load its YAML file. `port` overrides `PORT` when present. `auth_token` accepts exactly one `{ env: VARIABLE_NAME }` or `{ file: /path/to/secret }` reference, never a literal value; it overrides `AUTH_TOKEN`. `docker_hosts` accepts the same endpoint format as `DOCKER_HOSTS` and may use a YAML list; access settings and `category_order` are YAML lists, while poll and history intervals are in seconds.
+`CONFIG_FILE` remains environment-only because Dashmark needs it before it can load its YAML file. `port` overrides `PORT` when present. `auth_token` accepts exactly one `{ env: VARIABLE_NAME }` or `{ file: /path/to/secret }` reference, never a literal value; it overrides `AUTH_TOKEN`. `docker_hosts` accepts the same endpoint format as `DOCKER_HOSTS` and may use a YAML list; access settings and `category_order` are YAML lists. Metric collection durations belong in `service.metrics.collection`.
 
 ```yaml
 settings:
@@ -308,7 +265,6 @@ settings:
   show_search: false
   status_badge_access: [admins, operators]
   category_order: [Media, Home]
-  metrics_history_period: 900
   auth_token: { file: /run/secrets/dashmark_auth_token }
 
 plex:
@@ -316,7 +272,7 @@ plex:
   url: https://plex.example.com
 ```
 
-Available settings are `port`, `docker_hosts`, `icons_dir`, `custom_stylesheet`, `enable_access_control`, `access_groups_header`, `user_name_header`, `user_username_header`, `user_email_header`, `user_first_name_header`, `user_last_name_header`, `show_header`, `show_group_tags`, `show_theme_toggle`, `custom_header`, `greeting_morning`, `greeting_afternoon`, `greeting_evening`, `auth_token`, `show_search`, `show_status`, `status_badge_access`, `show_metrics`, `metrics_access`, `metrics_database_path`, `metrics_poll_interval`, `metrics_history_period`, `status_poll_interval`, `category_order`, `enable_automatic_descriptions`, `enable_automatic_icons`, `show_branding`, and `new_tab`.
+Available settings are `port`, `docker_hosts`, `icons_dir`, `custom_stylesheet`, `enable_access_control`, `access_groups_header`, `user_name_header`, `user_username_header`, `user_email_header`, `user_first_name_header`, `user_last_name_header`, `show_header`, `show_group_tags`, `show_theme_toggle`, `custom_header`, `greeting_morning`, `greeting_afternoon`, `greeting_evening`, `auth_token`, `show_search`, `show_status`, `status_badge_access`, `show_metrics`, `metrics_database_path`, `status_poll_interval`, `category_order`, `enable_automatic_descriptions`, `enable_automatic_icons`, `show_branding`, and `new_tab`.
 
 Each top-level service key is a container name or Compose service name. A matching key overrides that container; a non-matching key creates a standalone card and must include `url`.
 
@@ -338,7 +294,7 @@ plex:
   order: 1
   search_aliases:
     - movies
-   access:
+  access:
     - media
 
 github:
@@ -368,7 +324,7 @@ vps/plex:
   url: https://plex.vps.example.com
 ```
 
-Available card fields are `title`, `description`, `url`, `icon`, `category`, `host`, `order`, `hidden`, `show_status`, `metrics`, `metrics_access`, `metric_providers`, `metric_parameters`, `metrics_poll_interval`, `metrics_history_period`, `custom_metrics`, `access`, and `search_aliases`. `host` adds a host badge to a standalone YAML card. Cards with the same host value share its badge color; YAML anchors can reuse a host value. See [`data/config.yml`](data/config.yml) for a commented example.
+Available card fields are `title`, `description`, `url`, `icon`, `category`, `host`, `order`, `hidden`, `show_status`, `metrics`, `access`, and `search_aliases`. `host` adds a host badge to a standalone YAML card. Cards with the same host value share its badge color; YAML anchors can reuse a host value. `metrics` is the canonical metric mapping described above. The retired YAML keys `metrics` list, `metric_providers`, `metrics_url`, `metric_parameters`, `metrics_poll_interval`, `metrics_history_period`, `metrics_access`, and `custom_metrics` are removed with no aliases. See [`data/config.yml`](data/config.yml) for a commented example.
 
 ### Icons
 

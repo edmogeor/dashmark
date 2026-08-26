@@ -1,10 +1,9 @@
-label: Movies
-unit: count
-chart_group: library
+display:
+  label: Movies
+  chart: library
+value:
+  unit: count
 source:
   url: "{metrics_url}/api/v3/movie"
-  headers:
-    X-Api-Key:
-      env: DASHMARK_RADARR_API_KEY
-      label: dashmark.metric_api_key
-jq: '[.[] | select(.hasFile)] | length'
+extract:
+  jq: '[.[] | select(.hasFile)] | length'

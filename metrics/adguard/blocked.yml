@@ -1,6 +1,9 @@
-label: Blocked
-unit: count
-chart_group: traffic
+display:
+  label: Blocked
+  chart: traffic
+value:
+  unit: count
 source:
   url: "{metrics_url}/control/stats"
-jq: .num_blocked_filtering
+extract:
+  jq: .num_blocked_filtering
