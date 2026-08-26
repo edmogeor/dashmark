@@ -1,2 +1,15 @@
+source:
+  authentication:
+    kind: cookie_session
+    requests:
+      - url: "{metrics_url}/control/login"
+        method: POST
+        json:
+          name:
+            env: DASHMARK_ADGUARD_USERNAME
+            label: dashmark.metric_username
+          password:
+            env: DASHMARK_ADGUARD_PASSWORD
+            label: dashmark.metric_password
 charts:
   traffic: step

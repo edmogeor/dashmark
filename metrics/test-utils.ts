@@ -32,7 +32,7 @@ type MetricDefinition = {
     authentication?:
       | { kind: 'basic'; username: unknown; password: unknown }
       | { kind: 'token'; header: string; prefix?: string; value: unknown }
-      | { kind: 'cookie_session'; requests: { url: string; method?: 'GET' | 'POST'; form?: Record<string, unknown>; extract?: Record<string, unknown> }[] }
+      | { kind: 'cookie_session'; requests: { url: string; method?: 'GET' | 'POST'; form?: Record<string, unknown>; json?: Record<string, unknown>; extract?: Record<string, unknown> }[] }
   }
 }
 
@@ -76,6 +76,20 @@ function requestValues(values: Record<string, unknown> | undefined): Record<stri
   return values && Object.fromEntries(Object.entries(values).map(([name, value]) => [name, value !== null && typeof value === 'object' && 'token' in value ? value : { value: 'test-secret' }]))
 }
 
+function jsonSecretReferences(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(jsonSecretReferences)
+  if (value === null || typeof value !== 'object') return value
+  if ('env' in value || 'file' in value || 'label' in value) return { value: 'test-secret' }
+  return Object.fromEntries(Object.entries(value).map(([name, item]) => [name, jsonSecretReferences(item)]))
+}
+
+function resolvedJsonRequestValues(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(resolvedJsonRequestValues)
+  if (value === null || typeof value !== 'object') return value
+  if ('env' in value || 'file' in value || 'label' in value) return 'test-secret'
+  return Object.fromEntries(Object.entries(value).map(([name, item]) => [name, resolvedJsonRequestValues(item)]))
+}
+
 function loadMetric(definitionUrl: URL, baseUrl: string): MetricOverride {
   const [definition, provider] = loadDefinition(definitionUrl)
   const source = sourceFor(definition, provider)
@@ -115,6 +129,7 @@ function loadMetric(definitionUrl: URL, baseUrl: string): MetricOverride {
                 url: resolveUrl(step.url, baseUrl, parameters),
                 ...(step.method ? { method: step.method } : {}),
                 ...(step.form ? { form: Object.fromEntries(Object.keys(step.form).map(name => [name, { value: `test-${name}` }])) } : {}),
+                ...(step.json ? { json: jsonSecretReferences(step.json) as Record<string, unknown> } : {}),
                 ...(step.extract ? { extract: step.extract } : {})
               }))
             }
@@ -147,6 +162,9 @@ export async function expectFixtureMetric(definitionUrl: URL, fixture: unknown, 
   const loginForm = source.authentication?.kind === 'cookie_session'
     ? source.authentication.requests[0]?.form
     : undefined
+  const loginJson = source.authentication?.kind === 'cookie_session'
+    ? source.authentication.requests[0]?.json
+    : undefined
   const headerNames = Object.keys(source.headers ?? {})
   const sessionAuthorization = source.headers?.Authorization
   const sessionAuthorizationReference = sessionAuthorization as { token?: unknown; prefix?: unknown } | undefined
@@ -159,6 +177,7 @@ export async function expectFixtureMetric(definitionUrl: URL, fixture: unknown, 
       request.on('data', chunk => { body += chunk })
       request.on('end', () => {
         if (loginForm) expect(body).toBe(new URLSearchParams(Object.keys(loginForm).map(name => [name, `test-${name}`])).toString())
+        if (loginJson) expect(JSON.parse(body)).toEqual(resolvedJsonRequestValues(loginJson))
         response.setHeader('Set-Cookie', 'metric-session=active; Path=/')
         response.end('{"token":"test-token"}')
       })

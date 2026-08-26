@@ -6,10 +6,10 @@ Credential options list the environment variables, secret files, or Docker label
 
 | Provider | Metric | Label | Required inputs | Credential options |
 | --- | --- | --- | --- | --- |
-| adguard | blocked | Blocked | None | None |
-| adguard | filtered | Filtered | None | None |
-| adguard | latency | Latency | None | None |
-| adguard | queries | DNS queries | None | None |
+| adguard | blocked | Blocked | None | DASHMARK_ADGUARD_PASSWORD or dashmark.metric_password, DASHMARK_ADGUARD_USERNAME or dashmark.metric_username |
+| adguard | filtered | Filtered | None | DASHMARK_ADGUARD_PASSWORD or dashmark.metric_password, DASHMARK_ADGUARD_USERNAME or dashmark.metric_username |
+| adguard | latency | Latency | None | DASHMARK_ADGUARD_PASSWORD or dashmark.metric_password, DASHMARK_ADGUARD_USERNAME or dashmark.metric_username |
+| adguard | queries | DNS queries | None | DASHMARK_ADGUARD_PASSWORD or dashmark.metric_password, DASHMARK_ADGUARD_USERNAME or dashmark.metric_username |
 | authentik | users | Users | None | DASHMARK_AUTHENTIK_TOKEN or dashmark.metric_token |
 | bazarr | wanted-episodes | Wanted episodes | None | DASHMARK_BAZARR_API_KEY or dashmark.metric_api_key |
 | bazarr | wanted-movies | Wanted movies | None | DASHMARK_BAZARR_API_KEY or dashmark.metric_api_key |

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Authenticate AdGuard Home catalog metric requests with its login session.
+
 ## [0.3.0-alpha.15] - 2026-08-26
 
 ### Added
