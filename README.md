@@ -17,7 +17,7 @@
 
 Dashmark finds Docker containers with `dashmark.*` labels and displays them as cards. Labels can set a card's link, title, icon, category, metrics, and access rules. It is a self-hosted Node.js service built with Astro.
 
-![Dashmark dashboard](assets/screenshot.png)
+![Dashmark dashboard](assets/screenshot.jpg)
 
 <p align="center"><a href="https://edmogeor.github.io/dashmark/demo/">View the live demo</a></p>
 
