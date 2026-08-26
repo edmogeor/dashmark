@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { demoServices } from '@/lib/demo'
+import { demoServices } from '@/demo/services'
 
 describe('demoServices', () => {
   it('provides a varied dashboard fixture with image names for automatic metadata', () => {

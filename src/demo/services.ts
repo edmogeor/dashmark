@@ -1,4 +1,4 @@
-import type { Card } from './docker'
+import type { Card } from '@/lib/docker'
 
 type DemoService = Omit<Card, 'access' | 'icon'> & { imageName: string; access?: string[] }
 
@@ -11,7 +11,7 @@ function mockResourceUsage(index: number): NonNullable<Card['resourceUsage']> {
     memoryUsage: (160 + index * 73) * 1_024 * 1_024,
     memoryLimit: (index % 3 + 1) * gibibyte,
     receivedBytesPerSecond: (12 + index * 9) * 1_024,
-    sentBytesPerSecond: (4 + index * 5) * 1_024
+    sentBytesPerSecond: (4 + index * 5) * 1_024,
   }
 }
 
@@ -24,8 +24,8 @@ const demoServiceDefinitions = [
       memoryUsage: 1_350 * 1_024 * 1_024,
       memoryLimit: 4 * 1_024 * 1_024 * 1_024,
       receivedBytesPerSecond: 2.4 * 1_024 * 1_024,
-      sentBytesPerSecond: 380 * 1_024
-    }
+      sentBytesPerSecond: 380 * 1_024,
+    },
   },
   { id: 'jellyfin', title: 'Jellyfin', url: 'https://jellyfin.example.com', imageName: 'jellyfin/jellyfin:latest', category: 'Media', searchAliases: ['movies', 'music'], hasContainer: true },
   { id: 'radarr', title: 'Radarr', url: 'https://radarr.example.com', imageName: 'linuxserver/radarr:latest', category: 'Media', searchAliases: ['movies'], hasContainer: true, state: 'paused' },
@@ -38,8 +38,8 @@ const demoServiceDefinitions = [
       memoryUsage: 720 * 1_024 * 1_024,
       memoryLimit: 2 * 1_024 * 1_024 * 1_024,
       receivedBytesPerSecond: 86 * 1_024,
-      sentBytesPerSecond: 19 * 1_024
-    }
+      sentBytesPerSecond: 19 * 1_024,
+    },
   },
   { id: 'adguard', title: 'AdGuard Home', url: 'https://dns.example.com', imageName: 'adguard/adguardhome:latest', category: 'Home', searchAliases: ['dns', 'adblock'], hasContainer: true },
   { id: 'nextcloud', title: 'Nextcloud', url: 'https://cloud.example.com', imageName: 'nextcloud:latest', category: 'Productivity', searchAliases: ['files', 'calendar'], hasContainer: true },
@@ -55,19 +55,19 @@ const demoServiceDefinitions = [
       memoryUsage: 94 * 1_024 * 1_024,
       memoryLimit: 512 * 1_024 * 1_024,
       receivedBytesPerSecond: 14 * 1_024,
-      sentBytesPerSecond: 8 * 1_024
-    }
+      sentBytesPerSecond: 8 * 1_024,
+    },
   },
   { id: 'proxmox', title: 'Proxmox', url: 'https://proxmox.example.com', imageName: 'proxmox:latest', category: 'Infrastructure', searchAliases: ['virtual machines'], hasContainer: true },
   { id: 'traefik', title: 'Traefik', url: 'https://proxy.example.com', imageName: 'traefik:v3', category: 'Infrastructure', searchAliases: ['proxy'], hasContainer: true },
   { id: 'immich', title: 'Immich', url: 'https://photos.example.com', imageName: 'ghcr.io/immich-app/immich-server:latest', category: 'Photos', searchAliases: ['images'], hasContainer: true },
   { id: 'syncthing', title: 'Syncthing', url: 'https://sync.example.com', imageName: 'syncthing/syncthing:latest', category: 'Productivity', searchAliases: ['sync'], hasContainer: true },
   { id: 'mealie', title: 'Mealie', url: 'https://recipes.example.com', imageName: 'ghcr.io/mealie-recipes/mealie:v2', category: 'Home', searchAliases: ['recipes'], hasContainer: true },
-  { id: 'actual', title: 'Actual Budget', url: 'https://budget.example.com', imageName: 'actualbudget/actual-server:latest', category: 'Productivity', searchAliases: ['finance'], hasContainer: true }
+  { id: 'actual', title: 'Actual Budget', url: 'https://budget.example.com', imageName: 'actualbudget/actual-server:latest', category: 'Productivity', searchAliases: ['finance'], hasContainer: true },
 ] satisfies DemoService[]
 
 export const demoServices = demoServiceDefinitions.map((service, index) => ({
   ...service,
   resourceStats: service.resourceStats ?? demoResourceStats,
-  resourceUsage: service.resourceUsage ?? mockResourceUsage(index)
+  resourceUsage: service.resourceUsage ?? mockResourceUsage(index),
 }))

@@ -4,26 +4,14 @@ export const prerender = process.env.DASHMARK_DEMO === 'true'
 import { Dashboard } from '@/components/Dashboard'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { getConfig } from '@/lib/config'
-import { resolveDescription } from '@/lib/descriptions'
 import { THEME_STORAGE_KEY } from '@/lib/constants'
-import { demoServices } from '@/lib/demo'
+import { demoUser, getDemoCards } from '@/demo/dashboard'
 import { resolveGreeting } from '@/lib/greeting'
-import { resolveIcon } from '@/lib/icons'
 import { strings } from '@/lib/strings'
-import type { Card } from '@/lib/docker'
 import '@/styles/global.css'
 
 const config = getConfig()
-const demoUser = { firstName: 'John', groups: ['admins', 'media', 'family'] }
-const demoCards: Card[] = await Promise.all(demoServices.map(async ({ imageName, ...card }) => ({
-  ...card,
-  isDemo: true,
-  description: resolveDescription(config, { imageName, title: card.title, containerName: card.id }),
-  access: card.access ?? [],
-  state: card.state ?? 'running',
-  health: card.health ?? 'healthy',
-  icon: await resolveIcon(config, { imageName, title: card.title, containerName: card.id })
-})))
+const demoCards = await getDemoCards(config)
 const greeting = resolveGreeting(config, demoUser)
 
 const baseUrl = import.meta.env.BASE_URL
