@@ -20,12 +20,6 @@ Credential options list the environment variables, secret files, or Docker label
 | homeassistant | entities | Entities | None | DASHMARK_HOMEASSISTANT_TOKEN or dashmark.metric_token |
 | homeassistant | entity-state | Entity State | entity_id (Entity ID) | DASHMARK_HOMEASSISTANT_TOKEN or dashmark.metric_token |
 | homeassistant | template-state | Template State | template (Template) | DASHMARK_HOMEASSISTANT_TOKEN or dashmark.metric_token |
-| jellyfin | active_streams | Active streams | None | DASHMARK_JELLYFIN_API_KEY or dashmark.metric_api_key |
-| jellyfin | albums | Albums | None | DASHMARK_JELLYFIN_API_KEY or dashmark.metric_api_key |
-| jellyfin | episodes | Episodes | None | DASHMARK_JELLYFIN_API_KEY or dashmark.metric_api_key |
-| jellyfin | movies | Movies | None | DASHMARK_JELLYFIN_API_KEY or dashmark.metric_api_key |
-| jellyfin | series | Series | None | DASHMARK_JELLYFIN_API_KEY or dashmark.metric_api_key |
-| jellyfin | songs | Songs | None | DASHMARK_JELLYFIN_API_KEY or dashmark.metric_api_key |
 | nzbget | download-rate | Download | None | DASHMARK_NZBGET_PASSWORD or dashmark.metric_password (optional), DASHMARK_NZBGET_USERNAME or dashmark.metric_username (optional) |
 | nzbget | downloaded | Downloaded | None | DASHMARK_NZBGET_PASSWORD or dashmark.metric_password (optional), DASHMARK_NZBGET_USERNAME or dashmark.metric_username (optional) |
 | nzbget | remaining | Remaining | None | DASHMARK_NZBGET_PASSWORD or dashmark.metric_password (optional), DASHMARK_NZBGET_USERNAME or dashmark.metric_username (optional) |

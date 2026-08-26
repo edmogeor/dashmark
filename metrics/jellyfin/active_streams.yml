@@ -1,8 +1,0 @@
-display:
-  label: Active streams
-value:
-  unit: count
-source:
-  url: "{metrics_url}/emby/Sessions"
-extract:
-  jq: '[.[] | select(.NowPlayingItem != null)] | length'

@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Allow shared caches to reuse status and resource API responses for up to five seconds based on their polling interval, when their group, username, email, and dashboard-token headers match.
 
+### Removed
+
+- Remove the Jellyfin catalog metrics.
+
 ## [0.3.2] - 2026-08-26
 
 ### Changed

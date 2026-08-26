@@ -1,9 +1,0 @@
-display:
-  label: Movies
-  chart: library
-value:
-  unit: count
-source:
-  url: "{metrics_url}/emby/Items/Counts"
-extract:
-  jq: .MovieCount
