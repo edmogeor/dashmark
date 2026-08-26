@@ -1,0 +1,16 @@
+display:
+  label: Inbox
+  chart: step
+value:
+  unit: count
+source:
+  url: "{metrics_url}/api/statistics/?format=json"
+  authentication:
+    kind: token
+    header: Authorization
+    prefix: "Token "
+    value:
+      env: DASHMARK_PAPERLESS_TOKEN
+      label: dashmark.metric_token
+extract:
+  jq: .documents_inbox

@@ -164,8 +164,9 @@ can be strings, numbers, or booleans.
 
 `CATALOG.md` is generated from the metric definitions. Contributors declare
 inputs in `parameters` and credential options using `env`, `file`, or `label`
-references in the metric or provider source, then run
-`npm run generate:metrics-catalog`.
+references in the metric or provider source. The pre-commit hook regenerates
+and stages it when catalog YAML files change; run
+`npm run generate:metrics-catalog` to update it manually.
 
 ## Breaking YAML Change
 

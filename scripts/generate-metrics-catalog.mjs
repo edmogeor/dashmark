@@ -1,10 +1,12 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
+import { execFileSync } from 'node:child_process'
 import yaml from 'js-yaml'
 
 const metricsDirectory = path.resolve('metrics')
 const catalogPath = path.join(metricsDirectory, 'CATALOG.md')
+const staged = process.argv.includes('--staged')
 
 function metricFiles(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
@@ -85,6 +87,10 @@ function catalog() {
 }
 
 const output = catalog()
+if (staged && execFileSync('git', ['diff', '--cached', '--name-only', '--', ':(glob)metrics/**/*.yml'], { encoding: 'utf8' }).trim() === '') {
+  process.exit(0)
+}
+
 if (process.argv.includes('--check')) {
   if (!fs.existsSync(catalogPath) || fs.readFileSync(catalogPath, 'utf8') !== output) {
     console.error('metrics/CATALOG.md is out of date. Run npm run generate:metrics-catalog.')
@@ -92,4 +98,5 @@ if (process.argv.includes('--check')) {
   }
 } else {
   fs.writeFileSync(catalogPath, output)
+  if (staged) execFileSync('git', ['add', 'metrics/CATALOG.md'])
 }

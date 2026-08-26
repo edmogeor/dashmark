@@ -1,0 +1,9 @@
+display:
+  label: Songs
+  chart: library
+value:
+  unit: count
+source:
+  url: "{metrics_url}/emby/Items/Counts"
+extract:
+  jq: .SongCount

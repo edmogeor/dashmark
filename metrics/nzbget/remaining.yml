@@ -1,0 +1,24 @@
+display:
+  label: Remaining
+  chart: queue
+value:
+  unit: bytes
+  transform:
+    multiply: 1048576
+source:
+  url: "{metrics_url}/jsonrpc"
+  method: POST
+  json:
+    jsonrpc: "2.0"
+    method: status
+    id: 1
+  authentication:
+    kind: basic
+    username:
+      env: DASHMARK_NZBGET_USERNAME
+      label: dashmark.metric_username
+    password:
+      env: DASHMARK_NZBGET_PASSWORD
+      label: dashmark.metric_password
+extract:
+  jq: .result.RemainingSizeMB

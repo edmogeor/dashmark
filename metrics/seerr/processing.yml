@@ -1,5 +1,5 @@
 display:
-  label: Pending requests
+  label: Processing requests
   chart: requests
 value:
   unit: count
@@ -10,4 +10,4 @@ source:
       env: DASHMARK_SEERR_API_KEY
       label: dashmark.metric_api_key
 extract:
-  jq: .pending
+  jq: .processing
