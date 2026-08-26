@@ -26,6 +26,14 @@ export function groupHeaderNames(config: AppConfig): string[] {
     : [config.accessGroupsHeader]
 }
 
+export function accessHeaderNames(config: AppConfig): string[] {
+  return [...new Set([
+    ...groupHeaderNames(config),
+    ...(config.userUsernameHeader ? [config.userUsernameHeader] : AUTO_USERNAME_HEADERS),
+    ...(config.userEmailHeader ? [config.userEmailHeader] : AUTO_EMAIL_HEADERS),
+  ])]
+}
+
 export function parseUserGroups(headerValue: string | null | undefined): string[] {
   const value = headerValue?.trim()
   if (!value) return []

@@ -1161,7 +1161,8 @@ radarr:
     await expect(getContainerMetricUsage(config, new Headers(), 'default:cached-metrics', false)).resolves.toEqual({
       historyPeriodMs: config.metricsHistoryPeriodMs,
       customMetrics: [],
-      metricErrors: []
+      metricErrors: [],
+      metricsPollIntervalMs: config.metricsPollIntervalMs
     })
     expect(got).not.toHaveBeenCalled()
     expect(server.statsRequests).toBe(0)

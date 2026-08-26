@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro'
 import { getConfig } from '@/lib/config'
+import { sharedCacheControl } from '@/lib/cache'
 import { addResourceUsageVaryHeader, canViewMetric, getContainerMetricUsage } from '@/lib/docker'
 import { getLatestMetricUsage, getMetricHistory, getResourceMetricHistory, startMetricsCollection } from '@/lib/metrics'
 import type { ContainerResources, CustomMetric, ResourceMetricSample, ResourceUsageResponse } from '@/lib/status'
@@ -36,7 +37,7 @@ export async function getResourceUsageResponse(request: Request): Promise<Respon
   ) ?? []
   const headers = new Headers({
     'Content-Type': 'application/json',
-    'Cache-Control': 'private, no-store'
+    'Cache-Control': sharedCacheControl(access?.metricsPollIntervalMs ?? config.metricsPollIntervalMs)
   })
   addResourceUsageVaryHeader(headers, config)
 

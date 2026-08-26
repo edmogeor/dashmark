@@ -7,7 +7,7 @@ import { loadMetricCatalog, loadYamlConfig } from './config-file'
 import { parseLabels, isValidUrl, traefikUrl, hasDashmarkLabels, RESOURCE_STATS, type ParsedLabels, type ResourceStat } from './labels'
 import { resolveIcon, type IconResult } from './icons'
 import { resolveDescription } from './descriptions'
-import { getUser, groupHeaderNames, hasAllowedAccess } from './auth'
+import { accessHeaderNames, getUser, hasAllowedAccess } from './auth'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
 import { dashmarkError, errorMessage, isRecord, type DashmarkError } from './errors'
@@ -21,7 +21,8 @@ import {
   DOCKER_TLS_PORT,
   DOCKER_PLAIN_PORT,
   DOCKER_API_FALLBACK_VERSION,
-  COMPOSE_SERVICE_LABEL
+  COMPOSE_SERVICE_LABEL,
+  AUTH_TOKEN_HEADER
 } from './constants'
 
 export type Card = {
@@ -670,13 +671,19 @@ function isVisibleContainer(config: AppConfig, headers: Headers, { labels, url }
 }
 
 export function addAccessVaryHeader(headers: Headers, config: AppConfig): void {
-  if (!config.enableAccessControl) return
-  headers.set('Vary', groupHeaderNames(config).join(', '))
+  const names = [
+    ...(config.authToken ? [AUTH_TOKEN_HEADER] : []),
+    ...(config.enableAccessControl ? accessHeaderNames(config) : []),
+  ]
+  if (names.length > 0) headers.set('Vary', names.join(', '))
 }
 
 export function addResourceUsageVaryHeader(headers: Headers, config: AppConfig): void {
-  if (!config.enableAccessControl && config.metricsAccess.length === 0) return
-  headers.set('Vary', groupHeaderNames(config).join(', '))
+  const names = [
+    ...(config.authToken ? [AUTH_TOKEN_HEADER] : []),
+    ...accessHeaderNames(config),
+  ]
+  headers.set('Vary', names.join(', '))
 }
 
 export function canViewMetric(config: AppConfig, headers: Headers, access: Record<string, string[]> | undefined, metric: string): boolean {
@@ -856,6 +863,7 @@ export type ContainerMetricUsage = {
   customMetrics: CollectedCustomMetric[]
   metricErrors: { key: string; message: string }[]
   metricsAccess?: Record<string, string[]>
+  metricsPollIntervalMs?: number
 }
 
 type SelectedCustomMetric = [key: string, metric: MetricOverride]
@@ -870,6 +878,7 @@ type ResolvedMetricDetails = {
   metricErrors: ContainerMetricUsage['metricErrors']
   historyPeriodMs: number
   metricsAccess?: Record<string, string[]>
+  metricsPollIntervalMs: number
 }
 type ContainerMetricSample = {
   cardId: string
@@ -902,7 +911,8 @@ function metricDetails(resolved: ResolvedMetricCard, config: AppConfig, hasConta
     selectedMetrics: selectedCustomMetrics(resolved),
     metricErrors: selectedCustomMetricErrors(resolved),
     historyPeriodMs: resolved.labels.metricsHistoryPeriodMs ?? config.metricsHistoryPeriodMs,
-    metricsAccess: resolved.labels.metricsAccess
+    metricsAccess: resolved.labels.metricsAccess,
+    metricsPollIntervalMs: resolved.labels.metricsPollIntervalMs ?? config.metricsPollIntervalMs
   }
 }
 
@@ -952,9 +962,9 @@ export async function getContainerMetricUsage(
     if (containers.some(({ hostId, container }) => lookupYamlService(yamlServices, hostId, container).key === name)) return undefined
 
     const details = metricDetails(resolveYamlMetrics(service, service.url), config, false)
-    const { selectedMetrics, metricErrors, historyPeriodMs, metricsAccess } = details
+    const { selectedMetrics, metricErrors, historyPeriodMs, metricsAccess, metricsPollIntervalMs } = details
     if (selectedMetrics.length === 0 && metricErrors.length === 0) return undefined
-    if (!collect) return { historyPeriodMs, customMetrics: [], metricErrors, metricsAccess }
+    if (!collect) return { historyPeriodMs, customMetrics: [], metricErrors, ...(metricsAccess ? { metricsAccess } : {}), metricsPollIntervalMs }
 
     const collected = await collectSelectedCustomMetrics(selectedMetrics, metricErrors)
     if (collected.customMetrics.length === 0 && collected.metricErrors.length === 0) return undefined
@@ -977,9 +987,9 @@ export async function getContainerMetricUsage(
     const resolved = resolveContainer(yamlConfig.config.services, host.id, container)
     if (!isVisibleContainer(config, headers, resolved) || resolved.labels.showStatus === false) return undefined
     const details = metricDetails(resolved, config)
-    const { resourceStats, selectedMetrics, metricErrors, historyPeriodMs, metricsAccess } = details
+    const { resourceStats, selectedMetrics, metricErrors, historyPeriodMs, metricsAccess, metricsPollIntervalMs } = details
     if (resourceStats.length === 0 && selectedMetrics.length === 0 && metricErrors.length === 0) return undefined
-    if (!collect) return { historyPeriodMs, customMetrics: [], metricErrors, metricsAccess }
+    if (!collect) return { historyPeriodMs, customMetrics: [], metricErrors, ...(metricsAccess ? { metricsAccess } : {}), metricsPollIntervalMs }
 
     const [resource, collected] = await Promise.all([
       resourceStats.length > 0 ? getContainerResources(host.dockerHost, container.Id, resourceStats) : undefined,

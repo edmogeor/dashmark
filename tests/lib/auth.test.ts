@@ -11,6 +11,7 @@ import {
   hasAllowedAccess,
   readUserGroups,
   groupHeaderNames,
+  accessHeaderNames,
   isAuthorized
 } from '@/lib/auth'
 
@@ -224,6 +225,21 @@ describe('groupHeaderNames', () => {
     const config = getConfig()
     config.accessGroupsHeader = 'X-Custom-Groups'
     expect(groupHeaderNames(config)).toEqual(['X-Custom-Groups'])
+  })
+})
+
+describe('accessHeaderNames', () => {
+  it('includes the configured group, username, and email headers', () => {
+    const config = getConfig()
+    config.accessGroupsHeader = 'X-Custom-Groups'
+    config.userUsernameHeader = 'X-User-Id'
+    config.userEmailHeader = 'X-User-Mail'
+
+    expect(accessHeaderNames(config)).toEqual([
+      'X-Custom-Groups',
+      'X-User-Id',
+      'X-User-Mail',
+    ])
   })
 })
 

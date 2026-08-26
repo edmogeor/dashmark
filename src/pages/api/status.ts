@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro'
 import { getConfig } from '@/lib/config'
+import { sharedCacheControl } from '@/lib/cache'
 import { getContainerStatuses, addAccessVaryHeader } from '@/lib/docker'
 import type { StatusResponse } from '@/lib/status'
 
@@ -9,7 +10,7 @@ export async function getStatusResponse(request: Request): Promise<Response> {
 
   const headers = new Headers({
     'Content-Type': 'application/json',
-    'Cache-Control': 'private, no-store'
+    'Cache-Control': sharedCacheControl(config.statusPollIntervalMs)
   })
   addAccessVaryHeader(headers, config)
 
