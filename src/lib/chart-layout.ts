@@ -11,7 +11,7 @@ export function chartDomain(values: number[]): [number, number] {
   const maximum = Math.max(...finiteValues)
   if (minimum === 0 && maximum === 0) return [0, 1]
   const padding = Math.max((maximum - minimum) * 0.1, Math.abs(maximum) * 0.05, 1)
-  const domain: [number, number] = [minimum >= 0 ? 0 : minimum - padding, maximum + padding]
+  const domain: [number, number] = [minimum, maximum + padding]
   return domain.every(Number.isFinite) ? domain : [0, 1]
 }
 

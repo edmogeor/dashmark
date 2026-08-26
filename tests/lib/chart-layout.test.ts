@@ -3,12 +3,12 @@ import { chartDomain, endLabelOffset } from '@/lib/chart-layout'
 
 describe('chartDomain', () => {
   it('anchors nonnegative data at zero', () => {
-    expect(chartDomain([4, 8])).toEqual([0, 9])
+    expect(chartDomain([4, 8])).toEqual([4, 9])
     expect(chartDomain([0, 0])).toEqual([0, 1])
   })
 
   it('keeps a focused domain for signed data', () => {
-    expect(chartDomain([-4, 8])).toEqual([-5.2, 9.2])
+    expect(chartDomain([-4, 8])).toEqual([-4, 9.2])
   })
 })
 

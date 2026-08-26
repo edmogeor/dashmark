@@ -134,15 +134,17 @@ Each local metric has four sections:
 | Mapping | Fields |
 | --- | --- |
 | `display` | The label and optional chart. |
-| `value` | The value kind, unit, transform, and state labels or colors. |
+| `value` | The value kind, unit, rate, transform, and state labels or colors. |
 | `source` | The request address, method, request data, authentication, or Socket.IO connection. |
 | `extract` | One way to read the response: `jq`, `prometheus`, `text`, or `for_each`. |
 
 Use `kind: number` with a unit such as `count`, `bytes`, or `seconds` for a
 numeric value. Use `kind: state` with `default_color`, and optionally `colors`
 and `labels`, for a status badge. Use `kind: string` for text. Text values do
-not have units or history charts. `transform` changes a numeric value after
-Dashmark reads it.
+not have units or history charts. Set `rate: true` for an increasing numeric
+counter to display its per-second change, such as a network byte counter. The
+first collection establishes a baseline. `transform` changes a numeric value
+after Dashmark reads it.
 
 `jq` reads JSON. `prometheus` reads Prometheus samples. `text` reads a plain
 text response. `for_each` finds items, requests each item, reads a numeric

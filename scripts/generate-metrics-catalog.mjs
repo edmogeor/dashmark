@@ -3,6 +3,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { execFileSync } from 'node:child_process'
 import yaml from 'js-yaml'
+import { sourceWithDefaults } from './metric-utils.mjs'
 
 const metricsDirectory = path.resolve('metrics')
 const catalogPath = path.join(metricsDirectory, 'CATALOG.md')
@@ -14,17 +15,6 @@ function metricFiles(directory) {
     if (entry.isDirectory()) return metricFiles(file)
     return entry.name.endsWith('.yml') && entry.name !== 'provider.yml' ? [file] : []
   })
-}
-
-function sourceWithDefaults(provider, metric) {
-  const defaults = provider.source ?? {}
-  const source = metric.source ?? {}
-  return {
-    ...defaults,
-    ...source,
-    ...(defaults.headers || source.headers ? { headers: { ...defaults.headers, ...source.headers } } : {}),
-    ...(defaults.query || source.query ? { query: { ...defaults.query, ...source.query } } : {})
-  }
 }
 
 function credentialOptions(value, options = new Set()) {

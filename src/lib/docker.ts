@@ -846,7 +846,7 @@ export async function getContainerStatuses(
 }
 
 export type CollectedCustomMetric =
-  | { key: string; label: string; unit: Extract<MetricOverride, { valueType: 'number' }>['unit']; chart: Extract<MetricOverride, { valueType: 'number' }>['chart']; chartGroup?: string; value: number }
+  | { key: string; label: string; unit: Extract<MetricOverride, { valueType: 'number' }>['unit']; chart: Extract<MetricOverride, { valueType: 'number' }>['chart']; chartGroup?: string; rate?: true; value: number }
   | { key: string; label: string; value: string }
   | { key: string; label: string; color: Extract<MetricOverride, { valueType: 'state' }>['color']; valueLabel?: string; value: string }
 
@@ -913,7 +913,7 @@ function collectedCustomMetric(key: string, metric: MetricOverride, value: numbe
     return { key, label: metric.label, ...(valueLabel === undefined ? {} : { valueLabel }), color: metric.stateColors?.[value] ?? metric.color, value }
   }
   if (metric.valueType === 'number' && typeof value === 'number') {
-    return { key, label: metric.label, unit: metric.unit, chart: metric.chart, ...(metric.chartGroup === undefined ? {} : { chartGroup: metric.chartGroup }), value }
+    return { key, label: metric.label, unit: metric.unit, chart: metric.chart, ...(metric.chartGroup === undefined ? {} : { chartGroup: metric.chartGroup }), ...(metric.rate ? { rate: true } : {}), value }
   }
   return undefined
 }

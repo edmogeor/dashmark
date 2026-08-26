@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import yaml from 'js-yaml'
+import { sourceWithDefaults } from './metric-utils.mjs'
 
 const metricsDirectory = path.resolve('metrics')
 const units = new Set([
@@ -137,16 +138,6 @@ function validateProvider(definition) {
   return provider
 }
 
-function composeSource(provider, source) {
-  const defaults = provider.source ?? {}
-  return {
-    ...defaults,
-    ...source,
-    ...(defaults.headers || source.headers ? { headers: { ...defaults.headers, ...source.headers } } : {}),
-    ...(defaults.query || source.query ? { query: { ...defaults.query, ...source.query } } : {})
-  }
-}
-
 function validateSocketIoArguments(args, context) {
   if (args === undefined) return
   if (!Array.isArray(args)) throw new Error(`${context}.args must be a list of strings, numbers, booleans, or secret references`)
@@ -275,7 +266,7 @@ function validate(file, provider) {
     throw new Error('display.chart must be a chart style or provider chart group')
   }
   const value = record(definition.value ?? {}, 'value must be a mapping')
-  allowed(value, new Set(['kind', 'unit', 'transform', 'default_color', 'colors', 'labels']), 'value')
+  allowed(value, new Set(['kind', 'unit', 'rate', 'transform', 'default_color', 'colors', 'labels']), 'value')
   const valueType = value.kind ?? 'number'
   if (valueType !== 'number' && valueType !== 'string' && valueType !== 'state') throw new Error('value.kind must be number, string, or state')
   const extract = record(definition.extract, 'extract must be a mapping')
@@ -289,10 +280,11 @@ function validate(file, provider) {
 
   if (valueType === 'number') {
     validateUnit(value.unit ?? 'number')
+    if (value.rate !== undefined && value.rate !== true) throw new Error('value.rate must be true when specified')
     if (value.transform !== undefined) validateTransform(value.transform)
     if (value.default_color !== undefined || value.colors !== undefined || value.labels !== undefined) throw new Error('value colors require kind state')
-  } else if (value.unit !== undefined || value.transform !== undefined) {
-    throw new Error('string and state metrics cannot define a unit or transform')
+  } else if (value.unit !== undefined || value.rate !== undefined || value.transform !== undefined) {
+    throw new Error('string and state metrics cannot define a unit, rate, or transform')
   }
   if (valueType === 'string' && (value.default_color !== undefined || value.colors !== undefined || value.labels !== undefined)) throw new Error('value colors require kind state')
   if (valueType === 'state') {
@@ -313,7 +305,7 @@ function validate(file, provider) {
   }
   if (definition.parameters !== undefined) validateParameters(definition.parameters)
   if (definition.source === undefined) throw new Error('source must be defined')
-  validateSource(composeSource(provider, definition.source))
+  validateSource(sourceWithDefaults(provider, definition))
 }
 
 const errors = []

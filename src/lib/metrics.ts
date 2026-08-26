@@ -23,6 +23,18 @@ let collectionStarted = false
 let collectionInProgress = false
 const lastMetricCollection = new Map<string, number>()
 const latestMetricUsage = new Map<string, ContainerMetricUsage>()
+const customMetricCounterCache = new Map<string, { value: number; timestamp: number }>()
+
+function counterRates(cardId: string, metrics: ContainerMetricUsage['customMetrics'], timestamp: number): ContainerMetricUsage['customMetrics'] {
+  return metrics.flatMap(metric => {
+    if (!('rate' in metric) || metric.rate !== true) return [metric]
+    const key = `${cardId}:${metric.key}`
+    const previous = customMetricCounterCache.get(key)
+    customMetricCounterCache.set(key, { value: metric.value, timestamp })
+    if (!previous || timestamp <= previous.timestamp) return []
+    return [{ ...metric, value: Math.max(0, (metric.value - previous.value) / ((timestamp - previous.timestamp) / 1_000)) }]
+  })
+}
 
 function database(path: string): DatabaseSync {
   if (state?.path === path) return state.database
@@ -166,9 +178,10 @@ async function collectAndSave(config: AppConfig): Promise<void> {
   const timestamp = Date.now()
   pruneMetricHistory(config, timestamp)
   for (const { cardId, resource, customMetrics, metricErrors, metricsHistoryPeriodMs } of samples) {
-    latestMetricUsage.set(cardId, { resource, customMetrics, metricErrors, historyPeriodMs: metricsHistoryPeriodMs })
+    const rates = counterRates(cardId, customMetrics, timestamp)
+    latestMetricUsage.set(cardId, { resource, customMetrics: rates, metricErrors, historyPeriodMs: metricsHistoryPeriodMs })
     if (resource) saveResourceMetric(config, cardId, resource, metricsHistoryPeriodMs, timestamp)
-    for (const metric of customMetrics) {
+    for (const metric of rates) {
       if (typeof metric.value === 'number') saveMetricSample(config, cardId, metric.key, metric.value, metricsHistoryPeriodMs, timestamp)
     }
     lastMetricCollection.set(cardId, timestamp)
@@ -202,4 +215,5 @@ export function clearMetricsDatabase(): void {
   collectionInProgress = false
   lastMetricCollection.clear()
   latestMetricUsage.clear()
+  customMetricCounterCache.clear()
 }

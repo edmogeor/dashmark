@@ -1,8 +1,9 @@
 display:
-  label: WAN transmitted
+  label: WAN sent
   chart: wan
 value:
-  unit: bytes
+  unit: bytes_per_second
+  rate: true
 source:
   url: "{metrics_url}/api/diagnostics/traffic/interface"
 extract:
