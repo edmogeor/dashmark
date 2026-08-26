@@ -15,7 +15,7 @@
   </p>
 </div>
 
-Dashmark discovers labeled Docker containers and turns them into dashboard cards. Use `dashmark.*` labels to set each card's link, title, icon, category, and access. It is a small astro based self-hosted Node.js service with no database.
+Dashmark discovers labeled Docker containers and turns them into dashboard cards. Use `dashmark.*` labels to set each card's link, title, icon, category, and access. It is a small astro-based self-hosted Node.js service.
 
 ![Dashmark dashboard](assets/screenshot.png)
 
@@ -149,7 +149,7 @@ Configure Dashmark with environment variables, Docker labels, and an optional YA
 | `SHOW_METRICS` | `true` | Fetch and show container and custom metrics |
 | `METRICS_ACCESS` | unset | Comma-separated access entries allowed to receive metrics; unset shows them to everyone |
 | `METRICS_DATABASE_PATH` | `/tmp/dashmark/metrics.db` in production | SQLite database used for resource metric history. The default is in the container filesystem and is lost on restart. Set a mounted path explicitly to retain history. Development uses `.astro/metrics.db` by default |
-| `METRICS_POLL_INTERVAL` | `2` | Seconds between background metric samples; card overrides may use a longer interval |
+| `METRICS_POLL_INTERVAL` | `10` | Seconds between background metric samples; card overrides may use a longer interval |
 | `METRICS_HISTORY_PERIOD` | `300` | Seconds of resource metric history displayed in live tickers |
 | `STATUS_POLL_INTERVAL` | `30` | Seconds between container status updates |
 | `CATEGORY_ORDER` | unset | Comma-separated category order; unlisted categories follow alphabetically |

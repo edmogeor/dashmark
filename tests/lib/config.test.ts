@@ -231,9 +231,9 @@ describe('getConfig status polling', () => {
     expect(getConfig().metricsDatabasePath).toBe('/tmp/dashmark/metrics.db')
   })
 
-  it('defaults metric collection to two seconds and accepts a custom interval', () => {
+  it('defaults metric collection to ten seconds and accepts a custom interval', () => {
     delete process.env.METRICS_POLL_INTERVAL
-    expect(getConfig().metricsPollIntervalMs).toBe(2_000)
+    expect(getConfig().metricsPollIntervalMs).toBe(10_000)
 
     process.env.METRICS_POLL_INTERVAL = '10'
     expect(getConfig().metricsPollIntervalMs).toBe(10_000)

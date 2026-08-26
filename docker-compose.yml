@@ -29,7 +29,7 @@ services:
        # - METRICS_ACCESS=admins,operators
        # Set an explicit mounted path to retain history across container restarts.
        # - METRICS_DATABASE_PATH=/data/metrics.db
-      # - METRICS_POLL_INTERVAL=2
+       # - METRICS_POLL_INTERVAL=10
       # - METRICS_HISTORY_PERIOD=300
       # - STATUS_POLL_INTERVAL=30
       # - CATEGORY_ORDER=Media,Productivity,Home

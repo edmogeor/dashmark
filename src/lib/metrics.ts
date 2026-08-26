@@ -176,14 +176,34 @@ async function collectAndSave(config: AppConfig): Promise<void> {
     return previous === undefined || Date.now() - previous >= pollIntervalMs
   })
   const timestamp = Date.now()
-  pruneMetricHistory(config, timestamp)
-  for (const { cardId, resource, customMetrics, metricErrors, metricsHistoryPeriodMs } of samples) {
-    const rates = counterRates(cardId, customMetrics, timestamp)
-    latestMetricUsage.set(cardId, { resource, customMetrics: rates, metricErrors, historyPeriodMs: metricsHistoryPeriodMs })
-    if (resource) saveResourceMetric(config, cardId, resource, metricsHistoryPeriodMs, timestamp)
-    for (const metric of rates) {
-      if (typeof metric.value === 'number') saveMetricSample(config, cardId, metric.key, metric.value, metricsHistoryPeriodMs, timestamp)
+  const db = database(config.metricsDatabasePath)
+  const collected = samples.map(({ cardId, resource, customMetrics, metricErrors, metricsHistoryPeriodMs }) => ({
+    cardId,
+    resource,
+    customMetrics: counterRates(cardId, customMetrics, timestamp),
+    metricErrors,
+    metricsHistoryPeriodMs
+  }))
+
+  // A collection can write several rows per card. Commit them together to avoid
+  // synchronizing SQLite's journal for every individual metric.
+  db.exec('BEGIN')
+  try {
+    pruneMetricHistory(config, timestamp)
+    for (const { cardId, resource, customMetrics, metricsHistoryPeriodMs } of collected) {
+      if (resource) saveResourceMetric(config, cardId, resource, metricsHistoryPeriodMs, timestamp)
+      for (const metric of customMetrics) {
+        if (typeof metric.value === 'number') saveMetricSample(config, cardId, metric.key, metric.value, metricsHistoryPeriodMs, timestamp)
+      }
     }
+    db.exec('COMMIT')
+  } catch (error) {
+    db.exec('ROLLBACK')
+    throw error
+  }
+
+  for (const { cardId, resource, customMetrics, metricErrors, metricsHistoryPeriodMs } of collected) {
+    latestMetricUsage.set(cardId, { resource, customMetrics, metricErrors, historyPeriodMs: metricsHistoryPeriodMs })
     lastMetricCollection.set(cardId, timestamp)
   }
 }

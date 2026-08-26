@@ -174,7 +174,7 @@ export function getConfig(): AppConfig {
     showMetrics: boolValue('SHOW_METRICS', settings.showMetrics, true),
     metricsAccess: accessValue('METRICS_ACCESS', settings.metricsAccess),
     metricsDatabasePath: stringValue('METRICS_DATABASE_PATH', settings.metricsDatabasePath) || (process.env.NODE_ENV === 'production' ? '/tmp/dashmark/metrics.db' : '.astro/metrics.db'),
-    metricsPollIntervalMs: intervalValue('METRICS_POLL_INTERVAL', settings.metricsPollInterval, 2_000),
+    metricsPollIntervalMs: intervalValue('METRICS_POLL_INTERVAL', settings.metricsPollInterval, 10_000),
     metricsHistoryPeriodMs: intervalValue('METRICS_HISTORY_PERIOD', settings.metricsHistoryPeriod, METRICS_HISTORY_PERIOD_MS),
     statusPollIntervalMs: intervalValue('STATUS_POLL_INTERVAL', settings.statusPollInterval, STATUS_POLL_INTERVAL_MS),
     categoryOrder,
