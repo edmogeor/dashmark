@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-08-26
+
+### Added
+
+- Add styled scrolling and directional edge fades for metric tooltips with more than four rows.
+
+### Changed
+
+- Show a loading state for counter-based rate metrics until a second sample can calculate their rate.
+
 ## [0.3.0] - 2026-08-26
 
 ### Added
@@ -49,6 +59,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Split metric override parsing into focused helpers for catalog merging and chart-group validation.
 - **Breaking:** consolidate user-mounted files under `/data`. The default configuration file is now `/data/config.yml`, custom icons are read from `/data/icons`, and custom stylesheets can be mounted at `/data/custom.css`. Update existing `/app/config.yml` and `/app/icons` mounts or set the corresponding path overrides.
 - **Breaking:** rename `SHOW_RESOURCE_USAGE` and `RESOURCE_USAGE_ACCESS` to `SHOW_METRICS` and `METRICS_ACCESS`.
+- **Breaking:** rename the `dashmark.stats` Docker label to `dashmark.metrics`.
+- **Breaking:** replace the YAML `stats` field with `metrics.container`.
+- **Breaking:** reject unknown or removed YAML keys instead of ignoring them.
+- **Breaking:** reserve the top-level YAML `settings` key for dashboard configuration; rename any service with that name.
+- **Breaking:** limit `/demo` to the GitHub Pages build; self-hosted deployments now return `404` for that route.
+- **Breaking:** make `GET /api/resources` serve the latest background-collected sample. API clients must handle `resource: null` and `pending: true` before the first sample is available.
 - Restrict individual metrics with YAML `visible_to` fields or `dashmark.metrics_access.<metric>` labels, where dots in the label suffix represent metric-key slashes.
 - Allow dashboard settings in the YAML `settings` mapping. YAML values override environment variables, including `port`, and `auth_token` supports environment-variable or secret-file references; `CONFIG_FILE` remains environment-only.
 - Collect live metrics only in the background and serve tooltip data from the latest collected sample.
@@ -60,7 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Restrict the demo route to the GitHub Pages build and show its latest stable release version.
+- Show the latest stable release version in the GitHub Pages demo.
 - Restore host badges in the GitHub Pages demo.
 - Skip development-only lifecycle scripts while installing production Docker image dependencies.
 - Anchor nonnegative metric charts at zero and keep overlapping live-value labels within the chart bounds.

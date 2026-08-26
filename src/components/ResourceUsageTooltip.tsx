@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { LoaderCircle, Server } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { TooltipContent } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { badgeColor, chartColorVariable } from '@/lib/badge-color'
@@ -136,6 +137,46 @@ function UnavailableMetric({
       value={strings.card.unavailable}
       pending
     />
+  )
+}
+
+function MetricList({
+  scrollable,
+  children,
+}: {
+  scrollable: boolean
+  children: ReactNode
+}) {
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const [fade, setFade] = useState({ top: false, bottom: false })
+
+  useEffect(() => {
+    if (!scrollable) return
+    const viewport = scrollAreaRef.current?.querySelector<HTMLElement>('[data-radix-scroll-area-viewport]')
+    if (!viewport) return
+    const updateFade = () => setFade({
+      top: viewport.scrollTop > 1,
+      bottom: viewport.scrollTop + viewport.clientHeight < viewport.scrollHeight - 1,
+    })
+    updateFade()
+    viewport.addEventListener('scroll', updateFade)
+    const observer = new ResizeObserver(updateFade)
+    observer.observe(viewport)
+    observer.observe(viewport.firstElementChild ?? viewport)
+    return () => {
+      viewport.removeEventListener('scroll', updateFade)
+      observer.disconnect()
+    }
+  }, [scrollable])
+
+  const content = <div className="dashmark-app-resources-list grid gap-1">{children}</div>
+  if (!scrollable) return content
+  return (
+    <div className="relative h-36">
+      <ScrollArea ref={scrollAreaRef} className="h-full pr-4">{content}</ScrollArea>
+      <div className={cn('pointer-events-none absolute inset-x-0 top-0 h-4 bg-linear-to-b from-popover to-transparent transition-opacity', fade.top ? 'opacity-100' : 'opacity-0')} />
+      <div className={cn('pointer-events-none absolute inset-x-0 bottom-0 h-4 bg-linear-to-t from-popover to-transparent transition-opacity', fade.bottom ? 'opacity-100' : 'opacity-0')} />
+    </div>
   )
 }
 
@@ -329,6 +370,14 @@ function CustomMetrics({
               metricKey={selectedMetric.key}
             />
           )
+        if ('pending' in metric && metric.pending)
+          return (
+            <PendingMetric
+              key={metric.key}
+              label={metric.label}
+              metricKey={metric.key}
+            />
+          )
         if (!('unit' in metric))
           return (
             <ResourceMetric
@@ -386,9 +435,10 @@ function ResourceMetrics({
       ?.filter((key) => !['cpu', 'memory', 'network', 'none'].includes(key))
       .map((key) => ({ key, label: key })) ??
     []
+  const metricCount = Number(showCpu) + Number(showMemory) + (showNetwork ? 2 : 0) + selected.length
   if (loading && resources === null)
     return (
-      <div className="dashmark-app-resources-list grid gap-1">
+      <MetricList scrollable={metricCount > 4}>
         {showCpu && <PendingMetric label={strings.card.cpu} metricKey="cpu" />}
         {showMemory && (
           <PendingMetric label={strings.card.memory} metricKey="memory" />
@@ -406,10 +456,10 @@ function ResourceMetrics({
             metricKey={metric.key}
           />
         ))}
-      </div>
+      </MetricList>
     )
   return (
-    <div className="dashmark-app-resources-list grid gap-1">
+    <MetricList scrollable={metricCount > 4}>
       {showCpu &&
         (resources?.cpuPercent !== undefined ? (
           <ResourceMetric
@@ -472,7 +522,7 @@ function ResourceMetrics({
         customMetrics={customMetrics}
         onSelect={onDetailSelect}
       />
-    </div>
+    </MetricList>
   )
 }
 

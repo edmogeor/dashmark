@@ -12,6 +12,7 @@ export const demoContainers = [
       'dashmark.title': 'Plex',
       'dashmark.url': 'http://localhost:8081',
       'dashmark.category': 'Media',
+      'dashmark.metrics': 'cpu,memory,network,requests,errors,latency',
       'dashmark.access': 'media,family',
       'dashmark.order': '1'
     }

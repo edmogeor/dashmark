@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getConfig } from '@/lib/config'
-import { clearMetricsDatabase, getMetricHistory, getResourceMetricHistory, saveMetricSample, saveResourceMetric } from '@/lib/metrics'
+import { clearMetricsDatabase, counterRates, getMetricHistory, getResourceMetricHistory, saveMetricSample, saveResourceMetric } from '@/lib/metrics'
 
 const directories: string[] = []
 
@@ -42,6 +42,26 @@ describe('resource metric history', () => {
 
     expect(getMetricHistory(config, 'default:radarr', 'active_downloads', 60_000, 62_000)).toEqual([
       { timestamp: 62_000, value: 3 }
+    ])
+  })
+})
+
+describe('counter rates', () => {
+  it('marks the first sample as pending until it can calculate a rate', () => {
+    const metric = {
+      key: 'wan-received',
+      label: 'WAN received',
+      unit: 'bytes_per_second' as const,
+      chart: 'line' as const,
+      rate: true as const,
+      value: 1_000,
+    }
+
+    expect(counterRates('default:opnsense', [metric], 1_000)).toEqual([
+      { ...metric, value: 0, pending: true },
+    ])
+    expect(counterRates('default:opnsense', [{ ...metric, value: 1_500 }], 2_000)).toEqual([
+      { ...metric, value: 500 },
     ])
   })
 })

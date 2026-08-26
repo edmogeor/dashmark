@@ -846,7 +846,7 @@ export async function getContainerStatuses(
 }
 
 export type CollectedCustomMetric =
-  | { key: string; label: string; unit: Extract<MetricOverride, { valueType: 'number' }>['unit']; chart: Extract<MetricOverride, { valueType: 'number' }>['chart']; chartGroup?: string; rate?: true; value: number }
+  | { key: string; label: string; unit: Extract<MetricOverride, { valueType: 'number' }>['unit']; chart: Extract<MetricOverride, { valueType: 'number' }>['chart']; chartGroup?: string; rate?: true; value: number; pending?: true }
   | { key: string; label: string; value: string }
   | { key: string; label: string; color: Extract<MetricOverride, { valueType: 'state' }>['color']; valueLabel?: string; value: string }
 

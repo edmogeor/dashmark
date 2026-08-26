@@ -25,13 +25,13 @@ const lastMetricCollection = new Map<string, number>()
 const latestMetricUsage = new Map<string, ContainerMetricUsage>()
 const customMetricCounterCache = new Map<string, { value: number; timestamp: number }>()
 
-function counterRates(cardId: string, metrics: ContainerMetricUsage['customMetrics'], timestamp: number): ContainerMetricUsage['customMetrics'] {
+export function counterRates(cardId: string, metrics: ContainerMetricUsage['customMetrics'], timestamp: number): ContainerMetricUsage['customMetrics'] {
   return metrics.flatMap(metric => {
     if (!('rate' in metric) || metric.rate !== true) return [metric]
     const key = `${cardId}:${metric.key}`
     const previous = customMetricCounterCache.get(key)
     customMetricCounterCache.set(key, { value: metric.value, timestamp })
-    if (!previous || timestamp <= previous.timestamp) return []
+    if (!previous || timestamp <= previous.timestamp) return [{ ...metric, value: 0, pending: true }]
     return [{ ...metric, value: Math.max(0, (metric.value - previous.value) / ((timestamp - previous.timestamp) / 1_000)) }]
   })
 }
@@ -193,7 +193,7 @@ async function collectAndSave(config: AppConfig): Promise<void> {
     for (const { cardId, resource, customMetrics, metricsHistoryPeriodMs } of collected) {
       if (resource) saveResourceMetric(config, cardId, resource, metricsHistoryPeriodMs, timestamp)
       for (const metric of customMetrics) {
-        if (typeof metric.value === 'number') saveMetricSample(config, cardId, metric.key, metric.value, metricsHistoryPeriodMs, timestamp)
+        if (typeof metric.value === 'number' && !('pending' in metric && metric.pending)) saveMetricSample(config, cardId, metric.key, metric.value, metricsHistoryPeriodMs, timestamp)
       }
     }
     db.exec('COMMIT')

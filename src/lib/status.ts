@@ -34,6 +34,7 @@ export type NumericCustomMetric = {
   chart: CustomMetricChart
   chartGroup?: string
   value: number
+  pending?: true
   history: CustomMetricSample[]
   historyPeriodMs: number
 }
@@ -100,8 +101,9 @@ function isCustomMetric(value: unknown): value is CustomMetric {
     && (typeof value.value === 'string' && (value.color === undefined || isCustomMetricStateColor(value.color)) && (value.valueLabel === undefined || typeof value.valueLabel === 'string') || (
       typeof value.value === 'number' && Number.isFinite(value.value)
       && isCustomMetricUnit(value.unit)
-      && isCustomMetricChart(value.chart)
-      && (value.chartGroup === undefined || typeof value.chartGroup === 'string')
+       && isCustomMetricChart(value.chart)
+       && (value.chartGroup === undefined || typeof value.chartGroup === 'string')
+       && (value.pending === undefined || value.pending === true)
       && Array.isArray(value.history) && value.history.every(isCustomMetricSample)
       && typeof value.historyPeriodMs === 'number' && value.historyPeriodMs > 0
     ))
