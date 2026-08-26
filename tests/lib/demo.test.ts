@@ -9,6 +9,11 @@ describe('demoServices', () => {
     expect(demoServices.every(service => !('description' in service))).toBe(true)
   })
 
+  it('includes host badges for the multi-host dashboard example', () => {
+    expect(new Set(demoServices.map(service => service.host))).toEqual(new Set(['home-server', 'vps']))
+    expect(demoServices.every(service => service.hostColor !== undefined)).toBe(true)
+  })
+
   it('omits network usage for Home Assistant', () => {
     const homeAssistant = demoServices.find(service => service.id === 'home-assistant')
 

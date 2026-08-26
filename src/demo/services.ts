@@ -3,6 +3,7 @@ import type { Card } from '@/lib/docker'
 type DemoService = Omit<Card, 'access' | 'icon'> & { imageName: string; access?: string[] }
 
 const demoResourceStats: NonNullable<Card['resourceStats']> = ['cpu', 'memory', 'network']
+const demoHosts = ['home-server', 'vps'] as const
 
 function mockResourceUsage(index: number): NonNullable<Card['resourceUsage']> {
   const gibibyte = 1_024 * 1_024 * 1_024
@@ -68,6 +69,8 @@ const demoServiceDefinitions = [
 
 export const demoServices = demoServiceDefinitions.map((service, index) => ({
   ...service,
+  host: demoHosts[index % demoHosts.length],
+  hostColor: index % demoHosts.length,
   resourceStats: service.resourceStats ?? demoResourceStats,
   resourceUsage: service.resourceUsage ?? mockResourceUsage(index),
 }))

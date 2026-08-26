@@ -8,6 +8,7 @@ type VersionResponse = { version: string; update?: { tagName: string; url: strin
 
 const brandMarkPath = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/brand/logo-mark.svg`
 const versionApiPath = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/api/version`
+const isDemo = __DASHMARK_DEMO__
 
 function GitHubIcon() {
   return (
@@ -23,7 +24,7 @@ export function AboutDialog() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (!open || version || loading) return
+    if (isDemo || !open || version || loading) return
     setLoading(true)
     void fetch(versionApiPath)
       .then(async response => response.ok ? response.json() as Promise<VersionResponse> : undefined)
@@ -53,7 +54,7 @@ export function AboutDialog() {
         </DialogHeader>
         <div className="space-y-3 rounded-md border bg-muted/30 p-4 text-sm">
           <div className="flex items-center justify-between gap-4">
-            <span className="text-muted-foreground">Installed version</span>
+            <span className="text-muted-foreground">{isDemo ? 'Latest stable version' : 'Installed version'}</span>
             <code className="font-medium">v{version?.version ?? APP_VERSION}</code>
           </div>
           {loading && <div className="flex items-center gap-2 text-muted-foreground"><LoaderCircle className="h-4 w-4 animate-spin" /> Checking for updates</div>}
@@ -63,7 +64,7 @@ export function AboutDialog() {
               <ExternalLink className="h-4 w-4 shrink-0" />
             </a>
           )}
-          {version && !version.update && <p className="flex items-center gap-2 text-muted-foreground"><CircleCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> You are up to date.</p>}
+          {(isDemo || (version && !version.update)) && <p className="flex items-center gap-2 text-muted-foreground"><CircleCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> You are up to date.</p>}
         </div>
         <div className="flex flex-wrap justify-center gap-2">
           <Button variant="outline" asChild><a href={GITHUB_URL} target="_blank" rel="noreferrer"><GitHubIcon /> GitHub <ExternalLink /></a></Button>

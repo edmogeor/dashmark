@@ -18,6 +18,7 @@ const parsedPort = Number(yamlPort() ?? process.env.PORT)
 const port = Number.isInteger(parsedPort) && parsedPort > 0 && parsedPort <= 65_535
   ? parsedPort
   : 4321
+const demoEnabled = process.env.DASHMARK_DEMO === 'true'
 
 export default defineConfig({
   output: 'server',
@@ -26,6 +27,9 @@ export default defineConfig({
   adapter: node({ mode: 'standalone' }),
   integrations: [react()],
   vite: {
+    define: {
+      __DASHMARK_DEMO__: JSON.stringify(demoEnabled)
+    },
     plugins: [tailwindcss()],
     resolve: {
       alias: {
