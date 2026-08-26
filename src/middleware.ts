@@ -12,11 +12,16 @@ const DEMO_ENABLED = process.env.DASHMARK_DEMO === 'true'
 
 if (!MOCK_AUTH) startMetricsCollection(getConfig())
 
-export const onRequest = defineMiddleware((context, next) => {
+export const onRequest = defineMiddleware(async (context, next) => {
   if (!DEMO_ENABLED && context.url.pathname.replace(/\/$/, '').endsWith('/demo')) {
     return new Response('Not found', { status: 404 })
   }
 
+  if (!MOCK_AUTH && !isAuthorized(context.request, getConfig().authToken)) {
+    return new Response('Unauthorized', { status: 401 })
+  }
+
+  let request = context.request
   if (MOCK_AUTH) {
     const headers = new Headers(context.request.headers)
     if (MOCK_USER_NAME) headers.set('X-Authentik-Name', MOCK_USER_NAME)
@@ -24,12 +29,12 @@ export const onRequest = defineMiddleware((context, next) => {
     if (MOCK_USER_EMAIL) headers.set('X-Authentik-Email', MOCK_USER_EMAIL)
     if (MOCK_USER_GROUPS) headers.set('X-Authentik-Groups', MOCK_USER_GROUPS)
 
-    return next(new Request(context.request, { headers }))
+    request = new Request(context.request, { headers })
   }
 
-  if (!isAuthorized(context.request, getConfig().authToken)) {
-    return new Response('Unauthorized', { status: 401 })
+  const response = await next(request)
+  if (response.headers.get('Content-Type')?.includes('text/html')) {
+    response.headers.set('Cache-Control', 'private, no-store')
   }
-
-  return next()
+  return response
 })
