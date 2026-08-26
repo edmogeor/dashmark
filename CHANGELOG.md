@@ -7,15 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.0] - 2026-08-26
 
+### Added
+
+- Add CrowdSec Web UI alert and active-decision catalog metrics.
+- Add Jellyfin, Paperless, NZBGet, Prowlarr, and Seerr catalog metrics available in Homepage.
+- Generate a metrics catalog that lists required inputs and credential options from catalog definitions.
+- Map state metric values to custom badge text with `state_labels`, falling back to the raw value with underscores humanized.
+- Map state metric values to badge colors with `state_colors`.
+- Add Zerobyte backup health catalog metric aggregating all enabled backup schedules.
+- Aggregate numeric catalog metrics across discovered provider resources with `for_each`.
+- Add Plex movie, show, and album catalog metrics.
+- Add starter custom metrics for popular monitoring, media, and download services, including grouped charts.
+- Bind catalog metrics to private local sources and apply numeric transforms after extraction.
+- Add generic Socket.IO custom metrics with handshake auth, login, and request acknowledgements.
+- Add HTTP Basic authentication for custom metric sources and OPNsense CPU, active-memory, and WAN catalog metrics.
+- Add catalog metrics for Home Assistant, Paperless-ngx, Authentik, Bazarr, CrowdSec, NZBGet, Plex, Prowlarr, and Seerr.
+- Add generic URL-component parameters for reusable catalog metrics, including Home Assistant entity state.
+- Add plain-text extraction and JSON-body parameters for reusable catalog metrics.
+- Disclose AI-assisted development in the README.
+- Add an About dialog from the Dashmark logo with version, update, GitHub, and Buy Me a Coffee links.
+- Group compatible custom metrics into multi-series charts with `chart_group`.
+- Expose semantic CSS hooks for metric tooltips and charts, plus separate chart color variables.
+- Let numeric custom metrics choose a step, line, area, or no history chart.
+- Show selected custom metrics alongside built-in loading rows.
+- Store resource metric history in SQLite and display live ticker charts in resource tooltips.
+- Configure custom numeric and text metrics from JSON or Prometheus sources.
+
 ### Changed
 
 - Use Inter as the dashboard font.
 - Align resource-tooltip refreshes with each card's metric collection interval.
+- Let selected catalog metrics try anonymous access before resolving optional credentials after HTTP 401 or 403.
+- Show Docker host badges when multiple Docker hosts or a standalone host badge are configured; implicit hosts use `host`.
+- Introduce the canonical `service.metrics` mapping with `source_url`, `collection`, `container`, `charts`, `catalog`, and `local`; `collection.interval` and `collection.retention` use duration strings.
+- Add `shared_metric_sources` for local metrics that use the same HTTP API connection across cards.
+- Group related Plex and Bazarr metrics in shared history charts, graph AdGuard latency as a line, and retain Paperless document history.
+- Rename the OPNsense active-memory metric to Memory.
+- Render state metric badges with the shadcn badge pill, truncating long labels instead of clipping.
+- Persist error toasts until dismissed, with a close button and a two-second debounce, matching the server-disconnect toast.
+- Center the About dialog header.
+- Split metric override parsing into focused helpers for catalog merging and chart-group validation.
+- **Breaking:** consolidate user-mounted files under `/data`. The default configuration file is now `/data/config.yml`, custom icons are read from `/data/icons`, and custom stylesheets can be mounted at `/data/custom.css`. Update existing `/app/config.yml` and `/app/icons` mounts or set the corresponding path overrides.
+- **Breaking:** rename `SHOW_RESOURCE_USAGE` and `RESOURCE_USAGE_ACCESS` to `SHOW_METRICS` and `METRICS_ACCESS`.
+- Restrict individual metrics with YAML `visible_to` fields or `dashmark.metrics_access.<metric>` labels, where dots in the label suffix represent metric-key slashes.
+- Allow dashboard settings in the YAML `settings` mapping. YAML values override environment variables, including `port`, and `auth_token` supports environment-variable or secret-file references; `CONFIG_FILE` remains environment-only.
+- Collect live metrics only in the background and serve tooltip data from the latest collected sample.
+- Preserve metric labels while showing per-row loading and unavailable states.
+- Show memory usage as a percentage, with bytes and percentage in chart hover details.
+- Render area charts with linear, series-color gradients.
+- Remove unused chart, dialog, and progress component APIs.
+- Simplify custom metric validation and collection paths.
 
 ### Fixed
 
 - Restrict the demo route to the GitHub Pages build and show its latest stable release version.
 - Restore host badges in the GitHub Pages demo.
+- Skip development-only lifecycle scripts while installing production Docker image dependencies.
+- Anchor nonnegative metric charts at zero and keep overlapping live-value labels within the chart bounds.
+- Authenticate AdGuard Home catalog metric requests with its login session.
+- Keep zero-valued metric charts anchored at zero and display distinct axis tick labels.
+- Stop error toasts from dismissing themselves and repeating while errors flap between polls.
+- Silence an error toast for the rest of the session once dismissed; server-disconnect toasts re-arm after recovery.
+- Put the container name in the error toast title with the metric and reason beneath.
+- Report zero speed for qBittorrent when no torrents exist.
+- Read Plex library counts from `MediaContainer.size`, falling back to `totalSize`.
+- Authenticate Seerr requests with `X-Api-Key` instead of the rejected Bearer header.
+- Bind all catalog metric sources to the `{metrics_url}` base so `dashmark.metrics_url` can redirect collection to a private API base behind authenticated reverse proxies.
+- Mock icon resolution in Docker unit tests to avoid external selfh.st requests in CI.
+- Close mock Docker server connections during test teardown to prevent CI timeouts.
+- Prevent metric chart Y-axes from displaying `NaN` for padded network-rate domains.
+- Render chart data with the metric dialog instead of deferring it after the dialog opens.
+- Keep network metrics loading until Docker has enough samples to calculate a rate.
+- Keep open custom metric charts on their own history instead of replacing them with resource samples.
+- Begin metric collection when the server starts and prune expired rows during collection.
 
 ## [0.3.0-alpha.20] - 2026-08-26
 
