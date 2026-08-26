@@ -165,6 +165,35 @@ describe('getCards', () => {
     }
   })
 
+  it('shows Docker host badges with a standalone host badge', async () => {
+    server.containers = [{
+      Id: 'docker-app', Names: ['/docker-app'], Image: 'nginx', ImageID: 'sha256:docker-app',
+      State: 'running', Status: 'Up 1 hour', Labels: { 'dashmark.url': 'https://docker.example.com' }
+    }]
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.configFile = writeTempConfig('external:\n  url: https://external.example.com\n  host: external\n')
+
+    const { cards } = await getCards(config, new Headers())
+
+    expect(cards.find(card => card.hasContainer)).toMatchObject({ host: 'host', hostColor: 0 })
+    expect(cards.find(card => !card.hasContainer)).toMatchObject({ host: 'external', hostColor: 1 })
+  })
+
+  it('uses a configured Docker host ID for host badges', async () => {
+    server.containers = [{
+      Id: 'named-host-app', Names: ['/named-host-app'], Image: 'nginx', ImageID: 'sha256:named-host-app',
+      State: 'running', Status: 'Up 1 hour', Labels: { 'dashmark.url': 'https://docker.example.com' }
+    }]
+    const config = getConfig()
+    config.dockerHosts = [{ id: 'home', dockerHost }]
+    config.configFile = writeTempConfig('external:\n  url: https://external.example.com\n  host: external\n')
+
+    const { cards } = await getCards(config, new Headers())
+
+    expect(cards.find(card => card.hasContainer)).toMatchObject({ host: 'home', hostColor: 0 })
+  })
+
   it('applies host-qualified YAML overrides to matching services only', async () => {
     const secondServer = new MockDockerServer()
     const secondHost = await secondServer.start()

@@ -22,6 +22,7 @@ import { isResourceUsageResponse, type ContainerResources, type CustomMetric, ty
 import { RESOURCE_USAGE_POLL_INTERVAL_MS, TOOLTIP_DELAY_MS } from '@/lib/constants'
 import { useTooltipController } from './tooltip-controller'
 import { badgeColor, chartColorVariable } from '@/lib/badge-color'
+import { chartDomain, endLabelOffset } from '@/lib/chart-layout'
 import { showErrorToast, clearStaleErrorToasts } from '@/lib/error-toasts'
 
 type AppCardProps = {
@@ -239,17 +240,6 @@ function downsampleChartData(data: ChartPoint[], series: MetricSeries[]): ChartP
   return [...selected].sort((left, right) => left - right).map(index => data[index]!)
 }
 
-function chartDomain(values: number[]): [number, number] {
-  const finiteValues = values.filter(Number.isFinite)
-  if (finiteValues.length === 0) return [0, 1]
-  const minimum = Math.min(...finiteValues)
-  const maximum = Math.max(...finiteValues)
-  if (minimum === 0 && maximum === 0) return [0, 1]
-  const padding = Math.max((maximum - minimum) * 0.1, Math.abs(maximum) * 0.05, 1)
-  const domain: [number, number] = [minimum - padding, maximum + padding]
-  return domain.every(Number.isFinite) ? domain : [0, 1]
-}
-
 function resourceMetricHistory(history: ResourceMetricSample[]): MetricSample[] {
   return history.map(sample => ({
     timestamp: sample.timestamp,
@@ -330,6 +320,10 @@ const MetricDetailDialog = memo(function MetricDetailDialog({ detail, onOpen, on
     return typeof value === 'number' ? [value] : []
   })) : []
   const domain = chartDomain(values)
+  const endLabels = currentDetail ? currentDetail.series.flatMap(series => {
+    const value = data.at(-1)?.[series.key]
+    return typeof value === 'number' ? [{ key: series.key, value }] : []
+  }) : []
   const end = data.at(-1)?.timestamp ?? Date.now()
   const start = end - (currentDetail?.historyPeriodMs ?? 5 * 60_000)
   const timeTicks = Array.from({ length: 4 }, (_, index) => start + ((end - start) * index) / 3)
@@ -445,9 +439,9 @@ const MetricDetailDialog = memo(function MetricDetailDialog({ detail, onOpen, on
                       const label = props.value === undefined ? '' : String(props.value)
                       if (!Number.isFinite(x) || !Number.isFinite(y) || !label) return null
                       const width = label.length * 9 + 16
-                      const labelOffset = (seriesIndex - (currentDetail.series.length - 1) / 2) * 28
+                      const offset = endLabelOffset(series.key, y, endLabels, domain, props.viewBox as { y?: number; height?: number } | undefined)
                       return (
-                        <g className="dashmark-metric-chart-end-label" transform={`translate(${x - width - 4} ${y - 12 + labelOffset})`}>
+                        <g className="dashmark-metric-chart-end-label" transform={`translate(${x - width - 4} ${y - 12 + offset})`}>
                           <rect width={width} height={24} rx={8} fill="var(--background)" />
                           <text x={8} y={16} fill={series.color} fontSize={16} fontWeight={700}>{label}</text>
                         </g>

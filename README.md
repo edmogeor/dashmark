@@ -179,7 +179,7 @@ For multiple hosts, use a comma-separated list of `<host-id>=<Docker endpoint>` 
 
 > **Breaking change:** `DOCKER_HOST` is no longer read. Replace `DOCKER_HOST=tcp://dockerproxy:2375` with `DOCKER_HOSTS=tcp://dockerproxy:2375` when upgrading.
 
-Dashmark fetches hosts independently. Cards from reachable hosts still appear if another host is unavailable. Cards are visually unchanged, but their internal IDs and status updates are namespaced by host so identical container IDs do not collide.
+Dashmark fetches hosts independently. Cards from reachable hosts still appear if another host is unavailable. Docker cards show their host ID when multiple Docker hosts are configured. The implicit `default` host is displayed as `host`; name a Docker host in `DOCKER_HOSTS` to use another label. Internal IDs and status updates remain namespaced by host so identical container IDs do not collide.
 
 Run a restricted socket proxy on every remote Docker host and connect to it over a private network such as Tailscale or WireGuard. Do not expose the Docker daemon or a socket proxy on the public internet. Dashmark only needs read access to `/version`, `/containers/json`, and each container's `/stats` endpoint.
 
@@ -324,7 +324,7 @@ vps/plex:
   url: https://plex.vps.example.com
 ```
 
-Available card fields are `title`, `description`, `url`, `icon`, `category`, `host`, `order`, `hidden`, `show_status`, `metrics`, `access`, and `search_aliases`. `host` adds a host badge to a standalone YAML card. Cards with the same host value share its badge color; YAML anchors can reuse a host value. `metrics` is the canonical metric mapping described above. The retired YAML keys `metrics` list, `metric_providers`, `metrics_url`, `metric_parameters`, `metrics_poll_interval`, `metrics_history_period`, `metrics_access`, and `custom_metrics` are removed with no aliases. See [`data/config.yml`](data/config.yml) for a commented example.
+Available card fields are `title`, `description`, `url`, `icon`, `category`, `host`, `order`, `hidden`, `show_status`, `metrics`, `access`, and `search_aliases`. `host` adds a host badge to a standalone YAML card. It also makes Docker cards show their host badges. Cards with the same host value share its badge color; YAML anchors can reuse a host value. `metrics` is the canonical metric mapping described above. The retired YAML keys `metrics` list, `metric_providers`, `metrics_url`, `metric_parameters`, `metrics_poll_interval`, `metrics_history_period`, `metrics_access`, and `custom_metrics` are removed with no aliases. See [`data/config.yml`](data/config.yml) for a commented example.
 
 ### Icons
 

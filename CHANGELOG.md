@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Show Docker host badges when multiple Docker hosts or a standalone host badge are configured; implicit hosts use `host`.
+
+### Fixed
+
+- Anchor nonnegative metric charts at zero and keep overlapping live-value labels within the chart bounds.
+
 ## [0.3.0-alpha.17] - 2026-08-26
 
 ### Added

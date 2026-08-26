@@ -690,7 +690,7 @@ async function cardFromContainer(
   config: AppConfig,
   resolved: ResolvedContainer,
   hostId: string,
-  showHost: boolean,
+  host: string | undefined,
   hostColor: number
 ): Promise<Card | null> {
   const { container, name, labels, url } = resolved
@@ -719,8 +719,8 @@ async function cardFromContainer(
     searchAliases: labels.searchAliases,
     hasContainer: true,
     access: labels.access,
-    host: showHost ? hostId : undefined,
-    hostColor: showHost ? hostColor : undefined,
+    host,
+    hostColor: host === undefined ? undefined : hostColor,
     usesHostNetwork: container.HostConfig?.NetworkMode === 'host',
     resourceStats: labels.resourceStats ?? [...RESOURCE_STATS],
     metrics: labels.metrics,
@@ -1073,15 +1073,20 @@ async function buildAllCards(config: AppConfig): Promise<{ cards: Card[]; error?
   if (error) return { cards: [], error }
 
   const cards: Card[] = []
-  const matchedKeys = new Set<string>()
+  const matchedKeys = new Set(containers.flatMap(({ hostId, container }) => {
+    const key = lookupYamlService(yamlServices, hostId, container).key
+    return key === undefined ? [] : [key]
+  }))
   const hostIds = [...new Set(containers.map(({ hostId }) => hostId))]
-  const yamlHostNames = [...new Set(Object.values(yamlServices).flatMap(service => service.host ? [service.host] : []))]
-  const showHost = hostIds.length > 1
-  const hostColors = new Map([...new Set([...hostIds, ...yamlHostNames])].map((hostId, index) => [hostId, index]))
+  const dockerHostName = (hostId: string) => hostId === 'default' ? 'host' : hostId
+  const yamlHostNames = [...new Set(Object.entries(yamlServices).flatMap(([name, service]) => !matchedKeys.has(name) && service.host ? [service.host] : []))]
+  const showHost = hostIds.length > 1 || yamlHostNames.length > 0
+  const hostColors = new Map([...new Set([...hostIds.map(dockerHostName), ...yamlHostNames])].map((host, index) => [host, index]))
 
   for (const { hostId, container } of containers) {
     const resolved = resolveContainer(yamlServices, hostId, container)
-    const card = await cardFromContainer(config, resolved, hostId, showHost, hostColors.get(hostId) ?? 0)
+    const host = showHost ? dockerHostName(hostId) : undefined
+    const card = await cardFromContainer(config, resolved, hostId, host, hostColors.get(host ?? '') ?? 0)
     if (card) cards.push(card)
 
     if (resolved.yamlKey) matchedKeys.add(resolved.yamlKey)
