@@ -3,14 +3,14 @@ source:
     kind: cookie_session
     optional: true
     requests:
-      - url: "{metrics_url}/control/login"
+      - url: "{metrics_url}/api/auth/login"
         method: POST
         json:
-          name:
-            env: DASHMARK_ADGUARD_USERNAME
+          username:
+            env: DASHMARK_CROWDSEC_WEB_UI_USERNAME
             label: dashmark.metric_username
           password:
-            env: DASHMARK_ADGUARD_PASSWORD
+            env: DASHMARK_CROWDSEC_WEB_UI_PASSWORD
             label: dashmark.metric_password
 charts:
-  traffic: step
+  security: step

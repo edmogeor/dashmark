@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add CrowdSec Web UI alert and active-decision catalog metrics.
+
+### Changed
+
+- Let selected catalog metrics try anonymous access before resolving optional credentials after HTTP 401 or 403.
+
 ## [0.3.0-alpha.18] - 2026-08-26
 
 ### Changed

@@ -1,0 +1,9 @@
+display:
+  label: Alerts
+  chart: security
+value:
+  unit: count
+source:
+  url: "{metrics_url}/api/alerts"
+extract:
+  jq: length

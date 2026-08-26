@@ -1,6 +1,9 @@
 source:
-  headers:
-    X-Api-Key:
+  authentication:
+    kind: token
+    optional: true
+    header: X-Api-Key
+    value:
       env: DASHMARK_SONARR_API_KEY
       label: dashmark.metric_api_key
 charts:

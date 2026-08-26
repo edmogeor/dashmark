@@ -8,14 +8,21 @@ Docker-backed cards, but they use a separate format.
 
 Dashmark includes a [metric catalog](https://github.com/edmogeor/dashmark/tree/main/metrics)
 for supported providers. The image already includes these metrics. You do not
-need to download or install them.
+need to download or install them. Catalog metrics are reusable, shipped
+definitions. Local metrics are custom definitions for one service.
 
 To use a catalog metric:
 
 1. Find the provider and metric name in the catalog.
-2. Add the metric under `metrics.catalog` in `config.yml`.
+2. Add the metric under `metrics.catalog` in `config.yml`, or set
+   `dashmark.metrics=<provider>/<metric>` on a Docker container.
 3. Set `source_url` when Dashmark must use a different API address.
 4. Set any required inputs and credential environment variables.
+
+For Docker labels, use `dashmark.metrics_url` for the API address and the
+matching `dashmark.metric_*` label for any catalog credential. Docker labels
+are visible through Docker APIs, so prefer environment variables or secret
+files for sensitive values.
 
 ```yaml
 qbittorrent:
@@ -29,8 +36,9 @@ qbittorrent:
 ```
 
 The generated [catalog](CATALOG.md) lists provider and metric names, required
-inputs, and credential options. Define a metric under `metrics.local` only when
-the catalog does not meet your need.
+inputs, and credential options. Credentials marked optional are only resolved
+after an anonymous request receives HTTP 401 or 403. Define a metric under
+`metrics.local` only when the catalog does not meet your need.
 
 ```yaml
 radarr:
@@ -64,6 +72,9 @@ radarr:
 ```
 
 ## Service Metrics
+
+Service metrics are all metrics configured for one service card. They can be
+Docker container metrics, catalog metrics, or local metrics.
 
 The `metrics` section accepts these fields:
 
@@ -115,6 +126,9 @@ authentication. The path must begin with `/`.
 
 ## Local Metrics
 
+Local metrics are custom, service-specific definitions under `metrics.local`.
+Use them when no catalog metric fits your source or extraction needs.
+
 Each local metric has four sections:
 
 | Mapping | Fields |
@@ -141,16 +155,21 @@ source:
   url: https://service.example.internal/status
   authentication:
     kind: token
+    # Try anonymously first, then use this token after HTTP 401 or 403.
+    optional: true
     header: Authorization
     prefix: "Bearer "
     value: { env: SERVICE_TOKEN }
 ```
 
 For HTTP Basic authentication, use `kind: basic` with `username` and
-`password`. For a cookie session, use `kind: cookie_session` with up to five
-`requests`. For Socket.IO, use `type: socket_io` and a `socket` section.
+`password`. Token authentication can target a `header` or `query` parameter.
+For a cookie session, use `kind: cookie_session` with up to five `requests`.
+Set `optional: true` on any HTTP authentication kind to try without credentials
+first and retry once after HTTP 401 or 403. For Socket.IO, use `type: socket_io`
+and a `socket` section.
 
-## Catalog Definitions
+## Contributing Catalog Metrics
 
 Shipped catalog metrics are YAML files at
 `metrics/<provider>/<metric-name>.yml`. They use the same `display`, `value`,
@@ -167,10 +186,3 @@ inputs in `parameters` and credential options using `env`, `file`, or `label`
 references in the metric or provider source. The pre-commit hook regenerates
 and stages it when catalog YAML files change; run
 `npm run generate:metrics-catalog` to update it manually.
-
-## Breaking YAML Change
-
-Dashmark does not accept the retired YAML keys: `metrics` list,
-`metric_providers`, `metrics_url`, `metric_parameters`,
-`metrics_poll_interval`, `metrics_history_period`, `metrics_access`, and
-`custom_metrics`. Move these settings into `service.metrics`.

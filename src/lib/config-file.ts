@@ -88,18 +88,26 @@ type MetricSourceOverride = {
 
 type CookieSessionMetricAuth = {
   type: 'cookie_session'
+  optional?: boolean
   steps: MetricHttpRequest[]
 }
 
 type BasicMetricAuth = {
   type: 'basic'
+  optional?: boolean
   username: MetricSecretReference
   password: MetricSecretReference
 }
 
-type TokenMetricAuth = {
-  type: 'token'
+type TokenMetricAuth = ({
   header: string
+  query?: never
+} | {
+  header?: never
+  query: string
+}) & {
+  type: 'token'
+  optional?: boolean
   prefix?: string
   value: MetricSecretReference
 }
@@ -556,19 +564,22 @@ function parseMetricHttpAuth(value: unknown): { auth?: MetricHttpAuth; error?: s
   if (value === undefined) return {}
   if (!isRecord(value)) return { error: 'source.auth must define a supported authentication type' }
   if (value.type === 'basic') {
-    if (Object.keys(value).some(key => !['type', 'username', 'password'].includes(key))) return { error: 'source.auth type basic only supports username and password' }
+    if (Object.keys(value).some(key => !['type', 'optional', 'username', 'password'].includes(key)) || (value.optional !== undefined && typeof value.optional !== 'boolean')) return { error: 'source.auth type basic only supports optional, username, and password' }
     const username = parseSecretReference(value.username)
     const password = parseSecretReference(value.password)
     if (!username || !password) return { error: 'source.auth type basic requires username and password secret references' }
-    return { auth: { type: 'basic', username, password } }
+    return { auth: { type: 'basic', ...(value.optional === undefined ? {} : { optional: value.optional }), username, password } }
   }
   if (value.type === 'token') {
-    if (Object.keys(value).some(key => !['type', 'header', 'prefix', 'value'].includes(key)) || typeof value.header !== 'string' || !/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(value.header) || (value.prefix !== undefined && typeof value.prefix !== 'string')) return { error: 'source.auth type token requires a valid header and optional string prefix' }
+    const header = typeof value.header === 'string' && /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(value.header)
+    const query = typeof value.query === 'string' && value.query.length > 0
+    if (Object.keys(value).some(key => !['type', 'optional', 'header', 'query', 'prefix', 'value'].includes(key)) || Number(header) + Number(query) !== 1 || (value.optional !== undefined && typeof value.optional !== 'boolean') || (value.prefix !== undefined && typeof value.prefix !== 'string')) return { error: 'source.auth type token requires one valid header or query target and an optional string prefix' }
     const token = parseSecretReference(value.value)
     if (!token) return { error: 'source.auth type token requires a secret value reference' }
-    return { auth: { type: 'token', header: value.header, ...(value.prefix === undefined ? {} : { prefix: value.prefix }), value: token } }
+    if (header) return { auth: { type: 'token', ...(value.optional === undefined ? {} : { optional: value.optional }), header: value.header as string, ...(value.prefix === undefined ? {} : { prefix: value.prefix }), value: token } }
+    return { auth: { type: 'token', ...(value.optional === undefined ? {} : { optional: value.optional }), query: value.query as string, ...(value.prefix === undefined ? {} : { prefix: value.prefix }), value: token } }
   }
-  if (value.type !== 'cookie_session' || Object.keys(value).some(key => !['type', 'steps', 'login'].includes(key))) return { error: 'source.auth must define type basic, token, or cookie_session' }
+  if (value.type !== 'cookie_session' || Object.keys(value).some(key => !['type', 'optional', 'steps', 'login'].includes(key)) || (value.optional !== undefined && typeof value.optional !== 'boolean')) return { error: 'source.auth must define type basic, token, or cookie_session' }
   const configuredSteps = Array.isArray(value.steps) ? value.steps : value.login === undefined ? undefined : [value.login]
   if (!configuredSteps || configuredSteps.length === 0 || configuredSteps.length > MAX_AUTH_STEPS) return { error: `source.auth.steps must contain between 1 and ${MAX_AUTH_STEPS} requests` }
   const steps: MetricHttpRequest[] = []
@@ -577,7 +588,7 @@ function parseMetricHttpAuth(value: unknown): { auth?: MetricHttpAuth; error?: s
     if (parsed.error || !parsed.request) return { error: parsed.error ?? 'source.auth step is invalid' }
     steps.push(parsed.request)
   }
-  return { auth: { type: 'cookie_session', steps } }
+  return { auth: { type: 'cookie_session', ...(value.optional === undefined ? {} : { optional: value.optional }), steps } }
 }
 
 function parseSocketIoArguments(value: unknown, path: string): { args?: SocketIoArgument[]; error?: string } {
@@ -691,15 +702,15 @@ function normalizeMetricSource(value: unknown, sharedSources?: Record<string, Re
   }
   const authentication = value.authentication
   if (authentication !== undefined && !isRecord(authentication)) return { error: 'source.authentication must be a mapping' }
-  if (isRecord(authentication) && Object.keys(authentication).some(key => !['kind', 'username', 'password', 'header', 'prefix', 'value', 'requests'].includes(key))) {
+  if (isRecord(authentication) && Object.keys(authentication).some(key => !['kind', 'optional', 'username', 'password', 'header', 'query', 'prefix', 'value', 'requests'].includes(key))) {
     return { error: 'source.authentication contains an unknown configuration key' }
   }
   const kind = isRecord(authentication) ? string(authentication.kind) : undefined
   let auth: unknown
   if (authentication !== undefined) {
-    if (kind === 'basic') auth = { type: 'basic', username: authentication.username, password: authentication.password }
-    else if (kind === 'token') auth = { type: 'token', header: authentication.header, ...(authentication.prefix === undefined ? {} : { prefix: authentication.prefix }), value: authentication.value }
-    else if (kind === 'cookie_session') auth = { type: 'cookie_session', steps: authentication.requests }
+    if (kind === 'basic') auth = { type: 'basic', ...(authentication.optional === undefined ? {} : { optional: authentication.optional }), username: authentication.username, password: authentication.password }
+    else if (kind === 'token') auth = { type: 'token', ...(authentication.optional === undefined ? {} : { optional: authentication.optional }), ...(authentication.header === undefined ? {} : { header: authentication.header }), ...(authentication.query === undefined ? {} : { query: authentication.query }), ...(authentication.prefix === undefined ? {} : { prefix: authentication.prefix }), value: authentication.value }
+    else if (kind === 'cookie_session') auth = { type: 'cookie_session', ...(authentication.optional === undefined ? {} : { optional: authentication.optional }), steps: authentication.requests }
     else return { error: 'source.authentication.kind must be basic, token, or cookie_session' }
   }
   if (value.type !== undefined && value.type !== 'socket_io') return { error: 'source.type must be socket_io when specified' }
@@ -846,6 +857,7 @@ function parseCustomMetric(key: string, configuredMetric: unknown, catalog: Reco
   if (socketHeaders.error) return { error: socketHeaders.error }
   const { auth, error: authError } = parseMetricHttpAuth(source.auth)
   if (authError) return { error: authError }
+  if (transport === 'socketio' && auth?.optional) return { error: 'optional authentication is only supported for HTTP metrics' }
 
   const common = {
     label,

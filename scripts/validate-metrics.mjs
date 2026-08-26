@@ -168,6 +168,7 @@ function validateSocketIoSource(source) {
   if (typeof source.url !== 'string' || !sourceBase.test(source.url)) throw new Error('source.url must begin with {url} or {metrics_url}')
   validateSecretMappings(source, 'source', false, ['headers'])
   if (source.authentication !== undefined) validateHttpAuth(source.authentication)
+  if (source.authentication?.optional === true) throw new Error('optional authentication is only supported for HTTP metrics')
   const socketio = record(source.socketio, 'source.socketio must be a mapping')
   allowed(socketio, new Set(['path', 'auth', 'login', 'request']), 'source.socketio')
   if (socketio.path !== undefined && (typeof socketio.path !== 'string' || !socketio.path.startsWith('/'))) throw new Error('source.socketio.path must begin with /')
@@ -215,19 +216,22 @@ function validateSecretMappings(value, context, allowToken = false, kinds = ['he
 function validateHttpAuth(authentication) {
   const value = record(authentication, 'source.authentication must be a mapping')
   if (value.kind === 'basic') {
-    allowed(value, new Set(['kind', 'username', 'password']), 'source.authentication')
+    allowed(value, new Set(['kind', 'optional', 'username', 'password']), 'source.authentication')
+    if (value.optional !== undefined && typeof value.optional !== 'boolean') throw new Error('source.authentication.optional must be a boolean')
     validateSecretReference('username', value.username, 'source.authentication', 'basic')
     validateSecretReference('password', value.password, 'source.authentication', 'basic')
     return
   }
   if (value.kind === 'token') {
-    allowed(value, new Set(['kind', 'header', 'prefix', 'value']), 'source.authentication')
-    if (typeof value.header !== 'string' || !value.header || (value.prefix !== undefined && typeof value.prefix !== 'string')) throw new Error('source.authentication token requires a header and optional string prefix')
+    allowed(value, new Set(['kind', 'optional', 'header', 'query', 'prefix', 'value']), 'source.authentication')
+    if (value.optional !== undefined && typeof value.optional !== 'boolean') throw new Error('source.authentication.optional must be a boolean')
+    if (Number(typeof value.header === 'string' && Boolean(value.header)) + Number(typeof value.query === 'string' && Boolean(value.query)) !== 1 || (value.prefix !== undefined && typeof value.prefix !== 'string')) throw new Error('source.authentication token requires one header or query target and an optional string prefix')
     validateSecretReference('value', value.value, 'source.authentication', 'token')
     return
   }
-  allowed(value, new Set(['kind', 'requests']), 'source.authentication')
+  allowed(value, new Set(['kind', 'optional', 'requests']), 'source.authentication')
   if (value.kind !== 'cookie_session') throw new Error('source.authentication.kind must be basic, token, or cookie_session')
+  if (value.optional !== undefined && typeof value.optional !== 'boolean') throw new Error('source.authentication.optional must be a boolean')
   if (!Array.isArray(value.requests) || value.requests.length === 0 || value.requests.length > 5) throw new Error('source.authentication.requests must contain between 1 and 5 requests')
   value.requests.forEach((request, index) => validateRequest(request, `source.authentication.requests.${index}`, true))
 }

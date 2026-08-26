@@ -61,7 +61,10 @@ function catalog() {
     const providerPath = path.join(directory, 'provider.yml')
     const provider = fs.existsSync(providerPath) ? yaml.load(fs.readFileSync(providerPath, 'utf8')) : {}
     const relative = path.relative(metricsDirectory, file).split(path.sep)
-    const credentials = [...credentialOptions(sourceWithDefaults(provider, metric))].sort()
+    const source = sourceWithDefaults(provider, metric)
+    const credentials = [...credentialOptions(source)]
+      .map(credential => source.authentication?.optional === true ? `${credential} (optional)` : credential)
+      .sort()
     rows.push([
       relative[0],
       path.basename(relative[1], '.yml'),
@@ -76,7 +79,7 @@ function catalog() {
     '',
     '# Metric Catalog',
     '',
-    'Credential options list the environment variables, secret files, or Docker labels declared by each metric. Inputs must be supplied under `metrics.catalog.<provider>.<metric>.inputs`.',
+    'Credential options list the environment variables, secret files, or Docker labels declared by each metric. Entries marked optional are used only after an anonymous request receives HTTP 401 or 403. Inputs must be supplied under `metrics.catalog.<provider>.<metric>.inputs`.',
     '',
     '| Provider | Metric | Label | Required inputs | Credential options |',
     '| --- | --- | --- | --- | --- |',

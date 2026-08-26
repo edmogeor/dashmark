@@ -197,7 +197,7 @@ Add labels to opt a container in and configure its card.
 | `dashmark.icon` | `selfhst:<slug>`, an image URL, a path in `ICONS_DIR`, or `placeholder` |
 | `dashmark.category` | Category name; matching is case-insensitive |
 | `dashmark.show_status` | Set to `false` to hide the status badge and resource-usage tooltip for this card |
-| `dashmark.metrics` | Comma-separated `cpu`, `memory`, and `network` metrics for this card; set to `none` to disable built-in metrics |
+| `dashmark.metrics` | Comma-separated built-in metrics (`cpu`, `memory`, `network`) and catalog metric keys (`provider/metric`); set to `none` to disable built-in metrics |
 | `dashmark.metric_api_key` | Optional literal API-key override for catalog metrics. Docker labels are visible to Docker APIs and inspect output. |
 | `dashmark.metric_api_secret` | Optional literal API-secret override for HTTP Basic catalog metrics. Docker labels are visible to Docker APIs and inspect output. |
 | `dashmark.metric_username` | Optional literal username override for authenticated catalog metrics. |
@@ -209,13 +209,25 @@ Add labels to opt a container in and configure its card.
 
 `CATEGORY_ORDER=Media,Productivity,Home` sets the display order for listed categories. Category names are matched case-insensitively; configured names set their display spelling, while unlisted categories use the first spelling found after cards are sorted. Uncategorized cards always appear last.
 
-### Resource usage
+### Metrics
 
-Docker-backed cards show CPU and memory progress bars plus per-container network **Received** and **Sent** rates in the gauge tooltip. Each metric row includes a live ticker chart over the `METRICS_HISTORY_PERIOD` window. Dashmark samples eligible running containers every two seconds and stores those samples in SQLite. By default the database is in the container filesystem, so history survives page refreshes but is lost when the container is replaced or restarted. Set `METRICS_DATABASE_PATH` to an explicitly mounted location only when persistent history is wanted. Network rates appear after the second sample because Dashmark calculates them from consecutive Docker samples. When multiple Docker hosts are configured, the tooltip includes the host ID.
+Dashmark can collect Docker CPU, memory, and network usage, along with catalog
+and custom service metrics. Catalog metrics are opt-in: select each with
+`dashmark.metrics=provider/metric` or `service.metrics.catalog`. Set
+`SHOW_METRICS=false` to disable collection.
+Set `METRICS_ACCESS=admins,operators` to restrict metric values and history to
+matching users.
 
-Set `SHOW_METRICS=false` to stop metric collection and hide metric tooltips. Set `METRICS_ACCESS=admins,operators` to return metrics only to matching users. This restriction is enforced server-side, so unauthorized clients never receive metric values or history.
+Docker-backed cards can use `dashmark.metrics` for built-in container metrics.
+YAML-only cards support catalog and local metrics, but not Docker usage metrics.
+Metrics history is stored in SQLite; set `METRICS_DATABASE_PATH` to a mounted
+path when it must survive container replacement.
 
-Docker labels remain accepted separately for Docker-backed cards, including `dashmark.metrics` for built-in container metrics. YAML metrics use the canonical `service.metrics` mapping. Catalog selections do not require a provider label gate. YAML-only cards can define catalog and local metrics, but cannot collect Docker CPU, memory, or network metrics.
+```yaml
+labels:
+  dashmark.metrics: cpu,memory,radarr/queue
+  dashmark.metrics_url: http://radarr:7878
+```
 
 ```yaml
 radarr:
@@ -228,21 +240,10 @@ radarr:
     catalog:
       radarr:
         queue: { visible_to: media }
-    local:
-      active_downloads:
-        display: { label: Active downloads, chart: queue }
-        value: { kind: number, unit: count }
-        source:
-          url: http://radarr:7878/api/v3/queue/status
-          headers: { X-Api-Key: { env: RADARR_API_KEY } }
-        extract: { jq: .totalRecords }
 ```
 
-Every YAML metric setting belongs under `service.metrics`: `source_url`, `collection`, `container`, `charts`, `catalog`, and `local`. `collection.interval` and `collection.retention` are positive duration strings such as `30s`, `15m`, or `14d`. `container` is a list of `cpu`, `memory`, and `network`, or a mapping that can set `visible_to` per metric. `source_url` supplies the `{metrics_url}` base for catalog sources.
-
-`catalog` is nested by provider and metric. Each selected metric may set scalar `inputs`, `overrides`, and `visible_to`. `local` is a mapping of locally named metric definitions. A local definition has semantic `display`, `value`, `source`, and `extract` mappings. `display` contains `label` and optional `chart`; `value` contains `kind`, `unit`, `transform`, `default_color`, `colors`, and `labels`; `source` currently retains `url`, `method`, `headers`, `query`, `form`, `json`, `auth`, `transport`, and `socketio`; `extract` contains exactly one of `jq`, `prometheus`, `text`, or `for_each`.
-
-Shipped catalog files use `display`, `value`, `source`, and `extract`; provider defaults are in the colocated `provider.yml`. See [Metrics](metrics/README.md) for the canonical schema and catalog layout.
+All YAML metric settings live under `service.metrics`. See [Metrics](metrics/README.md)
+for catalog selection, local metrics, collection options, and the full schema.
 
 When `dashmark.url` is absent, Dashmark can derive an HTTPS URL from a Traefik router label such as `traefik.http.routers.plex.rule=Host(\`plex.example.com\`)`. Add another `dashmark.*` label to opt the container in.
 

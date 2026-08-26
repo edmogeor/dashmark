@@ -2,17 +2,19 @@
 
 # Metric Catalog
 
-Credential options list the environment variables, secret files, or Docker labels declared by each metric. Inputs must be supplied under `metrics.catalog.<provider>.<metric>.inputs`.
+Credential options list the environment variables, secret files, or Docker labels declared by each metric. Entries marked optional are used only after an anonymous request receives HTTP 401 or 403. Inputs must be supplied under `metrics.catalog.<provider>.<metric>.inputs`.
 
 | Provider | Metric | Label | Required inputs | Credential options |
 | --- | --- | --- | --- | --- |
-| adguard | blocked | Blocked | None | DASHMARK_ADGUARD_PASSWORD or dashmark.metric_password, DASHMARK_ADGUARD_USERNAME or dashmark.metric_username |
-| adguard | filtered | Filtered | None | DASHMARK_ADGUARD_PASSWORD or dashmark.metric_password, DASHMARK_ADGUARD_USERNAME or dashmark.metric_username |
-| adguard | latency | Latency | None | DASHMARK_ADGUARD_PASSWORD or dashmark.metric_password, DASHMARK_ADGUARD_USERNAME or dashmark.metric_username |
-| adguard | queries | DNS queries | None | DASHMARK_ADGUARD_PASSWORD or dashmark.metric_password, DASHMARK_ADGUARD_USERNAME or dashmark.metric_username |
+| adguard | blocked | Blocked | None | DASHMARK_ADGUARD_PASSWORD or dashmark.metric_password (optional), DASHMARK_ADGUARD_USERNAME or dashmark.metric_username (optional) |
+| adguard | filtered | Filtered | None | DASHMARK_ADGUARD_PASSWORD or dashmark.metric_password (optional), DASHMARK_ADGUARD_USERNAME or dashmark.metric_username (optional) |
+| adguard | latency | Latency | None | DASHMARK_ADGUARD_PASSWORD or dashmark.metric_password (optional), DASHMARK_ADGUARD_USERNAME or dashmark.metric_username (optional) |
+| adguard | queries | DNS queries | None | DASHMARK_ADGUARD_PASSWORD or dashmark.metric_password (optional), DASHMARK_ADGUARD_USERNAME or dashmark.metric_username (optional) |
 | authentik | users | Users | None | DASHMARK_AUTHENTIK_TOKEN or dashmark.metric_token |
 | bazarr | wanted-episodes | Wanted episodes | None | DASHMARK_BAZARR_API_KEY or dashmark.metric_api_key |
 | bazarr | wanted-movies | Wanted movies | None | DASHMARK_BAZARR_API_KEY or dashmark.metric_api_key |
+| crowdsec-web-ui | alerts | Alerts | None | DASHMARK_CROWDSEC_WEB_UI_PASSWORD or dashmark.metric_password (optional), DASHMARK_CROWDSEC_WEB_UI_USERNAME or dashmark.metric_username (optional) |
+| crowdsec-web-ui | decisions | Active decisions | None | DASHMARK_CROWDSEC_WEB_UI_PASSWORD or dashmark.metric_password (optional), DASHMARK_CROWDSEC_WEB_UI_USERNAME or dashmark.metric_username (optional) |
 | homeassistant | entities | Entities | None | DASHMARK_HOMEASSISTANT_TOKEN or dashmark.metric_token |
 | homeassistant | entity-state | Entity State | entity_id (Entity ID) | DASHMARK_HOMEASSISTANT_TOKEN or dashmark.metric_token |
 | homeassistant | template-state | Template State | template (Template) | DASHMARK_HOMEASSISTANT_TOKEN or dashmark.metric_token |
@@ -22,39 +24,39 @@ Credential options list the environment variables, secret files, or Docker label
 | jellyfin | movies | Movies | None | DASHMARK_JELLYFIN_API_KEY or dashmark.metric_api_key |
 | jellyfin | series | Series | None | DASHMARK_JELLYFIN_API_KEY or dashmark.metric_api_key |
 | jellyfin | songs | Songs | None | DASHMARK_JELLYFIN_API_KEY or dashmark.metric_api_key |
-| nzbget | download-rate | Download | None | DASHMARK_NZBGET_PASSWORD or dashmark.metric_password, DASHMARK_NZBGET_USERNAME or dashmark.metric_username |
-| nzbget | downloaded | Downloaded | None | DASHMARK_NZBGET_PASSWORD or dashmark.metric_password, DASHMARK_NZBGET_USERNAME or dashmark.metric_username |
-| nzbget | remaining | Remaining | None | DASHMARK_NZBGET_PASSWORD or dashmark.metric_password, DASHMARK_NZBGET_USERNAME or dashmark.metric_username |
+| nzbget | download-rate | Download | None | DASHMARK_NZBGET_PASSWORD or dashmark.metric_password (optional), DASHMARK_NZBGET_USERNAME or dashmark.metric_username (optional) |
+| nzbget | downloaded | Downloaded | None | DASHMARK_NZBGET_PASSWORD or dashmark.metric_password (optional), DASHMARK_NZBGET_USERNAME or dashmark.metric_username (optional) |
+| nzbget | remaining | Remaining | None | DASHMARK_NZBGET_PASSWORD or dashmark.metric_password (optional), DASHMARK_NZBGET_USERNAME or dashmark.metric_username (optional) |
 | opnsense | cpu | CPU | None | DASHMARK_OPNSENSE_API_KEY or dashmark.metric_api_key, DASHMARK_OPNSENSE_API_SECRET or dashmark.metric_api_secret |
 | opnsense | memory | Memory | None | DASHMARK_OPNSENSE_API_KEY or dashmark.metric_api_key, DASHMARK_OPNSENSE_API_SECRET or dashmark.metric_api_secret |
 | opnsense | wan-received | WAN received | None | DASHMARK_OPNSENSE_API_KEY or dashmark.metric_api_key, DASHMARK_OPNSENSE_API_SECRET or dashmark.metric_api_secret |
 | opnsense | wan-transmitted | WAN transmitted | None | DASHMARK_OPNSENSE_API_KEY or dashmark.metric_api_key, DASHMARK_OPNSENSE_API_SECRET or dashmark.metric_api_secret |
 | paperless | documents | Documents | None | DASHMARK_PAPERLESS_TOKEN or dashmark.metric_token |
 | paperless | inbox | Inbox | None | DASHMARK_PAPERLESS_TOKEN or dashmark.metric_token |
-| plex | active-streams | Active streams | None | DASHMARK_PLEX_TOKEN or dashmark.metric_token |
-| plex | albums | Albums | None | DASHMARK_PLEX_TOKEN or dashmark.metric_token |
-| plex | movies | Movies | None | DASHMARK_PLEX_TOKEN or dashmark.metric_token |
-| plex | shows | Shows | None | DASHMARK_PLEX_TOKEN or dashmark.metric_token |
-| prowlarr | failed-grabs | Failed grabs | None | DASHMARK_PROWLARR_API_KEY or dashmark.metric_api_key |
-| prowlarr | failed-queries | Failed queries | None | DASHMARK_PROWLARR_API_KEY or dashmark.metric_api_key |
-| prowlarr | grabs | Grabs | None | DASHMARK_PROWLARR_API_KEY or dashmark.metric_api_key |
-| prowlarr | indexers | Indexers | None | DASHMARK_PROWLARR_API_KEY or dashmark.metric_api_key |
-| prowlarr | queries | Queries | None | DASHMARK_PROWLARR_API_KEY or dashmark.metric_api_key |
-| qbittorrent | download_speed | Download | None | DASHMARK_QBITTORRENT_PASSWORD or dashmark.metric_password, DASHMARK_QBITTORRENT_USERNAME or dashmark.metric_username |
-| qbittorrent | leechers | Leeches | None | DASHMARK_QBITTORRENT_PASSWORD or dashmark.metric_password, DASHMARK_QBITTORRENT_USERNAME or dashmark.metric_username |
-| qbittorrent | seeds | Seeding | None | DASHMARK_QBITTORRENT_PASSWORD or dashmark.metric_password, DASHMARK_QBITTORRENT_USERNAME or dashmark.metric_username |
-| qbittorrent | upload_speed | Upload | None | DASHMARK_QBITTORRENT_PASSWORD or dashmark.metric_password, DASHMARK_QBITTORRENT_USERNAME or dashmark.metric_username |
-| radarr | have | Movies | None | DASHMARK_RADARR_API_KEY or dashmark.metric_api_key |
-| radarr | missing | Missing | None | DASHMARK_RADARR_API_KEY or dashmark.metric_api_key |
-| radarr | queue | Queued | None | DASHMARK_RADARR_API_KEY or dashmark.metric_api_key |
-| radarr | wanted | Wanted | None | DASHMARK_RADARR_API_KEY or dashmark.metric_api_key |
+| plex | active-streams | Active streams | None | DASHMARK_PLEX_TOKEN or dashmark.metric_token (optional) |
+| plex | albums | Albums | None | DASHMARK_PLEX_TOKEN or dashmark.metric_token (optional) |
+| plex | movies | Movies | None | DASHMARK_PLEX_TOKEN or dashmark.metric_token (optional) |
+| plex | shows | Shows | None | DASHMARK_PLEX_TOKEN or dashmark.metric_token (optional) |
+| prowlarr | failed-grabs | Failed grabs | None | DASHMARK_PROWLARR_API_KEY or dashmark.metric_api_key (optional) |
+| prowlarr | failed-queries | Failed queries | None | DASHMARK_PROWLARR_API_KEY or dashmark.metric_api_key (optional) |
+| prowlarr | grabs | Grabs | None | DASHMARK_PROWLARR_API_KEY or dashmark.metric_api_key (optional) |
+| prowlarr | indexers | Indexers | None | DASHMARK_PROWLARR_API_KEY or dashmark.metric_api_key (optional) |
+| prowlarr | queries | Queries | None | DASHMARK_PROWLARR_API_KEY or dashmark.metric_api_key (optional) |
+| qbittorrent | download_speed | Download | None | DASHMARK_QBITTORRENT_PASSWORD or dashmark.metric_password (optional), DASHMARK_QBITTORRENT_USERNAME or dashmark.metric_username (optional) |
+| qbittorrent | leechers | Leeches | None | DASHMARK_QBITTORRENT_PASSWORD or dashmark.metric_password (optional), DASHMARK_QBITTORRENT_USERNAME or dashmark.metric_username (optional) |
+| qbittorrent | seeds | Seeding | None | DASHMARK_QBITTORRENT_PASSWORD or dashmark.metric_password (optional), DASHMARK_QBITTORRENT_USERNAME or dashmark.metric_username (optional) |
+| qbittorrent | upload_speed | Upload | None | DASHMARK_QBITTORRENT_PASSWORD or dashmark.metric_password (optional), DASHMARK_QBITTORRENT_USERNAME or dashmark.metric_username (optional) |
+| radarr | have | Movies | None | DASHMARK_RADARR_API_KEY or dashmark.metric_api_key (optional) |
+| radarr | missing | Missing | None | DASHMARK_RADARR_API_KEY or dashmark.metric_api_key (optional) |
+| radarr | queue | Queued | None | DASHMARK_RADARR_API_KEY or dashmark.metric_api_key (optional) |
+| radarr | wanted | Wanted | None | DASHMARK_RADARR_API_KEY or dashmark.metric_api_key (optional) |
 | seerr | approved | Approved requests | None | DASHMARK_SEERR_API_KEY or dashmark.metric_api_key |
 | seerr | completed | Completed requests | None | DASHMARK_SEERR_API_KEY or dashmark.metric_api_key |
 | seerr | issues | Issues | None | DASHMARK_SEERR_API_KEY or dashmark.metric_api_key |
 | seerr | open-issues | Open issues | None | DASHMARK_SEERR_API_KEY or dashmark.metric_api_key |
 | seerr | pending | Pending requests | None | DASHMARK_SEERR_API_KEY or dashmark.metric_api_key |
 | seerr | processing | Processing requests | None | DASHMARK_SEERR_API_KEY or dashmark.metric_api_key |
-| sonarr | queue | Queued | None | DASHMARK_SONARR_API_KEY or dashmark.metric_api_key |
-| sonarr | series | Series | None | DASHMARK_SONARR_API_KEY or dashmark.metric_api_key |
-| sonarr | wanted | Wanted | None | DASHMARK_SONARR_API_KEY or dashmark.metric_api_key |
+| sonarr | queue | Queued | None | DASHMARK_SONARR_API_KEY or dashmark.metric_api_key (optional) |
+| sonarr | series | Series | None | DASHMARK_SONARR_API_KEY or dashmark.metric_api_key (optional) |
+| sonarr | wanted | Wanted | None | DASHMARK_SONARR_API_KEY or dashmark.metric_api_key (optional) |
 | zerobyte | backup-health | Backup health | None | DASHMARK_ZEROBYTE_API_KEY or dashmark.metric_api_key |

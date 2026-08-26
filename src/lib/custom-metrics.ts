@@ -56,7 +56,7 @@ async function extractJq(key: string, text: string, metric: MetricOverride): Pro
   return extractJqValue(key, document, metric)
 }
 
-async function collectForEachMetric(key: string, text: string, metric: MetricOverride, headers: Headers, cookieJar: CookieJar): Promise<MetricResult> {
+async function collectForEachMetric(key: string, text: string, metric: MetricOverride, request: (url: URL) => Promise<{ status: number; text: string }>): Promise<MetricResult> {
   const forEach = metric.forEach
   if (!forEach) return unavailable(key, 'for_each extractor was not configured')
 
@@ -74,7 +74,7 @@ async function collectForEachMetric(key: string, text: string, metric: MetricOve
     for (let index = 0; index < items.length; index += FOR_EACH_CONCURRENCY) {
       const batch = await Promise.all(items.slice(index, index + FOR_EACH_CONCURRENCY).map(async item => {
         const url = new URL(forEach.requestUrl.replaceAll('{item}', encodeURIComponent(item)))
-        const response = await requestText(url, new Headers(headers), cookieJar, 'GET')
+        const response = await request(url)
         if (response.status < 200 || response.status >= 300) throw new Error(`child request returned HTTP ${response.status}`)
         const childDocument = JSON.parse(response.text) as JsonInput
         const value = await jq.run(forEach.value.expression, childDocument, { input: 'json', output: 'json' })
@@ -225,12 +225,14 @@ function applyBasicAuth(metric: MetricOverride, headers: Headers): string | unde
   return undefined
 }
 
-function applyTokenAuth(metric: MetricOverride, headers: Headers): string | undefined {
+function applyTokenAuth(metric: MetricOverride, headers: Headers, url: URL): string | undefined {
   const auth = metric.source.auth
   if (!auth || auth.type !== 'token') return undefined
   const { values, error } = resolveReferences(metric, { value: auth.value }, 'token authentication')
   if (error || !values) return error ?? 'Could not resolve token authentication credentials'
-  headers.set(auth.header, `${auth.prefix ?? ''}${values.value!}`)
+  const value = `${auth.prefix ?? ''}${values.value!}`
+  if (typeof auth.header === 'string') headers.set(auth.header, value)
+  else url.searchParams.set(auth.query, value)
   return undefined
 }
 
@@ -277,6 +279,58 @@ async function requestText(
     if (responseTooLarge) throw new Error(`response exceeds ${MAX_RESPONSE_BYTES} bytes`)
     throw error
   }
+}
+
+type PreparedMetricRequest = {
+  url: URL
+  headers: Headers
+  body?: { form?: Record<string, string>; json?: Record<string, JsonValue> }
+}
+
+async function prepareMetricRequest(
+  metric: MetricOverride,
+  cookieJar: CookieJar,
+  targetUrl: URL,
+  authenticated: boolean,
+  includeSourceValues: boolean
+): Promise<{ request?: PreparedMetricRequest; error?: string }> {
+  const authResult = authenticated ? await login(metric, cookieJar) : { tokens: {} }
+  if (authResult.error) return { error: authResult.error }
+  const url = new URL(targetUrl)
+  const { headers, error: headerError } = resolveHeaders(metric, metric.source.headers ?? {}, authResult.tokens)
+  if (headerError || !headers) return { error: headerError ?? 'Could not resolve a metric value' }
+  if (authenticated) {
+    const basicAuthError = applyBasicAuth(metric, headers)
+    if (basicAuthError) return { error: basicAuthError }
+    const tokenAuthError = applyTokenAuth(metric, headers, url)
+    if (tokenAuthError) return { error: tokenAuthError }
+  }
+  if (includeSourceValues) {
+    const queryError = resolveQuery(metric, url, metric.source.query ?? {}, authResult.tokens)
+    if (queryError) return { error: queryError }
+    const body = resolveBody(metric, metric.source.form, metric.source.json, authResult.tokens ?? {})
+    if (body.error || !body.value) return { error: body.error ?? 'Could not resolve a metric value' }
+    return { request: { url, headers, body: body.value } }
+  }
+  return { request: { url, headers } }
+}
+
+async function requestMetric(
+  metric: MetricOverride,
+  cookieJar: CookieJar,
+  targetUrl: URL,
+  includeSourceValues: boolean
+): Promise<{ response?: { status: number; text: string }; error?: string }> {
+  const optional = metric.source.auth?.optional === true
+  let prepared = await prepareMetricRequest(metric, cookieJar, targetUrl, !optional, includeSourceValues)
+  if (prepared.error || !prepared.request) return { error: prepared.error ?? 'Could not prepare metric request' }
+  let response = await requestText(prepared.request.url, prepared.request.headers, cookieJar, includeSourceValues ? metric.source.method ?? 'GET' : 'GET', prepared.request.body)
+  if (!optional || (response.status !== 401 && response.status !== 403)) return { response }
+
+  prepared = await prepareMetricRequest(metric, cookieJar, targetUrl, true, includeSourceValues)
+  if (prepared.error || !prepared.request) return { error: `Authentication is required, but ${prepared.error ?? 'credentials are unavailable'}` }
+  response = await requestText(prepared.request.url, prepared.request.headers, cookieJar, includeSourceValues ? metric.source.method ?? 'GET' : 'GET', prepared.request.body)
+  return { response }
 }
 
 async function extractTokens(text: string, extract: NonNullable<Extract<NonNullable<MetricOverride['source']['auth']>, { type: 'cookie_session' }>['steps'][number]['extract']>): Promise<{ tokens?: Record<string, string>; error?: string }> {
@@ -421,29 +475,27 @@ export async function collectCustomMetric(key: string, metric: MetricOverride): 
     const jarKey = `${key}\0${metric.source.url}`
     const cookieJar = cookieJars.get(jarKey) ?? new CookieJar()
     cookieJars.set(jarKey, cookieJar)
-    const authResult = await login(metric, cookieJar)
-    if (authResult.error) return unavailable(key, authResult.error)
-    const { headers, error: headerError } = resolveHeaders(metric, metric.source.headers ?? {}, authResult.tokens)
-    if (headerError || !headers) return unavailable(key, headerError ?? 'Could not resolve a metric value')
-    const basicAuthError = applyBasicAuth(metric, headers)
-    if (basicAuthError) return unavailable(key, basicAuthError)
-    const tokenAuthError = applyTokenAuth(metric, headers)
-    if (tokenAuthError) return unavailable(key, tokenAuthError)
-    if (metric.source.transport === 'socketio') return collectSocketIoMetric(key, metric, url, headers, cookieJar)
-    const queryError = resolveQuery(metric, url, metric.source.query ?? {}, authResult.tokens)
-    if (queryError) return unavailable(key, queryError)
-    const body = resolveBody(metric, metric.source.form, metric.source.json, authResult.tokens ?? {})
-    if (body.error || !body.value) return unavailable(key, body.error ?? 'Could not resolve a metric value')
-    const response = await requestText(url, headers, cookieJar, metric.source.method ?? 'GET', body.value)
+    if (metric.source.transport === 'socketio') {
+      const prepared = await prepareMetricRequest(metric, cookieJar, url, true, true)
+      if (prepared.error || !prepared.request) return unavailable(key, prepared.error ?? 'Could not prepare metric request')
+      return collectSocketIoMetric(key, metric, prepared.request.url, prepared.request.headers, cookieJar)
+    }
+    const result = await requestMetric(metric, cookieJar, url, true)
+    if (result.error || !result.response) return unavailable(key, result.error ?? 'Could not reach metric source')
+    const response = result.response
     if (response.status >= 300 && response.status < 400) throw new Error('source redirected')
     if (response.status < 200 || response.status >= 300) {
       logger.error('metrics', 'custom metric source returned an error', { key, url: url.origin + url.pathname, status: response.status })
       return { error: `Source returned HTTP ${response.status}` }
     }
-    const result = metric.forEach
-      ? await collectForEachMetric(key, response.text, metric, headers, cookieJar)
+    const extracted = metric.forEach
+      ? await collectForEachMetric(key, response.text, metric, async childUrl => {
+          const child = await requestMetric(metric, cookieJar, childUrl, false)
+          if (child.error || !child.response) throw new Error(child.error ?? 'Could not reach metric source')
+          return child.response
+        })
       : metric.text ? extractText(key, response.text, metric) : 'jq' in metric ? await extractJq(key, response.text, metric) : extractPrometheus(key, response.text, metric)
-    return transform(key, result, metric)
+    return transform(key, extracted, metric)
   } catch (error) {
     const detail = error instanceof Error ? error.name : 'unknown error'
     logger.error('metrics', 'custom metric request failed', { key, url: url.origin + url.pathname, error: detail })

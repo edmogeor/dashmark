@@ -12,13 +12,5 @@ source:
     jsonrpc: "2.0"
     method: status
     id: 1
-  authentication:
-    kind: basic
-    username:
-      env: DASHMARK_NZBGET_USERNAME
-      label: dashmark.metric_username
-    password:
-      env: DASHMARK_NZBGET_PASSWORD
-      label: dashmark.metric_password
 extract:
   jq: .result.DownloadedSizeMB

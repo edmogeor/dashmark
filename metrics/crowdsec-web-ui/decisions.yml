@@ -1,0 +1,9 @@
+display:
+  label: Active decisions
+  chart: security
+value:
+  unit: count
+source:
+  url: "{metrics_url}/api/decisions"
+extract:
+  jq: length

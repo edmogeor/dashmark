@@ -1,7 +1,11 @@
 source:
   headers:
     Accept: application/json
-    X-Plex-Token:
+  authentication:
+    kind: token
+    optional: true
+    header: X-Plex-Token
+    value:
       env: DASHMARK_PLEX_TOKEN
       label: dashmark.metric_token
 charts:

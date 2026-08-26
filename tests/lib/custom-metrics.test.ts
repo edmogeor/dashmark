@@ -86,6 +86,15 @@ beforeAll(async () => {
       response.end(JSON.stringify({ value: 14 }))
       return
     }
+    if (path === '/query-token?api_key=metric-token') {
+      response.end(JSON.stringify({ value: 16 }))
+      return
+    }
+    if (path === '/query-token') {
+      response.statusCode = 401
+      response.end(JSON.stringify({ value: 0 }))
+      return
+    }
     if (path === '/json-metric') {
       let body = ''
       request.on('data', chunk => { body += chunk })
@@ -154,7 +163,7 @@ describe('collectCustomMetric', () => {
     forEachRequests = []
     await expect(collectCustomMetric('for-each', {
       label: 'Library items', valueType: 'number', unit: 'count', chart: 'step',
-      source: { url: `${baseUrl}/for-each/discover`, auth: { type: 'token', header: 'Authorization', prefix: 'Bearer ', value: { value: 'aggregate-token' } } },
+      source: { url: `${baseUrl}/for-each/discover`, auth: { type: 'token', optional: true, header: 'Authorization', prefix: 'Bearer ', value: { value: 'aggregate-token' } } },
       forEach: {
         items: { expression: '.ids' },
         requestUrl: `${baseUrl}/for-each/{item}`,
@@ -162,7 +171,7 @@ describe('collectCustomMetric', () => {
         reduce: 'sum'
       }
     })).resolves.toEqual({ value: 5 })
-    expect(forEachRequests.sort()).toEqual(['/for-each/movie', '/for-each/music%20%2F%201'])
+    expect(forEachRequests.sort()).toEqual(['/for-each/movie', '/for-each/movie', '/for-each/music%20%2F%201', '/for-each/music%20%2F%201'])
   })
 
   it('applies numeric transforms after extraction', async () => {
@@ -246,6 +255,36 @@ describe('collectCustomMetric', () => {
     })).resolves.toEqual({ value: 8 })
   })
 
+  it('retries optional authentication only after an unauthorized response', async () => {
+    await expect(collectCustomMetric('optional-basic', {
+      ...metric({ jq: { expression: '.value' } }),
+      source: {
+        url: `${baseUrl}/basic`,
+        auth: { type: 'basic', optional: true, username: { value: 'api-key' }, password: { value: 'api-secret' } }
+      }
+    })).resolves.toEqual({ value: 8 })
+  })
+
+  it('does not resolve unavailable optional credentials for a public metric', async () => {
+    await expect(collectCustomMetric('optional-public', {
+      ...metric({ jq: { expression: '.stats.value' } }),
+      source: {
+        url: `${baseUrl}/data`,
+        auth: { type: 'token', optional: true, header: 'Authorization', value: { env: 'DASHMARK_TEST_MISSING_OPTIONAL_TOKEN' } }
+      }
+    })).resolves.toEqual({ value: 12.5 })
+  })
+
+  it('reports missing optional credentials after authentication is required', async () => {
+    await expect(collectCustomMetric('optional-missing', {
+      ...metric({ jq: { expression: '.value' } }),
+      source: {
+        url: `${baseUrl}/basic`,
+        auth: { type: 'basic', optional: true, username: { env: 'DASHMARK_TEST_MISSING_OPTIONAL_USERNAME' }, password: { env: 'DASHMARK_TEST_MISSING_OPTIONAL_PASSWORD' } }
+      }
+    })).resolves.toMatchObject({ error: 'Authentication is required, but Credential DASHMARK_TEST_MISSING_OPTIONAL_USERNAME is unavailable' })
+  })
+
   it('sends static headers and prefixed token authentication', async () => {
     await expect(collectCustomMetric('token', {
       ...metric({ jq: { expression: '.value' } }),
@@ -254,6 +293,16 @@ describe('collectCustomMetric', () => {
         auth: { type: 'token', header: 'Authorization', prefix: 'Bearer ', value: { value: 'metric-token' } }
       }
     })).resolves.toEqual({ value: 14 })
+  })
+
+  it('applies optional token authentication through a query parameter', async () => {
+    await expect(collectCustomMetric('query-token', {
+      ...metric({ jq: { expression: '.value' } }),
+      source: {
+        url: `${baseUrl}/query-token`,
+        auth: { type: 'token', optional: true, query: 'api_key', value: { value: 'metric-token' } }
+      }
+    })).resolves.toEqual({ value: 16 })
   })
 
   it('uses shared cookies and extracted HTML and JSON tokens in later requests', async () => {

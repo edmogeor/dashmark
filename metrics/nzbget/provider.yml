@@ -1,2 +1,12 @@
+source:
+  authentication:
+    kind: basic
+    optional: true
+    username:
+      env: DASHMARK_NZBGET_USERNAME
+      label: dashmark.metric_username
+    password:
+      env: DASHMARK_NZBGET_PASSWORD
+      label: dashmark.metric_password
 charts:
   queue: step
