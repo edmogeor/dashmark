@@ -1,0 +1,19 @@
+display:
+  label: Logged-in users
+  chart: none
+value:
+  unit: count
+source:
+  url: "{metrics_url}/api/v3/core/authenticated_sessions/?page_size=1000"
+  authentication:
+    kind: token
+    header: Authorization
+    prefix: "Bearer "
+    value:
+      env: DASHMARK_AUTHENTIK_TOKEN
+      label: dashmark.metric_token
+extract:
+  jq: '[.items[] | select(.expires | fromdateiso8601 > now) | .user] | unique | length'
+  pagination:
+    items: .results
+    next: .pagination.next

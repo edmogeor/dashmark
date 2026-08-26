@@ -10,6 +10,7 @@ Credential options list the environment variables, secret files, or Docker label
 | adguard | filtered | Filtered | None | DASHMARK_ADGUARD_PASSWORD or dashmark.metric_password (optional), DASHMARK_ADGUARD_USERNAME or dashmark.metric_username (optional) |
 | adguard | latency | Latency | None | DASHMARK_ADGUARD_PASSWORD or dashmark.metric_password (optional), DASHMARK_ADGUARD_USERNAME or dashmark.metric_username (optional) |
 | adguard | queries | DNS queries | None | DASHMARK_ADGUARD_PASSWORD or dashmark.metric_password (optional), DASHMARK_ADGUARD_USERNAME or dashmark.metric_username (optional) |
+| authentik | logged-in-users | Logged-in users | None | DASHMARK_AUTHENTIK_TOKEN or dashmark.metric_token |
 | authentik | users | Users | None | DASHMARK_AUTHENTIK_TOKEN or dashmark.metric_token |
 | bazarr | wanted-episodes | Wanted episodes | None | DASHMARK_BAZARR_API_KEY or dashmark.metric_api_key |
 | bazarr | wanted-movies | Wanted movies | None | DASHMARK_BAZARR_API_KEY or dashmark.metric_api_key |

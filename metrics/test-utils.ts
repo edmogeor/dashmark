@@ -20,6 +20,7 @@ type MetricDefinition = {
     jq?: string
     text?: true
     for_each?: { items: string; request: { url: string }; value: string; reduce: 'count' | 'sum' | 'average' | 'minimum' | 'maximum' }
+    pagination?: { items: string; next: string }
   }
   parameters?: Record<string, { type: 'url_component' | 'json_value' }>
   source: {
@@ -140,6 +141,7 @@ function loadMetric(definitionUrl: URL, baseUrl: string): MetricOverride {
     ...(definition.extract.for_each
       ? { forEach: { items: { expression: definition.extract.for_each.items }, requestUrl: resolveUrl(definition.extract.for_each.request.url, baseUrl, parameters), value: { expression: definition.extract.for_each.value }, reduce: definition.extract.for_each.reduce } }
       : definition.extract.text ? { text: true } : { jq: { expression: definition.extract.jq! } }),
+    ...(definition.extract.pagination ? { pagination: { items: { expression: definition.extract.pagination.items }, next: { expression: definition.extract.pagination.next } } } : {}),
     ...(definition.value.default_color ? { color: definition.value.default_color } : {}),
     ...(definition.value.colors ? { stateColors: definition.value.colors } : {}),
     ...(definition.value.labels ? { stateLabels: definition.value.labels } : {})

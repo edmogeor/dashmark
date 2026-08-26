@@ -108,6 +108,14 @@ function validateForEach(forEach) {
   if (typeof request.url !== 'string' || !sourceBase.test(request.url) || !request.url.includes('{item}')) throw new Error('for_each.request.url must begin with {url} or {metrics_url} and contain {item}')
 }
 
+function validatePagination(pagination) {
+  const value = record(pagination, 'pagination must be a mapping')
+  allowed(value, new Set(['items', 'next']), 'pagination')
+  if (typeof value.items !== 'string' || !value.items.trim() || typeof value.next !== 'string' || !value.next.trim()) {
+    throw new Error('pagination must define non-empty items and next jq expressions')
+  }
+}
+
 function validateSource(source) {
   const value = record(source, 'source must be a mapping')
   if (value.transport === 'socketio') return validateSocketIoSource(value)
@@ -270,13 +278,15 @@ function validate(file, provider) {
   const valueType = value.kind ?? 'number'
   if (valueType !== 'number' && valueType !== 'string' && valueType !== 'state') throw new Error('value.kind must be number, string, or state')
   const extract = record(definition.extract, 'extract must be a mapping')
-  allowed(extract, new Set(['jq', 'prometheus', 'text', 'for_each']), 'extract')
+  allowed(extract, new Set(['jq', 'prometheus', 'text', 'for_each', 'pagination']), 'extract')
   const hasJq = extract.jq !== undefined
   const hasPrometheus = extract.prometheus !== undefined
   const hasText = extract.text === true
   const hasForEach = extract.for_each !== undefined
   if (extract.text !== undefined && !hasText) throw new Error('extract.text must be true when specified')
   if (Number(hasJq) + Number(hasPrometheus) + Number(hasText) + Number(hasForEach) !== 1) throw new Error('extract must define exactly one jq, prometheus, text, or for_each extractor')
+  if (extract.pagination !== undefined && !hasJq) throw new Error('pagination requires a jq extractor')
+  if (extract.pagination !== undefined && definition.source?.transport === 'socketio') throw new Error('pagination requires an HTTP metric')
 
   if (valueType === 'number') {
     validateUnit(value.unit ?? 'number')
@@ -295,6 +305,7 @@ function validate(file, provider) {
   }
 
   if (hasJq && (typeof extract.jq !== 'string' || !extract.jq.trim())) throw new Error('extract.jq must be a non-empty expression')
+  if (extract.pagination !== undefined) validatePagination(extract.pagination)
   if (hasPrometheus) {
     const extractor = record(extract.prometheus, 'extract.prometheus must be a mapping')
     validatePrometheus(extractor, valueType)

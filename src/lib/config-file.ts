@@ -136,6 +136,11 @@ export type PrometheusMetricExtractor = {
 
 export type JqMetricExtractor = { expression: string }
 
+export type MetricPagination = {
+  items: JqMetricExtractor
+  next: JqMetricExtractor
+}
+
 export type ForEachMetric = {
   items: JqMetricExtractor
   requestUrl: string
@@ -154,6 +159,7 @@ type MetricCommon = {
   label: string
   source: MetricSourceOverride
   parameters?: Record<string, MetricParameter>
+  pagination?: MetricPagination
 }
 
 export type NumericMetricOverride = MetricCommon & {
@@ -401,6 +407,13 @@ function parsePrometheusExtractor(value: unknown): PrometheusMetricExtractor | u
 function parseJqExtractor(value: unknown): JqMetricExtractor | undefined {
   const expression = string(value)
   return expression?.trim() ? { expression } : undefined
+}
+
+function parseMetricPagination(value: unknown): MetricPagination | undefined {
+  if (!isRecord(value) || Object.keys(value).some(key => key !== 'items' && key !== 'next')) return undefined
+  const items = parseJqExtractor(value.items)
+  const next = parseJqExtractor(value.next)
+  return items && next ? { items, next } : undefined
 }
 
 function parseForEachMetric(value: unknown): ForEachMetric | undefined {
@@ -760,7 +773,7 @@ function metricDefinitionFields(value: unknown, partial: boolean): { fields?: { 
   if (!partial && (!isRecord(display) || !isRecord(extract))) return { error: 'display and extract are required' }
   if (isRecord(display) && Object.keys(display).some(key => !['label', 'chart'].includes(key))) return { error: 'display contains an unknown configuration key' }
   if (isRecord(metricValue) && Object.keys(metricValue).some(key => !['kind', 'unit', 'rate', 'transform', 'default_color', 'colors', 'labels'].includes(key))) return { error: 'value contains an unknown configuration key' }
-  if (isRecord(extract) && Object.keys(extract).some(key => !['jq', 'prometheus', 'text', 'for_each'].includes(key))) return { error: 'extract contains an unknown configuration key' }
+  if (isRecord(extract) && Object.keys(extract).some(key => !['jq', 'prometheus', 'text', 'for_each', 'pagination'].includes(key))) return { error: 'extract contains an unknown configuration key' }
   return {
     fields: {
       display: isRecord(display) ? display : {},
@@ -797,6 +810,7 @@ function normalizeMetricDefinition(value: unknown, providerCharts?: unknown, par
     ...(extractFields.prometheus === undefined ? {} : { prometheus: extractFields.prometheus }),
     ...(extractFields.text === undefined ? {} : { text: extractFields.text }),
     ...(extractFields.for_each === undefined ? {} : { for_each: extractFields.for_each }),
+    ...(extractFields.pagination === undefined ? {} : { pagination: extractFields.pagination }),
     ...(parameters === undefined ? {} : { parameters }),
     ...(chartStyle ? { chart: chartStyle, chart_group: chartName } : parseChart(chartName) ? { chart: chartName } : {})
   }
@@ -817,12 +831,13 @@ function parseCustomMetricFields(metric: Record<string, unknown>) {
   const parameters = metric.parameters === undefined ? undefined : parseMetricParameters(metric.parameters)
   const text = metric.text === true
   const forEach = metric.for_each === undefined ? undefined : parseForEachMetric(metric.for_each)
+  const pagination = metric.pagination === undefined ? undefined : parseMetricPagination(metric.pagination)
   const source = isRecord(metric.source) ? metric.source : undefined
   const url = string(source?.url)
   const transport = source?.transport === undefined ? undefined : string(source.transport)
   const jq = parseJqExtractor(metric.jq)
   const prometheus = parsePrometheusExtractor(metric.prometheus)
-  return { label, valueType, unit, rate, chart, chartGroup, transform, color, stateColors, stateLabels, parameters, text, forEach, source, url, transport, jq, prometheus }
+  return { label, valueType, unit, rate, chart, chartGroup, transform, color, stateColors, stateLabels, parameters, text, forEach, pagination, source, url, transport, jq, prometheus }
 }
 
 function parseCustomMetricRequestSource(source: Record<string, unknown>, url: string, transport: string | undefined, socketio: { socketio?: SocketIoMetricSource }): { source?: MetricSourceOverride; error?: string } {
@@ -848,13 +863,14 @@ function parseCustomMetric(key: string, configuredMetric: unknown, catalog: Reco
     return { error: 'metric key or definition is invalid' }
   }
   const metric = mergeCatalogMetric(catalog[key], configuredMetric)
-  const { label, valueType, unit, rate, chart, chartGroup, transform, color, stateColors, stateLabels, parameters, text, forEach, source, url, transport, jq, prometheus } = parseCustomMetricFields(metric)
+  const { label, valueType, unit, rate, chart, chartGroup, transform, color, stateColors, stateLabels, parameters, text, forEach, pagination, source, url, transport, jq, prometheus } = parseCustomMetricFields(metric)
   if (!label) return { error: 'label must be a non-empty string' }
   if (!source || !url) return { error: 'source.url is required' }
   if (!isMetricUrl(url)) return { error: 'source.url must use HTTP or HTTPS, or begin with {url} or {metrics_url}' }
   if (transport !== undefined && transport !== 'socketio') return { error: 'source.transport must be socketio when specified' }
   if (metric.prometheus !== undefined && !prometheus) return { error: 'prometheus.name, labels, reduction, or value_label is invalid' }
   if (metric.for_each !== undefined && !forEach) return { error: 'for_each requires item and value jq expressions, a child URL containing {item}, and a reduction' }
+  if (metric.pagination !== undefined && (!pagination || !jq)) return { error: 'pagination requires a jq extractor with items and next expressions' }
   if (Number(jq !== undefined) + Number(prometheus !== undefined) + Number(text) + Number(forEach !== undefined) !== 1) {
     return { error: 'define exactly one valid jq, prometheus, text, or for_each extractor' }
   }
@@ -883,6 +899,7 @@ function parseCustomMetric(key: string, configuredMetric: unknown, catalog: Reco
   }
   if (rate && valueType !== 'number') return { error: 'rate requires value_type number' }
   if (forEach && (valueType !== 'number' || transport === 'socketio')) return { error: 'for_each requires a numeric HTTP metric' }
+  if (pagination && transport === 'socketio') return { error: 'pagination requires an HTTP metric' }
 
   const socketio = transport === 'socketio' ? parseSocketIoSource(source) : {}
   if (socketio.error) return { error: socketio.error }
@@ -893,6 +910,7 @@ function parseCustomMetric(key: string, configuredMetric: unknown, catalog: Reco
   const common = {
     label,
     ...(parameters ? { parameters } : {}),
+    ...(pagination ? { pagination } : {}),
     source: parsedSource.source
   }
   if (valueType === 'string') return { metric: text ? { ...common, valueType, text: true } : jq ? { ...common, valueType, jq } : { ...common, valueType, prometheus: prometheus! } }
@@ -1005,19 +1023,20 @@ function parseCatalogMetrics(value: unknown, path: string, catalog: Record<strin
     selections[provider] = {}
     for (const [name, selection] of Object.entries(definitions)) {
       const key = `${provider}/${name}`
-      if (!/^[a-z][a-z0-9_-]*$/.test(name) || !catalog[key] || !isRecord(selection)) invalid(`${path}.catalog.${provider}.${name}`, 'a shipped catalog metric mapping')
-      validateKnownFields(selection, new Set(['inputs', 'overrides', 'visible_to']), `${path}.catalog.${provider}.${name}`)
+      if (!/^[a-z][a-z0-9_-]*$/.test(name) || !catalog[key] || (selection !== null && !isRecord(selection))) invalid(`${path}.catalog.${provider}.${name}`, 'a shipped catalog metric mapping')
+      const configured = selection ?? {}
+      validateKnownFields(configured, new Set(['inputs', 'overrides', 'visible_to']), `${path}.catalog.${provider}.${name}`)
       let inputs: Record<string, string | number | boolean> | undefined
-      if (selection.inputs !== undefined) {
-        if (!isRecord(selection.inputs) || Object.values(selection.inputs).some(item => typeof item !== 'string' && typeof item !== 'number' && typeof item !== 'boolean')) invalid(`${path}.catalog.${provider}.${name}.inputs`, 'a mapping of scalar values')
-        inputs = selection.inputs as Record<string, string | number | boolean>
+      if (configured.inputs !== undefined) {
+        if (!isRecord(configured.inputs) || Object.values(configured.inputs).some(item => typeof item !== 'string' && typeof item !== 'number' && typeof item !== 'boolean')) invalid(`${path}.catalog.${provider}.${name}.inputs`, 'a mapping of scalar values')
+        inputs = configured.inputs as Record<string, string | number | boolean>
       }
       const parameters = parseMetricParameters(catalog[key]?.parameters)
       for (const input of Object.keys(inputs ?? {})) if (!parameters?.[input]) invalid(`${path}.catalog.${provider}.${name}.inputs.${input}`, 'a declared catalog input')
-      const parsed = selection.overrides === undefined ? {} : parseMetricOverrides({ [key]: selection.overrides }, catalog, charts, true)
+      const parsed = configured.overrides === undefined ? {} : parseMetricOverrides({ [key]: configured.overrides }, catalog, charts, true)
       if (parsed.errors?.[key]) invalid(`${path}.catalog.${provider}.${name}.overrides`, parsed.errors[key])
-      const visibleTo = selection.visible_to === undefined ? undefined : stringList(selection.visible_to)
-      if (selection.visible_to !== undefined && !visibleTo) invalid(`${path}.catalog.${provider}.${name}.visible_to`, 'a non-empty string or list of strings')
+      const visibleTo = configured.visible_to === undefined ? undefined : stringList(configured.visible_to)
+      if (configured.visible_to !== undefined && !visibleTo) invalid(`${path}.catalog.${provider}.${name}.visible_to`, 'a non-empty string or list of strings')
       selections[provider]![name] = { ...(inputs ? { inputs } : {}), ...(parsed.metrics?.[key] ? { overrides: parsed.metrics[key] } : {}), ...(visibleTo ? { visibleTo } : {}) }
     }
   }

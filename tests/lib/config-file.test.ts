@@ -41,6 +41,7 @@ service:
             display:
               label: Garage door
           visible_to: [admins, operators]
+        queue-depth:
     local:
       active_downloads:
         display:
@@ -63,7 +64,8 @@ service:
             inputs: expect.objectContaining({ resource: 'garage_door' }),
             overrides: expect.anything(),
             visibleTo: expect.anything()
-          })
+          }),
+          'queue-depth': {}
         })
       }),
       local: expect.objectContaining({

@@ -12,6 +12,7 @@ const REQUEST_TIMEOUT_MS = 5_000
 const MAX_RESPONSE_BYTES = 1_048_576
 const MAX_FOR_EACH_ITEMS = 32
 const FOR_EACH_CONCURRENCY = 4
+const MAX_PAGINATION_PAGES = 32
 const cookieJars = new Map<string, CookieJar>()
 
 export type MetricResult = { value: number | string } | { error: string }
@@ -54,6 +55,35 @@ async function extractJq(key: string, text: string, metric: MetricOverride): Pro
     return unavailable(key, 'response is not valid JSON')
   }
   return extractJqValue(key, document, metric)
+}
+
+async function collectPaginatedJq(
+  key: string,
+  text: string,
+  metric: MetricOverride,
+  request: (url: URL) => Promise<{ status: number; text: string }>,
+): Promise<MetricResult> {
+  if (!metric.pagination || !('jq' in metric)) return unavailable(key, 'pagination requires a jq extractor')
+  try {
+    const items: JsonInput[] = []
+    let document = JSON.parse(text) as JsonInput
+    for (let page = 0; page < MAX_PAGINATION_PAGES; page++) {
+      const pageItems = await jq.run(metric.pagination.items.expression, document, { input: 'json', output: 'json' })
+      if (!Array.isArray(pageItems)) return unavailable(key, 'pagination item extraction did not produce an array')
+      items.push(...pageItems)
+      const next: unknown = await jq.run(metric.pagination.next.expression, document, { input: 'json', output: 'json' })
+      if (next === 0 || next === null) return extractJqValue(key, { items }, metric)
+      if (typeof next !== 'number' || !Number.isInteger(next) || next < 1) return unavailable(key, 'pagination next extraction did not produce a page number')
+      const url = new URL(metric.source.url)
+      url.searchParams.set('page', String(next))
+      const response = await request(url)
+      if (response.status < 200 || response.status >= 300) return unavailable(key, `pagination request returned HTTP ${response.status}`)
+      document = JSON.parse(response.text) as JsonInput
+    }
+    return unavailable(key, `pagination exceeded the ${MAX_PAGINATION_PAGES} page limit`)
+  } catch {
+    return unavailable(key, 'pagination collection failed')
+  }
 }
 
 async function collectForEachMetric(key: string, text: string, metric: MetricOverride, request: (url: URL) => Promise<{ status: number; text: string }>): Promise<MetricResult> {
@@ -494,6 +524,12 @@ export async function collectCustomMetric(key: string, metric: MetricOverride): 
           if (child.error || !child.response) throw new Error(child.error ?? 'Could not reach metric source')
           return child.response
         })
+      : metric.pagination
+        ? await collectPaginatedJq(key, response.text, metric, async pageUrl => {
+            const page = await requestMetric(metric, cookieJar, pageUrl, true)
+            if (page.error || !page.response) throw new Error(page.error ?? 'Could not reach metric source')
+            return page.response
+          })
       : metric.text ? extractText(key, response.text, metric) : 'jq' in metric ? await extractJq(key, response.text, metric) : extractPrometheus(key, response.text, metric)
     return transform(key, extracted, metric)
   } catch (error) {

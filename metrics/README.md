@@ -148,6 +148,10 @@ changes a numeric value after Dashmark reads it.
 text. `for_each` finds items, requests each item, reads a numeric value, and
 combines the results.
 
+Use `pagination` with a JSON metric when the source exposes page numbers. Its
+`items` and `next` jq expressions collect every page into `.items` before the
+metric's `jq` expression runs. Collection stops with an error after 32 pages.
+
 Use this form for token authentication:
 
 ```yaml

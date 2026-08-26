@@ -113,6 +113,14 @@ beforeAll(async () => {
       response.end(JSON.stringify({ total: path === '/for-each/movie' ? 2 : 3 }))
       return
     }
+    if (path.startsWith('/paginated')) {
+      const page = new URL(path, 'http://metrics.test').searchParams.get('page')
+      response.end(JSON.stringify(page === '2'
+        ? { results: [{ user: 2 }, { user: 3 }], pagination: { next: 0 } }
+        : { results: [{ user: 1 }, { user: 2 }], pagination: { next: 2 } }
+      ))
+      return
+    }
     const responses: Record<string, string> = {
       '/data': '{"stats":{"value":12.5}}',
       '/sum': '{"items":[{"value":2},{"value":3}]}',
@@ -172,6 +180,15 @@ describe('collectCustomMetric', () => {
       }
     })).resolves.toEqual({ value: 5 })
     expect(forEachRequests.sort()).toEqual(['/for-each/movie', '/for-each/movie', '/for-each/music%20%2F%201', '/for-each/music%20%2F%201'])
+  })
+
+  it('collects every page before extracting a JSON metric', async () => {
+    await expect(collectCustomMetric('paginated', {
+      label: 'Unique users', valueType: 'number', unit: 'count', chart: 'step',
+      source: { url: `${baseUrl}/paginated?page_size=2` },
+      pagination: { items: { expression: '.results' }, next: { expression: '.pagination.next' } },
+      jq: { expression: '[.items[].user] | unique | length' }
+    })).resolves.toEqual({ value: 3 })
   })
 
   it('applies numeric transforms after extraction', async () => {
