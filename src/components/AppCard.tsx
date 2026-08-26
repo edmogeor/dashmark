@@ -112,7 +112,7 @@ function formatAxisCustomMetric(value: number, unit: CustomMetricUnit): string {
   if (unit === 'percent') return formatAxisPercent(value)
   if (unit === 'ratio') return formatAxisPercent(value * 100)
   if (unit === 'boolean') return formatCustomMetric(value, unit)
-  return formatCustomMetric(Math.round(value / 5) * 5, unit)
+  return formatCustomMetric(value, unit)
 }
 
 function formatDuration(value: number): string {
@@ -244,6 +244,7 @@ function chartDomain(values: number[]): [number, number] {
   if (finiteValues.length === 0) return [0, 1]
   const minimum = Math.min(...finiteValues)
   const maximum = Math.max(...finiteValues)
+  if (minimum === 0 && maximum === 0) return [0, 1]
   const padding = Math.max((maximum - minimum) * 0.1, Math.abs(maximum) * 0.05, 1)
   const domain: [number, number] = [minimum - padding, maximum + padding]
   return domain.every(Number.isFinite) ? domain : [0, 1]

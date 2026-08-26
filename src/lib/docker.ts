@@ -508,6 +508,14 @@ function resolveCardUrl(
   return derived && isValidUrl(derived) ? derived : undefined
 }
 
+function selectedCatalogMetrics(keys: string[] | undefined): ServiceMetricOverrides {
+  const catalog = loadMetricCatalog()
+  return Object.fromEntries((keys ?? []).flatMap(key => {
+    const metric = catalog[key]
+    return metric ? [[key, metric]] : []
+  }))
+}
+
 type ResolvedContainer = {
   container: DockerContainer
   name: string
@@ -527,12 +535,7 @@ function resolveContainer(
   const rawLabels = container.Labels ?? {}
   const labels = mergeWithYaml(parseLabels(rawLabels), yamlService)
   const url = resolveCardUrl(labels.url, rawLabels, yamlService !== undefined || hasDashmarkLabels(rawLabels))
-  const catalogMetrics = loadMetricCatalog()
-  const selectedCatalogMetrics = Object.fromEntries((labels.metrics ?? []).flatMap(key => {
-    const metric = catalogMetrics[key]
-    return metric ? [[key, metric]] : []
-  }))
-  const customMetrics = { ...selectedCatalogMetrics, ...yamlMetricOverrides(yamlService) }
+  const customMetrics = { ...selectedCatalogMetrics(labels.metrics), ...yamlMetricOverrides(yamlService) }
 
   return {
     container,
@@ -546,13 +549,8 @@ function resolveContainer(
 }
 
 function resolveYamlMetrics(service: ServiceOverrides, url: string): ResolvedMetricCard {
-  const catalogMetrics = loadMetricCatalog()
   const labels = mergeWithYaml(parseLabels({}), service)
-  const selectedCatalogMetrics = Object.fromEntries((labels.metrics ?? []).flatMap(key => {
-    const metric = catalogMetrics[key]
-    return metric ? [[key, metric]] : []
-  }))
-  const customMetrics = { ...selectedCatalogMetrics, ...yamlMetricOverrides(service) }
+  const customMetrics = { ...selectedCatalogMetrics(labels.metrics), ...yamlMetricOverrides(service) }
   return {
     labels,
     customMetrics: resolveMetricSources(customMetrics, url, labels.metricsUrl, {}, yamlMetricParameters(service)),
@@ -682,8 +680,10 @@ export function addResourceUsageVaryHeader(headers: Headers, config: AppConfig):
 }
 
 export function canViewMetric(config: AppConfig, headers: Headers, access: Record<string, string[]> | undefined, metric: string): boolean {
-  if (!config.showMetrics || !hasAllowedAccess(getUser(config, headers), config.metricsAccess)) return false
-  return hasAllowedAccess(getUser(config, headers), access?.[metric] ?? [])
+  if (!config.showMetrics) return false
+  const user = getUser(config, headers)
+  return hasAllowedAccess(user, config.metricsAccess)
+    && hasAllowedAccess(user, access?.[metric] ?? [])
 }
 
 async function cardFromContainer(

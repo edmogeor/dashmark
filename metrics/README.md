@@ -28,9 +28,9 @@ qbittorrent:
         upload_speed: {}
 ```
 
-The catalog lists provider and metric names, required inputs, and credential
-variables. Define a metric under `metrics.local` only when the catalog does
-not meet your need.
+The generated [catalog](CATALOG.md) lists provider and metric names, required
+inputs, and credential options. Define a metric under `metrics.local` only when
+the catalog does not meet your need.
 
 ```yaml
 radarr:
@@ -161,6 +161,11 @@ Catalog source URLs normally begin with `{metrics_url}`.
 `service.metrics.source_url` sets that address. Otherwise, Dashmark uses the
 card URL when it can. A catalog metric must declare each input. Input values
 can be strings, numbers, or booleans.
+
+`CATALOG.md` is generated from the metric definitions. Contributors declare
+inputs in `parameters` and credential options using `env`, `file`, or `label`
+references in the metric or provider source, then run
+`npm run generate:metrics-catalog`.
 
 ## Breaking YAML Change
 

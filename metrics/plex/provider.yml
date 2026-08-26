@@ -4,3 +4,5 @@ source:
     X-Plex-Token:
       env: DASHMARK_PLEX_TOKEN
       label: dashmark.metric_token
+charts:
+  library: step

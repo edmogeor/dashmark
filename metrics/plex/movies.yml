@@ -1,6 +1,6 @@
 display:
   label: Movies
-  chart: step
+  chart: library
 value:
   unit: count
 source:

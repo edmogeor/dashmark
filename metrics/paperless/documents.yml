@@ -1,6 +1,6 @@
 display:
   label: Documents
-  chart: none
+  chart: step
 value:
   unit: count
 source:

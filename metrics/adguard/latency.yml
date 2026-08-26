@@ -1,5 +1,6 @@
 display:
   label: Latency
+  chart: line
 value:
   unit: milliseconds
   transform:

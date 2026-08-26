@@ -1,6 +1,6 @@
 display:
   label: Wanted movies
-  chart: none
+  chart: wanted
 value:
   unit: count
 source:

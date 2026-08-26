@@ -1,6 +1,6 @@
 display:
   label: Shows
-  chart: step
+  chart: library
 value:
   unit: count
 source:

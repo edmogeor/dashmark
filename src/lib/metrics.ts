@@ -78,10 +78,14 @@ export function saveResourceMetric(
     resource.sentBytesPerSecond ?? null
   )
   db.prepare('DELETE FROM resource_metrics WHERE card_id = ? AND timestamp < ?').run(cardId, timestamp - historyPeriodMs)
-  if (resource.cpuPercent !== undefined) saveMetricSample(config, cardId, 'cpu', resource.cpuPercent, historyPeriodMs, timestamp)
-  if (resource.memoryUsage !== undefined) saveMetricSample(config, cardId, 'memory', resource.memoryUsage, historyPeriodMs, timestamp)
-  if (resource.receivedBytesPerSecond !== undefined) saveMetricSample(config, cardId, 'received', resource.receivedBytesPerSecond, historyPeriodMs, timestamp)
-  if (resource.sentBytesPerSecond !== undefined) saveMetricSample(config, cardId, 'sent', resource.sentBytesPerSecond, historyPeriodMs, timestamp)
+  for (const [key, value] of Object.entries({
+    cpu: resource.cpuPercent,
+    memory: resource.memoryUsage,
+    received: resource.receivedBytesPerSecond,
+    sent: resource.sentBytesPerSecond
+  })) {
+    if (value !== undefined) saveMetricSample(config, cardId, key, value, historyPeriodMs, timestamp)
+  }
 }
 
 export function getResourceMetricHistory(

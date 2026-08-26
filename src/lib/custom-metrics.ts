@@ -25,8 +25,10 @@ function reduce(values: number[], reduction: CustomMetricReduction | undefined):
   if (values.length === 0 || (!reduction && values.length !== 1)) return undefined
   if (!reduction) return values[0]
   if (reduction === 'count') return values.length
-  if (reduction === 'sum') return values.reduce((sum, value) => sum + value, 0)
-  if (reduction === 'average') return values.reduce((sum, value) => sum + value, 0) / values.length
+  if (reduction === 'sum' || reduction === 'average') {
+    const sum = values.reduce((total, value) => total + value, 0)
+    return reduction === 'sum' ? sum : sum / values.length
+  }
   if (reduction === 'minimum') return Math.min(...values)
   return Math.max(...values)
 }

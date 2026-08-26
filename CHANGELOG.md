@@ -7,10 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0-alpha.15] - 2026-08-26
+
+### Added
+
+- Generate a metrics catalog that lists required inputs and credential options from catalog definitions.
+
 ### Changed
 
 - **Breaking:** replace the YAML metric list and related per-service metric keys with the canonical `service.metrics` mapping. Use `source_url`, `collection`, `container`, `charts`, `catalog`, and `local`; `collection.interval` and `collection.retention` now use duration strings.
 - Add `shared_metric_sources` for local metrics that use the same HTTP API connection across cards.
+- Group related Plex and Bazarr metrics in shared history charts, graph AdGuard latency as a line, and retain Paperless document history.
+- Rename the OPNsense active-memory metric to Memory.
+
+### Fixed
+
+- Keep zero-valued metric charts anchored at zero and display distinct axis tick labels.
 
 ### Removed
 

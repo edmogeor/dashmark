@@ -13,7 +13,8 @@
     "astro": "astro",
     "typecheck": "astro check",
     "lint": "oxlint .",
-    "validate:metrics": "node scripts/validate-metrics.mjs",
+    "generate:metrics-catalog": "node scripts/generate-metrics-catalog.mjs",
+    "validate:metrics": "npm run generate:metrics-catalog -- --check && node scripts/validate-metrics.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },
