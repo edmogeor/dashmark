@@ -1,5 +1,5 @@
 display:
-  label: Active memory
+  label: Memory
   chart: line
 value:
   unit: bytes
