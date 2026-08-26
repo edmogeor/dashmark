@@ -57,6 +57,7 @@ describe('getCards', () => {
       State: 'running', Status: 'Up 1 hour', Labels: {
         'dashmark.url': 'https://metrics.example.com',
         'dashmark.metrics': 'cpu,memory,network',
+        'dashmark.metrics_poll_interval': '5',
         'dashmark.metrics_access.cpu': 'admins',
         'dashmark.metrics_access.network': 'admins'
       }
@@ -64,10 +65,12 @@ describe('getCards', () => {
     const config = getConfig()
     config.dockerHost = dockerHost
     config.accessGroupsHeader = 'X-Test-Groups'
+    config.metricsPollIntervalMs = 10_000
 
     const { cards } = await getCards(config, new Headers({ 'X-Test-Groups': 'media' }))
 
     expect(cards[0]?.resourceStats).toEqual(['memory'])
+    expect(cards[0]?.metricsPollIntervalMs).toBe(5_000)
   })
 
   afterEach(async () => {

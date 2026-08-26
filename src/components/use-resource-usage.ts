@@ -5,7 +5,7 @@ import {
   type CustomMetric,
   type ResourceMetricSample,
 } from '@/lib/status'
-import { RESOURCE_USAGE_POLL_INTERVAL_MS } from '@/lib/constants'
+import { DEFAULT_METRICS_POLL_INTERVAL_MS } from '@/lib/constants'
 import { demoResourceUsage } from '@/demo/resources'
 
 type ResourceUsage = {
@@ -21,14 +21,15 @@ function useDemoResourceUsage(
   cardId: string,
   active: boolean,
   update: (sample: ResourceMetricSample) => void,
+  pollIntervalMs: number,
 ) {
   useEffect(() => {
     if (!active) return
     const refresh = () => update(demoResourceUsage(cardId, Date.now()))
     refresh()
-    const timer = setInterval(refresh, RESOURCE_USAGE_POLL_INTERVAL_MS)
+    const timer = setInterval(refresh, pollIntervalMs)
     return () => clearInterval(timer)
-  }, [active, cardId, update])
+  }, [active, cardId, pollIntervalMs, update])
 }
 
 export function useResourceUsage(
@@ -36,6 +37,7 @@ export function useResourceUsage(
   enabled: boolean,
   active: boolean,
   initialResources?: ContainerResources,
+  pollIntervalMs = DEFAULT_METRICS_POLL_INTERVAL_MS,
   isDemo = false,
 ): ResourceUsage {
   const [resources, setResources] = useState<ContainerResources | null>(
@@ -58,7 +60,7 @@ export function useResourceUsage(
               demoResourceUsage(
                 cardId,
                 sample.timestamp -
-                  (29 - index) * RESOURCE_USAGE_POLL_INTERVAL_MS,
+                  (29 - index) * pollIntervalMs,
               ),
             ),
       )
@@ -75,7 +77,7 @@ export function useResourceUsage(
     setMetricErrors([])
     setLoading(false)
   }, [initialResources, isDemo])
-  useDemoResourceUsage(cardId, enabled && active && isDemo, updateDemo)
+  useDemoResourceUsage(cardId, enabled && active && isDemo, updateDemo, pollIntervalMs)
   useEffect(() => {
     if (initialResources || !enabled || !active || isDemo) return
     setResources(null)
@@ -115,7 +117,7 @@ export function useResourceUsage(
         controller = undefined
         if (!stopped) {
           setLoading(pending)
-          timeout = setTimeout(poll, RESOURCE_USAGE_POLL_INTERVAL_MS)
+          timeout = setTimeout(poll, pollIntervalMs)
         }
       }
     }
@@ -125,7 +127,7 @@ export function useResourceUsage(
       controller?.abort()
       if (timeout) clearTimeout(timeout)
     }
-  }, [active, cardId, enabled, initialResources, isDemo])
+  }, [active, cardId, enabled, initialResources, isDemo, pollIntervalMs])
   return {
     resources,
     history,

@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
-import { AUTO_ACCESS_GROUPS_HEADER, ACCESS_GROUPS_HEADER_TOKEN, DEFAULT_PORT, MAX_PORT, METRICS_HISTORY_PERIOD_MS, STATUS_POLL_INTERVAL_MS } from './constants'
+import { AUTO_ACCESS_GROUPS_HEADER, ACCESS_GROUPS_HEADER_TOKEN, DEFAULT_METRICS_POLL_INTERVAL_MS, DEFAULT_PORT, MAX_PORT, METRICS_HISTORY_PERIOD_MS, STATUS_POLL_INTERVAL_MS } from './constants'
 import { loadYamlConfig } from './config-file'
 
 export type AppConfig = {
@@ -174,7 +174,7 @@ export function getConfig(): AppConfig {
     showMetrics: boolValue('SHOW_METRICS', settings.showMetrics, true),
     metricsAccess: accessValue('METRICS_ACCESS', settings.metricsAccess),
     metricsDatabasePath: stringValue('METRICS_DATABASE_PATH', settings.metricsDatabasePath) || (process.env.NODE_ENV === 'production' ? '/tmp/dashmark/metrics.db' : '.astro/metrics.db'),
-    metricsPollIntervalMs: intervalValue('METRICS_POLL_INTERVAL', settings.metricsPollInterval, 10_000),
+    metricsPollIntervalMs: intervalValue('METRICS_POLL_INTERVAL', settings.metricsPollInterval, DEFAULT_METRICS_POLL_INTERVAL_MS),
     metricsHistoryPeriodMs: intervalValue('METRICS_HISTORY_PERIOD', settings.metricsHistoryPeriod, METRICS_HISTORY_PERIOD_MS),
     statusPollIntervalMs: intervalValue('STATUS_POLL_INTERVAL', settings.statusPollInterval, STATUS_POLL_INTERVAL_MS),
     categoryOrder,

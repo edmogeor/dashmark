@@ -266,6 +266,7 @@ export const AppCard = memo(function AppCard({
     showResources,
     resourceOpen || hovered || detail !== null,
     card.resourceUsage,
+    card.metricsPollIntervalMs,
     card.isDemo,
   )
   useMetricErrorToasts(card, usage.metricErrors)

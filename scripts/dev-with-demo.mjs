@@ -13,7 +13,6 @@ function startAstroDev(dockerHosts) {
     // Keep Astro attached so this wrapper retains the mock Docker server until
     // the development server exits.
     ASTRO_DEV_BACKGROUND: '0',
-    DASHMARK_DEMO: 'true',
     MOCK_AUTH: 'true',
     MOCK_USER_NAME: 'John Doe',
     MOCK_USER_USERNAME: 'john',

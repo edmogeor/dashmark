@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-08-26
+
+### Changed
+
+- Use Inter as the dashboard font.
+- Align resource-tooltip refreshes with each card's metric collection interval.
+
+### Fixed
+
+- Restrict the demo route to the GitHub Pages build and show its latest stable release version.
+- Restore host badges in the GitHub Pages demo.
+
 ## [0.3.0-alpha.20] - 2026-08-26
 
 ### Fixed

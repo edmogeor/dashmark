@@ -86,7 +86,7 @@ export const AFTERNOON_START_HOUR = 12
 export const EVENING_START_HOUR = 17
 
 export const STATUS_POLL_INTERVAL_MS = 30_000
-export const RESOURCE_USAGE_POLL_INTERVAL_MS = 2_000
+export const DEFAULT_METRICS_POLL_INTERVAL_MS = 10_000
 export const METRICS_HISTORY_PERIOD_MS = 5 * 60_000
 export const STATUS_TOAST_ID = 'status-warning'
 export const ERROR_TOAST_DEBOUNCE_MS = 2_000

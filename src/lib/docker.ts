@@ -726,7 +726,7 @@ async function cardFromContainer(
     metrics: labels.metrics,
     ...(customMetrics.length > 0 ? { customMetricLabels: customMetrics.map(([key, metric]) => ({ key, label: metric.label })) } : {}),
     metricProviders: labels.metricProviders,
-    metricsPollIntervalMs: labels.metricsPollIntervalMs,
+    metricsPollIntervalMs: labels.metricsPollIntervalMs ?? config.metricsPollIntervalMs,
     metricsHistoryPeriodMs: labels.metricsHistoryPeriodMs,
     metricsAccess: labels.metricsAccess,
     ...(metricErrors.length > 0 ? { metricErrors } : {})
@@ -769,7 +769,7 @@ async function cardFromYaml(
     metrics: resolved.labels.metrics,
     ...(customMetrics.length > 0 ? { customMetricLabels: customMetrics.map(([key, metric]) => ({ key, label: metric.label })) } : {}),
     metricProviders: resolved.labels.metricProviders,
-    metricsPollIntervalMs: resolved.labels.metricsPollIntervalMs,
+    metricsPollIntervalMs: resolved.labels.metricsPollIntervalMs ?? config.metricsPollIntervalMs,
     metricsHistoryPeriodMs: resolved.labels.metricsHistoryPeriodMs,
     metricsAccess: resolved.labels.metricsAccess,
     ...(metricErrors.length > 0 ? { metricErrors } : {})

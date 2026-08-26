@@ -10,6 +10,7 @@ export async function getDemoCards(config: AppConfig): Promise<Card[]> {
   return Promise.all(demoServices.map(async ({ imageName, ...card }) => ({
     ...card,
     isDemo: true,
+    metricsPollIntervalMs: config.metricsPollIntervalMs,
     description: resolveDescription(config, { imageName, title: card.title, containerName: card.id }),
     access: card.access ?? [],
     state: card.state ?? 'running',
