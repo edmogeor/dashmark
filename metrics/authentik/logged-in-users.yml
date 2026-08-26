@@ -13,7 +13,7 @@ source:
       env: DASHMARK_AUTHENTIK_TOKEN
       label: dashmark.metric_token
 extract:
-  jq: '[.items[] | select(.expires | fromdateiso8601 > now) | .user] | unique | length'
+  jq: '[.items[] | select((.expires | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601) > now) | .user] | unique | length'
   pagination:
     items: .results
     next: .pagination.next
