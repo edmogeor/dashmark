@@ -405,6 +405,7 @@ Dashmark is developed with assistance from AI tools. The maintainer reviews and 
 ## Thanks
 
 - [selfh.st/icons](https://github.com/selfhst/icons) for the bundled icon index under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/).
+- [Homepage](https://gethomepage.dev/) for reference implementations of provider metrics and API response shapes.
 
 See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for the shipped attribution details.
 
