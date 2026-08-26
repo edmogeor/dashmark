@@ -7,15 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0-alpha.17] - 2026-08-26
+
+### Added
+
+- Add Jellyfin, Paperless, NZBGet, Prowlarr, and Seerr catalog metrics available in Homepage.
+
 ## [0.3.0-alpha.16] - 2026-08-26
 
 ### Fixed
 
 - Authenticate AdGuard Home catalog metric requests with its login session.
-
-### Added
-
-- Add Jellyfin, Paperless, NZBGet, Prowlarr, and Seerr catalog metrics available in Homepage.
 
 ## [0.3.0-alpha.15] - 2026-08-26
 
