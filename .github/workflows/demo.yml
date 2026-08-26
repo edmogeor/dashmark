@@ -5,7 +5,6 @@ on:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - '[0-9]+.[0-9]+.[0-9]+'
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -35,6 +34,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
       - name: Build demo
         run: npm run build
         env:
@@ -43,7 +45,7 @@ jobs:
           DASHMARK_DEMO: 'true'
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: dist/client
 
