@@ -32,7 +32,7 @@ const demoServiceDefinitions = [
   { id: 'sonarr', title: 'Sonarr', url: 'https://sonarr.example.com', imageName: 'linuxserver/sonarr:latest', category: 'Media', searchAliases: ['television'], hasContainer: true },
   {
     id: 'home-assistant', title: 'Home Assistant', url: 'https://home.example.com', imageName: 'ghcr.io/home-assistant/home-assistant:stable', category: 'Home', searchAliases: ['smart home'], hasContainer: true, access: ['family'],
-    resourceStats: ['cpu', 'memory', 'network'],
+    resourceStats: ['cpu', 'memory'],
     resourceUsage: {
       cpuPercent: 3.8,
       memoryUsage: 720 * 1_024 * 1_024,

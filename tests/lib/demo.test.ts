@@ -8,4 +8,10 @@ describe('demoServices', () => {
     expect(demoServices.every(service => service.imageName.length > 0)).toBe(true)
     expect(demoServices.every(service => !('description' in service))).toBe(true)
   })
+
+  it('omits network usage for Home Assistant', () => {
+    const homeAssistant = demoServices.find(service => service.id === 'home-assistant')
+
+    expect(homeAssistant?.resourceStats).toEqual(['cpu', 'memory'])
+  })
 })
