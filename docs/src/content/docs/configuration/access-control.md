@@ -5,6 +5,10 @@ description: Restrict cards, statuses, and metrics using authenticated identity 
 
 Dashmark expects your reverse proxy or authentication provider to set trusted identity headers. It does not authenticate users itself.
 
+![Dashmark dashboard showing an authenticated user's access-group badges and expanded group list.](../../../assets/access-group-badges.png)
+
+When enabled, Dashmark shows the authenticated user's matching groups as badges beside the greeting.
+
 ## 1. Enable filtering
 
 ```yaml
