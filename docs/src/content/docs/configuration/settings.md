@@ -68,10 +68,6 @@ Set `USER_NAME_HEADER`, `USER_FIRST_NAME_HEADER`, `USER_LAST_NAME_HEADER`, `USER
 
 Set `METRICS_DATABASE_PATH` to a mounted path such as `/data/metrics.db` if history must survive container replacement.
 
-## Automatic icons and descriptions
-
-`ENABLE_AUTOMATIC_DESCRIPTIONS` and `ENABLE_AUTOMATIC_ICONS` both default to `true`. Set either to `false` to disable matching cards against bundled selfh.st data.
-
 ## Custom CSS
 
 Mount a stylesheet and configure its path:

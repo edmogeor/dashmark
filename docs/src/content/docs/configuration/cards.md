@@ -52,6 +52,10 @@ labels:
 
 When `dashmark.url` is not set, Dashmark can derive a card URL from a Traefik router rule containing `Host(...)`. It uses `https://` by default. The container still needs at least one `dashmark.*` label or a matching YAML entry, Traefik labels alone do not create a card.
 
+## Automatic icons and descriptions
+
+`ENABLE_AUTOMATIC_DESCRIPTIONS` and `ENABLE_AUTOMATIC_ICONS` both default to `true`. Set either to `false` to disable matching cards against bundled selfh.st data.
+
 ## Icons
 
 Dashmark resolves icons in this order: `placeholder`, an HTTP(S) URL, a `selfhst:` icon, a file under `ICONS_DIR`, automatic image-name matching, then title initials.
