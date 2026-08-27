@@ -25,6 +25,7 @@ export default defineConfig({
       customCss: ['./src/styles/custom.css'],
       components: {
         SiteTitle: './src/components/SiteTitle.astro',
+        Sidebar: './src/components/Sidebar.astro',
         ThemeSelect: './src/components/ThemeSelect.astro'
       },
       social: [
@@ -62,12 +63,6 @@ export default defineConfig({
             { label: 'Deployment and security', link: '/deployment/security/' }
           ]
         },
-        {
-          label: 'Support Dashmark',
-          items: [
-            { label: 'Buy me a coffee', link: 'https://www.buymeacoffee.com/edmogeor' }
-          ]
-        }
       ]
     })
   ]

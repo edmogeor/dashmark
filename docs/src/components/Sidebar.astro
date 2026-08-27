@@ -1,0 +1,14 @@
+---
+import SidebarPersister from '@astrojs/starlight/components/SidebarPersister.astro'
+import SidebarSublist from '@astrojs/starlight/components/SidebarSublist.astro'
+
+const { sidebar } = Astro.locals.starlightRoute
+---
+
+<SidebarPersister>
+  <SidebarSublist sublist={sidebar} />
+</SidebarPersister>
+
+<a class="sidebar-support-button" href="https://www.buymeacoffee.com/edmogeor" target="_blank" rel="noreferrer">
+  Buy me a coffee
+</a>
