@@ -128,10 +128,23 @@ header [data-open-modal]:focus-visible {
   border-right: 1px solid var(--sl-color-hairline);
 }
 
+.sidebar-support-copy {
+  margin: auto 0 0;
+  color: var(--sl-color-gray-2);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.sidebar-support-copy a {
+  color: var(--sl-color-white);
+  font-weight: 650;
+}
+
 .sidebar-support-button {
   display: flex;
   width: 100%;
-  margin-top: auto;
+  margin-top: 0.5rem;
   padding: 0.65rem 0.75rem;
   border-radius: 0.4rem;
   background: var(--sl-color-white);
