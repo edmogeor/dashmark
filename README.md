@@ -62,13 +62,7 @@ The included Compose file uses a restricted Docker socket proxy. For Docker CLI 
 
 ## Documentation
 
-- [Quick start](https://edmogeor.github.io/dashmark/docs/guides/quick-start/)
-- [Card configuration](https://edmogeor.github.io/dashmark/docs/configuration/cards/)
-- [YAML configuration](https://edmogeor.github.io/dashmark/docs/configuration/yaml/)
-- [Dashboard settings](https://edmogeor.github.io/dashmark/docs/configuration/settings/)
-- [Metrics](https://edmogeor.github.io/dashmark/docs/metrics/)
-- [Access control](https://edmogeor.github.io/dashmark/docs/configuration/access-control/)
-- [Deployment and security](https://edmogeor.github.io/dashmark/docs/deployment/security/)
+[Read the documentation](https://edmogeor.github.io/dashmark/docs/) for quick-start guidance, Docker and YAML card configuration, dashboard settings, metrics, access control, and secure deployment.
 
 ## Development
 

@@ -5,6 +5,8 @@ description: Add container, library, and custom metrics to Dashmark cards.
 
 Metrics are optional. Dashmark can show Docker CPU, memory, and network usage for Docker-backed cards, plus metrics from supported service APIs.
 
+Browse the [metrics catalogue](https://github.com/edmogeor/dashmark/blob/main/metrics/LIBRARY.md) for supported services, available metrics, inputs, and credentials.
+
 ## Metric types
 
 | Type | Best for | Configuration |
