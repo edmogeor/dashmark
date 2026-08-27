@@ -96,10 +96,6 @@ If Dashmark is useful to you, you can support its development.
 
 <a href="https://www.buymeacoffee.com/edmogeor" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;"></a>
 
-## AI assistance
-
-AI tools assist development. The maintainer reviews and remains responsible for every change.
-
 ## Thanks
 
 - [selfh.st/icons](https://github.com/selfhst/icons) for the bundled icon index under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/).
@@ -110,3 +106,7 @@ See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for shipped attribution d
 ## License
 
 [MIT](LICENSE)
+
+## AI Disclaimer
+
+AI tools assist development. The maintainer reviews and remains responsible for every change.
