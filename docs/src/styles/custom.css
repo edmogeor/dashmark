@@ -147,21 +147,16 @@ header [data-open-modal]:focus-visible {
 }
 
 .sidebar-support-button {
-  display: flex;
-  width: 100%;
+  display: block;
+  width: 217px;
   margin-top: 0.5rem;
-  padding: 0.65rem 0.75rem;
-  border-radius: 0.4rem;
-  background: var(--sl-color-white);
-  color: var(--sl-color-black);
-  font-size: 0.875rem;
-  font-weight: 650;
-  justify-content: center;
-  text-decoration: none;
+  margin-inline: auto;
 }
 
-.sidebar-support-button:hover {
-  background: var(--sl-color-gray-5);
+.sidebar-support-button img {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .sidebar-support-button:focus-visible {
