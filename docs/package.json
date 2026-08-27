@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "node scripts/generate-llms.mjs && astro build",
+    "build": "astro build && node scripts/generate-agent-docs.mjs",
     "preview": "astro preview"
   },
   "dependencies": {

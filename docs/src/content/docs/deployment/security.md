@@ -1,13 +1,13 @@
 ---
 title: Deployment and security
-description: Deploy Dashmark safely behind a reverse proxy.
+description: Deploy Dashmark safely with or without a reverse proxy.
 ---
 
-Dashmark reads Docker metadata and may receive identity headers from a reverse proxy. Keep both boundaries private and trusted.
+Dashmark can run standalone and serve a local or trusted private network without a reverse proxy. It reads Docker metadata and may receive identity headers from a reverse proxy, so keep both boundaries private and trusted.
 
 ## Docker access
 
-Use a read-only, restricted socket proxy. Dashmark needs access only to `/version`, `/containers/json`, and `/containers/<id>/stats` for cards and resource usage. Do not mount the raw Docker socket into Dashmark or expose Docker and the socket proxy to the public internet.
+Use of a read-only, restricted socket proxy is recommended. Dashmark needs access only to `/version`, `/containers/json`, and `/containers/<id>/stats` for cards and resource usage. Dashmark can connect directly to the Docker socket for a local, trusted setup, but do not expose Docker, the raw socket, or a socket proxy to the public internet.
 
 For remote Docker hosts, run a restricted proxy on each host and connect to it over a private network:
 
@@ -16,11 +16,11 @@ environment:
   - DOCKER_HOSTS=home=tcp://home-proxy:2375,vps=tcp://vps-proxy:2375
 ```
 
-## Reverse proxy
+## Reverse proxy (optional)
 
-Bind Dashmark to `127.0.0.1` or a private Docker network, then publish it through a reverse proxy. Authenticate users at that proxy before enabling access control.
+Use a reverse proxy when publishing Dashmark beyond a trusted network, terminating TLS, or authenticating users for access control. Otherwise, Dashmark can serve directly. Bind it to `127.0.0.1` for host-local access, or a trusted private Docker network. Access control relies on a trusted proxy or authentication provider to establish identity headers.
 
-The proxy must remove or overwrite client-supplied identity headers. Otherwise, users could forge a group, username, or email header to see restricted cards or metrics.
+When using access control, the proxy must remove or overwrite client-supplied identity headers. Otherwise, users could forge a group, username, or email header to see restricted cards or metrics.
 
 ## Direct-access token
 
