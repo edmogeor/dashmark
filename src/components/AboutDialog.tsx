@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CircleCheck, CircleX, ExternalLink, LoaderCircle } from 'lucide-react'
+import { CircleCheck, CircleX, ExternalLink, Info, LoaderCircle } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { APP_VERSION, BUY_ME_A_COFFEE_URL, GITHUB_URL } from '@/lib/version'
@@ -40,9 +40,9 @@ export function AboutDialog() {
         <button
           type="button"
           aria-label="About Dashmark"
-          className="dashmark-brand cursor-pointer rounded-md transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none max-[359px]:hidden"
+          className="dashmark-about-button inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
         >
-          <img src={brandMarkPath} alt="" className="h-8 w-8" />
+          <Info className="h-4 w-4" />
         </button>
       </DialogTrigger>
       <DialogContent className="max-w-md">

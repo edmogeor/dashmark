@@ -26,6 +26,7 @@ const COLUMN_WIDTH = 300
 const COLUMN_GUTTER = 20
 const MASONRY_OVERSCAN = 3
 const POSITION_TRANSITION: Transition = { duration: 0.25, ease: 'easeOut' }
+const brandMarkPath = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/brand/logo-mark.svg`
 
 function measureElement<T extends Element>(
   element: T,
@@ -354,7 +355,10 @@ function DashboardGreeting({ greeting, showGroups, userGroups, groupColorOffset,
   return (
     <div className={`dashmark-greeting-container flex items-end justify-between ${hasSearch ? 'mb-4' : ''}`}>
       <h1 className="dashmark-greeting text-xl leading-[1.2] font-semibold tracking-tight sm:text-[1.375rem] lg:text-2xl">{greeting}</h1>
-      {showGroups && userGroups.length > 0 && <UserGroupsBadge groups={userGroups} colorOffset={groupColorOffset} />}
+      <div className="flex shrink-0 items-center gap-3">
+        {showGroups && userGroups.length > 0 && <UserGroupsBadge groups={userGroups} colorOffset={groupColorOffset} />}
+        <AboutDialog />
+      </div>
     </div>
   )
 }
@@ -386,7 +390,7 @@ function DashboardSearchPanel({
     <Card className="dashmark-search-panel overflow-hidden bg-surface shadow-none">
       <CardContent className="dashmark-search-panel-content flex flex-row items-center gap-4 p-5">
         {showBranding && (
-          <AboutDialog />
+          <img src={brandMarkPath} alt="Dashmark" className="dashmark-brand h-8 w-8 shrink-0" />
         )}
         <div className="min-w-0 flex-1">
           <SearchBar value={search} onChange={setSearch} disabled={!!error} />
