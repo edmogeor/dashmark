@@ -4,7 +4,7 @@ display:
 value:
   unit: bytes_per_second
 source:
-  url: "{api_url}/jsonrpc"
+  url: "{metric_source}/jsonrpc"
   method: POST
   json:
     jsonrpc: "2.0"

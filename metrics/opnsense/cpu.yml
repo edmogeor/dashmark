@@ -4,6 +4,6 @@ display:
 value:
   unit: percent
 source:
-  url: "{api_url}/api/diagnostics/activity/getActivity"
+  url: "{metric_source}/api/diagnostics/activity/getActivity"
 extract:
   jq: '100 - (.headers[2] | capture(" (?<idle>[0-9.]+)% idle").idle | tonumber)'

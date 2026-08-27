@@ -4,7 +4,7 @@ display:
 value:
   unit: count
 source:
-  url: "{api_url}/api/statistics/?format=json"
+  url: "{metric_source}/api/statistics/?format=json"
   authentication:
     kind: token
     header: Authorization

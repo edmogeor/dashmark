@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.8-alpha.2] - 2026-08-27
+
+### Changed
+
+- **Breaking:** replace `dashmark.api_url`, `metrics.api_url`, and the `{api_url}` metric placeholder with provider-scoped `dashmark.metrics_source.<provider>` labels, `metrics.sources.<provider>` mappings, and `{metric_source}`. A metric provider without a configured source uses the card URL.
+
 ## [0.3.8-alpha.1] - 2026-08-27
 
 ### Added

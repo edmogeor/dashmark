@@ -7,7 +7,8 @@ describe('parseLabels', () => {
       'dashmark.title': 'Plex',
       'dashmark.description': 'Media server',
       'dashmark.url': 'https://plex.home.local',
-      'dashmark.api_url': 'https://plex-api.home.local',
+      'dashmark.metrics_source.plex': 'https://plex-api.home.local',
+      'dashmark.metrics_source.gatus': 'http://gatus:8080',
       'dashmark.icon': 'plex',
       'dashmark.category': 'Media',
       'dashmark.order': '1',
@@ -22,7 +23,7 @@ describe('parseLabels', () => {
     expect(parseLabels(labels)).toEqual({
       hidden: true,
       url: 'https://plex.home.local',
-      apiUrl: 'https://plex-api.home.local',
+      metricSources: { plex: 'https://plex-api.home.local', gatus: 'http://gatus:8080' },
       title: 'Plex',
       description: 'Media server',
       icon: 'plex',
@@ -79,9 +80,9 @@ describe('parseLabels', () => {
     expect(parseLabels({ 'dashmark.stats': 'cpu' }).resourceStats).toBeUndefined()
   })
 
-  it('ignores invalid metrics URLs', () => {
-    expect(parseLabels({ 'dashmark.api_url': 'not-a-url' }).apiUrl).toBeUndefined()
-    expect(parseLabels({ 'dashmark.metrics_url': 'https://plex-api.home.local' }).apiUrl).toBeUndefined()
+  it('ignores invalid metric sources', () => {
+    expect(parseLabels({ 'dashmark.metrics_source.plex': 'not-a-url' }).metricSources).toBeUndefined()
+    expect(parseLabels({ 'dashmark.metrics_source.Plex': 'https://plex-api.home.local' }).metricSources).toBeUndefined()
   })
 
   it('ignores non-finite order values', () => {

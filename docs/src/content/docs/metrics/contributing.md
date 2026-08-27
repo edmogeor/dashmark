@@ -9,7 +9,7 @@ Contribute a library metric when it can work for other Dashmark users. The defin
 
 Create `metrics/<provider>/<metric-name>.yml`. Its path becomes the metric key, for example `radarr/queue`.
 
-Use `{url}` or `{api_url}` in source URLs. Dashmark replaces these placeholders with the configured card URL or API URL.
+Use `{url}` or `{metric_source}` in source URLs. Dashmark replaces `{url}` with the card URL and `{metric_source}` with the configured source for the metric provider, falling back to the card URL.
 
 ```yaml
 display:
@@ -17,7 +17,7 @@ display:
 value:
   unit: count
 source:
-  url: "{api_url}/api/v3/queue/status"
+  url: "{metric_source}/api/v3/queue/status"
 extract:
   jq: .totalCount
 ```
@@ -49,7 +49,7 @@ parameters:
     label: Entity ID
     type: url_component
 source:
-  url: "{api_url}/api/states/{entity_id}"
+  url: "{metric_source}/api/states/{entity_id}"
 ```
 
 Keep source settings shared by a provider, such as authentication, headers, query parameters, and chart groups, in `metrics/<provider>/provider.yml`. Keep service-specific paths, extractors, and labels in each metric file.

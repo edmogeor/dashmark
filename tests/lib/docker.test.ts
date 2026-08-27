@@ -1065,7 +1065,30 @@ backup:
     expect(new Headers(got.mock.calls[0]?.[1]?.headers).get('X-Api-Key')).toBe('label-api-key')
   })
 
-  it('falls back to the card URL for {api_url} custom metric sources', async () => {
+  it('resolves library inputs and API URLs from provider-specific labels', async () => {
+    server.containers = [{
+      Id: 'gatus-metric', Names: ['/plex'], Image: 'plex', ImageID: 'sha256:plex',
+      State: 'running', Status: 'Up 1 hour', Labels: {
+        'dashmark.url': 'https://plex.example.com',
+        'dashmark.metrics': 'gatus/uptime',
+        'dashmark.metrics_source.gatus': 'http://gatus:8080',
+        'dashmark.metrics_input.gatus.uptime.endpoint_key': 'plex'
+      }
+    }]
+    mockGotResponse('{"results":[{"timestamp":"2026-08-27T18:00:00Z","success":true,"duration":12000000}]}')
+    const config = getConfig()
+    config.dockerHost = dockerHost
+
+    await expect(getContainerMetricUsage(config, new Headers(), 'default:gatus-metric')).resolves.toMatchObject({
+      uptimeMetrics: [{
+        key: 'gatus/uptime', label: 'Uptime', current: 'up',
+        observations: [{ timestamp: Date.parse('2026-08-27T18:00:00Z'), status: 'up', responseTimeMs: 12 }]
+      }]
+    })
+    expect(String(got.mock.calls[0]?.[0])).toBe('http://gatus:8080/api/v1/endpoints/plex/statuses?pageSize=10000')
+  })
+
+  it('falls back to the card URL for {metric_source} custom metric sources', async () => {
     server.containers = [{
       Id: 'metrics-url-fallback', Names: ['/service'], Image: 'service', ImageID: 'sha256:service',
       State: 'running', Status: 'Up 1 hour', Labels: {
@@ -1083,7 +1106,7 @@ service:
       status:
         display: { label: Status }
         value: { unit: number }
-        source: { url: "{api_url}/api/status" }
+        source: { url: "{metric_source}/api/status" }
         extract: { jq: .value }
 `)
 
@@ -1091,12 +1114,12 @@ service:
     expect(String(got.mock.calls[0]?.[0])).toBe('https://service.example.com/api/status')
   })
 
-  it('uses YAML api_url over the Docker label for custom metric sources', async () => {
+  it('uses YAML provider sources over Docker labels for custom metric sources', async () => {
     server.containers = [{
       Id: 'metrics-url-override', Names: ['/service'], Image: 'service', ImageID: 'sha256:service',
       State: 'running', Status: 'Up 1 hour', Labels: {
         'dashmark.url': 'https://service.example.com',
-        'dashmark.api_url': 'https://label-api.example.com',
+        'dashmark.metrics_source.status': 'https://label-api.example.com',
         'dashmark.metrics': 'status'
       }
     }]
@@ -1106,12 +1129,13 @@ service:
     config.configFile = writeTempConfig(`
 service:
   metrics:
-    api_url: https://yaml-api.example.com
+    sources:
+      status: https://yaml-api.example.com
     entries:
       status:
         display: { label: Status }
         value: { unit: number }
-        source: { url: "{api_url}/api/status" }
+        source: { url: "{metric_source}/api/status" }
         extract: { jq: .value }
 `)
 

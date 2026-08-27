@@ -3,7 +3,7 @@ import { LABEL_PREFIX, TRAEFIK_ROUTER_RULE } from './constants'
 export type ParsedLabels = {
   hidden: boolean
   url?: string
-  apiUrl?: string
+  metricSources?: Record<string, string>
   title?: string
   description?: string
   icon?: string
@@ -51,7 +51,6 @@ export function parseLabels(labels: Record<string, string>): ParsedLabels {
 
   const hidden = get('hidden')?.toLowerCase() === 'true'
   const url = get('url')
-  const apiUrl = get('api_url')
   const title = get('title')
   const description = get('description')
   const icon = get('icon')
@@ -67,7 +66,10 @@ export function parseLabels(labels: Record<string, string>): ParsedLabels {
   const access = parseCommaSeparated(get('access'))
   const searchAliases = parseCommaSeparated(get('search_aliases'))
   const metricsAccess: Record<string, string[]> = {}
+  const metricSources: Record<string, string> = {}
   for (const [key, value] of Object.entries(labels)) {
+    const provider = key.slice(`${LABEL_PREFIX}.metrics_source.`.length)
+    if (key.startsWith(`${LABEL_PREFIX}.metrics_source.`) && /^[a-z][a-z0-9_-]*$/.test(provider) && isValidUrl(value)) metricSources[provider] = value
     const encodedKey = key.slice(`${LABEL_PREFIX}.metrics_access.`.length)
     if (!key.startsWith(`${LABEL_PREFIX}.metrics_access.`)) continue
     const metric = encodedKey.replaceAll('.', '/')
@@ -77,7 +79,7 @@ export function parseLabels(labels: Record<string, string>): ParsedLabels {
   return {
     hidden,
     url,
-    ...(apiUrl !== undefined && isValidUrl(apiUrl) ? { apiUrl } : {}),
+    ...(Object.keys(metricSources).length > 0 ? { metricSources } : {}),
     title,
     description,
     icon,

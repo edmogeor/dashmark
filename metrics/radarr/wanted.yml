@@ -4,6 +4,6 @@ display:
 value:
   unit: count
 source:
-  url: "{api_url}/api/v3/movie"
+  url: "{metric_source}/api/v3/movie"
 extract:
   jq: '[.[] | select(.monitored and (.hasFile | not) and .isAvailable)] | length'

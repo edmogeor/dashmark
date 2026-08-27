@@ -44,7 +44,8 @@ labels:
 | `dashmark.access` | Comma-separated groups, usernames, or email addresses. |
 | `dashmark.show_status` | `false` hides this card's status badge and usage tooltip. |
 | `dashmark.metrics` | Comma-separated metric entries. Use `cpu`, `memory`, and `network` for Docker resource usage, or library metrics such as `radarr/queue`. When set, only the listed metrics are shown. Use `none` to hide all metrics for the card. |
-| `dashmark.api_url` | Private HTTP(S) API base URL for library metrics. Defaults to the card URL. |
+| `dashmark.metrics_source.<provider>` | Private HTTP(S) API base URL for one library provider. Defaults to the card URL. |
+| `dashmark.metrics_input.<provider>.<metric>.<input>` | Input for one library metric. Replace `/` with `.` in the metric key. |
 | `dashmark.metrics_access.<metric>` | Comma-separated access entries for one metric. Replace `/` with `.` in a library metric key. |
 | `dashmark.metric_*` | Credential for a library metric. Prefer YAML environment-variable or secret-file references because Docker labels are visible through Docker APIs. |
 

@@ -22,7 +22,8 @@ import {
   DOCKER_PLAIN_PORT,
   DOCKER_API_FALLBACK_VERSION,
   COMPOSE_SERVICE_LABEL,
-  AUTH_TOKEN_HEADER
+  AUTH_TOKEN_HEADER,
+  LABEL_PREFIX
 } from './constants'
 
 export type Card = {
@@ -423,7 +424,7 @@ function mergeWithYaml(
   return {
     hidden: yamlService.hidden ?? labels.hidden,
     url: yamlService.url ?? labels.url,
-    apiUrl: yamlMetrics?.apiUrl ?? labels.apiUrl,
+    metricSources: { ...labels.metricSources, ...yamlMetrics?.sources },
     title: yamlService.title ?? labels.title,
     description: yamlService.description ?? labels.description,
     icon: yamlService.icon ?? labels.icon,
@@ -532,7 +533,7 @@ function resolveContainer(
     name: containerName(container),
     yamlKey,
     labels,
-    customMetrics: resolveMetricSources(customMetrics, url, labels.apiUrl, rawLabels, yamlMetricParameters(yamlService)),
+    customMetrics: resolveMetricSources(customMetrics, url, labels.metricSources, rawLabels, yamlMetricParameters(yamlService)),
     customMetricErrors: yamlMetricErrors(yamlService),
     url
   }
@@ -543,7 +544,7 @@ function resolveYamlMetrics(service: ServiceOverrides, url: string): ResolvedMet
   const customMetrics = { ...selectedCatalogMetrics(labels.metrics), ...yamlMetricOverrides(service) }
   return {
     labels,
-    customMetrics: resolveMetricSources(customMetrics, url, labels.apiUrl, {}, yamlMetricParameters(service)),
+    customMetrics: resolveMetricSources(customMetrics, url, labels.metricSources, {}, yamlMetricParameters(service)),
     customMetricErrors: yamlMetricErrors(service)
   }
 }
@@ -551,13 +552,13 @@ function resolveYamlMetrics(service: ServiceOverrides, url: string): ResolvedMet
 function resolveMetricSources(
   metrics: ServiceMetricOverrides,
   cardUrl: string | undefined,
-  apiUrl: string | undefined,
+  metricSources: Record<string, string> | undefined,
   labels: Record<string, string>,
   metricParameters: Record<string, Record<string, string | number | boolean>> | undefined
 ): ServiceMetricOverrides | undefined {
-  const resolveUrl = (url: string, parameters: MetricOverride['parameters'], values: Record<string, string | number | boolean> | undefined): string | undefined => {
-    const baseUrl = url.startsWith('{api_url}') ? apiUrl ?? cardUrl : url.startsWith('{url}') ? cardUrl : undefined
-    const placeholder = url.startsWith('{api_url}') ? '{api_url}' : '{url}'
+  const resolveUrl = (url: string, metricApiUrl: string | undefined, parameters: MetricOverride['parameters'], values: Record<string, string | number | boolean> | undefined): string | undefined => {
+    const baseUrl = url.startsWith('{metric_source}') ? metricApiUrl ?? cardUrl : url.startsWith('{url}') ? cardUrl : undefined
+    const placeholder = url.startsWith('{metric_source}') ? '{metric_source}' : '{url}'
     const resolved = baseUrl === undefined && url.startsWith('{')
       ? undefined
       : baseUrl ? `${baseUrl.replace(/\/$/, '')}${url.slice(placeholder.length)}` : url
@@ -591,8 +592,8 @@ function resolveMetricSources(
       request: { ...socketio.request, ...(socketio.request.args ? { args: resolveArguments(socketio.request.args) } : {}) }
     }
   }
-  const resolveRequest = (request: Extract<NonNullable<typeof metrics[string]['source']['auth']>, { type: 'cookie_session' }>['steps'][number], metric: MetricOverride, values: Record<string, string | number | boolean> | undefined) => {
-    const url = resolveUrl(request.url, metric.parameters, values)
+  const resolveRequest = (request: Extract<NonNullable<typeof metrics[string]['source']['auth']>, { type: 'cookie_session' }>['steps'][number], metric: MetricOverride, metricApiUrl: string | undefined, values: Record<string, string | number | boolean> | undefined) => {
+    const url = resolveUrl(request.url, metricApiUrl, metric.parameters, values)
     if (!url) return undefined
     const headers = resolveReferences(request.headers)
     const query = resolveReferences(request.query)
@@ -615,20 +616,27 @@ function resolveMetricSources(
       ...(json && Object.keys(json).length > 0 ? { json } : {})
     }
   }
-  const resolveForEach = (metric: MetricOverride, values: Record<string, string | number | boolean> | undefined): MetricOverride | undefined => {
+  const resolveForEach = (metric: MetricOverride, metricApiUrl: string | undefined, values: Record<string, string | number | boolean> | undefined): MetricOverride | undefined => {
     if (!metric.forEach) return metric
-    const requestUrl = resolveUrl(metric.forEach.requestUrl, metric.parameters, values)
+    const requestUrl = resolveUrl(metric.forEach.requestUrl, metricApiUrl, metric.parameters, values)
     return requestUrl ? { ...metric, forEach: { ...metric.forEach, requestUrl } } : undefined
   }
   const resolved = Object.fromEntries(Object.entries(metrics).flatMap(([key, metric]) => {
-    const values = metricParameters?.[key]
+    const metricLabel = key.replaceAll('/', '.')
+    const labelValues = Object.fromEntries(Object.keys(metric.parameters ?? {}).flatMap(name => {
+      const value = labels[`${LABEL_PREFIX}.metrics_input.${metricLabel}.${name}`]
+      return value === undefined ? [] : [[name, value]]
+    }))
+    const values = { ...metricParameters?.[key], ...labelValues }
     if (Object.keys(metric.parameters ?? {}).some(name => values?.[name] === undefined)) return []
-    const resolvedMetric = resolveForEach(metric, values)
+    const provider = key.split('/')[0]
+    const metricApiUrl = metricSources?.[provider]
+    const resolvedMetric = resolveForEach(metric, metricApiUrl, values)
     if (!resolvedMetric) return []
-    const request = resolveRequest({ ...resolvedMetric.source, method: resolvedMetric.source.method ?? 'GET' }, resolvedMetric, values)
+    const request = resolveRequest({ ...resolvedMetric.source, method: resolvedMetric.source.method ?? 'GET' }, resolvedMetric, metricApiUrl, values)
     if (!request) return []
     const auth = resolvedMetric.source.auth
-    const steps = auth?.type === 'cookie_session' ? auth.steps.map(step => resolveRequest(step, resolvedMetric, values)) : undefined
+    const steps = auth?.type === 'cookie_session' ? auth.steps.map(step => resolveRequest(step, resolvedMetric, metricApiUrl, values)) : undefined
     if (steps?.some(step => !step)) return []
     const basicAuth = auth?.type === 'basic'
       ? {

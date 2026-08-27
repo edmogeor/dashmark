@@ -75,7 +75,7 @@ plex:
 # `metrics_poll_interval`, `metrics_history_period`, `metrics_access`, and
 # `custom_metrics` are removed.
   metrics:
-    # api_url: http://plex:32400
+    # sources: { plex: http://plex:32400 }
     collection:
       interval: 10s
       retention: 15m

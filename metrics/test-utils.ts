@@ -70,7 +70,7 @@ function resolveParameterValues(value: unknown, values: Record<string, string>):
 }
 
 function resolveUrl(url: string, baseUrl: string, values: Record<string, string>): string {
-  return url.replace('{url}', baseUrl).replace('{api_url}', baseUrl).replace(/\{([a-z][a-z0-9_]*)\}/g, (_, name: string) => values[name] === undefined ? `{${name}}` : encodeURIComponent(values[name]))
+  return url.replace('{url}', baseUrl).replace('{metric_source}', baseUrl).replace(/\{([a-z][a-z0-9_]*)\}/g, (_, name: string) => values[name] === undefined ? `{${name}}` : encodeURIComponent(values[name]))
 }
 
 function requestValues(values: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
@@ -164,7 +164,7 @@ export async function expectFixtureMetric(definitionUrl: URL, fixture: unknown, 
   const tokenQuery = source.authentication?.kind === 'token' && 'query' in source.authentication ? source.authentication.query : undefined
   const optionalAuthentication = source.authentication?.optional === true
   const loginPath = source.authentication?.kind === 'cookie_session'
-    ? new URL(source.authentication.requests[0]?.url.replace('{url}', 'http://metrics.test').replace('{api_url}', 'http://metrics.test') ?? 'http://metrics.test/unconfigured').pathname
+    ? new URL(source.authentication.requests[0]?.url.replace('{url}', 'http://metrics.test').replace('{metric_source}', 'http://metrics.test') ?? 'http://metrics.test/unconfigured').pathname
     : undefined
   const loginForm = source.authentication?.kind === 'cookie_session'
     ? source.authentication.requests[0]?.form

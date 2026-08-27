@@ -63,7 +63,7 @@ value:
 
 ### 4. Request the source
 
-`source.url` is required. It must be an HTTP(S) URL, or begin with `{url}` or `{api_url}`. Use the card URL for `{url}`, or set `metrics.api_url` for a private API address.
+`source.url` is required. It must be an HTTP(S) URL, or begin with `{url}` or `{metric_source}`. Use the card URL for `{url}`. For `{metric_source}`, configure `metrics.sources.<metric-name>` with a private API address.
 
 | Option | Purpose |
 | --- | --- |

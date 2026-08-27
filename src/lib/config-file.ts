@@ -10,7 +10,7 @@ import { strings } from './strings'
 import type { CustomMetricStateColor } from './status'
 
 export type ServiceMetrics = {
-  apiUrl?: string
+  sources?: Record<string, string>
   collection?: { intervalMs?: number; retentionMs?: number }
   entries?: string[]
   entryAccess?: Record<string, string[]>
@@ -385,7 +385,7 @@ function isHttpUrl(value: string): boolean {
 }
 
 function isMetricUrl(value: string): boolean {
-  return isHttpUrl(value) || /^\{(?:url|api_url)\}(?:\/|$)/.test(value)
+  return isHttpUrl(value) || /^\{(?:url|metric_source)\}(?:\/|$)/.test(value)
 }
 
 function parsePrometheusExtractor(value: unknown): PrometheusMetricExtractor | undefined {
@@ -539,7 +539,7 @@ function parseMetricRequest(value: unknown, path: string): { request?: MetricHtt
     return { error: `${path} contains an unknown configuration key` }
   }
   const url = string(value.url)
-  if (!url || !isMetricUrl(url)) return { error: `${path}.url must use HTTP or HTTPS, or begin with {url} or {api_url}` }
+  if (!url || !isMetricUrl(url)) return { error: `${path}.url must use HTTP or HTTPS, or begin with {url} or {metric_source}` }
   const method = value.method === undefined ? 'GET' : string(value.method)
   if (method !== 'GET' && method !== 'POST') return { error: `${path}.method must be GET or POST` }
   if (method === 'GET' && (value.form !== undefined || value.json !== undefined)) return { error: `${path} GET requests cannot define form or json` }
@@ -867,7 +867,7 @@ function parseCustomMetric(key: string, configuredMetric: unknown, catalog: Reco
   const { label, valueType, unit, rate, chart, chartGroup, transform, color, stateColors, stateLabels, parameters, text, forEach, pagination, source, url, transport, jq, prometheus } = parseCustomMetricFields(metric)
   if (!label) return { error: 'label must be a non-empty string' }
   if (!source || !url) return { error: 'source.url is required' }
-  if (!isMetricUrl(url)) return { error: 'source.url must use HTTP or HTTPS, or begin with {url} or {api_url}' }
+  if (!isMetricUrl(url)) return { error: 'source.url must use HTTP or HTTPS, or begin with {url} or {metric_source}' }
   if (transport !== undefined && transport !== 'socketio') return { error: 'source.transport must be socketio when specified' }
   if (metric.prometheus !== undefined && !prometheus) return { error: 'prometheus.name, labels, reduction, or value_label is invalid' }
   if (metric.for_each !== undefined && !forEach) return { error: 'for_each requires item and value jq expressions, a child URL containing {item}, and a reduction' }
@@ -972,10 +972,15 @@ function parseDuration(value: unknown): number | undefined {
   return Number(match[1]) * scale
 }
 
-function parseMetricsApiUrl(value: unknown, path: string): string | undefined {
+function parseMetricSources(value: unknown, path: string): Record<string, string> | undefined {
   if (value === undefined) return undefined
-  if (typeof value !== 'string' || !isHttpUrl(value)) invalid(`${path}.api_url`, 'an HTTP or HTTPS URL')
-  return value
+  if (!isRecord(value)) invalid(`${path}.sources`, 'a mapping of provider names to HTTP or HTTPS URLs')
+  const sources: Record<string, string> = {}
+  for (const [provider, url] of Object.entries(value)) {
+    if (!/^[a-z][a-z0-9_-]*$/.test(provider) || typeof url !== 'string' || !isHttpUrl(url)) invalid(`${path}.sources.${provider}`, 'an HTTP or HTTPS URL')
+    sources[provider] = url
+  }
+  return sources
 }
 
 function parseMetricsCollection(value: unknown, path: string): ServiceMetrics['collection'] | undefined {
@@ -1069,14 +1074,14 @@ function parseServiceMetrics(value: unknown, path: string, sharedSources?: Recor
   if (value === undefined) return undefined
   if (value === 'none') return { entries: [] }
   if (!isRecord(value)) invalid(path, 'a mapping')
-  validateKnownFields(value, new Set(['api_url', 'collection', 'charts', 'entries']), path)
-  const apiUrl = parseMetricsApiUrl(value.api_url, path)
+  validateKnownFields(value, new Set(['sources', 'collection', 'charts', 'entries']), path)
+  const sources = parseMetricSources(value.sources, path)
   const collection = parseMetricsCollection(value.collection, path)
   const charts = parseMetricCharts(value.charts, path)
   const catalog = metricCatalog()
   const entries = parseMetricEntries(value.entries, path, catalog, charts, sharedSources)
   return {
-    ...(apiUrl === undefined ? {} : { apiUrl }),
+    ...(sources === undefined ? {} : { sources }),
     ...(collection === undefined ? {} : { collection }),
     ...(charts === undefined ? {} : { charts }),
     ...entries
