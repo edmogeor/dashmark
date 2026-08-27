@@ -26,7 +26,11 @@ export function uptimeBuckets(
   now = Date.now(),
 ): UptimeBucket[] {
   const bucketMs = durationMs / bucketCount
-  const end = Math.ceil(now / bucketMs) * bucketMs
+  const currentBucketStart = Math.floor(now / bucketMs) * bucketMs
+  const hasCurrentObservation = observations.some(
+    (observation) => observation.timestamp >= currentBucketStart && observation.timestamp <= now,
+  )
+  const end = hasCurrentObservation ? currentBucketStart + bucketMs : currentBucketStart
   const start = end - durationMs
   return Array.from({ length: bucketCount }, (_, index) => {
     const bucketStart = start + index * bucketMs

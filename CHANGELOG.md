@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-27
+
+### Added
+
+- Add provider-neutral uptime metrics that normalize timestamped observations with jq and retain recent observations across collection failures.
+- Add a Gatus uptime metric configured with raw `group` and `name` inputs.
+- Add heartbeat uptime graphs and a range-selectable uptime history dialog to metric tooltips.
+- Add declarative provider URL transforms for named URL-component parameters, including trim, lowercase, and literal replacement operations.
+- Add a searchable, filterable, and expandable Metric library page generated from `metrics/LIBRARY.md`.
+
+### Changed
+
+- **Breaking:** unify Docker resource, library, and custom metric selection under `metrics.entries`. Use `cpu`, `memory`, and `network` as built-in entry keys; omit metrics configuration to retain the default Docker resource metrics. Remove the YAML `metrics.container` field. Set `dashmark.metrics: none` or `metrics: none` to hide all metrics for one card.
+- **Breaking:** replace `dashmark.api_url`, `metrics.api_url`, and the `{api_url}` metric placeholder with provider-scoped `dashmark.metrics_source.<provider>` labels, `metrics.sources.<provider>` mappings, and `{metric_source}`. A metric provider without a configured source uses the card URL.
+- Render configured custom and uptime metrics in their configured order.
+- Rename the resource metrics client and API surface to metrics; retain `/api/resources` as a compatibility alias.
+- Round uptime tooltip response times to two decimal places.
+
+### Fixed
+
+- Wait for an uptime observation before displaying a new heartbeat period.
+
 ## [0.3.8-alpha.3] - 2026-08-27
 
 ### Added
