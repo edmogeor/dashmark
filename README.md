@@ -6,6 +6,9 @@
     <a href="https://github.com/edmogeor/dashmark/actions/workflows/ci.yml">
       <img src="https://github.com/edmogeor/dashmark/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"/>
     </a>
+    <a href="https://github.com/edmogeor/dashmark/releases">
+      <img src="https://img.shields.io/github/v/release/edmogeor/dashmark?display_name=tag&sort=semver" alt="Latest release"/>
+    </a>
     <a href="https://github.com/fallow-rs/fallow">
       <img src="https://raw.githubusercontent.com/edmogeor/dashmark/badges/badge.svg" alt="fallow health"/>
     </a>
