@@ -5,6 +5,6 @@ value:
   unit: bytes_per_second
   rate: true
 source:
-  url: "{metrics_url}/api/diagnostics/traffic/interface"
+  url: "{api_url}/api/diagnostics/traffic/interface"
 extract:
   jq: '.interfaces.wan["bytes transmitted"] | tonumber'

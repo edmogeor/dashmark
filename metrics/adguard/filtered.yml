@@ -4,6 +4,6 @@ display:
 value:
   unit: count
 source:
-  url: "{metrics_url}/control/stats"
+  url: "{api_url}/control/stats"
 extract:
   jq: '.num_replaced_safebrowsing + .num_replaced_safesearch + .num_replaced_parental'

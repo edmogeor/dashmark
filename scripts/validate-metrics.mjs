@@ -15,7 +15,7 @@ const charts = new Set(['step', 'line', 'area', 'none'])
 const badgeColors = new Set(['success', 'info', 'warning', 'error', 'disabled'])
 const metricName = /^[a-z][a-z0-9_-]*$/
 const prometheusName = /^[a-zA-Z_:][a-zA-Z0-9_:]*$/
-const sourceBase = /^\{(?:url|metrics_url)\}(?:\/|$)/
+const sourceBase = /^\{(?:url|api_url)\}(?:\/|$)/
 
 function files(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
@@ -105,7 +105,7 @@ function validateForEach(forEach) {
   if (typeof value.reduce !== 'string' || !reductions.has(value.reduce)) throw new Error('for_each.reduce is invalid')
   const request = record(value.request, 'for_each.request must be a mapping')
   allowed(request, new Set(['url']), 'for_each.request')
-  if (typeof request.url !== 'string' || !sourceBase.test(request.url) || !request.url.includes('{item}')) throw new Error('for_each.request.url must begin with {url} or {metrics_url} and contain {item}')
+  if (typeof request.url !== 'string' || !sourceBase.test(request.url) || !request.url.includes('{item}')) throw new Error('for_each.request.url must begin with {url} or {api_url} and contain {item}')
 }
 
 function validatePagination(pagination) {
@@ -164,7 +164,7 @@ function validateSocketIoEvent(event, context) {
 
 function validateSocketIoSource(source) {
   allowed(source, new Set(['url', 'transport', 'headers', 'authentication', 'socketio']), 'source')
-  if (typeof source.url !== 'string' || !sourceBase.test(source.url)) throw new Error('source.url must begin with {url} or {metrics_url}')
+  if (typeof source.url !== 'string' || !sourceBase.test(source.url)) throw new Error('source.url must begin with {url} or {api_url}')
   validateSecretMappings(source, 'source', false, ['headers'])
   if (source.authentication !== undefined) validateHttpAuth(source.authentication)
   if (source.authentication?.optional === true) throw new Error('optional authentication is only supported for HTTP metrics')
@@ -238,7 +238,7 @@ function validateHttpAuth(authentication) {
 function validateRequest(request, context, allowToken) {
   const value = record(request, `${context} must be a mapping`)
   allowed(value, new Set(['url', 'method', 'form', 'json', 'headers', 'query', 'extract']), context)
-  if (typeof value.url !== 'string' || !sourceBase.test(value.url)) throw new Error(`${context}.url must begin with {url} or {metrics_url}`)
+  if (typeof value.url !== 'string' || !sourceBase.test(value.url)) throw new Error(`${context}.url must begin with {url} or {api_url}`)
   const method = value.method ?? 'GET'
   if (method !== 'GET' && method !== 'POST') throw new Error(`${context}.method must be GET or POST`)
   if (method === 'GET' && (value.form !== undefined || value.json !== undefined)) throw new Error(`${context} GET requests cannot define form or json`)

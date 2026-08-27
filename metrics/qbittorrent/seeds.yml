@@ -4,6 +4,6 @@ display:
 value:
   unit: count
 source:
-  url: "{metrics_url}/api/v2/torrents/info"
+  url: "{api_url}/api/v2/torrents/info"
 extract:
   jq: '[.[] | select(.progress == 1)] | length'

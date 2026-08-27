@@ -121,10 +121,10 @@ A container appears when it has at least one `dashmark.*` label and Dashmark can
 | `dashmark.search_aliases` | Comma-separated extra search terms. |
 | `dashmark.access` | Comma-separated list of allowed access entries. |
 | `dashmark.show_status` | Set to `false` to hide the status badge and resource tooltip. |
-| `dashmark.metrics` | Comma-separated built-in metrics (`cpu`, `memory`, `network`) and catalog metrics (`provider/metric`). Set to `none` to disable built-in metrics. |
-| `dashmark.metrics_url` | Private HTTP(S) API base for catalog metrics. Defaults to the card URL. |
-| `dashmark.metrics_access.<metric>` | Comma-separated access entries for one metric. Replace `/` with `.` in catalog metric keys. |
-| `dashmark.metric_*` | Optional catalog credentials. See [Metrics](metrics/README.md). Docker labels are visible through Docker APIs and inspect output. |
+| `dashmark.metrics` | Comma-separated built-in metrics (`cpu`, `memory`, `network`) and library metrics (`provider/metric`). Set to `none` to disable built-in metrics. |
+| `dashmark.api_url` | Private HTTP(S) API base for library metrics. Defaults to the card URL. |
+| `dashmark.metrics_access.<metric>` | Comma-separated access entries for one metric. Replace `/` with `.` in library metric keys. |
+| `dashmark.metric_*` | Optional library credentials. See [Metrics](metrics/README.md). Docker labels are visible through Docker APIs and inspect output. |
 
 `CATEGORY_ORDER=Media,Productivity,Home` sets the order for listed categories. Other categories follow alphabetically, and uncategorised cards appear last.
 
@@ -241,15 +241,15 @@ Set `ENABLE_ACCESS_CONTROL=true` to show a card only when an `access` entry matc
 
 ## Metrics
 
-Dashmark collects Docker CPU, memory, and network usage, plus catalog and custom service metrics. Catalog metrics are opt-in. Add a catalog metric with `dashmark.metrics=provider/metric` or under `service.metrics.catalog` in YAML.
+Dashmark collects Docker CPU, memory, and network usage, plus library and custom service metrics. Library metrics are opt-in. Add a library metric with `dashmark.metrics=provider/metric` or under `service.metrics.entries` in YAML.
 
 ```yaml
 labels:
   dashmark.metrics: cpu,memory,radarr/queue
-  dashmark.metrics_url: http://radarr:7878
+  dashmark.api_url: http://radarr:7878
 ```
 
-YAML-only cards support catalog and local metrics, not Docker usage metrics. Set `METRICS_DATABASE_PATH` to a mounted path when history must survive container replacement. The [Metrics guide](metrics/README.md) covers metric selection, credentials, shared sources, local metrics, and the full YAML schema.
+YAML-only cards support library and custom metrics, not Docker usage metrics. Set `METRICS_DATABASE_PATH` to a mounted path when history must survive container replacement. The [Metrics guide](metrics/README.md) covers metric selection, credentials, shared sources, custom metrics, and the full YAML schema.
 
 ## Security
 

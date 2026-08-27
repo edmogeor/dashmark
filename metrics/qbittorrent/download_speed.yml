@@ -4,6 +4,6 @@ display:
 value:
   unit: bytes_per_second
 source:
-  url: "{metrics_url}/api/v2/torrents/info"
+  url: "{api_url}/api/v2/torrents/info"
 extract:
   jq: '[.[].dlspeed] | add // 0'

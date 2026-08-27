@@ -39,7 +39,7 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Validate metrics catalog
+      - name: Validate metric library
         run: npm run validate:metrics
 
       - name: Typecheck

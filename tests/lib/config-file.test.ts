@@ -32,17 +32,15 @@ service:
       interval: 30s
       retention: 14d
     container: [cpu, memory]
-    catalog:
-      test:
-        url-parameter:
-          inputs:
-            resource: garage_door
-          overrides:
-            display:
-              label: Garage door
-          visible_to: [admins, operators]
-        queue-depth:
-    local:
+    entries:
+      test/url-parameter:
+        inputs:
+          resource: garage_door
+        overrides:
+          display:
+            label: Garage door
+        visible_to: [admins, operators]
+      test/queue-depth:
       active_downloads:
         display:
           label: Active downloads
@@ -58,17 +56,11 @@ service:
 
     expect(metrics).toMatchObject({
           collection: expect.objectContaining({ intervalMs: expect.anything(), retentionMs: expect.anything() }),
-      catalog: expect.objectContaining({
-        test: expect.objectContaining({
-          'url-parameter': expect.objectContaining({
-            inputs: expect.objectContaining({ resource: 'garage_door' }),
-            overrides: expect.anything(),
-            visibleTo: expect.anything()
-          }),
-          'queue-depth': {}
-        })
-      }),
-      local: expect.objectContaining({
+      entries: expect.arrayContaining(['test/url-parameter', 'test/queue-depth', 'active_downloads']),
+      entryInputs: expect.objectContaining({ 'test/url-parameter': { resource: 'garage_door' } }),
+      entryAccess: expect.objectContaining({ 'test/url-parameter': ['admins', 'operators'] }),
+      entryOverrides: expect.objectContaining({
+        'test/url-parameter': expect.anything(),
         active_downloads: expect.objectContaining({
           label: 'Active downloads',
           unit: 'count',
@@ -110,7 +102,7 @@ shared_metric_sources:
       value: { env: HOME_ASSISTANT_TOKEN }
 service:
   metrics:
-    local:
+    entries:
       office_temperature:
         display: { label: Office temperature }
         value: { unit: celsius }
@@ -120,7 +112,7 @@ service:
         extract: { jq: '.state | tonumber' }
 `)
 
-    const metric = loadYamlConfig(config).config.services.service?.metrics?.local?.office_temperature
+    const metric = loadYamlConfig(config).config.services.service?.metrics?.entryOverrides?.office_temperature
 
     expect(metric?.source).toMatchObject({
       url: 'http://homeassistant:8123/api/states/sensor.office_temperature',

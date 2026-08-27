@@ -8,7 +8,7 @@ parameters:
     label: Template
     type: json_value
 source:
-  url: "{metrics_url}/api/template"
+  url: "{api_url}/api/template"
   method: POST
   json:
     template:

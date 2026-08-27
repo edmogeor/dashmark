@@ -14,13 +14,13 @@
     "astro": "astro",
     "typecheck": "astro check",
     "lint": "oxlint .",
-    "generate:metrics-catalog": "node scripts/generate-metrics-catalog.mjs",
-    "validate:metrics": "npm run generate:metrics-catalog -- --check && node scripts/validate-metrics.mjs",
+    "generate:metrics-library": "node scripts/generate-metrics-library.mjs",
+    "validate:metrics": "npm run generate:metrics-library -- --check && node scripts/validate-metrics.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "simple-git-hooks": {
-    "pre-commit": "node scripts/generate-metrics-catalog.mjs --staged"
+    "pre-commit": "node scripts/generate-metrics-library.mjs --staged"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.1",

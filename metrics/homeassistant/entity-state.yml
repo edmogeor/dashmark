@@ -8,6 +8,6 @@ parameters:
     label: Entity ID
     type: url_component
 source:
-  url: "{metrics_url}/api/states/{entity_id}"
+  url: "{api_url}/api/states/{entity_id}"
 extract:
   jq: .state

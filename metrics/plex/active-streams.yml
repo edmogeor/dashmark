@@ -4,6 +4,6 @@ display:
 value:
   unit: count
 source:
-  url: "{metrics_url}/status/sessions"
+  url: "{api_url}/status/sessions"
 extract:
   jq: .MediaContainer.size

@@ -419,18 +419,15 @@ function mergeWithYaml(
 ): ReturnType<typeof parseLabels> {
   if (!yamlService) return labels
   const yamlMetrics = yamlService.metrics
-  const catalogKeys = Object.entries(yamlMetrics?.catalog ?? {}).flatMap(([provider, metrics]) => Object.keys(metrics).map(name => `${provider}/${name}`))
-  const localKeys = Object.keys(yamlMetrics?.local ?? {})
   const metricsAccess = {
     ...yamlMetrics?.containerAccess,
-    ...yamlMetrics?.localAccess,
-    ...Object.fromEntries(Object.entries(yamlMetrics?.catalog ?? {}).flatMap(([provider, metrics]) => Object.entries(metrics).flatMap(([name, metric]) => metric.visibleTo ? [[`${provider}/${name}`, metric.visibleTo]] : [])))
+    ...yamlMetrics?.entryAccess
   }
 
   return {
     hidden: yamlService.hidden ?? labels.hidden,
     url: yamlService.url ?? labels.url,
-    metricsUrl: yamlMetrics?.sourceUrl ?? labels.metricsUrl,
+    apiUrl: yamlMetrics?.apiUrl ?? labels.apiUrl,
     title: yamlService.title ?? labels.title,
     description: yamlService.description ?? labels.description,
     icon: yamlService.icon ?? labels.icon,
@@ -438,7 +435,7 @@ function mergeWithYaml(
     order: yamlService.order ?? labels.order,
     showStatus: yamlService.showStatus ?? labels.showStatus,
     resourceStats: yamlMetrics?.container ?? labels.resourceStats,
-    metrics: yamlMetrics ? [...catalogKeys, ...localKeys] : labels.metrics,
+    metrics: yamlMetrics ? yamlMetrics.entries : labels.metrics,
     metricProviders: labels.metricProviders,
     metricsPollIntervalMs: yamlMetrics?.collection?.intervalMs ?? labels.metricsPollIntervalMs,
     metricsHistoryPeriodMs: yamlMetrics?.collection?.retentionMs ?? labels.metricsHistoryPeriodMs,
@@ -450,19 +447,16 @@ function mergeWithYaml(
 
 function yamlMetricOverrides(service: ServiceOverrides | undefined): ServiceMetricOverrides | undefined {
   if (!service?.metrics) return undefined
-  const catalog = Object.fromEntries(Object.entries(service.metrics.catalog ?? {}).flatMap(([provider, metrics]) => Object.entries(metrics).flatMap(([name, metric]) => metric.overrides ? [[`${provider}/${name}`, metric.overrides]] : []))) as ServiceMetricOverrides
-  const metrics = { ...catalog, ...service.metrics.local }
-  return Object.keys(metrics).length > 0 ? metrics : undefined
+  return service.metrics.entryOverrides
 }
 
 function yamlMetricParameters(service: ServiceOverrides | undefined): Record<string, Record<string, string | number | boolean>> | undefined {
   if (!service?.metrics) return undefined
-  const parameters = Object.fromEntries(Object.entries(service.metrics.catalog ?? {}).flatMap(([provider, metrics]) => Object.entries(metrics).flatMap(([name, metric]) => metric.inputs ? [[`${provider}/${name}`, metric.inputs]] : []))) as Record<string, Record<string, string | number | boolean>>
-  return Object.keys(parameters).length > 0 ? parameters : undefined
+  return service.metrics.entryInputs
 }
 
 function yamlMetricErrors(service: ServiceOverrides | undefined): Record<string, string> | undefined {
-  return service?.metrics?.localErrors
+  return service?.metrics?.entryErrors
 }
 
 function canAccess(config: AppConfig, headers: Headers, access: string[]): boolean {
@@ -543,7 +537,7 @@ function resolveContainer(
     name: containerName(container),
     yamlKey,
     labels,
-    customMetrics: resolveMetricSources(customMetrics, url, labels.metricsUrl, rawLabels, yamlMetricParameters(yamlService)),
+    customMetrics: resolveMetricSources(customMetrics, url, labels.apiUrl, rawLabels, yamlMetricParameters(yamlService)),
     customMetricErrors: yamlMetricErrors(yamlService),
     url
   }
@@ -554,7 +548,7 @@ function resolveYamlMetrics(service: ServiceOverrides, url: string): ResolvedMet
   const customMetrics = { ...selectedCatalogMetrics(labels.metrics), ...yamlMetricOverrides(service) }
   return {
     labels,
-    customMetrics: resolveMetricSources(customMetrics, url, labels.metricsUrl, {}, yamlMetricParameters(service)),
+    customMetrics: resolveMetricSources(customMetrics, url, labels.apiUrl, {}, yamlMetricParameters(service)),
     customMetricErrors: yamlMetricErrors(service)
   }
 }
@@ -562,13 +556,13 @@ function resolveYamlMetrics(service: ServiceOverrides, url: string): ResolvedMet
 function resolveMetricSources(
   metrics: ServiceMetricOverrides,
   cardUrl: string | undefined,
-  metricsUrl: string | undefined,
+  apiUrl: string | undefined,
   labels: Record<string, string>,
   metricParameters: Record<string, Record<string, string | number | boolean>> | undefined
 ): ServiceMetricOverrides | undefined {
   const resolveUrl = (url: string, parameters: MetricOverride['parameters'], values: Record<string, string | number | boolean> | undefined): string | undefined => {
-    const baseUrl = url.startsWith('{metrics_url}') ? metricsUrl ?? cardUrl : url.startsWith('{url}') ? cardUrl : undefined
-    const placeholder = url.startsWith('{metrics_url}') ? '{metrics_url}' : '{url}'
+    const baseUrl = url.startsWith('{api_url}') ? apiUrl ?? cardUrl : url.startsWith('{url}') ? cardUrl : undefined
+    const placeholder = url.startsWith('{api_url}') ? '{api_url}' : '{url}'
     const resolved = baseUrl === undefined && url.startsWith('{')
       ? undefined
       : baseUrl ? `${baseUrl.replace(/\/$/, '')}${url.slice(placeholder.length)}` : url

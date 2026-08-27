@@ -4,6 +4,6 @@ display:
 value:
   unit: count
 source:
-  url: "{metrics_url}/api/alerts"
+  url: "{api_url}/api/alerts"
 extract:
   jq: length

@@ -15,7 +15,7 @@ value:
     error: Backup failed
     in_progress: Backing up
 source:
-  url: "{metrics_url}/api/v1/backups"
+  url: "{api_url}/api/v1/backups"
   headers:
     X-API-Key:
       env: DASHMARK_ZEROBYTE_API_KEY

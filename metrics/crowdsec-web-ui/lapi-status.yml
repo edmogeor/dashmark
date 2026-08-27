@@ -11,6 +11,6 @@ value:
     connected: Connected
     disconnected: Disconnected
 source:
-  url: "{metrics_url}/api/config"
+  url: "{api_url}/api/config"
 extract:
   jq: if .lapi_status.isConnected then "connected" else "disconnected" end

@@ -9,22 +9,17 @@ import { dashmarkError, errorMessage, isRecord, type DashmarkError } from './err
 import { strings } from './strings'
 import type { CustomMetricStateColor } from './status'
 
-export type CatalogMetricSelection = {
-  inputs?: Record<string, string | number | boolean>
-  overrides?: MetricOverride
-  visibleTo?: string[]
-}
-
 export type ServiceMetrics = {
-  sourceUrl?: string
+  apiUrl?: string
   collection?: { intervalMs?: number; retentionMs?: number }
   container?: ResourceStat[]
   containerAccess?: Record<string, string[]>
-  localAccess?: Record<string, string[]>
+  entries?: string[]
+  entryAccess?: Record<string, string[]>
   charts?: Record<string, { unit: MetricUnit; chart: CustomMetricChart }>
-  catalog?: Record<string, Record<string, CatalogMetricSelection>>
-  local?: ServiceMetricOverrides
-  localErrors?: Record<string, string>
+  entryOverrides?: ServiceMetricOverrides
+  entryInputs?: Record<string, Record<string, string | number | boolean>>
+  entryErrors?: Record<string, string>
 }
 
 export type ServiceOverrides = {
@@ -384,7 +379,7 @@ function isHttpUrl(value: string): boolean {
 }
 
 function isMetricUrl(value: string): boolean {
-  return isHttpUrl(value) || /^\{(?:url|metrics_url)\}(?:\/|$)/.test(value)
+  return isHttpUrl(value) || /^\{(?:url|api_url)\}(?:\/|$)/.test(value)
 }
 
 function parsePrometheusExtractor(value: unknown): PrometheusMetricExtractor | undefined {
@@ -538,7 +533,7 @@ function parseMetricRequest(value: unknown, path: string): { request?: MetricHtt
     return { error: `${path} contains an unknown configuration key` }
   }
   const url = string(value.url)
-  if (!url || !isMetricUrl(url)) return { error: `${path}.url must use HTTP or HTTPS, or begin with {url} or {metrics_url}` }
+  if (!url || !isMetricUrl(url)) return { error: `${path}.url must use HTTP or HTTPS, or begin with {url} or {api_url}` }
   const method = value.method === undefined ? 'GET' : string(value.method)
   if (method !== 'GET' && method !== 'POST') return { error: `${path}.method must be GET or POST` }
   if (method === 'GET' && (value.form !== undefined || value.json !== undefined)) return { error: `${path} GET requests cannot define form or json` }
@@ -866,7 +861,7 @@ function parseCustomMetric(key: string, configuredMetric: unknown, catalog: Reco
   const { label, valueType, unit, rate, chart, chartGroup, transform, color, stateColors, stateLabels, parameters, text, forEach, pagination, source, url, transport, jq, prometheus } = parseCustomMetricFields(metric)
   if (!label) return { error: 'label must be a non-empty string' }
   if (!source || !url) return { error: 'source.url is required' }
-  if (!isMetricUrl(url)) return { error: 'source.url must use HTTP or HTTPS, or begin with {url} or {metrics_url}' }
+  if (!isMetricUrl(url)) return { error: 'source.url must use HTTP or HTTPS, or begin with {url} or {api_url}' }
   if (transport !== undefined && transport !== 'socketio') return { error: 'source.transport must be socketio when specified' }
   if (metric.prometheus !== undefined && !prometheus) return { error: 'prometheus.name, labels, reduction, or value_label is invalid' }
   if (metric.for_each !== undefined && !forEach) return { error: 'for_each requires item and value jq expressions, a child URL containing {item}, and a reduction' }
@@ -964,9 +959,9 @@ function parseDuration(value: unknown): number | undefined {
   return Number(match[1]) * scale
 }
 
-function parseMetricsSourceUrl(value: unknown, path: string): string | undefined {
+function parseMetricsApiUrl(value: unknown, path: string): string | undefined {
   if (value === undefined) return undefined
-  if (typeof value !== 'string' || !isHttpUrl(value)) invalid(`${path}.source_url`, 'an HTTP or HTTPS URL')
+  if (typeof value !== 'string' || !isHttpUrl(value)) invalid(`${path}.api_url`, 'an HTTP or HTTPS URL')
   return value
 }
 
@@ -1014,75 +1009,73 @@ function parseMetricCharts(value: unknown, path: string): ServiceMetrics['charts
   return charts
 }
 
-function parseCatalogMetrics(value: unknown, path: string, catalog: Record<string, Record<string, unknown>>, charts: ServiceMetrics['charts']): ServiceMetrics['catalog'] | undefined {
-  if (value === undefined) return undefined
-  if (!isRecord(value)) invalid(`${path}.catalog`, 'a mapping of providers')
-  const selections: NonNullable<ServiceMetrics['catalog']> = {}
-  for (const [provider, definitions] of Object.entries(value)) {
-    if (!/^[a-z][a-z0-9_-]*$/.test(provider) || !isRecord(definitions)) invalid(`${path}.catalog.${provider}`, 'a mapping of catalog metrics')
-    selections[provider] = {}
-    for (const [name, selection] of Object.entries(definitions)) {
-      const key = `${provider}/${name}`
-      if (!/^[a-z][a-z0-9_-]*$/.test(name) || !catalog[key] || (selection !== null && !isRecord(selection))) invalid(`${path}.catalog.${provider}.${name}`, 'a shipped catalog metric mapping')
-      const configured = selection ?? {}
-      validateKnownFields(configured, new Set(['inputs', 'overrides', 'visible_to']), `${path}.catalog.${provider}.${name}`)
-      let inputs: Record<string, string | number | boolean> | undefined
-      if (configured.inputs !== undefined) {
-        if (!isRecord(configured.inputs) || Object.values(configured.inputs).some(item => typeof item !== 'string' && typeof item !== 'number' && typeof item !== 'boolean')) invalid(`${path}.catalog.${provider}.${name}.inputs`, 'a mapping of scalar values')
-        inputs = configured.inputs as Record<string, string | number | boolean>
-      }
-      const parameters = parseMetricParameters(catalog[key]?.parameters)
-      for (const input of Object.keys(inputs ?? {})) if (!parameters?.[input]) invalid(`${path}.catalog.${provider}.${name}.inputs.${input}`, 'a declared catalog input')
-      const parsed = configured.overrides === undefined ? {} : parseMetricOverrides({ [key]: configured.overrides }, catalog, charts, true)
-      if (parsed.errors?.[key]) invalid(`${path}.catalog.${provider}.${name}.overrides`, parsed.errors[key])
-      const visibleTo = configured.visible_to === undefined ? undefined : stringList(configured.visible_to)
-      if (configured.visible_to !== undefined && !visibleTo) invalid(`${path}.catalog.${provider}.${name}.visible_to`, 'a non-empty string or list of strings')
-      selections[provider]![name] = { ...(inputs ? { inputs } : {}), ...(parsed.metrics?.[key] ? { overrides: parsed.metrics[key] } : {}), ...(visibleTo ? { visibleTo } : {}) }
-    }
-  }
-  return selections
-}
-
-function parseLocalMetrics(value: unknown, path: string, charts: ServiceMetrics['charts'], sharedSources?: Record<string, Record<string, unknown>>): Pick<ServiceMetrics, 'local' | 'localAccess' | 'localErrors'> {
+function parseMetricEntries(value: unknown, path: string, catalog: Record<string, Record<string, unknown>>, charts: ServiceMetrics['charts'], sharedSources?: Record<string, Record<string, unknown>>): Pick<ServiceMetrics, 'entries' | 'entryAccess' | 'entryOverrides' | 'entryInputs' | 'entryErrors'> {
   if (value === undefined) return {}
-  if (!isRecord(value)) invalid(`${path}.local`, 'a mapping of local metrics')
+  if (!isRecord(value)) invalid(`${path}.entries`, 'a mapping of metric entries')
   const definitions: Record<string, unknown> = {}
+  const overrides: Record<string, unknown> = {}
   const access: Record<string, string[]> = {}
+  const inputs: Record<string, Record<string, string | number | boolean>> = {}
+  const entries: string[] = []
   for (const [name, definition] of Object.entries(value)) {
-    if (!isRecord(definition)) invalid(`${path}.local.${name}`, 'a metric mapping')
+    const entryPath = `${path}.entries.${name}`
+    if (catalog[name]) {
+      if (definition !== null && !isRecord(definition)) invalid(entryPath, 'a shipped metric mapping')
+      const configured = definition ?? {}
+      validateKnownFields(configured, new Set(['inputs', 'overrides', 'visible_to']), entryPath)
+      let configuredInputs: Record<string, string | number | boolean> | undefined
+      if (configured.inputs !== undefined) {
+        if (!isRecord(configured.inputs) || Object.values(configured.inputs).some(item => typeof item !== 'string' && typeof item !== 'number' && typeof item !== 'boolean')) invalid(`${entryPath}.inputs`, 'a mapping of scalar values')
+        configuredInputs = configured.inputs as Record<string, string | number | boolean>
+      }
+      const parameters = parseMetricParameters(catalog[name]?.parameters)
+      for (const input of Object.keys(configuredInputs ?? {})) if (!parameters?.[input]) invalid(`${entryPath}.inputs.${input}`, 'a declared metric input')
+      if (configuredInputs) inputs[name] = configuredInputs
+      if (configured.overrides !== undefined) overrides[name] = configured.overrides
+      const visibleTo = configured.visible_to === undefined ? undefined : stringList(configured.visible_to)
+      if (configured.visible_to !== undefined && !visibleTo) invalid(`${entryPath}.visible_to`, 'a non-empty string or list of strings')
+      if (visibleTo) access[name] = visibleTo
+      entries.push(name)
+      continue
+    }
+    if (!/^[a-z][a-z0-9_-]*$/.test(name) || !isRecord(definition)) invalid(entryPath, 'a named metric mapping')
     const { visible_to: visibleTo, ...metric } = definition
     if (visibleTo !== undefined) {
-      validateStringList(visibleTo, `${path}.local.${name}.visible_to`)
+      validateStringList(visibleTo, `${entryPath}.visible_to`)
       access[name] = stringList(visibleTo)!
     }
     definitions[name] = metric
+    entries.push(name)
   }
-  const parsed = parseMetricOverrides(definitions, {}, charts, false, sharedSources)
+  const parsedOverrides = parseMetricOverrides(overrides, catalog, charts, true)
+  for (const [key, reason] of Object.entries(parsedOverrides.errors ?? {})) invalid(`${path}.entries.${key}.overrides`, reason)
+  const parsed = parseMetricOverrides(definitions, catalog, charts, false, sharedSources)
+  const entryOverrides = { ...parsedOverrides.metrics, ...parsed.metrics }
   return {
-    local: parsed.metrics,
-    ...(Object.keys(access).length > 0 ? { localAccess: access } : {}),
-    ...(parsed.errors && Object.keys(parsed.errors).length > 0 ? { localErrors: parsed.errors } : {})
+    ...(entries.length > 0 ? { entries: entries.filter(key => !parsed.errors?.[key]) } : {}),
+    ...(Object.keys(access).length > 0 ? { entryAccess: access } : {}),
+    ...(Object.keys(entryOverrides).length > 0 ? { entryOverrides } : {}),
+    ...(Object.keys(inputs).length > 0 ? { entryInputs: inputs } : {}),
+    ...(parsed.errors && Object.keys(parsed.errors).length > 0 ? { entryErrors: parsed.errors } : {})
   }
 }
 
 function parseServiceMetrics(value: unknown, path: string, sharedSources?: Record<string, Record<string, unknown>>): ServiceMetrics | undefined {
   if (value === undefined) return undefined
   if (!isRecord(value)) invalid(path, 'a mapping')
-  validateKnownFields(value, new Set(['source_url', 'collection', 'container', 'charts', 'catalog', 'local']), path)
-  const sourceUrl = parseMetricsSourceUrl(value.source_url, path)
+  validateKnownFields(value, new Set(['api_url', 'collection', 'container', 'charts', 'entries']), path)
+  const apiUrl = parseMetricsApiUrl(value.api_url, path)
   const collection = parseMetricsCollection(value.collection, path)
   const container = parseContainerMetrics(value.container, path)
   const charts = parseMetricCharts(value.charts, path)
   const catalog = metricCatalog()
-  const catalogMetrics = parseCatalogMetrics(value.catalog, path, catalog, charts)
-  const local = parseLocalMetrics(value.local, path, charts, sharedSources)
+  const entries = parseMetricEntries(value.entries, path, catalog, charts, sharedSources)
   return {
-    ...(sourceUrl === undefined ? {} : { sourceUrl }),
+    ...(apiUrl === undefined ? {} : { apiUrl }),
     ...(collection === undefined ? {} : { collection }),
     ...container,
     ...(charts === undefined ? {} : { charts }),
-    ...(catalogMetrics === undefined ? {} : { catalog: catalogMetrics }),
-    ...local
+    ...entries
   }
 }
 

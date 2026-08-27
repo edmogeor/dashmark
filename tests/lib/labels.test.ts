@@ -7,7 +7,7 @@ describe('parseLabels', () => {
       'dashmark.title': 'Plex',
       'dashmark.description': 'Media server',
       'dashmark.url': 'https://plex.home.local',
-      'dashmark.metrics_url': 'https://plex-api.home.local',
+      'dashmark.api_url': 'https://plex-api.home.local',
       'dashmark.icon': 'plex',
       'dashmark.category': 'Media',
       'dashmark.order': '1',
@@ -23,7 +23,7 @@ describe('parseLabels', () => {
     expect(parseLabels(labels)).toEqual({
       hidden: true,
       url: 'https://plex.home.local',
-      metricsUrl: 'https://plex-api.home.local',
+      apiUrl: 'https://plex-api.home.local',
       title: 'Plex',
       description: 'Media server',
       icon: 'plex',
@@ -85,7 +85,8 @@ describe('parseLabels', () => {
   })
 
   it('ignores invalid metrics URLs', () => {
-    expect(parseLabels({ 'dashmark.metrics_url': 'not-a-url' }).metricsUrl).toBeUndefined()
+    expect(parseLabels({ 'dashmark.api_url': 'not-a-url' }).apiUrl).toBeUndefined()
+    expect(parseLabels({ 'dashmark.metrics_url': 'https://plex-api.home.local' }).apiUrl).toBeUndefined()
   })
 
   it('ignores non-finite order values', () => {

@@ -3,7 +3,7 @@ source:
     kind: cookie_session
     optional: true
     requests:
-      - url: "{metrics_url}/api/v2/auth/login"
+      - url: "{api_url}/api/v2/auth/login"
         method: POST
         form:
           username:

@@ -6,7 +6,7 @@ value:
   transform:
     multiply: 1048576
 source:
-  url: "{metrics_url}/jsonrpc"
+  url: "{api_url}/jsonrpc"
   method: POST
   json:
     jsonrpc: "2.0"

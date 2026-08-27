@@ -56,7 +56,7 @@ settings:
 # service name. A key matching a running container overrides that container's
 # `dashmark.*` labels; a key with no matching container becomes a standalone
 # card (it needs a `url` and has no status badge). Standalone cards can define
-# local and catalog metrics, but not Docker CPU, memory, or network metrics.
+# custom and library metrics, but not Docker CPU, memory, or network metrics.
 #
 # Override the card for a container you run. Omitted fields fall back to the
 # container's labels or defaults.
@@ -75,7 +75,7 @@ plex:
 # `metrics_poll_interval`, `metrics_history_period`, `metrics_access`, and
 # `custom_metrics` are removed.
   metrics:
-    # source_url: http://plex:32400
+    # api_url: http://plex:32400
     collection:
       interval: 10s
       retention: 15m
@@ -85,10 +85,8 @@ plex:
       network: {}
     charts:
       library: { label: Library, unit: count, style: step }
-    catalog:
-      plex:
-        movies: {}
-    local:
+    entries:
+      plex/movies: {}
       active_sessions:
         display: { label: Active sessions, chart: library }
         value: { kind: number, unit: count }
