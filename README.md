@@ -22,7 +22,7 @@ Dashmark finds Docker containers with `dashmark.*` labels and displays them as c
 
 ![Dashmark dashboard](assets/screenshot.jpg)
 
-<p align="center"><a href="https://edmogeor.github.io/dashmark/demo/">View the live demo</a> | <a href="https://edmogeor.github.io/dashmark/docs/">Read the documentation</a></p>
+<p align="center"><a href="https://edmogeor.github.io/dashmark/demo/" target="_blank" rel="noreferrer">View the live demo</a> | <a href="https://edmogeor.github.io/dashmark/docs/">Read the documentation</a></p>
 
 ## Why Dashmark?
 
