@@ -1,0 +1,30 @@
+---
+title: Dashmark documentation
+description: Configure a Docker service dashboard with Dashmark.
+template: splash
+hero:
+  title: Dashmark
+  tagline: A practical guide to configuring your Dashmark dashboard.
+  actions:
+    - text: Get started
+      link: /dashmark/docs/guides/quick-start/
+      icon: right-arrow
+    - text: Configure cards
+      link: /dashmark/docs/configuration/cards/
+      icon: document
+---
+
+Out of the box, Dashmark is designed to be as simple to set up as possible. Docker labels are the preferred minimal way to configure cards. YAML configuration, metric configuration, access controls, and more advanced settings are completely optional.
+
+## Docker access
+
+Dashmark needs Docker socket access. The setup guide uses a restricted socket proxy rather than mounting the raw socket into Dashmark.
+
+## Configuration order
+
+1. Start Dashmark with the Compose file.
+2. Add `dashmark.*` labels to services you want to display.
+3. Add `/data/config.yml` only when labels are not enough.
+4. Configure access control and metrics after the dashboard works.
+
+You can configure Dashmark with environment variables, Docker labels, and YAML. If the same setting appears more than once, Dashmark uses the most specific value: YAML service entries, Docker labels, YAML `settings`, environment variables, then built-in defaults.

@@ -1,0 +1,79 @@
+<starlight-theme-select class="theme-picker">
+  <button type="button" data-theme-trigger aria-haspopup="menu" aria-expanded="false">
+    <span data-theme-label>Auto</span>
+    <svg aria-hidden="true" viewBox="0 0 16 16" width="12" height="12">
+      <path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+  </button>
+  <div data-theme-menu role="menu" hidden>
+    <button type="button" role="menuitemradio" aria-checked="false" data-theme="dark">Dark</button>
+    <button type="button" role="menuitemradio" aria-checked="false" data-theme="light">Light</button>
+    <button type="button" role="menuitemradio" aria-checked="true" data-theme="auto">Auto</button>
+  </div>
+</starlight-theme-select>
+
+<script>
+  type Theme = 'auto' | 'dark' | 'light'
+
+  const themes: Theme[] = ['dark', 'light', 'auto']
+  const storageKey = 'starlight-theme'
+
+  function savedTheme(): Theme {
+    const value = localStorage.getItem(storageKey)
+    return themes.includes(value as Theme) ? value as Theme : 'auto'
+  }
+
+  function appliedTheme(theme: Theme): 'dark' | 'light' {
+    return theme === 'auto'
+      ? matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+      : theme
+  }
+
+  function update(theme: Theme) {
+    document.documentElement.dataset.theme = appliedTheme(theme)
+    localStorage.setItem(storageKey, theme === 'auto' ? '' : theme)
+
+    document.querySelectorAll<HTMLElement>('starlight-theme-select').forEach(picker => {
+      picker.querySelector<HTMLElement>('[data-theme-label]')!.textContent = theme[0]!.toUpperCase() + theme.slice(1)
+      picker.querySelectorAll<HTMLButtonElement>('[data-theme]').forEach(button => {
+        button.setAttribute('aria-checked', String(button.dataset.theme === theme))
+      })
+    })
+  }
+
+  class ThemePicker extends HTMLElement {
+    constructor() {
+      super()
+      const trigger = this.querySelector<HTMLButtonElement>('[data-theme-trigger]')!
+      const menu = this.querySelector<HTMLElement>('[data-theme-menu]')!
+
+      trigger.addEventListener('click', () => {
+        menu.hidden = !menu.hidden
+        trigger.setAttribute('aria-expanded', String(!menu.hidden))
+      })
+
+      this.querySelectorAll<HTMLButtonElement>('[data-theme]').forEach(button => {
+        button.addEventListener('click', () => {
+          update(button.dataset.theme as Theme)
+          menu.hidden = true
+          trigger.setAttribute('aria-expanded', 'false')
+        })
+      })
+
+      document.addEventListener('click', event => {
+        if (!this.contains(event.target as Node)) {
+          menu.hidden = true
+          trigger.setAttribute('aria-expanded', 'false')
+        }
+      })
+    }
+  }
+
+  if (!customElements.get('starlight-theme-select')) {
+    customElements.define('starlight-theme-select', ThemePicker)
+    update(savedTheme())
+    matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+      if (savedTheme() === 'auto') update('auto')
+    })
+  }
+</script>

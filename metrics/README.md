@@ -1,187 +1,22 @@
 # Metrics
 
-Use this guide to add metrics in `config.yml`. Put YAML metric settings in the
-service's `metrics` section. Docker-backed cards can also use Docker labels.
+Dashmark's metric library and configuration guides are documented at:
 
-## Contents
+- [Metrics overview](https://edmogeor.github.io/dashmark/docs/metrics/)
+- [Library metrics](https://edmogeor.github.io/dashmark/docs/metrics/library/)
+- [Custom metrics](https://edmogeor.github.io/dashmark/docs/metrics/custom/)
+- [Contribute a library metric](https://edmogeor.github.io/dashmark/docs/metrics/contributing/)
 
-- [Metric library](#metric-library)
-- [Service metrics](#service-metrics)
-- [Shared sources](#shared-sources)
-- [Custom metrics](#custom-metrics)
-- [Contributing to the metric library](#contributing-to-the-metric-library)
+Library definitions live in `metrics/<provider>/<metric-name>.yml`. Provider-wide source settings and chart groups belong in `metrics/<provider>/provider.yml`.
 
-## Metric library
+The pre-commit hook updates [`LIBRARY.md`](LIBRARY.md) when staged metric definitions change. Pull requests automatically run metric validation, linting, type checks, tests, and builds.
 
-Dashmark includes a [metric library](https://github.com/edmogeor/dashmark/tree/main/metrics)
-for supported providers. Library metrics are reusable definitions included in
-the image. Custom metrics are definitions for one service.
+To check a metric locally before submitting, run:
 
-To use a library metric:
-
-1. Find its provider and name in the [library](LIBRARY.md).
-2. Add it under `metrics.entries` as `<provider>/<metric>`, or set `dashmark.metrics=<provider>/<metric>` on a Docker container.
-3. Set `api_url` when Dashmark must use a different API address.
-4. Set the required inputs and credential environment variables.
-
-```yaml
-qbittorrent:
-  url: https://qbittorrent.example.com
-  metrics:
-    api_url: http://qbittorrent:8080
-    entries:
-      qbittorrent/download_speed: {}
-      qbittorrent/upload_speed: {}
+```bash
+npm run generate:metrics-library
+npm run validate:metrics
+npm test
+npm run typecheck
+npm run lint
 ```
-
-The library lists inputs and credential options. Credentials marked optional
-are used only after an anonymous request receives HTTP 401 or 403.
-
-For Docker labels, use `dashmark.api_url` for the API address and the
-matching `dashmark.metric_*` label for credentials. Docker labels are visible
-through Docker APIs. Prefer environment variables or secret files for secrets.
-
-## Service metrics
-
-Service metrics are the Docker, library, and custom metrics configured for one
-card. The `metrics` section accepts these fields:
-
-| Field | Purpose |
-| --- | --- |
-| `api_url` | HTTP(S) API base URL for metric requests. It replaces `{api_url}`. |
-| `collection` | Collection frequency and retention. Set `interval` and `retention`, such as `30s`, `15m`, or `14d`. |
-| `container` | Docker CPU, memory, and network metrics. Use a list or mapping with optional `visible_to` rules. |
-| `charts` | Named charts with a `label`, `unit`, and `style`: `step`, `line`, or `area`. |
-| `entries` | Library metric selections (`provider/metric`) and custom metric definitions. Each entry can set `visible_to`; library metrics can also set `inputs` and `overrides`. |
-
-```yaml
-radarr:
-  url: https://radarr.example.com
-  metrics:
-    api_url: http://radarr:7878
-    collection: { interval: 30s, retention: 14d }
-    container:
-      cpu: { visible_to: admins }
-      memory: {}
-      network: {}
-    charts:
-      queue: { label: Queue, unit: count, style: line }
-    entries:
-      homeassistant/entity-state:
-        inputs: { entity_id: sensor.front_door }
-        overrides:
-          display: { label: Front door, chart: queue }
-```
-
-Standalone YAML cards cannot use `container`. Use `visible_to` to restrict one
-metric. `METRICS_ACCESS` still restricts all metric data on the server.
-
-## Shared sources
-
-Use `shared_metric_sources` when custom metrics on different cards share an HTTP
-API address and credentials. Define the connection once, then use its name and
-an absolute path in each metric.
-
-```yaml
-shared_metric_sources:
-  home_assistant:
-    base_url: http://homeassistant:8123
-    authentication:
-      kind: token
-      header: Authorization
-      prefix: "Bearer "
-      value: { env: HOME_ASSISTANT_TOKEN }
-
-office:
-  metrics:
-    entries:
-      temperature:
-        display: { label: Office temperature }
-        value: { unit: celsius }
-        source:
-          use: home_assistant
-          path: /api/states/sensor.office_temperature
-        extract: { jq: '.state | tonumber' }
-```
-
-A shared source requires `base_url` and may define `headers`, `query`, and
-`authentication`. A metric can add request-specific `headers`, `query`,
-`method`, `form`, or `json`, but cannot replace shared authentication. The path
-must begin with `/`.
-
-## Custom metrics
-
-Custom metrics are definitions under `metrics.entries`. Use them when no
-library metric fits your source or extraction needs.
-
-| Mapping | Fields |
-| --- | --- |
-| `display` | Label and optional chart. |
-| `value` | Value kind, unit, rate, transform, and state labels or colors. |
-| `source` | Request address, method, request data, authentication, or Socket.IO connection. |
-| `extract` | One response reader: `jq`, `prometheus`, `text`, or `for_each`. |
-
-```yaml
-radarr:
-  metrics:
-    entries:
-      active_downloads:
-        display: { label: Active downloads }
-        value: { kind: number, unit: count }
-        source:
-          url: http://radarr:7878/api/v3/queue/status
-          headers: { X-Api-Key: { env: RADARR_API_KEY } }
-        extract: { jq: .totalRecords }
-```
-
-Use `kind: number` with a unit such as `count`, `bytes`, or `seconds` for a
-numeric value. Use `kind: state` with `default_color`, and optional `colors`
-and `labels`, for a status badge. Use `kind: string` for text. Text has no unit
-or history chart. Set `rate: true` on an increasing number to show its
-per-second change. The first collection establishes a baseline. `transform`
-changes a numeric value after Dashmark reads it.
-
-`jq` reads JSON, `prometheus` reads Prometheus samples, and `text` reads plain
-text. `for_each` finds items, requests each item, reads a numeric value, and
-combines the results.
-
-Use `pagination` with a JSON metric when the source exposes page numbers. Its
-`items` and `next` jq expressions collect every page into `.items` before the
-metric's `jq` expression runs. Collection stops with an error after 32 pages.
-
-Use this form for token authentication:
-
-```yaml
-source:
-  url: https://service.example.internal/status
-  authentication:
-    kind: token
-    # Try anonymously first, then use this token after HTTP 401 or 403.
-    optional: true
-    header: Authorization
-    prefix: "Bearer "
-    value: { env: SERVICE_TOKEN }
-```
-
-For HTTP Basic authentication, use `kind: basic` with `username` and
-`password`. Token authentication can use a `header` or `query` parameter. For a
-cookie session, use `kind: cookie_session` with up to five `requests`. Set
-`optional: true` to retry with credentials after HTTP 401 or 403. For Socket.IO,
-use `type: socket_io` and a `socket` section.
-
-## Contributing to the metric library
-
-Library metrics are YAML files at `metrics/<provider>/<metric-name>.yml`. They
-use the same `display`, `value`, `source`, and `extract` sections as custom
-metrics. Put provider-wide settings, such as shared headers or chart styles, in
-`metrics/<provider>/provider.yml`.
-
-Library source URLs normally begin with `{api_url}`. Set
-`service.metrics.api_url` to that address. Otherwise, Dashmark uses the card
-URL when it can. A library metric must declare every input. Inputs can be
-strings, numbers, or booleans.
-
-`LIBRARY.md` is generated from metric definitions. Declare inputs in
-`parameters` and credential options using `env`, `file`, or `label` references.
-The pre-commit hook regenerates and stages the library after metric definition
-YAML changes. Run `npm run generate:metrics-library` to update it manually.
