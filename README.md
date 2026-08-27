@@ -40,6 +40,10 @@ Dashmark is links first. It is built for fast, low-fuss navigation across a larg
 - Limit cards and metrics by groups from an authentication proxy.
 - Use automatic, selfh.st, remote, local, or placeholder icons.
 
+## Metrics
+
+Dashmark shows Docker resource usage by default. Browse the available [metric library](https://edmogeor.github.io/dashmark/docs/metrics/library/) for ready-made metrics from supported services. The library will continue to grow as new metrics are developed, and [contributions are welcome](https://edmogeor.github.io/dashmark/docs/metrics/contributing/).
+
 ## Quick start
 
 1. Create a `docker-compose.yml` with Dashmark and labels for the services you want to show:
