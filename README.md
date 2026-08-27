@@ -39,26 +39,34 @@ Dashmark is links first. It is built for fast, low-fuss navigation across a larg
 
 ## Quick start
 
-1. Download [`docker-compose.yml`](docker-compose.yml).
-2. Add `dashmark.*` labels to a service:
+1. Create a `docker-compose.yml` with Dashmark and labels for the services you want to show:
 
    ```yaml
    services:
-     plex:
-       image: plexinc/pms-docker
-       labels:
-         dashmark.url: https://plex.example.com
-         dashmark.title: Plex
-         dashmark.category: Media
+      dashmark:
+        image: ghcr.io/edmogeor/dashmark:latest
+        ports:
+          - "127.0.0.1:4321:4321"
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock:ro
+          - ./data:/data
+        restart: unless-stopped
+
+      plex:
+        image: plexinc/pms-docker
+        labels:
+          dashmark.url: https://plex.example.com
+          dashmark.title: Plex
+          dashmark.category: Media
    ```
 
-3. Start Dashmark and your labeled services:
+2. Start Dashmark and your labeled services:
 
    ```bash
    docker compose up -d
    ```
 
-The included Compose file uses a restricted Docker socket proxy. For Docker CLI setup, reverse-proxy deployment, and detailed configuration, use the documentation.
+This example uses Dashmark's default local Docker socket. For a production-ready setup with a restricted Docker socket proxy and its required `DOCKER_HOSTS` setting, use the [example `docker-compose.yml`](docker-compose.yml). For Docker CLI setup, reverse-proxy deployment, and detailed configuration, use the documentation.
 
 ## Documentation
 
