@@ -27,21 +27,22 @@ import { TOOLTIP_DELAY_MS } from '@/lib/constants'
 import { showErrorToast, clearStaleErrorToasts } from '@/lib/error-toasts'
 import { MarqueeText } from './MarqueeText'
 import { MetricDetailDialog } from './MetricDetailDialog'
-import { ResourceUsageTooltip } from './ResourceUsageTooltip'
+import { MetricsTooltip } from './MetricsTooltip'
 import { StatusBadge } from './StatusBadge'
 import {
   customMetricsHistory,
   resourceMetricHistory,
   type MetricDetail,
 } from './app-card-metrics'
-import { useResourceUsage } from './use-resource-usage'
+import { useMetrics } from './use-metrics'
 import { useTooltipController } from './tooltip-controller'
-import type { CustomMetric, ResourceMetricSample } from '@/lib/status'
+import type { CustomMetric, ResourceMetricSample, UptimeMetric } from '@/lib/status'
+import { UptimeDetailDialog } from './UptimeDetailDialog'
 
 type AppCardProps = {
   card: CardType
   showStatus?: boolean
-  showResourceUsage?: boolean
+  showMetrics?: boolean
   asCard?: boolean
   isLoading?: boolean
   openInNewTab?: boolean
@@ -240,7 +241,7 @@ function AppCardActions({
 export const AppCard = memo(function AppCard({
   card,
   showStatus = true,
-  showResourceUsage = true,
+  showMetrics = true,
   asCard = false,
   isLoading = false,
   openInNewTab = false,
@@ -249,11 +250,16 @@ export const AppCard = memo(function AppCard({
   const dismissesTooltip = useRef(false)
   const [hovered, setHovered] = useState(false)
   const [detail, setDetail] = useState<MetricDetail | null>(null)
+  const [uptimeDetail, setUptimeDetail] = useState<UptimeMetric | null>(null)
+  const hasSelectedCustomMetric = card.metrics?.some(
+    (metric) => !['cpu', 'memory', 'network', 'none'].includes(metric),
+  ) ?? false
   const hasCustomMetrics =
     (card.customMetricLabels?.length ?? 0) > 0 ||
-    (card.metricErrors?.length ?? 0) > 0
+    (card.metricErrors?.length ?? 0) > 0 ||
+    hasSelectedCustomMetric
   const showResources =
-    showResourceUsage &&
+    showMetrics &&
     card.showStatus !== false &&
     ((card.hasContainer &&
       ((card.resourceStats?.length ?? 0) > 0 || hasCustomMetrics)) ||
@@ -261,7 +267,7 @@ export const AppCard = memo(function AppCard({
   const resourceId = `resource-${card.id}`
   const descriptionId = `description-${card.id}`
   const resourceOpen = activeTooltip === resourceId
-  const usage = useResourceUsage(
+  const usage = useMetrics(
     card.id,
     showResources,
     resourceOpen || hovered || detail !== null,
@@ -376,10 +382,11 @@ export const AppCard = memo(function AppCard({
                 onPointerDown={pointerDown}
               >
                 {showResources && (
-                  <ResourceUsageTooltip
+                  <MetricsTooltip
                     card={card}
                     {...usage}
                     onDetailSelect={setDetail}
+                    onUptimeDetailSelect={setUptimeDetail}
                   />
                 )}
               </AppCardActions>
@@ -391,6 +398,10 @@ export const AppCard = memo(function AppCard({
         detail={detail}
         onOpen={() => setActiveTooltip(null)}
         onOpenChange={closeDetail}
+      />
+      <UptimeDetailDialog
+        metric={uptimeDetail}
+        onOpenChange={(open) => { if (!open) setUptimeDetail(null) }}
       />
     </>
   )

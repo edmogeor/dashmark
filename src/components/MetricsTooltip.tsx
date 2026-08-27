@@ -13,6 +13,7 @@ import type {
   CustomMetricStateColor,
   NumericCustomMetric,
   ResourceMetricSample,
+  UptimeMetric,
 } from '@/lib/status'
 import {
   customMetricsHistory,
@@ -29,6 +30,7 @@ import {
   tickerConfig,
   type MetricDetail,
 } from './app-card-metrics'
+import { formatUptimeBucketTime, UptimeHeartbeat, uptimeBuckets, uptimePercent, type UptimeBucket } from './UptimeHeartbeat'
 
 type Props = {
   card: CardType
@@ -36,8 +38,10 @@ type Props = {
   history: ResourceMetricSample[]
   historyPeriodMs: number
   customMetrics: CustomMetric[]
+  uptimeMetrics: UptimeMetric[]
   loading: boolean
   onDetailSelect: (detail: MetricDetail) => void
+  onUptimeDetailSelect: (metric: UptimeMetric) => void
 }
 
 function ResourceMetric({
@@ -416,14 +420,80 @@ function CustomMetrics({
   )
 }
 
+function formatUptimePercent(value: number | undefined): string {
+  return value === undefined
+    ? strings.card.unavailable
+    : `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}%`
+}
+
+function uptimeBucketSummary(bucket: UptimeBucket): { label: string; value: string } {
+  const label = formatUptimeBucketTime(bucket.start)
+  const value = {
+    up: 'Up',
+    down: 'Down',
+    mixed: 'Partial',
+    unknown: 'No data',
+  }[bucket.status]
+  return { label, value }
+}
+
+function UptimeMetricRow({ metric, onSelect }: { metric: UptimeMetric; onSelect: (metric: UptimeMetric) => void }) {
+  const [hoveredBucket, setHoveredBucket] = useState<UptimeBucket>()
+  const buckets = uptimeBuckets(metric.observations, 24 * 60 * 60 * 1_000, 24)
+  const summary = hoveredBucket ? uptimeBucketSummary(hoveredBucket) : { label: metric.label, value: formatUptimePercent(uptimePercent(buckets)) }
+  return (
+    <button
+      type="button"
+      className="dashmark-uptime-metric card-action-button grid cursor-pointer gap-1.5 rounded-md px-1.5 py-1 text-left hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      onClick={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        onSelect(metric)
+      }}
+      aria-label={`View ${metric.label.toLowerCase()} history`}
+    >
+      <div className="grid gap-0.5 text-xs">
+        <div className="flex items-center justify-between gap-3">
+          <span className="min-w-0 truncate text-muted-foreground">{summary.label}</span>
+          <span className="font-medium tabular-nums">{summary.value}</span>
+        </div>
+      </div>
+      <UptimeHeartbeat observations={metric.observations} durationMs={24 * 60 * 60 * 1_000} bucketCount={24} className="h-3" onBucketHover={setHoveredBucket} />
+    </button>
+  )
+}
+
+function SelectedMetrics({
+  selected,
+  customMetrics,
+  uptimeMetrics,
+  onDetailSelect,
+  onUptimeDetailSelect,
+}: {
+  selected: { key: string; label: string }[]
+  customMetrics: CustomMetric[]
+  uptimeMetrics: UptimeMetric[]
+  onDetailSelect: (detail: MetricDetail) => void
+  onUptimeDetailSelect: (metric: UptimeMetric) => void
+}) {
+  return selected.map((selectedMetric) => {
+    const metric = uptimeMetrics.find((candidate) => candidate.key === selectedMetric.key)
+    return metric
+      ? <UptimeMetricRow key={metric.key} metric={metric} onSelect={onUptimeDetailSelect} />
+      : <CustomMetrics key={selectedMetric.key} selected={[selectedMetric]} customMetrics={customMetrics} onSelect={onDetailSelect} />
+  })
+}
+
 function ResourceMetrics({
   card,
   resources,
   history,
   historyPeriodMs,
   customMetrics,
+  uptimeMetrics,
   loading,
   onDetailSelect,
+  onUptimeDetailSelect,
 }: Props) {
   const showCpu = card.resourceStats?.includes('cpu')
   const showMemory = card.resourceStats?.includes('memory')
@@ -517,16 +587,18 @@ function ResourceMetrics({
           onSelect={onDetailSelect}
         />
       )}
-      <CustomMetrics
+      <SelectedMetrics
         selected={selected}
         customMetrics={customMetrics}
-        onSelect={onDetailSelect}
+        uptimeMetrics={uptimeMetrics}
+        onDetailSelect={onDetailSelect}
+        onUptimeDetailSelect={onUptimeDetailSelect}
       />
     </MetricList>
   )
 }
 
-export function ResourceUsageTooltip(props: Props) {
+export function MetricsTooltip(props: Props) {
   const { card } = props
   return (
     <TooltipContent
@@ -538,7 +610,7 @@ export function ResourceUsageTooltip(props: Props) {
     >
       <div className="dashmark-app-resources-header mb-3 flex items-baseline justify-between gap-3 border-b pb-2">
         <span className="dashmark-app-resources-title text-[0.6875rem] leading-none font-medium tracking-[0.16em] text-muted-foreground uppercase">
-          {strings.card.resourceUsage}
+          Metrics
         </span>
         {card.host && (
           <span

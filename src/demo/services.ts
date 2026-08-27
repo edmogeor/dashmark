@@ -19,7 +19,7 @@ function mockResourceUsage(index: number): NonNullable<Card['resourceUsage']> {
 const demoServiceDefinitions = [
   {
     id: 'plex', title: 'Plex', url: 'https://plex.example.com', imageName: 'plexinc/pms-docker:latest', category: 'Media', searchAliases: ['movies', 'tv'], hasContainer: true, access: ['media'],
-    resourceStats: ['cpu', 'memory', 'network'],
+    resourceStats: ['cpu', 'memory', 'network'], metrics: ['gatus/uptime'],
     resourceUsage: {
       cpuPercent: 24.6,
       memoryUsage: 1_350 * 1_024 * 1_024,

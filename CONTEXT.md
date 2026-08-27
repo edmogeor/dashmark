@@ -42,7 +42,7 @@ A manually defined Card entry in the YAML config, keyed by container name or com
 
 Data flows through `src/pages/index.astro`, which is rendered on demand. It calls `getConfig()` and `getCards(config, request.headers)` server-side and passes `initialCards`/`initialError` into the `<Dashboard client:load />` island. It also calls `getUser()` and `resolveGreeting()` to compute the header greeting and group tags, which are passed to `Dashboard` when `SHOW_HEADER` is enabled.
 
-The `Dashboard` island renders the cards and polls `GET /api/status` every 30 seconds to refresh Container State/Health badges in place. A resource tooltip polls `GET /api/resources?id=<card-id>` at the card's metric collection interval only while open. The endpoint returns the latest server-collected sample, so Docker stats are never fetched for inactive cards.
+The `Dashboard` island renders the cards and polls `GET /api/status` every 30 seconds to refresh Container State/Health badges in place. A metrics tooltip polls `GET /api/metrics?id=<card-id>` at the card's metric collection interval only while open. The endpoint returns the latest server-collected sample, so Docker stats are never fetched for inactive cards. `GET /api/resources` remains an alias for existing API clients.
 
 `src/pages/icons/[...path].ts` serves custom icon files from `ICONS_DIR`, guarded against path traversal.
 

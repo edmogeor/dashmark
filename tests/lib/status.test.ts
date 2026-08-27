@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isResourceUsageResponse, isStatusResponse } from '@/lib/status'
+import { isMetricsResponse, isStatusResponse } from '@/lib/status'
 
 describe('isStatusResponse', () => {
   it('accepts a valid statuses payload', () => {
@@ -12,8 +12,8 @@ describe('isStatusResponse', () => {
     expect(isStatusResponse({ statuses: { plex: { cpuPercent: 20 } } })).toBe(false)
   })
 
-  it('accepts a resource usage payload', () => {
-    expect(isResourceUsageResponse({
+  it('accepts a metrics payload', () => {
+    expect(isMetricsResponse({
       resource: {
         cpuPercent: 20,
         memoryUsage: 1_024,
@@ -33,7 +33,7 @@ describe('isStatusResponse', () => {
   })
 
   it('accepts numeric and text custom metrics', () => {
-    expect(isResourceUsageResponse({
+    expect(isMetricsResponse({
       resource: null,
       customMetrics: [
         { key: 'rpm', label: 'RPM', unit: { suffix: 'rpm' }, chart: 'none', value: 900, history: [], historyPeriodMs: 60_000 },
@@ -42,6 +42,20 @@ describe('isStatusResponse', () => {
         { key: 'state', label: 'State', value: 'Healthy', color: 'success' }
       ],
       metricErrors: [{ key: 'failed', message: 'Metric is unavailable' }]
+    })).toBe(true)
+  })
+
+  it('accepts observation-backed uptime metrics', () => {
+    expect(isMetricsResponse({
+      resource: null,
+      customMetrics: [],
+      uptimeMetrics: [{
+        key: 'gatus/uptime',
+        label: 'Gatus uptime',
+        current: 'up',
+        observations: [{ timestamp: 1_700_000_000_000, status: 'up', responseTimeMs: 120 }]
+      }],
+      metricErrors: []
     })).toBe(true)
   })
 })

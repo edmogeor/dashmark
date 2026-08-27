@@ -40,7 +40,7 @@ export function AboutDialog() {
         <button
           type="button"
           aria-label="About Dashmark"
-          className="dashmark-about-button inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+          className="dashmark-about-button inline-flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
         >
           <Info className="h-4 w-4" />
         </button>

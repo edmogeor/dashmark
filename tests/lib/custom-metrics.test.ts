@@ -27,6 +27,13 @@ beforeAll(async () => {
       response.end(JSON.stringify({ value: 'x'.repeat(1_048_577) }))
       return
     }
+    if (path === '/uptime') {
+      response.end(JSON.stringify({ results: [
+        { timestamp: '2026-08-26T12:00:00Z', success: true, duration: 12_000_000 },
+        { timestamp: '2026-08-26T12:05:00Z', success: false, duration: 40_000_000 }
+      ] }))
+      return
+    }
     if (path === '/login') {
       let body = ''
       request.on('data', chunk => { body += chunk })
@@ -121,6 +128,14 @@ beforeAll(async () => {
       ))
       return
     }
+    if (path.startsWith('/uptime-paginated')) {
+      const page = new URL(path, 'http://metrics.test').searchParams.get('page')
+      response.end(JSON.stringify(page === '2'
+        ? { results: [{ timestamp: 1_760_000_600, success: false }], pagination: { next: 0 } }
+        : { results: [{ timestamp: 1_760_000_000, success: true }], pagination: { next: 2 } }
+      ))
+      return
+    }
     const responses: Record<string, string> = {
       '/data': '{"stats":{"value":12.5}}',
       '/sum': '{"items":[{"value":2},{"value":3}]}',
@@ -165,6 +180,27 @@ describe('collectCustomMetric', () => {
   it('extracts scalar and aggregated JSON values with jq', async () => {
     await expect(collectCustomMetric('scalar', metric({ jq: { expression: '.stats.value' } }))).resolves.toEqual({ value: 12.5 })
     await expect(collectCustomMetric('sum', { ...metric({ jq: { expression: '[.items[].value] | add' } }), source: { url: `${baseUrl}/sum` } })).resolves.toEqual({ value: 5 })
+  })
+
+  it('extracts normalized uptime observations with jq', async () => {
+    await expect(collectCustomMetric('uptime', {
+      label: 'Uptime', valueType: 'uptime', source: { url: `${baseUrl}/uptime` },
+      jq: { expression: '[.results[] | { timestamp, status: (if .success then "up" else "down" end), responseTimeMs: (.duration / 1000000) }]' }
+    })).resolves.toEqual({ observations: [
+      { timestamp: Date.parse('2026-08-26T12:00:00Z'), status: 'up', responseTimeMs: 12 },
+      { timestamp: Date.parse('2026-08-26T12:05:00Z'), status: 'down', responseTimeMs: 40 }
+    ] })
+  })
+
+  it('extracts uptime observations across existing pagination', async () => {
+    await expect(collectCustomMetric('uptime-pages', {
+      label: 'Uptime', valueType: 'uptime', source: { url: `${baseUrl}/uptime-paginated` },
+      pagination: { items: { expression: '.results' }, next: { expression: '.pagination.next' } },
+      jq: { expression: '[.items[] | { timestamp, status: (if .success then "up" else "down" end) }]' }
+    })).resolves.toEqual({ observations: [
+      { timestamp: 1_760_000_000_000, status: 'up' },
+      { timestamp: 1_760_000_600_000, status: 'down' }
+    ] })
   })
 
   it('collects bounded, encoded child requests and reduces their numeric values', async () => {

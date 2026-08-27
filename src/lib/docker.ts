@@ -12,7 +12,7 @@ import { logger } from './logger'
 import { logMessages } from './log-messages'
 import { dashmarkError, errorMessage, isRecord, type DashmarkError } from './errors'
 import { strings } from './strings'
-import type { ContainerResources, ContainerStatus } from './status'
+import type { ContainerResources, ContainerStatus, UptimeMetric } from './status'
 import { collectCustomMetric } from './custom-metrics'
 import {
   DOCKER_REQUEST_TIMEOUT_MS,
@@ -844,10 +844,13 @@ export type CollectedCustomMetric =
   | { key: string; label: string; value: string }
   | { key: string; label: string; color: Extract<MetricOverride, { valueType: 'state' }>['color']; valueLabel?: string; value: string }
 
+export type CollectedUptimeMetric = UptimeMetric
+
 export type ContainerMetricUsage = {
   resource?: ContainerResources
   historyPeriodMs: number
   customMetrics: CollectedCustomMetric[]
+  uptimeMetrics?: CollectedUptimeMetric[]
   metricErrors: { key: string; message: string }[]
   metricsAccess?: Record<string, string[]>
   metricsPollIntervalMs?: number
@@ -871,6 +874,7 @@ type ContainerMetricSample = {
   cardId: string
   resource: ContainerResources | undefined
   customMetrics: CollectedCustomMetric[]
+  uptimeMetrics?: CollectedUptimeMetric[]
   metricErrors: ContainerMetricUsage['metricErrors']
   metricsPollIntervalMs: number
   metricsHistoryPeriodMs: number
@@ -918,18 +922,21 @@ function collectedCustomMetric(key: string, metric: MetricOverride, value: numbe
 async function collectSelectedCustomMetrics(
   metrics: SelectedCustomMetric[],
   metricErrors: ContainerMetricUsage['metricErrors']
-): Promise<Pick<ContainerMetricUsage, 'customMetrics' | 'metricErrors'>> {
+): Promise<Pick<ContainerMetricUsage, 'customMetrics' | 'uptimeMetrics' | 'metricErrors'>> {
   const results = await Promise.all(metrics.map(async ([key, metric]) => ({ key, metric, result: await collectCustomMetric(key, metric) })))
   const customMetrics: ContainerMetricUsage['customMetrics'] = []
+  const uptimeMetrics: ContainerMetricUsage['uptimeMetrics'] = []
   const collectedErrors = [...metricErrors]
   for (const { key, metric, result } of results) {
-    if ('value' in result) {
+    if ('observations' in result && metric.valueType === 'uptime') {
+      uptimeMetrics.push({ key, label: metric.label, current: result.observations.at(-1)?.status ?? 'unknown', observations: result.observations })
+    } else if ('value' in result) {
       const collected = collectedCustomMetric(key, metric, result.value)
       if (collected) customMetrics.push(collected)
     }
-    else collectedErrors.push({ key, message: result.error })
+    else if ('error' in result) collectedErrors.push({ key, message: result.error })
   }
-  return { customMetrics, metricErrors: collectedErrors }
+  return { customMetrics, ...(uptimeMetrics.length > 0 ? { uptimeMetrics } : {}), metricErrors: collectedErrors }
 }
 
 export async function getContainerMetricUsage(
@@ -954,8 +961,8 @@ export async function getContainerMetricUsage(
     if (!collect) return { historyPeriodMs, customMetrics: [], metricErrors, ...(metricsAccess ? { metricsAccess } : {}), metricsPollIntervalMs }
 
     const collected = await collectSelectedCustomMetrics(selectedMetrics, metricErrors)
-    if (collected.customMetrics.length === 0 && collected.metricErrors.length === 0) return undefined
-    return { ...collected, historyPeriodMs, metricsAccess }
+    if (collected.customMetrics.length === 0 && !collected.uptimeMetrics?.length && collected.metricErrors.length === 0) return undefined
+    return { ...collected, historyPeriodMs, ...(metricsAccess ? { metricsAccess } : {}) }
   }
 
   const host = configuredDockerHosts(config).find(candidate => cardId.startsWith(`${candidate.id}:`))
@@ -982,8 +989,8 @@ export async function getContainerMetricUsage(
       resourceStats.length > 0 ? getContainerResources(host.dockerHost, container.Id, resourceStats) : undefined,
       collectSelectedCustomMetrics(selectedMetrics, metricErrors)
     ])
-    if (!resource && collected.customMetrics.length === 0 && collected.metricErrors.length === 0) return undefined
-    return { resource, ...collected, historyPeriodMs, metricsAccess }
+    if (!resource && collected.customMetrics.length === 0 && !collected.uptimeMetrics?.length && collected.metricErrors.length === 0) return undefined
+    return { resource, ...collected, historyPeriodMs, ...(metricsAccess ? { metricsAccess } : {}) }
   } catch {
     return undefined
   }
@@ -1025,11 +1032,12 @@ export async function collectContainerResourceUsage(
           resourceStats.length > 0 ? getContainerResources(host.dockerHost, container.Id, resourceStats) : undefined,
           collectSelectedCustomMetrics(selectedMetrics, [])
         ])
-        if (!resource && collected.customMetrics.length === 0 && collected.metricErrors.length === 0) return undefined
+        if (!resource && collected.customMetrics.length === 0 && !collected.uptimeMetrics?.length && collected.metricErrors.length === 0) return undefined
         return {
           cardId,
           resource,
           customMetrics: collected.customMetrics,
+          ...(collected.uptimeMetrics ? { uptimeMetrics: collected.uptimeMetrics } : {}),
           metricErrors: collected.metricErrors,
           metricsPollIntervalMs,
           metricsHistoryPeriodMs: historyPeriodMs
@@ -1050,11 +1058,12 @@ export async function collectContainerResourceUsage(
     const metricsPollIntervalMs = service.metrics?.collection?.intervalMs ?? config.metricsPollIntervalMs
     if (!isDue(cardId, metricsPollIntervalMs)) return undefined
     const collected = await collectSelectedCustomMetrics(selectedMetrics, [])
-    if (collected.customMetrics.length === 0 && collected.metricErrors.length === 0) return undefined
+    if (collected.customMetrics.length === 0 && !collected.uptimeMetrics?.length && collected.metricErrors.length === 0) return undefined
     return {
       cardId,
       resource: undefined,
       customMetrics: collected.customMetrics,
+      ...(collected.uptimeMetrics ? { uptimeMetrics: collected.uptimeMetrics } : {}),
       metricErrors: collected.metricErrors,
       metricsPollIntervalMs,
       metricsHistoryPeriodMs: historyPeriodMs

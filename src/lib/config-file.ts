@@ -129,7 +129,7 @@ export type PrometheusMetricExtractor = {
 
 export type JqMetricExtractor = { expression: string }
 
-export type MetricPagination = {
+type MetricPagination = {
   items: JqMetricExtractor
   next: JqMetricExtractor
 }
@@ -175,7 +175,15 @@ export type StateMetricOverride = MetricCommon & {
   stateLabels?: Record<string, string>
 } & ({ jq: JqMetricExtractor; prometheus?: never; text?: never; forEach?: never } | { prometheus: PrometheusMetricExtractor; jq?: never; text?: never; forEach?: never } | { text: true; jq?: never; prometheus?: never; forEach?: never })
 
-export type MetricOverride = NumericMetricOverride | TextMetricOverride | StateMetricOverride
+export type UptimeMetricOverride = MetricCommon & {
+  valueType: 'uptime'
+  jq: JqMetricExtractor
+  prometheus?: never
+  text?: never
+  forEach?: never
+}
+
+export type MetricOverride = NumericMetricOverride | TextMetricOverride | StateMetricOverride | UptimeMetricOverride
 
 export type ServiceMetricOverrides = Record<string, MetricOverride>
 
@@ -867,7 +875,7 @@ function parseCustomMetric(key: string, configuredMetric: unknown, catalog: Reco
   if (Number(jq !== undefined) + Number(prometheus !== undefined) + Number(text) + Number(forEach !== undefined) !== 1) {
     return { error: 'define exactly one valid jq, prometheus, text, or for_each extractor' }
   }
-  if (valueType !== 'number' && valueType !== 'string' && valueType !== 'state') return { error: 'value_type must be number, string, or state' }
+  if (valueType !== 'number' && valueType !== 'string' && valueType !== 'state' && valueType !== 'uptime') return { error: 'value_type must be number, string, state, or uptime' }
   if (metric.rate !== undefined && metric.rate !== true) return { error: 'rate must be true when specified' }
   if (!chart) return { error: 'chart must be step, line, area, or none' }
   if (metric.transform !== undefined && !transform) return { error: 'transform must define finite multiply and/or add values' }
@@ -905,6 +913,13 @@ function parseCustomMetric(key: string, configuredMetric: unknown, catalog: Reco
     ...(parameters ? { parameters } : {}),
     ...(pagination ? { pagination } : {}),
     source: parsedSource.source
+  }
+  if (valueType === 'uptime') {
+    if (!jq) return { error: 'uptime metrics require a jq extractor' }
+    if (metric.unit !== undefined || metric.chart !== undefined || metric.chart_group !== undefined || metric.rate !== undefined || metric.transform !== undefined || metric.color !== undefined || metric.state_colors !== undefined || metric.state_labels !== undefined || transport !== undefined) {
+      return { error: 'uptime metrics cannot use units, charts, transforms, state colors, or Socket.IO' }
+    }
+    return { metric: { ...common, valueType, jq } }
   }
   if (valueType === 'string') return { metric: text ? { ...common, valueType, text: true } : jq ? { ...common, valueType, jq } : { ...common, valueType, prometheus: prometheus! } }
   if (valueType === 'state') {

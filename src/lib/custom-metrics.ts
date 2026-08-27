@@ -7,6 +7,7 @@ import { io } from 'socket.io-client'
 import { CookieJar } from 'tough-cookie'
 import type { CustomMetricReduction, MetricOverride } from './config-file'
 import { logger } from './logger'
+import type { UptimeObservation, UptimeStatus } from './status'
 
 const REQUEST_TIMEOUT_MS = 5_000
 const MAX_RESPONSE_BYTES = 1_048_576
@@ -15,7 +16,7 @@ const FOR_EACH_CONCURRENCY = 4
 const MAX_PAGINATION_PAGES = 32
 const cookieJars = new Map<string, CookieJar>()
 
-export type MetricResult = { value: number | string } | { error: string }
+export type MetricResult = { value: number | string } | { observations: UptimeObservation[] } | { error: string }
 
 function unavailable(key: string, detail: string): MetricResult {
   logger.error('metrics', 'custom metric collection failed', { key, detail })
@@ -57,6 +58,52 @@ async function extractJq(key: string, text: string, metric: MetricOverride): Pro
   return extractJqValue(key, document, metric)
 }
 
+function uptimeTimestamp(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value < 100_000_000_000 ? value * 1_000 : value
+  if (typeof value === 'string') {
+    const timestamp = Date.parse(value)
+    return Number.isFinite(timestamp) ? timestamp : undefined
+  }
+  return undefined
+}
+
+function uptimeStatus(value: unknown): UptimeStatus | undefined {
+  if (value === true || value === 'up') return 'up'
+  if (value === false || value === 'down') return 'down'
+  if (value === 'unknown') return 'unknown'
+  return undefined
+}
+
+async function extractUptime(key: string, text: string, metric: Extract<MetricOverride, { valueType: 'uptime' }>): Promise<MetricResult> {
+  try {
+    const document = JSON.parse(text) as JsonInput
+    return extractUptimeDocument(key, document, metric)
+  } catch {
+    return unavailable(key, 'response is not valid JSON')
+  }
+}
+
+async function extractUptimeDocument(key: string, document: JsonInput, metric: Extract<MetricOverride, { valueType: 'uptime' }>): Promise<MetricResult> {
+  try {
+    const items = await jq.run(metric.jq.expression, document, { input: 'json', output: 'json' })
+    if (!Array.isArray(items)) return unavailable(key, 'uptime observation extraction did not produce an array')
+    const observations: UptimeObservation[] = []
+    for (const item of items) {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return unavailable(key, 'uptime observation extraction produced an invalid item')
+      const observation = item as { timestamp?: unknown; status?: unknown; responseTimeMs?: unknown }
+      const timestamp = uptimeTimestamp(observation.timestamp)
+      const status = uptimeStatus(observation.status)
+      if (timestamp === undefined || !status) return unavailable(key, 'uptime observation timestamp or status is invalid')
+      const responseTime = observation.responseTimeMs
+      if (responseTime !== undefined && (typeof responseTime !== 'number' || !Number.isFinite(responseTime))) return unavailable(key, 'uptime observation response time is invalid')
+      observations.push({ timestamp, status, ...(responseTime === undefined ? {} : { responseTimeMs: responseTime }) })
+    }
+    return { observations: observations.sort((a, b) => a.timestamp - b.timestamp) }
+  } catch {
+    return unavailable(key, 'uptime extraction failed')
+  }
+}
+
 async function collectPaginatedJq(
   key: string,
   text: string,
@@ -72,7 +119,11 @@ async function collectPaginatedJq(
       if (!Array.isArray(pageItems)) return unavailable(key, 'pagination item extraction did not produce an array')
       items.push(...pageItems)
       const next: unknown = await jq.run(metric.pagination.next.expression, document, { input: 'json', output: 'json' })
-      if (next === 0 || next === null) return extractJqValue(key, { items }, metric)
+        if (next === 0 || next === null) {
+          return metric.valueType === 'uptime'
+            ? extractUptimeDocument(key, { items }, metric)
+            : extractJqValue(key, { items }, metric)
+        }
       if (typeof next !== 'number' || !Number.isInteger(next) || next < 1) return unavailable(key, 'pagination next extraction did not produce a page number')
       const url = new URL(metric.source.url)
       url.searchParams.set('page', String(next))
@@ -189,7 +240,7 @@ function extractPrometheus(key: string, text: string, metric: MetricOverride): M
 }
 
 function transform(key: string, result: MetricResult, metric: MetricOverride): MetricResult {
-  if ('error' in result || metric.valueType !== 'number' || typeof result.value !== 'number' || !metric.transform) return result
+  if ('error' in result || !('value' in result) || metric.valueType !== 'number' || typeof result.value !== 'number' || !metric.transform) return result
   const value = result.value * (metric.transform.multiply ?? 1) + (metric.transform.add ?? 0)
   return Number.isFinite(value) ? { value } : unavailable(key, 'metric transform did not produce a finite number')
 }
@@ -530,7 +581,9 @@ export async function collectCustomMetric(key: string, metric: MetricOverride): 
             if (page.error || !page.response) throw new Error(page.error ?? 'Could not reach metric source')
             return page.response
           })
-      : metric.text ? extractText(key, response.text, metric) : 'jq' in metric ? await extractJq(key, response.text, metric) : extractPrometheus(key, response.text, metric)
+        : metric.valueType === 'uptime'
+          ? await extractUptime(key, response.text, metric)
+          : metric.text ? extractText(key, response.text, metric) : 'jq' in metric ? await extractJq(key, response.text, metric) : extractPrometheus(key, response.text, metric)
     return transform(key, extracted, metric)
   } catch (error) {
     const detail = error instanceof Error ? error.name : 'unknown error'

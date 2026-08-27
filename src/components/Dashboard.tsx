@@ -168,13 +168,13 @@ type CategoryColumnProps = {
   data: CategoryItem
   twoColumn: boolean
   showStatus: boolean
-  showResourceUsage: boolean
+  showMetrics: boolean
   isLoading: boolean
   openInNewTab: boolean
   enableCardLayout: boolean
 }
 
-function CategoryColumn({ data, twoColumn, showStatus, showResourceUsage, isLoading, openInNewTab, enableCardLayout }: CategoryColumnProps) {
+function CategoryColumn({ data, twoColumn, showStatus, showMetrics, isLoading, openInNewTab, enableCardLayout }: CategoryColumnProps) {
   const { category, cards } = data
   return (
     <Card className="dashmark-category @container overflow-hidden">
@@ -192,7 +192,7 @@ function CategoryColumn({ data, twoColumn, showStatus, showResourceUsage, isLoad
               className="h-full"
               transition={{ layout: POSITION_TRANSITION }}
             >
-                <AppCard card={card} showStatus={showStatus} showResourceUsage={showResourceUsage} isLoading={isLoading} openInNewTab={openInNewTab} />
+                <AppCard card={card} showStatus={showStatus} showMetrics={showMetrics} isLoading={isLoading} openInNewTab={openInNewTab} />
             </motion.div>
           ))}
         </div>
@@ -211,13 +211,13 @@ type MasonryGridProps = {
   onReady?: () => void
   animate?: boolean
   showStatus: boolean
-  showResourceUsage: boolean
+  showMetrics: boolean
   isLoading: boolean
   openInNewTab: boolean
   enableCardLayout: boolean
 }
 
-function MasonryGrid({ items, entries, onReady, animate, showStatus, showResourceUsage, isLoading, openInNewTab, enableCardLayout }: MasonryGridProps) {
+function MasonryGrid({ items, entries, onReady, animate, showStatus, showMetrics, isLoading, openInNewTab, enableCardLayout }: MasonryGridProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const notifiedRef = useRef(false)
   const onReadyRef = useRef(onReady)
@@ -310,7 +310,7 @@ function MasonryGrid({ items, entries, onReady, animate, showStatus, showResourc
                     data={item}
                     twoColumn={twoColumn}
                     showStatus={showStatus}
-                    showResourceUsage={showResourceUsage}
+                    showMetrics={showMetrics}
                     isLoading={isLoading}
                     openInNewTab={openInNewTab}
                     enableCardLayout={enableCardLayout}
@@ -330,7 +330,7 @@ type DashboardProps = {
   initialError?: DashmarkError
   initialShowSearch?: boolean
   initialShowStatus?: boolean
-  initialShowResourceUsage?: boolean
+  initialShowMetrics?: boolean
   initialShowBranding?: boolean
   initialOpenInNewTab?: boolean
   enableStatusPolling?: boolean
@@ -484,7 +484,7 @@ type DashboardResultsProps = {
   uncategorised: CardType[]
   categoryItems: CategoryItem[]
   showStatus: boolean
-  showResourceUsage: boolean
+  showMetrics: boolean
   isLoading: boolean
   openInNewTab: boolean
   onMasonryReady: () => void
@@ -528,7 +528,7 @@ function DashboardResults({
   uncategorised,
   categoryItems,
   showStatus,
-  showResourceUsage,
+  showMetrics,
   isLoading,
   openInNewTab,
   onMasonryReady,
@@ -556,7 +556,7 @@ function DashboardResults({
             const entry = cardEntries.get(card.id)
             return (
               <AnimatedGridItem key={entry?.key} layoutId={`card-${card.id}`} isReentry={isSearching || entry?.isReentry} delay={0.08 + index * 0.06}>
-                <AppCard card={card} showStatus={showStatus} showResourceUsage={showResourceUsage} asCard isLoading={isLoading} openInNewTab={openInNewTab} />
+                <AppCard card={card} showStatus={showStatus} showMetrics={showMetrics} asCard isLoading={isLoading} openInNewTab={openInNewTab} />
               </AnimatedGridItem>
             )
           })}
@@ -573,7 +573,7 @@ function DashboardResults({
       animate={animateMasonry}
       enableCardLayout={enableCardLayout}
       showStatus={showStatus}
-      showResourceUsage={showResourceUsage}
+      showMetrics={showMetrics}
       isLoading={isLoading}
       openInNewTab={openInNewTab}
     />
@@ -585,7 +585,7 @@ function DashboardContent({
   initialError,
   initialShowSearch = true,
   initialShowStatus = true,
-  initialShowResourceUsage = true,
+  initialShowMetrics = true,
   initialShowBranding = true,
   initialOpenInNewTab = false,
   enableStatusPolling = true,
@@ -695,7 +695,7 @@ function DashboardContent({
               uncategorised={flatCards}
               categoryItems={categoryItems}
               showStatus={initialShowStatus}
-              showResourceUsage={initialShowResourceUsage}
+              showMetrics={initialShowMetrics}
               isLoading={showLoading || statusUnavailable}
               openInNewTab={initialOpenInNewTab}
               onMasonryReady={handleMasonryReady}

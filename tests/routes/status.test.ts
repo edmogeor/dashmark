@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { getStatusResponse } from '@/pages/api/status'
-import { getResourceUsageResponse } from '@/pages/api/resources'
+import { getMetricsResponse } from '@/pages/api/metrics'
 
 const originalEnableAccessControl = process.env.ENABLE_ACCESS_CONTROL
 const originalAccessGroupsHeader = process.env.ACCESS_GROUPS_HEADER
@@ -36,13 +36,13 @@ describe('GET /api/status', () => {
     expect(response.headers.get('Vary')).toContain('X-Dashmark-Token')
   })
 
-  it('varies resource responses by groups when resource metrics are restricted', async () => {
+  it('varies metrics responses by groups when resource metrics are restricted', async () => {
     process.env.ENABLE_ACCESS_CONTROL = 'false'
     process.env.ACCESS_GROUPS_HEADER = 'X-Test-Groups'
     process.env.SHOW_METRICS = 'true'
     process.env.METRICS_ACCESS = 'admins'
 
-    const response = await getResourceUsageResponse(new Request('http://dashmark.test/api/resources?id=default:container'))
+    const response = await getMetricsResponse(new Request('http://dashmark.test/api/metrics?id=default:container'))
 
     expect(response.headers.get('Cache-Control')).toBe('public, max-age=0, s-maxage=5, must-revalidate')
     expect(response.headers.get('Vary')).toContain('X-Test-Groups')

@@ -276,7 +276,7 @@ function validate(file, provider) {
   const value = record(definition.value ?? {}, 'value must be a mapping')
   allowed(value, new Set(['kind', 'unit', 'rate', 'transform', 'default_color', 'colors', 'labels']), 'value')
   const valueType = value.kind ?? 'number'
-  if (valueType !== 'number' && valueType !== 'string' && valueType !== 'state') throw new Error('value.kind must be number, string, or state')
+  if (valueType !== 'number' && valueType !== 'string' && valueType !== 'state' && valueType !== 'uptime') throw new Error('value.kind must be number, string, state, or uptime')
   const extract = record(definition.extract, 'extract must be a mapping')
   allowed(extract, new Set(['jq', 'prometheus', 'text', 'for_each', 'pagination']), 'extract')
   const hasJq = extract.jq !== undefined
@@ -293,6 +293,11 @@ function validate(file, provider) {
     if (value.rate !== undefined && value.rate !== true) throw new Error('value.rate must be true when specified')
     if (value.transform !== undefined) validateTransform(value.transform)
     if (value.default_color !== undefined || value.colors !== undefined || value.labels !== undefined) throw new Error('value colors require kind state')
+  } else if (valueType === 'uptime') {
+    if (!hasJq) throw new Error('uptime metrics require a jq extractor')
+    if (value.unit !== undefined || value.rate !== undefined || value.transform !== undefined || value.default_color !== undefined || value.colors !== undefined || value.labels !== undefined) {
+      throw new Error('uptime metrics cannot define units, rates, transforms, or state colors')
+    }
   } else if (value.unit !== undefined || value.rate !== undefined || value.transform !== undefined) {
     throw new Error('string and state metrics cannot define a unit, rate, or transform')
   }

@@ -1,6 +1,23 @@
 {
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
   "ignoreDependencies": [
-    "@astrojs/node"
+    "@astrojs/node",
+    "shadcn",
+    "tailwindcss"
+  ],
+  "entry": [
+    "docs/src/components/Sidebar.astro",
+    "docs/src/components/SiteTitle.astro",
+    "docs/src/components/ThemeSelect.astro",
+    "docs/src/styles/custom.css"
+  ],
+  "ignoreExports": [
+    {
+      "file": "demo/page.astro",
+      "exports": ["prerender"]
+    }
+  ],
+  "ignoreUnresolvedImports": [
+    "../src/pages/demo.astro"
   ]
 }

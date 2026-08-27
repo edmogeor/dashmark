@@ -1,23 +1,26 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  isResourceUsageResponse,
+  isMetricsResponse,
   type ContainerResources,
   type CustomMetric,
   type ResourceMetricSample,
+  type UptimeMetric,
 } from '@/lib/status'
 import { DEFAULT_METRICS_POLL_INTERVAL_MS } from '@/lib/constants'
 import { demoResourceUsage } from '@/demo/resources'
+import { demoUptimeMetrics } from '@/demo/uptime'
 
-type ResourceUsage = {
+type MetricUsage = {
   resources: ContainerResources | null
   history: ResourceMetricSample[]
   historyPeriodMs: number
   customMetrics: CustomMetric[]
   metricErrors: { key: string; message: string }[]
+  uptimeMetrics: UptimeMetric[]
   loading: boolean
 }
 
-function useDemoResourceUsage(
+function useDemoMetrics(
   cardId: string,
   active: boolean,
   update: (sample: ResourceMetricSample) => void,
@@ -32,14 +35,14 @@ function useDemoResourceUsage(
   }, [active, cardId, pollIntervalMs, update])
 }
 
-export function useResourceUsage(
+export function useMetrics(
   cardId: string,
   enabled: boolean,
   active: boolean,
   initialResources?: ContainerResources,
   pollIntervalMs = DEFAULT_METRICS_POLL_INTERVAL_MS,
   isDemo = false,
-): ResourceUsage {
+): MetricUsage {
   const [resources, setResources] = useState<ContainerResources | null>(
     initialResources ?? null,
   )
@@ -49,6 +52,7 @@ export function useResourceUsage(
   const [metricErrors, setMetricErrors] = useState<
     { key: string; message: string }[]
   >([])
+  const [uptimeMetrics, setUptimeMetrics] = useState<UptimeMetric[]>([])
   const [loading, setLoading] = useState(false)
   const updateDemo = useCallback(
     (sample: ResourceMetricSample) => {
@@ -65,6 +69,7 @@ export function useResourceUsage(
             ),
       )
       setLoading(false)
+      setUptimeMetrics(demoUptimeMetrics(cardId, sample.timestamp))
     },
     [cardId],
   )
@@ -75,15 +80,17 @@ export function useResourceUsage(
     setHistory([])
     setCustomMetrics([])
     setMetricErrors([])
+    setUptimeMetrics([])
     setLoading(false)
   }, [initialResources, isDemo])
-  useDemoResourceUsage(cardId, enabled && active && isDemo, updateDemo, pollIntervalMs)
+  useDemoMetrics(cardId, enabled && active && isDemo, updateDemo, pollIntervalMs)
   useEffect(() => {
     if (initialResources || !enabled || !active || isDemo) return
     setResources(null)
     setHistory([])
     setCustomMetrics([])
     setMetricErrors([])
+    setUptimeMetrics([])
     setLoading(true)
     let stopped = false
     let timeout: ReturnType<typeof setTimeout> | undefined
@@ -93,15 +100,16 @@ export function useResourceUsage(
       controller = new AbortController()
       try {
         const response = await fetch(
-          `/api/resources?id=${encodeURIComponent(cardId)}`,
+          `/api/metrics?id=${encodeURIComponent(cardId)}`,
           { signal: controller.signal },
         )
         const data: unknown = await response.json()
-        if (!stopped && response.ok && isResourceUsageResponse(data)) {
+        if (!stopped && response.ok && isMetricsResponse(data)) {
           pending = data.pending === true
           setResources(data.resource)
           setHistory(data.history ?? [])
           setCustomMetrics(data.customMetrics)
+          setUptimeMetrics(data.uptimeMetrics ?? [])
           setMetricErrors(data.metricErrors)
           if (data.historyPeriodMs) setHistoryPeriodMs(data.historyPeriodMs)
         }
@@ -111,6 +119,7 @@ export function useResourceUsage(
           setResources(null)
           setHistory([])
           setCustomMetrics([])
+          setUptimeMetrics([])
           setMetricErrors([])
         }
       } finally {
@@ -134,6 +143,7 @@ export function useResourceUsage(
     historyPeriodMs,
     customMetrics,
     metricErrors,
+    uptimeMetrics,
     loading,
   }
 }

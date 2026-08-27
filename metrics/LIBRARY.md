@@ -17,6 +17,7 @@ Credential options list the environment variables, secret files, or Docker label
 | crowdsec-web-ui | alerts | Alerts | None | DASHMARK_CROWDSEC_WEB_UI_PASSWORD or dashmark.metric_password (optional), DASHMARK_CROWDSEC_WEB_UI_USERNAME or dashmark.metric_username (optional) |
 | crowdsec-web-ui | decisions | Active decisions | None | DASHMARK_CROWDSEC_WEB_UI_PASSWORD or dashmark.metric_password (optional), DASHMARK_CROWDSEC_WEB_UI_USERNAME or dashmark.metric_username (optional) |
 | crowdsec-web-ui | lapi-status | LAPI status | None | DASHMARK_CROWDSEC_WEB_UI_PASSWORD or dashmark.metric_password (optional), DASHMARK_CROWDSEC_WEB_UI_USERNAME or dashmark.metric_username (optional) |
+| gatus | uptime | Uptime | endpoint_key (Gatus endpoint key) | None |
 | homeassistant | entities | Entities | None | DASHMARK_HOMEASSISTANT_TOKEN or dashmark.metric_token |
 | homeassistant | entity-state | Entity State | entity_id (Entity ID) | DASHMARK_HOMEASSISTANT_TOKEN or dashmark.metric_token |
 | homeassistant | template-state | Template State | template (Template) | DASHMARK_HOMEASSISTANT_TOKEN or dashmark.metric_token |

@@ -4,7 +4,7 @@ import { DatabaseSync } from 'node:sqlite'
 import type { AppConfig } from './config'
 import { collectContainerResourceUsage } from './docker'
 import type { ContainerMetricUsage } from './docker'
-import type { ContainerResources, ResourceMetricSample } from './status'
+import type { ContainerResources, ResourceMetricSample, UptimeMetric, UptimeObservation } from './status'
 
 type DatabaseState = { path: string; database: DatabaseSync }
 type DatabaseMetricRow = {
@@ -24,6 +24,7 @@ let collectionInProgress = false
 const lastMetricCollection = new Map<string, number>()
 const latestMetricUsage = new Map<string, ContainerMetricUsage>()
 const customMetricCounterCache = new Map<string, { value: number; timestamp: number }>()
+const uptimeMetricCache = new Map<string, UptimeObservation[]>()
 
 export function counterRates(cardId: string, metrics: ContainerMetricUsage['customMetrics'], timestamp: number): ContainerMetricUsage['customMetrics'] {
   return metrics.flatMap(metric => {
@@ -33,6 +34,23 @@ export function counterRates(cardId: string, metrics: ContainerMetricUsage['cust
     customMetricCounterCache.set(key, { value: metric.value, timestamp })
     if (!previous || timestamp <= previous.timestamp) return [{ ...metric, value: 0, pending: true }]
     return [{ ...metric, value: Math.max(0, (metric.value - previous.value) / ((timestamp - previous.timestamp) / 1_000)) }]
+  })
+}
+
+function observationKey(observation: UptimeObservation): string {
+  return `${observation.timestamp}\0${observation.status}\0${observation.responseTimeMs ?? ''}`
+}
+
+function mergeUptimeMetrics(cardId: string, metrics: UptimeMetric[] | undefined, historyPeriodMs: number, timestamp: number): UptimeMetric[] | undefined {
+  if (!metrics?.length) return undefined
+  const cutoff = timestamp - historyPeriodMs
+  return metrics.map(metric => {
+    const key = `${cardId}\0${metric.key}`
+    const observations = new Map((uptimeMetricCache.get(key) ?? []).map(observation => [observationKey(observation), observation]))
+    for (const observation of metric.observations) observations.set(observationKey(observation), observation)
+    const retained = [...observations.values()].filter(observation => observation.timestamp >= cutoff).sort((a, b) => a.timestamp - b.timestamp)
+    uptimeMetricCache.set(key, retained)
+    return { ...metric, current: retained.at(-1)?.status ?? 'unknown', observations: retained }
   })
 }
 
@@ -177,10 +195,16 @@ async function collectAndSave(config: AppConfig): Promise<void> {
   })
   const timestamp = Date.now()
   const db = database(config.metricsDatabasePath)
-  const collected = samples.map(({ cardId, resource, customMetrics, metricErrors, metricsHistoryPeriodMs }) => ({
+  const collected = samples.map(({ cardId, resource, customMetrics, uptimeMetrics, metricErrors, metricsHistoryPeriodMs }) => ({
     cardId,
     resource,
     customMetrics: counterRates(cardId, customMetrics, timestamp),
+    uptimeMetrics: mergeUptimeMetrics(
+      cardId,
+      uptimeMetrics ?? latestMetricUsage.get(cardId)?.uptimeMetrics,
+      metricsHistoryPeriodMs,
+      timestamp,
+    ),
     metricErrors,
     metricsHistoryPeriodMs
   }))
@@ -202,8 +226,8 @@ async function collectAndSave(config: AppConfig): Promise<void> {
     throw error
   }
 
-  for (const { cardId, resource, customMetrics, metricErrors, metricsHistoryPeriodMs } of collected) {
-    latestMetricUsage.set(cardId, { resource, customMetrics, metricErrors, historyPeriodMs: metricsHistoryPeriodMs })
+  for (const { cardId, resource, customMetrics, uptimeMetrics, metricErrors, metricsHistoryPeriodMs } of collected) {
+    latestMetricUsage.set(cardId, { resource, customMetrics, uptimeMetrics, metricErrors, historyPeriodMs: metricsHistoryPeriodMs })
     lastMetricCollection.set(cardId, timestamp)
   }
 }
@@ -236,4 +260,5 @@ export function clearMetricsDatabase(): void {
   lastMetricCollection.clear()
   latestMetricUsage.clear()
   customMetricCounterCache.clear()
+  uptimeMetricCache.clear()
 }

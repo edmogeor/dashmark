@@ -154,6 +154,15 @@
 .dashmark-state-error { --dashmark-state-color: var(--dashmark-status-error); }
 .dashmark-state-disabled { --dashmark-state-color: var(--dashmark-status-disabled); }
 
+.dashmark-uptime-heartbeat-cell {
+  transition: opacity 150ms ease;
+}
+
+.dashmark-uptime-heartbeat:has(.dashmark-uptime-heartbeat-cell:hover) .dashmark-uptime-heartbeat-cell:not(:hover),
+.dashmark-uptime-heartbeat:has(.dashmark-uptime-heartbeat-cell:focus-visible) .dashmark-uptime-heartbeat-cell:not(:focus-visible) {
+  opacity: 0.35;
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
