@@ -16,7 +16,7 @@ labels:
 
 ## Optional display and sorting labels
 
-`title`, `description`, `icon`, `category`, and `order` change how the card appears but are not required.
+`title`, `description`, `icon`, `category`, and `order` change how the card appears but are not required. When `title` is omitted, Dashmark uses the container name.
 
 ```yaml
 labels:
@@ -27,7 +27,7 @@ labels:
   dashmark.order: "10"
 ```
 
-`dashmark.order` sorts cards within a category, lowest first. Set `CATEGORY_ORDER=Media,Home` to order categories.
+`dashmark.order` sorts cards within a category, lowest first. Cards without an order follow ordered cards and are sorted alphabetically by title. Set `CATEGORY_ORDER=Media,Home` to order categories.
 
 ## Available labels
 
