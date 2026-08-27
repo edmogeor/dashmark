@@ -5,6 +5,7 @@ export default defineConfig({
   site: 'https://edmogeor.github.io',
   base: '/dashmark/docs',
   outDir: './dist/docs',
+  publicDir: '../public',
   vite: {
     resolve: {
       tsconfigPaths: false
@@ -14,6 +15,13 @@ export default defineConfig({
     starlight({
       title: 'Docs',
       description: 'Configure Dashmark dashboards for Docker services.',
+      favicon: '/favicon.svg',
+      head: [
+        { tag: 'meta', attrs: { property: 'og:image', content: 'https://edmogeor.github.io/dashmark/docs/brand/og-image.png' } },
+        { tag: 'meta', attrs: { property: 'og:image:width', content: '1200' } },
+        { tag: 'meta', attrs: { property: 'og:image:height', content: '630' } },
+        { tag: 'meta', attrs: { name: 'twitter:image', content: 'https://edmogeor.github.io/dashmark/docs/brand/og-image.png' } }
+      ],
       customCss: ['./src/styles/custom.css'],
       components: {
         ThemeSelect: './src/components/ThemeSelect.astro'
