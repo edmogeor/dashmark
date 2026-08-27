@@ -36,6 +36,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
         working-directory: docs
+      - name: Build demo
+        run: npm run build
+        env:
+          ASTRO_BASE: /dashmark
+          ASTRO_SITE: https://edmogeor.github.io
+          DASHMARK_DEMO: 'true'
       - name: Build documentation
         run: npm run build
         working-directory: docs
@@ -44,7 +50,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/dist
+          path: dist/client
   deploy:
     environment:
       name: github-pages

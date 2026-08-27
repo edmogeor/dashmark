@@ -59,6 +59,10 @@ docker compose up -d
 
 Open Dashmark at `http://<server-address>:4321`, or at the domain configured by your reverse proxy. Recreate a service after changing its labels:
 
+![Dashmark dashboard with service cards, categories, status badges, search, and group tags.](../../../assets/dashboard-overview.png)
+
+Dashmark groups discovered services into categories and adds status badges, search, and access-group tags when enabled.
+
 ```bash
 docker compose up -d --force-recreate plex
 ```

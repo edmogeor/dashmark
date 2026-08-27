@@ -33,6 +33,10 @@ labels:
 
 Dashmark collects metrics every 10 seconds by default. Set `METRICS_DATABASE_PATH` to a mounted path such as `/data/metrics.db` to retain metric history when the Dashmark container is replaced.
 
+![Dashmark's full network-usage chart showing inbound and outbound traffic over time.](../../../assets/network-usage-graph.png)
+
+Select a metric from a card's metrics panel to open its full history chart. Network usage displays inbound and outbound traffic together.
+
 ```yaml
 services:
   dashmark:

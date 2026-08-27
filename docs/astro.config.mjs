@@ -4,7 +4,7 @@ import starlight from '@astrojs/starlight'
 export default defineConfig({
   site: 'https://edmogeor.github.io',
   base: '/dashmark/docs',
-  outDir: './dist/docs',
+  outDir: '../dist/client/docs',
   publicDir: '../public',
   vite: {
     resolve: {
