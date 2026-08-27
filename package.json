@@ -59,6 +59,7 @@
     "@types/js-yaml": "^4.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "fallow": "3.17.0",
     "happy-dom": "^20.11.2",
     "oxlint": "^1.78.0",
     "shadcn": "^4.16.2",
