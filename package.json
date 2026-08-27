@@ -10,6 +10,7 @@
     "prebuild": "npm run fetch-icons && npm run fetch-descriptions",
     "prepare": "simple-git-hooks",
     "build": "astro build",
+    "build:demo": "node scripts/build-demo.mjs",
     "preview": "astro preview",
     "astro": "astro",
     "typecheck": "astro check",

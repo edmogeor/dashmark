@@ -7,5 +7,7 @@
     "paths": {
       "@/*": ["./src/*"]
     }
-  }
+  },
+  "include": ["src", "tests", "astro.config.mjs", "vitest.config.ts"],
+  "exclude": ["docs"]
 }
