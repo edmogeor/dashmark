@@ -5,6 +5,8 @@ description: Configure Dashmark-wide behavior with environment variables or YAML
 
 Set options with environment variables in Compose, or use their snake_case names in `config.yml` under `settings`. YAML takes precedence. `CONFIG_FILE` is the only environment-only option.
 
+Before upgrading, review the [release notes](https://github.com/edmogeor/dashmark/releases) for breaking configuration changes.
+
 ```yaml
 services:
   dashmark:
