@@ -5,6 +5,11 @@ export default defineConfig({
   site: 'https://edmogeor.github.io',
   base: '/dashmark/docs',
   outDir: './dist/docs',
+  vite: {
+    resolve: {
+      tsconfigPaths: false
+    }
+  },
   integrations: [
     starlight({
       title: 'Docs',
