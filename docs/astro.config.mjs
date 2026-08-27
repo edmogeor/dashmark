@@ -61,6 +61,12 @@ export default defineConfig({
           items: [
             { label: 'Deployment and security', link: '/deployment/security/' }
           ]
+        },
+        {
+          label: 'Support Dashmark',
+          items: [
+            { label: 'Buy me a coffee', link: 'https://www.buymeacoffee.com/edmogeor' }
+          ]
         }
       ]
     })

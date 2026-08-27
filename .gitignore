@@ -1,6 +1,7 @@
 node_modules
 npm-debug.log
 dist
+docs/public/llms-full.txt
 .astro
 .git
 .env

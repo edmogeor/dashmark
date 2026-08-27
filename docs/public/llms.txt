@@ -1,0 +1,19 @@
+# Dashmark Documentation
+
+> Dashmark is a lightweight dashboard for Docker services.
+
+## Documentation
+
+- [Complete documentation](https://edmogeor.github.io/dashmark/docs/llms-full.txt): All Dashmark documentation in one Markdown-compatible text file.
+- [Quick start](https://edmogeor.github.io/dashmark/docs/guides/quick-start/): Run Dashmark with Docker Compose or Docker commands.
+- [Card configuration](https://edmogeor.github.io/dashmark/docs/configuration/cards/): Docker labels, Traefik URL discovery, card ordering, icons, and access rules.
+- [YAML configuration](https://edmogeor.github.io/dashmark/docs/configuration/yaml/): Overrides and standalone cards.
+- [Dashboard settings](https://edmogeor.github.io/dashmark/docs/configuration/settings/): Environment variables and YAML settings.
+- [Access control](https://edmogeor.github.io/dashmark/docs/configuration/access-control/): Trusted identity headers and card restrictions.
+- [Metrics](https://edmogeor.github.io/dashmark/docs/metrics/): Container, library, and custom metrics.
+
+## Source and support
+
+- [Repository](https://github.com/edmogeor/dashmark)
+- [Documentation source](https://github.com/edmogeor/dashmark/tree/main/docs/src/content/docs)
+- [Configuration examples](https://github.com/edmogeor/dashmark/tree/main/config)
