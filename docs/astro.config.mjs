@@ -13,7 +13,7 @@ export default defineConfig({
   },
   integrations: [
     starlight({
-      title: 'Docs',
+      title: 'Dashmark Docs',
       description: 'Configure Dashmark dashboards for Docker services.',
       favicon: '/favicon.svg',
       head: [
