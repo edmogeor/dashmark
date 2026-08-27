@@ -39,7 +39,6 @@ export type Card = {
   resourceStats?: ResourceStat[]
   metrics?: string[]
   customMetricLabels?: { key: string; label: string }[]
-  metricProviders?: string[]
   metricsPollIntervalMs?: number
   metricsHistoryPeriodMs?: number
   metricsAccess?: Record<string, string[]>
@@ -436,7 +435,6 @@ function mergeWithYaml(
     showStatus: yamlService.showStatus ?? labels.showStatus,
     resourceStats: yamlMetrics?.container ?? labels.resourceStats,
     metrics: yamlMetrics ? yamlMetrics.entries : labels.metrics,
-    metricProviders: labels.metricProviders,
     metricsPollIntervalMs: yamlMetrics?.collection?.intervalMs ?? labels.metricsPollIntervalMs,
     metricsHistoryPeriodMs: yamlMetrics?.collection?.retentionMs ?? labels.metricsHistoryPeriodMs,
     metricsAccess: Object.keys(metricsAccess).length > 0 ? metricsAccess : labels.metricsAccess,
@@ -726,7 +724,6 @@ async function cardFromContainer(
     resourceStats: labels.resourceStats ?? [...RESOURCE_STATS],
     metrics: labels.metrics,
     ...(customMetrics.length > 0 ? { customMetricLabels: customMetrics.map(([key, metric]) => ({ key, label: metric.label })) } : {}),
-    metricProviders: labels.metricProviders,
     metricsPollIntervalMs: labels.metricsPollIntervalMs ?? config.metricsPollIntervalMs,
     metricsHistoryPeriodMs: labels.metricsHistoryPeriodMs,
     metricsAccess: labels.metricsAccess,
@@ -769,7 +766,6 @@ async function cardFromYaml(
     hostColor: service.host === undefined ? undefined : hostColor,
     metrics: resolved.labels.metrics,
     ...(customMetrics.length > 0 ? { customMetricLabels: customMetrics.map(([key, metric]) => ({ key, label: metric.label })) } : {}),
-    metricProviders: resolved.labels.metricProviders,
     metricsPollIntervalMs: resolved.labels.metricsPollIntervalMs ?? config.metricsPollIntervalMs,
     metricsHistoryPeriodMs: resolved.labels.metricsHistoryPeriodMs,
     metricsAccess: resolved.labels.metricsAccess,
@@ -862,7 +858,7 @@ export type ContainerMetricUsage = {
 
 type SelectedCustomMetric = [key: string, metric: MetricOverride]
 type ResolvedMetricCard = {
-  labels: Pick<ParsedLabels, 'resourceStats' | 'metrics' | 'metricProviders' | 'metricsPollIntervalMs' | 'metricsHistoryPeriodMs' | 'metricsAccess'>
+  labels: Pick<ParsedLabels, 'resourceStats' | 'metrics' | 'metricsPollIntervalMs' | 'metricsHistoryPeriodMs' | 'metricsAccess'>
   customMetrics?: ServiceMetricOverrides
   customMetricErrors?: Record<string, string>
 }

@@ -154,44 +154,17 @@ describe('getConfig feature toggles', () => {
     expect(cfg.enableAutomaticIcons).toBe(false)
   })
 
-  it('defaults showHeader to true', () => {
-    delete process.env.SHOW_HEADER
-    expect(getConfig().showHeader).toBe(true)
-  })
+  it.each([
+    ['SHOW_HEADER', 'showHeader', true, 'false', false],
+    ['SHOW_GROUP_TAGS', 'showGroupTags', true, 'false', false],
+    ['SHOW_THEME_TOGGLE', 'showThemeToggle', true, 'false', false],
+    ['NEW_TAB', 'openInNewTab', false, 'true', true]
+  ] as const)('uses %s to configure %s', (environmentVariable, configKey, defaultValue, configuredValue, expectedValue) => {
+    delete process.env[environmentVariable]
+    expect(getConfig()[configKey]).toBe(defaultValue)
 
-  it('can hide the header', () => {
-    process.env.SHOW_HEADER = 'false'
-    expect(getConfig().showHeader).toBe(false)
-  })
-
-  it('defaults showGroupTags to true', () => {
-    delete process.env.SHOW_GROUP_TAGS
-    expect(getConfig().showGroupTags).toBe(true)
-  })
-
-  it('can hide the group tags', () => {
-    process.env.SHOW_GROUP_TAGS = 'false'
-    expect(getConfig().showGroupTags).toBe(false)
-  })
-
-  it('defaults showThemeToggle to true', () => {
-    delete process.env.SHOW_THEME_TOGGLE
-    expect(getConfig().showThemeToggle).toBe(true)
-  })
-
-  it('can hide the theme toggle', () => {
-    process.env.SHOW_THEME_TOGGLE = 'false'
-    expect(getConfig().showThemeToggle).toBe(false)
-  })
-
-  it('defaults openInNewTab to false', () => {
-    delete process.env.NEW_TAB
-    expect(getConfig().openInNewTab).toBe(false)
-  })
-
-  it('can open links in a new tab', () => {
-    process.env.NEW_TAB = 'true'
-    expect(getConfig().openInNewTab).toBe(true)
+    process.env[environmentVariable] = configuredValue
+    expect(getConfig()[configKey]).toBe(expectedValue)
   })
 })
 

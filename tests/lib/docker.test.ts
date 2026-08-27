@@ -1026,7 +1026,6 @@ backup:
       Id: 'catalog-metric', Names: ['/service'], Image: 'service', ImageID: 'sha256:service',
       State: 'running', Status: 'Up 1 hour', Labels: {
         'dashmark.url': 'https://service.example.com',
-        'dashmark.metric_providers': 'test',
         'dashmark.metrics': 'test/queue-depth',
         'dashmark.metric_api_key': 'label-api-key'
       }

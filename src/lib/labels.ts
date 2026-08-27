@@ -12,7 +12,6 @@ export type ParsedLabels = {
   showStatus?: boolean
   resourceStats?: ResourceStat[]
   metrics?: string[]
-  metricProviders?: string[]
   metricsPollIntervalMs?: number
   metricsHistoryPeriodMs?: number
   metricsAccess?: Record<string, string[]>
@@ -39,13 +38,6 @@ function parseInterval(value: string | undefined): number | undefined {
   return Number.isInteger(seconds) && seconds > 0 ? seconds * 1_000 : undefined
 }
 
-function parseMetricProviders(value: string | undefined): string[] | undefined {
-  const providers = parseCommaSeparated(value)
-  return providers.length > 0 && providers.every(provider => /^[a-z][a-z0-9_-]*$/.test(provider))
-    ? [...new Set(providers)]
-    : undefined
-}
-
 export function parseResourceStats(value: string | string[] | undefined): ResourceStat[] | undefined {
   if (value === undefined) return undefined
   const values = (typeof value === 'string' ? value.split(',') : value)
@@ -69,7 +61,6 @@ export function parseLabels(labels: Record<string, string>): ParsedLabels {
   const order = orderRaw !== undefined ? Number(orderRaw) : undefined
   const showStatus = parseOptionalBool(get('show_status'))
   const metrics = parseCommaSeparated(get('metrics'))
-  const metricProviders = parseMetricProviders(get('metric_providers'))
   const resourceStats = metrics.length > 0 ? parseResourceStats(metrics) : undefined
   const metricsPollIntervalMs = parseInterval(get('metrics_poll_interval'))
   const metricsHistoryPeriodMs = parseInterval(get('metrics_history_period'))
@@ -95,7 +86,6 @@ export function parseLabels(labels: Record<string, string>): ParsedLabels {
     showStatus,
     resourceStats,
     ...(metrics.length > 0 ? { metrics } : {}),
-    ...(metricProviders !== undefined ? { metricProviders } : {}),
     ...(metricsPollIntervalMs !== undefined ? { metricsPollIntervalMs } : {}),
     ...(metricsHistoryPeriodMs !== undefined ? { metricsHistoryPeriodMs } : {}),
     ...(Object.keys(metricsAccess).length > 0 ? { metricsAccess } : {}),
