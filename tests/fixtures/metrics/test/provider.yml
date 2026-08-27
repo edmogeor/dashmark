@@ -1,0 +1,13 @@
+transforms:
+  endpoint_key:
+    trim: true
+    lowercase: true
+    replace:
+      "/": "-"
+      "_": "-"
+      ".": "-"
+      ",": "-"
+      " ": "-"
+      "#": "-"
+      "+": "-"
+      "&": "-"

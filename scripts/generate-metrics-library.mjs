@@ -43,6 +43,12 @@ function metricInputs(parameters) {
     .join(', ')
 }
 
+function metricNotes(provider, metric) {
+  const notes = [provider.notes, metric.notes]
+    .filter(note => typeof note === 'string' && note.trim())
+  return notes.length > 0 ? notes.join('\n') : 'None'
+}
+
 function library() {
   const rows = []
   for (const file of metricFiles(metricsDirectory).sort()) {
@@ -58,9 +64,10 @@ function library() {
     rows.push([
       relative[0],
       path.basename(relative[1], '.yml'),
-      metric.display.label,
-      metricInputs(metric.parameters),
-      credentials.length > 0 ? credentials.join(', ') : 'None'
+       metric.display.label,
+       metricInputs(metric.parameters),
+       credentials.length > 0 ? credentials.join(', ') : 'None',
+       metricNotes(provider, metric)
     ])
   }
 
@@ -69,10 +76,10 @@ function library() {
     '',
     '# Metric Library',
     '',
-    'Credential options list the environment variables, secret files, or Docker labels declared by each metric. Entries marked optional are used only after an anonymous request receives HTTP 401 or 403. Inputs must be supplied under `metrics.entries.<provider>/<metric>.inputs`.',
+    'Credential options list the environment variables, secret files, or Docker labels declared by each metric. Entries marked optional are used only after an anonymous request receives HTTP 401 or 403. Inputs must be supplied under `metrics.entries.<provider>/<metric>.inputs`. Notes may be declared in either the provider or metric definition.',
     '',
-    '| Provider | Metric | Label | Required inputs | Credential options |',
-    '| --- | --- | --- | --- | --- |',
+    '| Provider | Metric | Label | Required inputs | Credential options | Notes |',
+    '| --- | --- | --- | --- | --- | --- |',
     ...rows.map(row => `| ${row.map(value => escapeCell(value)).join(' | ')} |`),
     ''
   ]

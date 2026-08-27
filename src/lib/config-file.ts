@@ -146,7 +146,13 @@ export type MetricTransform = {
   add?: number
 }
 
-type MetricParameter = { label: string; type: 'url_component' | 'json_value' }
+type MetricUrlTransform = {
+  trim?: true
+  lowercase?: true
+  replace?: Record<string, string>
+}
+
+type MetricParameter = { label: string; type: 'url_component' | 'json_value'; transform?: MetricUrlTransform }
 
 type MetricCommon = {
   label: string
@@ -365,12 +371,27 @@ function parseMetricStateLabels(value: unknown): Record<string, string> | undefi
   return labels
 }
 
-function parseMetricParameters(value: unknown): Record<string, MetricParameter> | undefined {
+function parseMetricUrlTransform(value: unknown): MetricUrlTransform | undefined {
+  if (!isRecord(value) || Object.keys(value).some(key => key !== 'trim' && key !== 'lowercase' && key !== 'replace')) return undefined
+  if (value.trim !== undefined && value.trim !== true) return undefined
+  if (value.lowercase !== undefined && value.lowercase !== true) return undefined
+  const replacements = isRecord(value.replace) ? value.replace : undefined
+  if (value.replace !== undefined && (!replacements || Object.keys(replacements).some(key => !key || typeof replacements[key] !== 'string'))) return undefined
+  return Object.keys(value).length > 0 ? value : undefined
+}
+
+function parseMetricParameters(value: unknown, transforms?: unknown): Record<string, MetricParameter> | undefined {
   if (!isRecord(value) || Object.keys(value).length === 0) return undefined
   const parameters: Record<string, MetricParameter> = {}
   for (const [name, parameter] of Object.entries(value)) {
-    if (!/^[a-z][a-z0-9_]*$/.test(name) || !isRecord(parameter) || Object.keys(parameter).some(key => key !== 'label' && key !== 'type') || typeof parameter.label !== 'string' || !parameter.label || (parameter.type !== 'url_component' && parameter.type !== 'json_value')) return undefined
-    parameters[name] = { label: parameter.label, type: parameter.type }
+    if (!/^[a-z][a-z0-9_]*$/.test(name) || !isRecord(parameter) || Object.keys(parameter).some(key => key !== 'label' && key !== 'type' && key !== 'transform') || typeof parameter.label !== 'string' || !parameter.label || (parameter.type !== 'url_component' && parameter.type !== 'json_value')) return undefined
+    const transform = parameter.transform === undefined
+      ? undefined
+      : typeof parameter.transform === 'string' && isRecord(transforms)
+        ? parseMetricUrlTransform(transforms[parameter.transform])
+        : parseMetricUrlTransform(parameter.transform)
+    if (parameter.transform !== undefined && (parameter.type !== 'url_component' || !transform)) return undefined
+    parameters[name] = { label: parameter.label, type: parameter.type, ...(transform ? { transform } : {}) }
   }
   return parameters
 }
@@ -474,7 +495,7 @@ function metricCatalog(): Record<string, Record<string, unknown>> {
       const providerFile = path.join(path.dirname(file.path), 'provider.yml')
       const provider = fs.existsSync(providerFile) ? yaml.load(fs.readFileSync(providerFile, 'utf8')) : {}
       if (!isRecord(definition) || !isRecord(provider)) return catalog
-      const normalized = normalizeMetricDefinition({ ...definition, source: mergedSource(provider.source, definition.source) }, provider.charts)
+      const normalized = normalizeMetricDefinition({ ...definition, source: mergedSource(provider.source, definition.source) }, provider.charts, false, undefined, provider.transforms)
       return normalized.definition ? { ...catalog, [file.key]: normalized.definition } : catalog
     }, {})
     cachedCatalog = { signature, metrics }
@@ -784,11 +805,12 @@ function metricDefinitionFields(value: unknown, partial: boolean): { fields?: { 
   }
 }
 
-function normalizeMetricDefinition(value: unknown, providerCharts?: unknown, partial = false, sharedSources?: Record<string, Record<string, unknown>>): { definition?: Record<string, unknown>; error?: string } {
+function normalizeMetricDefinition(value: unknown, providerCharts?: unknown, partial = false, sharedSources?: Record<string, Record<string, unknown>>, providerTransforms?: unknown): { definition?: Record<string, unknown>; error?: string } {
   const parsed = metricDefinitionFields(value, partial)
   if (parsed.error || !parsed.fields) return { error: parsed.error }
   const { display: displayFields, metricValue: valueFields, extract: extractFields } = parsed.fields
-  const parameters = isRecord(value) ? value.parameters : undefined
+  const parameters = isRecord(value) ? parseMetricParameters(value.parameters, providerTransforms) : undefined
+  if (isRecord(value) && value.parameters !== undefined && !parameters) return { error: 'parameters must define named URL-component parameters and optional provider transforms' }
   const source = normalizeMetricSource(isRecord(value) ? value.source : undefined, sharedSources)
   if (source.error) return { error: source.error }
 

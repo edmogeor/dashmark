@@ -1,0 +1,205 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro'
+import libraryMarkdown from '../../../../metrics/LIBRARY.md?raw'
+
+type MetricRow = Record<'provider' | 'metric' | 'label' | 'inputs' | 'credentials' | 'notes', string>
+
+function cells(line: string): string[] {
+  return line.split(/(?<!\\)\|/).slice(1, -1).map(value => value.trim().replaceAll('\\|', '|').replaceAll('<br>', ' '))
+}
+
+const table = libraryMarkdown.split('\n').filter(line => line.startsWith('|'))
+const rows: MetricRow[] = table.slice(2).map(line => {
+  const [provider, metric, label, inputs, credentials, notes] = cells(line)
+  return { provider, metric, label, inputs, credentials, notes }
+})
+const providers = [...new Set(rows.map(row => row.provider))]
+---
+
+<StarlightPage
+  frontmatter={{
+    title: 'Metric library',
+    description: 'Use Dashmark’s built-in metric definitions for supported services.'
+  }}
+  headings={[
+    { depth: 2, slug: 'docker-labels', text: 'Docker labels' },
+    { depth: 2, slug: 'yaml-configuration', text: 'YAML configuration' },
+    { depth: 2, slug: 'restrict-one-metric', text: 'Restrict one metric' }
+  ]}
+>
+  <p>Dashmark includes reusable metric definitions for supported services.</p>
+
+  <div class="not-content metric-catalogue" data-metric-catalogue>
+    <div class="metric-catalogue-controls">
+      <label>
+        <span>Search metrics</span>
+        <input type="search" placeholder="Provider, metric, input, or credential" data-metric-search />
+      </label>
+      <div class="metric-provider-filter">
+        <span>Provider</span>
+        <details data-provider-filter data-value="">
+          <summary>All providers</summary>
+          <div class="metric-provider-options">
+            <button type="button" data-provider-option data-value="" aria-current="true">All providers</button>
+            {providers.map(provider => <button type="button" data-provider-option data-value={provider}>{provider}</button>)}
+          </div>
+        </details>
+      </div>
+    </div>
+    <p class="metric-catalogue-count" aria-live="polite" data-metric-count>{rows.length} metrics</p>
+    <div class="metric-catalogue-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Provider</th>
+            <th>Metric</th>
+            <th>Label</th>
+            <th><span class="sr-only">Details</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(row => (
+            <tr data-metric-row data-provider={row.provider} data-search={Object.values(row).join(' ').toLowerCase()}>
+              <td><code>{row.provider}</code></td>
+              <td><code>{row.metric}</code></td>
+              <td>{row.label}</td>
+              <td><button type="button" class="metric-detail-toggle" data-metric-detail-toggle aria-expanded="false">Details</button></td>
+            </tr>
+            <tr hidden data-metric-details>
+              <td colspan="4">
+                <dl class="metric-details">
+                  <div><dt>Required inputs</dt><dd>{row.inputs}</dd></div>
+                  <div><dt>Credential options</dt><dd>{row.credentials}</dd></div>
+                  <div><dt>Notes</dt><dd>{row.notes}</dd></div>
+                </dl>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p hidden data-metric-empty>No metrics match these filters.</p>
+  </div>
+
+  <h2 id="docker-labels">Docker labels</h2>
+  <p>Add a library metric as <code>provider/metric</code> in <code>dashmark.metrics</code>. Use <code>dashmark.metrics_source.&lt;provider&gt;</code> when Dashmark should connect to that provider over a private Docker-network address instead of the card URL.</p>
+  <pre><code class="language-yaml">labels:
+  dashmark.url: https://radarr.example.com
+  dashmark.metrics: cpu,memory,radarr/queue
+  dashmark.metrics_source.radarr: http://radarr:7878</code></pre>
+  <p>Library metrics that need credentials use <code>dashmark.metric_*</code> labels. Docker labels are visible through Docker APIs and inspect output, so prefer YAML with environment variables or secret files for secrets.</p>
+  <pre><code class="language-yaml">labels:
+  dashmark.metrics: gatus/uptime
+  dashmark.metrics_source.gatus: http://gatus:8080
+  dashmark.metrics_input.gatus.uptime.group: Media Servers
+  dashmark.metrics_input.gatus.uptime.name: Plex / Main</code></pre>
+  <p>Use <code>dashmark.metrics_source.&lt;provider&gt;</code> for a provider-specific API base URL. Use <code>dashmark.metrics_input.&lt;provider&gt;.&lt;metric&gt;.&lt;input&gt;</code> for a library input. Replace <code>/</code> in the metric key with <code>.</code>. A provider with no source label uses the card URL.</p>
+
+  <h2 id="yaml-configuration">YAML configuration</h2>
+  <p>Add library metric keys under <code>metrics.entries</code>. This is the recommended path when a metric needs credentials or must be configured independently of Docker labels.</p>
+  <pre><code class="language-yaml">radarr:
+  url: https://radarr.example.com
+  metrics:
+    sources:
+      radarr: http://radarr:7878
+    entries:
+      radarr/queue: {}</code></pre>
+  <p>Some library metrics accept inputs. Refer to the catalogue, then set them under <code>inputs</code>:</p>
+  <pre><code class="language-yaml">office:
+  metrics:
+    entries:
+      homeassistant/entity-state:
+        inputs:
+          entity_id: sensor.office_temperature</code></pre>
+
+  <h2 id="restrict-one-metric">Restrict one metric</h2>
+  <p>Use <code>visible_to</code> in YAML to limit an individual metric to matching access entries:</p>
+  <pre><code class="language-yaml">radarr:
+  metrics:
+    entries:
+      radarr/queue:
+        visible_to: [admins]</code></pre>
+  <p><code>METRICS_ACCESS</code> restricts all metrics server-side. See <a href="/dashmark/docs/configuration/access-control/">Access control</a> for group and identity configuration.</p>
+</StarlightPage>
+
+<script>
+  const catalogue = document.querySelector<HTMLElement>('[data-metric-catalogue]')
+  const search = catalogue?.querySelector<HTMLInputElement>('[data-metric-search]')
+  const provider = catalogue?.querySelector<HTMLDetailsElement>('[data-provider-filter]')
+  const providerSummary = provider?.querySelector('summary')
+  const providerOptions = [...(provider?.querySelectorAll<HTMLButtonElement>('[data-provider-option]') ?? [])]
+  const count = catalogue?.querySelector<HTMLElement>('[data-metric-count]')
+  const empty = catalogue?.querySelector<HTMLElement>('[data-metric-empty]')
+  const rows = [...(catalogue?.querySelectorAll<HTMLTableRowElement>('[data-metric-row]') ?? [])]
+  const detailToggles = [...(catalogue?.querySelectorAll<HTMLButtonElement>('[data-metric-detail-toggle]') ?? [])]
+
+  function filterMetrics() {
+    const query = search?.value.trim().toLowerCase() ?? ''
+    const selectedProvider = provider?.dataset.value ?? ''
+    const visible = rows.filter(row => {
+      const matchesQuery = !query || row.dataset.search?.includes(query)
+      const matchesProvider = !selectedProvider || row.dataset.provider === selectedProvider
+      row.hidden = !matchesQuery || !matchesProvider
+      const details = row.nextElementSibling as HTMLTableRowElement | null
+      if (details) details.hidden = true
+      row.querySelector<HTMLButtonElement>('[data-metric-detail-toggle]')?.setAttribute('aria-expanded', 'false')
+      return !row.hidden
+    })
+    if (count) count.textContent = `${visible.length} metric${visible.length === 1 ? '' : 's'}`
+    if (empty) empty.hidden = visible.length > 0
+  }
+
+  search?.addEventListener('input', filterMetrics)
+  providerOptions.forEach(option => option.addEventListener('click', () => {
+    provider!.dataset.value = option.dataset.value ?? ''
+    providerSummary!.textContent = option.textContent
+    providerOptions.forEach(candidate => candidate.removeAttribute('aria-current'))
+    option.setAttribute('aria-current', 'true')
+    provider!.open = false
+    filterMetrics()
+  }))
+  detailToggles.forEach(toggle => toggle.addEventListener('click', () => {
+    const details = toggle.closest('tr')?.nextElementSibling as HTMLTableRowElement | null
+    if (!details) return
+    const expanded = toggle.getAttribute('aria-expanded') === 'true'
+    toggle.setAttribute('aria-expanded', String(!expanded))
+    details.hidden = expanded
+  }))
+</script>
+
+<style>
+  .metric-catalogue-controls { display: flex; flex-wrap: wrap; gap: 1rem; align-items: end; }
+  .metric-catalogue-controls label { display: grid; gap: 0.35rem; font-weight: 600; }
+  .metric-catalogue-controls label:first-child { flex: 1 1 25rem; }
+  .metric-provider-filter { display: grid; flex: 0 1 12rem; gap: 0.35rem; min-width: 12rem; font-weight: 600; }
+  .metric-catalogue-controls input, .metric-provider-filter summary { width: 100%; min-height: 2.5rem; border: 1px solid var(--sl-color-gray-5); border-radius: 0.35rem; background: var(--sl-color-bg); color: var(--sl-color-text); padding: 0.45rem 0.65rem; }
+  .metric-provider-filter details { position: relative; }
+  .metric-provider-filter summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; list-style: none; }
+  .metric-provider-filter summary::-webkit-details-marker { display: none; }
+  .metric-provider-filter summary::after { width: 0.45rem; height: 0.45rem; margin-right: 0.2rem; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; content: ''; transform: rotate(45deg) translateY(-0.15rem); }
+  .metric-provider-filter details[open] summary::after { transform: rotate(225deg) translate(-0.15rem, -0.15rem); }
+  .metric-catalogue-controls input:focus, .metric-provider-filter summary:focus { border-color: var(--sl-color-accent); outline: 2px solid color-mix(in srgb, var(--sl-color-accent), transparent 70%); outline-offset: 2px; }
+  .metric-provider-options { position: absolute; z-index: 1; width: 100%; max-height: 16rem; margin-top: 0.35rem; overflow-y: auto; border: 1px solid var(--sl-color-gray-5); border-radius: 0.35rem; background: var(--sl-color-bg); box-shadow: var(--sl-shadow-md); padding: 0.25rem; }
+  .metric-provider-options button { display: block; width: 100%; border: 0; border-radius: 0.2rem; background: transparent; color: var(--sl-color-text); cursor: pointer; padding: 0.5rem; text-align: left; }
+  .metric-provider-options button:hover, .metric-provider-options button:focus-visible, .metric-provider-options button[aria-current="true"] { background: var(--sl-color-gray-6); outline: 0; }
+  .metric-catalogue-count { color: var(--sl-color-gray-3); font-size: var(--sl-text-sm); }
+  .metric-catalogue-table-wrap { max-height: 38rem; overflow: auto; border: 1px solid var(--sl-color-gray-5); border-radius: 0.5rem; }
+  .metric-catalogue table { width: 100%; min-width: 42rem; border-collapse: collapse; font-size: var(--sl-text-sm); }
+  .metric-catalogue th, .metric-catalogue td { padding: 0.75rem; border-bottom: 1px solid var(--sl-color-gray-5); text-align: left; vertical-align: top; }
+  .metric-catalogue th { position: sticky; top: 0; z-index: 1; background: var(--sl-color-gray-6); font-weight: 600; }
+  .metric-catalogue tbody tr:last-child td { border-bottom: 0; }
+  .metric-detail-toggle { border: 1px solid var(--sl-color-gray-5); border-radius: 0.3rem; background: transparent; color: var(--sl-color-text); cursor: pointer; padding: 0.3rem 0.55rem; font: inherit; }
+  .metric-detail-toggle:hover, .metric-detail-toggle:focus-visible { border-color: var(--sl-color-accent); background: var(--sl-color-gray-6); outline: 0; }
+  .metric-detail-toggle::after { content: ' +'; }
+  .metric-detail-toggle[aria-expanded="true"]::after { content: ' -'; }
+  .metric-catalogue tr:has(+ [data-metric-details]:not([hidden])) td { border-bottom: 0; }
+  .metric-details { display: grid; gap: 0.75rem; margin: 0; border-left: 3px solid var(--sl-color-accent); border-radius: 0 0.35rem 0.35rem 0; background: var(--sl-color-gray-6); padding: 0.85rem 1rem; }
+  .metric-details div { display: grid; grid-template-columns: minmax(10rem, 0.3fr) 1fr; gap: 1rem; }
+  .metric-details dt { color: var(--sl-color-gray-3); font-size: var(--sl-text-xs); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+  .metric-details dd { margin: 0; }
+  @media (max-width: 40rem) {
+    .metric-catalogue-controls label:first-child, .metric-provider-filter { flex-basis: 100%; }
+    .metric-provider-filter { min-width: 0; }
+    .metric-details div { grid-template-columns: 1fr; gap: 0.2rem; }
+  }
+</style>

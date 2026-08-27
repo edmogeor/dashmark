@@ -52,7 +52,26 @@ source:
   url: "{metric_source}/api/states/{entity_id}"
 ```
 
-Keep source settings shared by a provider, such as authentication, headers, query parameters, and chart groups, in `metrics/<provider>/provider.yml`. Keep service-specific paths, extractors, and labels in each metric file.
+Keep source settings shared by a provider, such as authentication, headers, query parameters, chart groups, and URL value transforms, in `metrics/<provider>/provider.yml`. Keep service-specific paths, extractors, and labels in each metric file. Add an optional non-empty `notes` string to either file for usage requirements or caveats; it appears in the generated metric library table.
+
+Provider transforms let a metric safely normalize a `url_component` input before it is URL encoded. They can trim, lowercase, and apply literal string replacements:
+
+```yaml
+# metrics/<provider>/provider.yml
+transforms:
+  endpoint_key:
+    trim: true
+    lowercase: true
+    replace:
+      " ": "-"
+
+# metrics/<provider>/<metric-name>.yml
+parameters:
+  endpoint:
+    label: Endpoint name
+    type: url_component
+    transform: endpoint_key
+```
 
 ## 4. Add tests
 

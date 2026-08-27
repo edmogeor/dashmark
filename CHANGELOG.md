@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.8-alpha.3] - 2026-08-27
+
+### Added
+
+- Add declarative provider URL transforms for named URL-component parameters, including trim, lowercase, and literal replacement operations.
+- Add a searchable, filterable, and expandable Metric library page generated from `metrics/LIBRARY.md`.
+
+### Changed
+
+- **Breaking:** replace the Gatus uptime metric's `endpoint_key` input with raw `group` and `name` inputs. Dashmark now derives Gatus's normalized endpoint key using the provider definition.
+- Round uptime tooltip response times to two decimal places.
+
 ## [0.3.8-alpha.2] - 2026-08-27
 
 ### Changed

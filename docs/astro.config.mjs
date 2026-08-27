@@ -52,7 +52,7 @@ export default defineConfig({
           label: 'Metrics',
           items: [
             { label: 'Overview', link: '/metrics/' },
-            { label: 'Library metrics', link: '/metrics/library/' },
+            { label: 'Metric library', link: '/metrics/library/' },
             { label: 'Custom metrics', link: '/metrics/custom/' },
             { label: 'Contribute a library metric', link: '/metrics/contributing/' }
           ]

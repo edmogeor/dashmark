@@ -556,6 +556,15 @@ function resolveMetricSources(
   labels: Record<string, string>,
   metricParameters: Record<string, Record<string, string | number | boolean>> | undefined
 ): ServiceMetricOverrides | undefined {
+  const formatParameter = (value: string | number | boolean, parameter: NonNullable<MetricOverride['parameters']>[string]): string => {
+    let text = String(value)
+    const transform = parameter.transform
+    if (!transform) return text
+    if (transform.trim) text = text.trim()
+    if (transform.lowercase) text = text.toLowerCase()
+    for (const [search, replacement] of Object.entries(transform.replace ?? {})) text = text.replaceAll(search, replacement)
+    return text
+  }
   const resolveUrl = (url: string, metricApiUrl: string | undefined, parameters: MetricOverride['parameters'], values: Record<string, string | number | boolean> | undefined): string | undefined => {
     const baseUrl = url.startsWith('{metric_source}') ? metricApiUrl ?? cardUrl : url.startsWith('{url}') ? cardUrl : undefined
     const placeholder = url.startsWith('{metric_source}') ? '{metric_source}' : '{url}'
@@ -564,7 +573,7 @@ function resolveMetricSources(
       : baseUrl ? `${baseUrl.replace(/\/$/, '')}${url.slice(placeholder.length)}` : url
     return resolved?.replace(/\{([a-z][a-z0-9_]*)\}/g, (match, name: string) => {
       if (!parameters?.[name] || values?.[name] === undefined) return match
-      return encodeURIComponent(String(values[name]))
+      return encodeURIComponent(formatParameter(values[name], parameters[name]))
     })
   }
   const resolveReference = (reference: unknown): unknown => {

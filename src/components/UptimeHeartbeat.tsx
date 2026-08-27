@@ -5,6 +5,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 
 const HOUR_MS = 60 * 60 * 1_000
 
+function formatResponseTime(value: number): string {
+  return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value)}ms`
+}
+
 export type UptimeBucketStatus = UptimeStatus | 'mixed'
 export type UptimeBucket = {
   start: number
@@ -79,7 +83,7 @@ function bucketLabel(bucket: UptimeBucket): string {
         bucket.successes > 0 ? `${bucket.successes} successful check${bucket.successes === 1 ? '' : 's'}` : '',
         bucket.failures > 0 ? `${bucket.failures} failed check${bucket.failures === 1 ? '' : 's'}` : '',
       ].filter(Boolean).join(', ')
-  const responseTime = bucket.slowestResponseTimeMs === undefined ? '' : `, slowest response ${bucket.slowestResponseTimeMs}ms`
+  const responseTime = bucket.slowestResponseTimeMs === undefined ? '' : `, slowest response ${formatResponseTime(bucket.slowestResponseTimeMs)}`
   return `${formatUptimeBucketTime(bucket.start)}: ${counts}${responseTime}`
 }
 
@@ -122,7 +126,7 @@ function UptimeBucketTooltip({ bucket }: { bucket: UptimeBucket }) {
         {bucket.slowestResponseTimeMs !== undefined && (
           <>
             <span className="text-muted-foreground">Slowest</span>
-            <span className="text-right font-medium">{bucket.slowestResponseTimeMs}ms</span>
+            <span className="text-right font-medium">{formatResponseTime(bucket.slowestResponseTimeMs)}</span>
           </>
         )}
       </div>

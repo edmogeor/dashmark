@@ -3,10 +3,15 @@ display:
 value:
   kind: uptime
 parameters:
-  endpoint_key:
-    label: Gatus endpoint key
+  group:
+    label: Gatus group
     type: url_component
+    transform: gatus_key
+  name:
+    label: Gatus endpoint name
+    type: url_component
+    transform: gatus_key
 source:
-  url: "{metric_source}/api/v1/endpoints/{endpoint_key}/statuses?pageSize=10000"
+  url: "{metric_source}/api/v1/endpoints/{group}_{name}/statuses?pageSize=10000"
 extract:
   jq: '[.results[] | { timestamp, status: (if .success then "up" else "down" end), responseTimeMs: (.duration / 1000000) }]'

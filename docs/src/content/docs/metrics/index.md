@@ -17,7 +17,7 @@ Browse the [metrics catalogue](https://github.com/edmogeor/dashmark/blob/main/me
 
 Standalone YAML cards support library and custom metrics, but not container metrics.
 
-## Select metrics
+## Configure card metrics
 
 Docker-backed cards show CPU, memory, and network usage out of the box. Set `SHOW_METRICS=false` to disable metrics dashboard-wide.
 

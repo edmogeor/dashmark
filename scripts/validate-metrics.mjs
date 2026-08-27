@@ -86,14 +86,14 @@ function validateStateLabels(labels) {
   }
 }
 
-function validateParameters(parameters) {
+function validateParameters(parameters, transforms) {
   const value = record(parameters, 'parameters must be a mapping')
   if (Object.keys(value).length === 0) throw new Error('parameters must not be empty')
   for (const [name, parameter] of Object.entries(value)) {
     if (!/^[a-z][a-z0-9_]*$/.test(name)) throw new Error('parameter name is invalid')
     const definition = record(parameter, `parameters.${name} must be a mapping`)
-    allowed(definition, new Set(['label', 'type']), `parameters.${name}`)
-    if (typeof definition.label !== 'string' || !definition.label || !['url_component', 'json_value'].includes(definition.type)) throw new Error(`parameters.${name} must define a label and type url_component or json_value`)
+    allowed(definition, new Set(['label', 'type', 'transform']), `parameters.${name}`)
+    if (typeof definition.label !== 'string' || !definition.label || !['url_component', 'json_value'].includes(definition.type) || (definition.transform !== undefined && (definition.type !== 'url_component' || typeof definition.transform !== 'string' || !transforms?.[definition.transform]))) throw new Error(`parameters.${name} must define a label and type url_component or json_value, with an optional provider transform for URL components`)
   }
 }
 
@@ -128,7 +128,9 @@ function validateSource(source) {
 
 function validateProvider(definition) {
   const provider = record(definition, 'provider.yml must contain a YAML mapping')
-  allowed(provider, new Set(['source', 'charts']), 'provider definition')
+  allowed(provider, new Set(['source', 'charts', 'notes', 'transforms']), 'provider definition')
+  const transforms = provider.transforms === undefined ? undefined : validateTransforms(provider.transforms)
+  if (provider.notes !== undefined && (typeof provider.notes !== 'string' || !provider.notes.trim())) throw new Error('provider notes must be a non-empty string')
   if (provider.source !== undefined) {
     const source = record(provider.source, 'provider source must be a mapping')
     allowed(source, new Set(['headers', 'query', 'authentication']), 'provider source')
@@ -143,7 +145,23 @@ function validateProvider(definition) {
       }
     }
   }
-  return provider
+  return { ...provider, transforms }
+}
+
+function validateTransforms(transforms) {
+  const value = record(transforms, 'provider transforms must be a mapping')
+  const parsed = {}
+  for (const [name, transform] of Object.entries(value)) {
+    if (!metricName.test(name)) throw new Error('provider transform names are invalid')
+    const definition = record(transform, `provider transform ${name} must be a mapping`)
+    allowed(definition, new Set(['trim', 'lowercase', 'replace']), `provider transform ${name}`)
+    if (definition.trim !== undefined && definition.trim !== true) throw new Error(`provider transform ${name}.trim must be true`)
+    if (definition.lowercase !== undefined && definition.lowercase !== true) throw new Error(`provider transform ${name}.lowercase must be true`)
+    if (definition.replace !== undefined && (definition.replace === null || typeof definition.replace !== 'object' || Array.isArray(definition.replace) || Object.keys(definition.replace).some(key => !key || typeof definition.replace[key] !== 'string'))) throw new Error(`provider transform ${name}.replace must map non-empty strings to strings`)
+    if (Object.keys(definition).length === 0) throw new Error(`provider transform ${name} must not be empty`)
+    parsed[name] = definition
+  }
+  return parsed
 }
 
 function validateSocketIoArguments(args, context) {
@@ -266,7 +284,8 @@ function validateRequest(request, context, allowToken) {
 function validate(file, provider) {
   validatePath(file)
   const definition = record(yaml.load(fs.readFileSync(file, 'utf8')), 'must contain a YAML mapping')
-  allowed(definition, new Set(['display', 'value', 'source', 'extract', 'parameters']), 'metric definition')
+  allowed(definition, new Set(['display', 'value', 'source', 'extract', 'parameters', 'notes']), 'metric definition')
+  if (definition.notes !== undefined && (typeof definition.notes !== 'string' || !definition.notes.trim())) throw new Error('metric notes must be a non-empty string')
   const display = record(definition.display, 'display must be a mapping')
   allowed(display, new Set(['label', 'chart']), 'display')
   if (typeof display.label !== 'string' || !display.label.trim()) throw new Error('display.label must be a non-empty string')
@@ -319,7 +338,7 @@ function validate(file, provider) {
     if (valueType !== 'number' || definition.source?.transport === 'socketio') throw new Error('for_each requires a numeric HTTP metric')
     validateForEach(extract.for_each)
   }
-  if (definition.parameters !== undefined) validateParameters(definition.parameters)
+  if (definition.parameters !== undefined) validateParameters(definition.parameters, provider.transforms)
   if (definition.source === undefined) throw new Error('source must be defined')
   validateSource(sourceWithDefaults(provider, definition))
 }

@@ -1070,9 +1070,10 @@ backup:
       Id: 'gatus-metric', Names: ['/plex'], Image: 'plex', ImageID: 'sha256:plex',
       State: 'running', Status: 'Up 1 hour', Labels: {
         'dashmark.url': 'https://plex.example.com',
-        'dashmark.metrics': 'gatus/uptime',
-        'dashmark.metrics_source.gatus': 'http://gatus:8080',
-        'dashmark.metrics_input.gatus.uptime.endpoint_key': 'plex'
+        'dashmark.metrics': 'test/uptime',
+        'dashmark.metrics_source.test': 'http://metrics.example.test',
+        'dashmark.metrics_input.test.uptime.group': 'Media Servers',
+        'dashmark.metrics_input.test.uptime.name': 'Plex / Main'
       }
     }]
     mockGotResponse('{"results":[{"timestamp":"2026-08-27T18:00:00Z","success":true,"duration":12000000}]}')
@@ -1081,11 +1082,11 @@ backup:
 
     await expect(getContainerMetricUsage(config, new Headers(), 'default:gatus-metric')).resolves.toMatchObject({
       uptimeMetrics: [{
-        key: 'gatus/uptime', label: 'Uptime', current: 'up',
+        key: 'test/uptime', label: 'Uptime', current: 'up',
         observations: [{ timestamp: Date.parse('2026-08-27T18:00:00Z'), status: 'up', responseTimeMs: 12 }]
       }]
     })
-    expect(String(got.mock.calls[0]?.[0])).toBe('http://gatus:8080/api/v1/endpoints/plex/statuses?pageSize=10000')
+    expect(String(got.mock.calls[0]?.[0])).toBe('http://metrics.example.test/api/endpoints/media-servers_plex---main/statuses')
   })
 
   it('falls back to the card URL for {metric_source} custom metric sources', async () => {
