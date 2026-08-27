@@ -21,6 +21,12 @@ Dashmark finds Docker containers with `dashmark.*` labels and displays them as c
 
 <p align="center"><a href="https://edmogeor.github.io/dashmark/demo/">View the live demo</a> | <a href="https://edmogeor.github.io/dashmark/docs/">Read the documentation</a></p>
 
+## Why Dashmark?
+
+Excellent self-hosted dashboards already exist, including [Homepage](https://gethomepage.dev/), [Heimdall](https://heimdall.site/), [Homarr](https://homarr.dev/), and [Flame](https://github.com/pawelmalak/flame). Dashmark takes inspiration from Heimdall's simplicity, then removes the setup friction: configure cards beside their services in `docker-compose.yml`, let Docker labels supply the details, and rely on automatic icon matching when an explicit icon is not worth the effort.
+
+Dashmark is links first. It is built for fast, low-fuss navigation across a large collection of services: searchable, easy to scan, and polished by default with [shadcn/ui](https://ui.shadcn.com/), without turning the dashboard itself into another project to maintain.
+
 ## Features
 
 - Discover opt-in containers on one or more Docker hosts.
