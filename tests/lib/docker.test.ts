@@ -73,6 +73,25 @@ describe('getCards', () => {
     expect(cards[0]?.metricsPollIntervalMs).toBe(5_000)
   })
 
+  it('shows only explicitly selected library metrics', async () => {
+    server.containers = [{
+      Id: 'library-only', Names: ['/radarr'], Image: 'radarr', ImageID: 'sha256:library-only',
+      State: 'running', Status: 'Up 1 hour', Labels: {
+        'dashmark.url': 'https://radarr.example.com',
+        'dashmark.metrics': 'test/queue-depth'
+      }
+    }]
+    const config = getConfig()
+    config.dockerHost = dockerHost
+
+    const { cards } = await getCards(config, new Headers())
+
+    expect(cards[0]).toMatchObject({
+      resourceStats: [],
+      customMetricLabels: [{ key: 'test/queue-depth', label: 'Queue depth' }]
+    })
+  })
+
   afterEach(async () => {
     await server.stop()
   })
@@ -922,7 +941,7 @@ describe('getContainerStatuses', () => {
     expect(server.statsRequests).toBe(1)
   })
 
-  it('limits resource metrics per card and skips stats for none', async () => {
+  it('limits resource metrics per card and skips stats when none are selected', async () => {
     server.containers = [{
       Id: 'selected-resources', Names: ['/selected-resources'], Image: 'nginx', ImageID: 'sha256:selected',
       State: 'running', Status: 'Up 1 hour', Labels: {
@@ -948,8 +967,10 @@ describe('getContainerStatuses', () => {
     if (!container?.Labels) throw new Error('Expected resource test container')
     container.Labels['dashmark.metrics'] = 'none'
     clearDockerCache()
-    const none = await getContainerResourceUsage(config, new Headers(), 'default:selected-resources')
-    expect(none).toBeUndefined()
+    const { cards } = await getCards(config, new Headers())
+    expect(cards[0]).toMatchObject({ resourceStats: [], customMetricLabels: undefined })
+    const noResources = await getContainerResourceUsage(config, new Headers(), 'default:selected-resources')
+    expect(noResources).toBeUndefined()
     expect(server.statsRequests).toBe(1)
   })
 

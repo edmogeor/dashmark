@@ -68,8 +68,10 @@ describe('parseLabels', () => {
     expect(parseLabels(labels).searchAliases).toEqual(['movies', 'watch later'])
   })
 
-  it('uses none to disable and ignores unknown resource stats', () => {
-    expect(parseLabels({ 'dashmark.metrics': 'none,cpu' }).resourceStats).toEqual([])
+  it('uses none to disable every metric and ignores unknown resource stats', () => {
+    const disabled = parseLabels({ 'dashmark.metrics': 'none,cpu' })
+    expect(disabled.resourceStats).toEqual([])
+    expect(disabled.metrics).toBeUndefined()
     expect(parseLabels({ 'dashmark.metrics': 'cpu,unknown,memory' }).resourceStats).toEqual(['cpu', 'memory'])
   })
 

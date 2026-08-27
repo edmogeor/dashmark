@@ -4,7 +4,7 @@ import { URL } from 'node:url'
 import type { AppConfig, DockerHostConfig } from './config'
 import type { MetricOverride, ServiceMetricOverrides, ServiceOverrides } from './config-file'
 import { loadMetricCatalog, loadYamlConfig } from './config-file'
-import { parseLabels, isValidUrl, traefikUrl, hasDashmarkLabels, RESOURCE_STATS, type ParsedLabels, type ResourceStat } from './labels'
+import { parseLabels, parseResourceStats, isValidUrl, traefikUrl, hasDashmarkLabels, RESOURCE_STATS, type ParsedLabels, type ResourceStat } from './labels'
 import { resolveIcon, type IconResult } from './icons'
 import { resolveDescription } from './descriptions'
 import { accessHeaderNames, getUser, hasAllowedAccess } from './auth'
@@ -418,10 +418,7 @@ function mergeWithYaml(
 ): ReturnType<typeof parseLabels> {
   if (!yamlService) return labels
   const yamlMetrics = yamlService.metrics
-  const metricsAccess = {
-    ...yamlMetrics?.containerAccess,
-    ...yamlMetrics?.entryAccess
-  }
+  const metricsAccess = yamlMetrics?.entryAccess ?? {}
 
   return {
     hidden: yamlService.hidden ?? labels.hidden,
@@ -433,7 +430,7 @@ function mergeWithYaml(
     category: yamlService.category ?? labels.category,
     order: yamlService.order ?? labels.order,
     showStatus: yamlService.showStatus ?? labels.showStatus,
-    resourceStats: yamlMetrics?.container ?? labels.resourceStats,
+    resourceStats: yamlMetrics ? parseResourceStats(yamlMetrics.entries) ?? [] : labels.resourceStats,
     metrics: yamlMetrics ? yamlMetrics.entries : labels.metrics,
     metricsPollIntervalMs: yamlMetrics?.collection?.intervalMs ?? labels.metricsPollIntervalMs,
     metricsHistoryPeriodMs: yamlMetrics?.collection?.retentionMs ?? labels.metricsHistoryPeriodMs,

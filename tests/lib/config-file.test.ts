@@ -31,8 +31,9 @@ service:
     collection:
       interval: 30s
       retention: 14d
-    container: [cpu, memory]
     entries:
+      cpu: {}
+      memory: {}
       test/url-parameter:
         inputs:
           resource: garage_door
@@ -69,15 +70,15 @@ service:
         })
       })
     })
-    expect(metrics.container).toBeDefined()
+    expect(metrics.entries).toEqual(expect.arrayContaining(['cpu', 'memory']))
   })
 
-  it('accepts a mapped container metric configuration', () => {
+  it('accepts mapped built-in metric configuration', () => {
     const config = getConfig()
     config.configFile = writeConfig(`
 service:
   metrics:
-    container:
+    entries:
       cpu:
         visible_to: admins
       memory:
@@ -86,7 +87,17 @@ service:
 
     const metrics = loadYamlConfig(config).config.services.service?.metrics as unknown as Record<string, unknown>
 
-    expect(metrics.container).toBeDefined()
+    expect(metrics).toMatchObject({
+      entries: ['cpu', 'memory'],
+      entryAccess: { cpu: ['admins'], memory: ['admins', 'operators'] }
+    })
+  })
+
+  it('accepts none to disable metrics for one card', () => {
+    const config = getConfig()
+    config.configFile = writeConfig('service:\n  metrics: none\n')
+
+    expect(loadYamlConfig(config).config.services.service?.metrics).toEqual({ entries: [] })
   })
 
   it('resolves a local metric source from a shared profile', () => {

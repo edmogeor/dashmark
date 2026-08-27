@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import yaml from 'js-yaml'
 import type { AppConfig } from './config'
-import { parseResourceStats, type ResourceStat } from './labels'
+import { RESOURCE_STATS, type ResourceStat } from './labels'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
 import { dashmarkError, errorMessage, isRecord, type DashmarkError } from './errors'
@@ -12,8 +12,6 @@ import type { CustomMetricStateColor } from './status'
 export type ServiceMetrics = {
   apiUrl?: string
   collection?: { intervalMs?: number; retentionMs?: number }
-  container?: ResourceStat[]
-  containerAccess?: Record<string, string[]>
   entries?: string[]
   entryAccess?: Record<string, string[]>
   charts?: Record<string, { unit: MetricUnit; chart: CustomMetricChart }>
@@ -976,24 +974,6 @@ function parseMetricsCollection(value: unknown, path: string): ServiceMetrics['c
   return { ...(intervalMs === undefined ? {} : { intervalMs }), ...(retentionMs === undefined ? {} : { retentionMs }) }
 }
 
-function parseContainerMetrics(value: unknown, path: string): Pick<ServiceMetrics, 'container' | 'containerAccess'> {
-  if (value === undefined) return {}
-  const names = Array.isArray(value) ? value : isRecord(value) ? Object.keys(value) : undefined
-  if (!names || !names.every(name => (['cpu', 'memory', 'network'] as const).includes(name as ResourceStat))) invalid(`${path}.container`, 'a list or mapping of cpu, memory, and network')
-  const container = parseResourceStats(names) ?? []
-  if (!isRecord(value)) return { container }
-  const access: Record<string, string[]> = {}
-  for (const [name, options] of Object.entries(value)) {
-    if (!isRecord(options)) invalid(`${path}.container.${name}`, 'a mapping')
-    validateKnownFields(options, new Set(['visible_to']), `${path}.container.${name}`)
-    if (options.visible_to !== undefined) {
-      validateStringList(options.visible_to, `${path}.container.${name}.visible_to`)
-      access[name] = stringList(options.visible_to)!
-    }
-  }
-  return { container, ...(Object.keys(access).length > 0 ? { containerAccess: access } : {}) }
-}
-
 function parseMetricCharts(value: unknown, path: string): ServiceMetrics['charts'] | undefined {
   if (value === undefined) return undefined
   if (!isRecord(value)) invalid(`${path}.charts`, 'a mapping')
@@ -1019,6 +999,16 @@ function parseMetricEntries(value: unknown, path: string, catalog: Record<string
   const entries: string[] = []
   for (const [name, definition] of Object.entries(value)) {
     const entryPath = `${path}.entries.${name}`
+    if (RESOURCE_STATS.includes(name as ResourceStat)) {
+      if (definition !== null && !isRecord(definition)) invalid(entryPath, 'a built-in metric mapping')
+      const configured = definition ?? {}
+      validateKnownFields(configured, new Set(['visible_to']), entryPath)
+      const visibleTo = configured.visible_to === undefined ? undefined : stringList(configured.visible_to)
+      if (configured.visible_to !== undefined && !visibleTo) invalid(`${entryPath}.visible_to`, 'a non-empty string or list of strings')
+      if (visibleTo) access[name] = visibleTo
+      entries.push(name)
+      continue
+    }
     if (catalog[name]) {
       if (definition !== null && !isRecord(definition)) invalid(entryPath, 'a shipped metric mapping')
       const configured = definition ?? {}
@@ -1062,18 +1052,17 @@ function parseMetricEntries(value: unknown, path: string, catalog: Record<string
 
 function parseServiceMetrics(value: unknown, path: string, sharedSources?: Record<string, Record<string, unknown>>): ServiceMetrics | undefined {
   if (value === undefined) return undefined
+  if (value === 'none') return { entries: [] }
   if (!isRecord(value)) invalid(path, 'a mapping')
-  validateKnownFields(value, new Set(['api_url', 'collection', 'container', 'charts', 'entries']), path)
+  validateKnownFields(value, new Set(['api_url', 'collection', 'charts', 'entries']), path)
   const apiUrl = parseMetricsApiUrl(value.api_url, path)
   const collection = parseMetricsCollection(value.collection, path)
-  const container = parseContainerMetrics(value.container, path)
   const charts = parseMetricCharts(value.charts, path)
   const catalog = metricCatalog()
   const entries = parseMetricEntries(value.entries, path, catalog, charts, sharedSources)
   return {
     ...(apiUrl === undefined ? {} : { apiUrl }),
     ...(collection === undefined ? {} : { collection }),
-    ...container,
     ...(charts === undefined ? {} : { charts }),
     ...entries
   }

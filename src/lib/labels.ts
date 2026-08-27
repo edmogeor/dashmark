@@ -43,7 +43,6 @@ export function parseResourceStats(value: string | string[] | undefined): Resour
   const values = (typeof value === 'string' ? value.split(',') : value)
     .map(item => item.trim().toLowerCase())
     .filter(Boolean)
-  if (values.includes('none')) return []
   return RESOURCE_STATS.filter(stat => values.includes(stat))
 }
 
@@ -60,7 +59,8 @@ export function parseLabels(labels: Record<string, string>): ParsedLabels {
   const orderRaw = get('order')
   const order = orderRaw !== undefined ? Number(orderRaw) : undefined
   const showStatus = parseOptionalBool(get('show_status'))
-  const metrics = parseCommaSeparated(get('metrics'))
+  const requestedMetrics = parseCommaSeparated(get('metrics'))
+  const metrics = requestedMetrics.includes('none') ? [] : requestedMetrics
   const resourceStats = metrics.length > 0 ? parseResourceStats(metrics) : undefined
   const metricsPollIntervalMs = parseInterval(get('metrics_poll_interval'))
   const metricsHistoryPeriodMs = parseInterval(get('metrics_history_period'))
@@ -84,7 +84,7 @@ export function parseLabels(labels: Record<string, string>): ParsedLabels {
     category,
     order: Number.isFinite(order) ? order : undefined,
     showStatus,
-    resourceStats,
+    resourceStats: requestedMetrics.includes('none') ? [] : resourceStats,
     ...(metrics.length > 0 ? { metrics } : {}),
     ...(metricsPollIntervalMs !== undefined ? { metricsPollIntervalMs } : {}),
     ...(metricsHistoryPeriodMs !== undefined ? { metricsHistoryPeriodMs } : {}),

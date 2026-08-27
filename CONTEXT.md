@@ -118,7 +118,7 @@ All labels use the `dashmark.` prefix:
 | `dashmark.icon` | `selfhst:<slug>` reference, URL, path inside `ICONS_DIR`, or `placeholder` (unset auto-matches) |
 | `dashmark.category` | Group name |
 | `dashmark.show_status` | `"false"` hides the status badge and resource-usage tooltip for this card |
-| `dashmark.metrics` | Comma-separated `cpu`, `memory`, and `network` metrics; `none` disables built-in metrics for this card |
+| `dashmark.metrics` | Comma-separated metric entries. `cpu`, `memory`, and `network` select Docker resource metrics; library metrics use `provider/metric` keys. When set, only listed metrics are shown. `none` hides all metrics for the card. |
 | `dashmark.access` | Comma-separated access allow-list |
 | `dashmark.search_aliases` | Comma-separated extra search terms |
 | `dashmark.order` | Numeric sort priority within a category |
@@ -137,9 +137,9 @@ When `ENABLE_ACCESS_CONTROL=true`, each request must carry the identity headers 
 
 ### Metrics YAML
 
-All YAML metric configuration is under `service.metrics`. Its canonical fields are `api_url`, `collection`, `container`, `charts`, and `entries`. `api_url` is the HTTP(S) API base URL for metric request sources. `collection.interval` and `collection.retention` are positive duration strings. `container` selects `cpu`, `memory`, and `network`, optionally with per-metric `visible_to`; `entries` combines library metric selections, keyed as `provider/metric` with optional `inputs`, `overrides`, and `visible_to`, with custom metrics, keyed by name with `display`, `value`, `source`, and `extract` mappings. `display` contains `label` and optional `chart`; `value` contains `kind`, `unit`, `transform`, `default_color`, `colors`, and `labels`; `source` retains `url`, `method`, `headers`, `query`, `form`, `json`, `auth`, `transport`, and `socketio`; `extract` is one of `jq`, `prometheus`, `text`, or `for_each`. Shipped library definitions use `display`, `value`, `source`, and `extract`, with provider defaults in `provider.yml`.
+All YAML metric configuration is under `service.metrics`. Set it to `none` to hide all metrics for one card. Otherwise, its canonical fields are `api_url`, `collection`, `charts`, and `entries`. `api_url` is the HTTP(S) API base URL for metric request sources. `collection.interval` and `collection.retention` are positive duration strings. `entries` selects every metric: `cpu`, `memory`, and `network` select Docker resource metrics, library metrics use `provider/metric` keys with optional `inputs`, `overrides`, and `visible_to`, and custom metrics use a name with `display`, `value`, `source`, and `extract` mappings. `display` contains `label` and optional `chart`; `value` contains `kind`, `unit`, `transform`, `default_color`, `colors`, and `labels`; `source` retains `url`, `method`, `headers`, `query`, `form`, `json`, `auth`, `transport`, and `socketio`; `extract` is one of `jq`, `prometheus`, `text`, or `for_each`. Shipped library definitions use `display`, `value`, `source`, and `extract`, with provider defaults in `provider.yml`.
 
-The retired YAML keys `metrics` list, `metric_providers`, `metrics_url`, `metric_parameters`, `metrics_poll_interval`, `metrics_history_period`, `metrics_access`, `custom_metrics`, and `source_url` have no aliases. The retired Docker labels `dashmark.metric_providers`, `dashmark.metrics_url`, and metric template `{metrics_url}` also have no aliases. Docker labels are still accepted separately; library selection no longer requires a provider label gate.
+The retired YAML keys `metrics` list, `metric_providers`, `metrics_url`, `metric_parameters`, `metrics_poll_interval`, `metrics_history_period`, `metrics_access`, `custom_metrics`, `source_url`, and `metrics.container` have no aliases. The retired Docker labels `dashmark.metric_providers`, `dashmark.metrics_url`, and metric template `{metrics_url}` also have no aliases. Docker labels are still accepted separately; library selection no longer requires a provider label gate.
 
 When group tags are enabled, matching status-badge groups appear in the header even when no Card uses them for access control.
 

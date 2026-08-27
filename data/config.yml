@@ -79,13 +79,12 @@ plex:
     collection:
       interval: 10s
       retention: 15m
-    container:
-      cpu: { visible_to: admins }
-      memory: {}
-      network: {}
     charts:
       library: { label: Library, unit: count, style: step }
     entries:
+      cpu: { visible_to: admins }
+      memory: {}
+      network: {}
       plex/movies: {}
       active_sessions:
         display: { label: Active sessions, chart: library }

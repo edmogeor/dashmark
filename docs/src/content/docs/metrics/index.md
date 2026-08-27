@@ -17,20 +17,38 @@ Browse the [metrics catalogue](https://github.com/edmogeor/dashmark/blob/main/me
 
 Standalone YAML cards support library and custom metrics, but not container metrics.
 
-## Container metrics
+## Select metrics
 
 Docker-backed cards show CPU, memory, and network usage out of the box. Set `SHOW_METRICS=false` to disable metrics dashboard-wide.
 
-Use `dashmark.metrics` only to choose a different set of container metrics, add library metrics, or disable built-in metrics for one card:
+When a card specifies metrics, it shows exactly the entries listed. The built-in resource entries are `cpu`, `memory`, and `network`; library entries use `provider/metric` keys; other entries are custom metrics.
 
 ```yaml
 labels:
-  dashmark.metrics: cpu,memory
+  dashmark.metrics: cpu,memory,radarr/queue
 ```
+
+```yaml
+radarr:
+  metrics:
+    entries:
+      cpu: {}
+      memory: {}
+      radarr/queue: {}
+```
+
+Omit `cpu`, `memory`, and `network` to show only library or custom metrics.
+
+To disable all metrics for one card, use `none`:
 
 ```yaml
 labels:
   dashmark.metrics: none
+```
+
+```yaml
+radarr:
+  metrics: none
 ```
 
 Dashmark collects metrics every 10 seconds by default. Set `METRICS_DATABASE_PATH` to a mounted path such as `/data/metrics.db` to retain metric history when the Dashmark container is replaced.
