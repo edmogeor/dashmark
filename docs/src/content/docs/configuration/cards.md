@@ -5,11 +5,21 @@ description: Configure dashboard cards with Docker labels.
 
 A container becomes a card when it has a `dashmark.*` label and Dashmark can determine its URL. Traefik labels alone do not create cards.
 
-## Essential labels
+## Card discovery requirements
+
+For Docker discovery, add at least one `dashmark.*` label. A visible card also needs a valid URL. Set `dashmark.url` explicitly, or let Dashmark derive it from the container's Traefik router `Host(...)` rule.
 
 ```yaml
 labels:
   dashmark.url: https://radarr.example.com
+```
+
+## Optional display and sorting labels
+
+`title`, `description`, `icon`, `category`, and `order` change how the card appears but are not required.
+
+```yaml
+labels:
   dashmark.title: Radarr
   dashmark.description: Movie collection manager
   dashmark.icon: selfhst:radarr
