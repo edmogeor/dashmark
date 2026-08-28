@@ -23,6 +23,8 @@ Docker-backed cards show CPU, memory, and network usage out of the box. Set `SHO
 
 When a card specifies metrics, it shows exactly the entries listed. The built-in resource entries are `cpu`, `memory`, and `network`; library entries use `provider/metric` keys; other entries are custom metrics.
 
+The metrics panel follows the order of entries in the configuration, including built-in, library, and custom metrics.
+
 ```yaml
 labels:
   dashmark.metrics: cpu,memory,radarr/queue

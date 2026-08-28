@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Render metrics panels in configured order, including built-in resource, library, and custom metrics.
+- Support selecting full-history chart values by tap on touch devices.
+- Move the uptime history period selector into the dialog header.
+
+### Fixed
+
+- Keep the uptime history graph visible until its dialog close animation completes.
+- Prevent the metrics popover from flashing closed when opening a full-history chart.
+
 ## [0.4.0] - 2026-08-27
 
 ### Added
