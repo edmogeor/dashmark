@@ -136,15 +136,17 @@ function UptimeCell({
   onHover,
   selectedBucketStart,
   onTouchSelect,
-  onPointerInteraction,
+  onBlur,
+  onMouseEnter,
   showTooltips,
   collisionBoundary
 }: {
   bucket: UptimeBucket
   onHover?: (bucket: UptimeBucket) => void
-  selectedBucketStart: number | null
+  selectedBucketStart: number | null | undefined
   onTouchSelect: (bucketStart: number) => void
-  onPointerInteraction: () => void
+  onBlur: () => void
+  onMouseEnter: () => void
   showTooltips: boolean
   collisionBoundary?: Element | null
 }) {
@@ -152,10 +154,11 @@ function UptimeCell({
   function handlePointerDown(event: PointerEvent<HTMLButtonElement>) {
     if (event.pointerType !== 'touch') return
     event.preventDefault()
+    event.currentTarget.focus()
     onTouchSelect(bucket.start)
   }
 
-  const open = selectedBucketStart === null ? undefined : selectedBucketStart === bucket.start
+  const open = selectedBucketStart === undefined ? undefined : selectedBucketStart === bucket.start
   if (showTooltips)
     return (
       <Tooltip open={open}>
@@ -166,9 +169,10 @@ function UptimeCell({
             aria-label={bucketLabel(bucket)}
             onPointerDown={handlePointerDown}
             onPointerEnter={(event) => {
-              if (event.pointerType === 'mouse') onPointerInteraction()
+              if (event.pointerType === 'mouse') onMouseEnter()
             }}
-            onFocus={onPointerInteraction}
+            onFocus={onMouseEnter}
+            onBlur={onBlur}
           />
         </TooltipTrigger>
         <TooltipContent side="top" collisionBoundary={collisionBoundary} collisionPadding={8} className="w-48 p-3 text-xs">
@@ -196,7 +200,7 @@ export function UptimeHeartbeat({
   showTooltips?: boolean
   collisionBoundary?: Element | null
 }) {
-  const [selectedBucketStart, setSelectedBucketStart] = useState<number | null>(null)
+  const [selectedBucketStart, setSelectedBucketStart] = useState<number | null | undefined>(undefined)
   const buckets = uptimeBuckets(observations, durationMs, bucketCount)
   function toggleTouchTooltip(bucketStart: number) {
     setSelectedBucketStart((current) => (current === bucketStart ? null : bucketStart))
@@ -215,7 +219,8 @@ export function UptimeHeartbeat({
           onHover={onBucketHover}
           selectedBucketStart={selectedBucketStart}
           onTouchSelect={toggleTouchTooltip}
-          onPointerInteraction={() => setSelectedBucketStart(null)}
+          onBlur={() => setSelectedBucketStart(null)}
+          onMouseEnter={() => setSelectedBucketStart(null)}
           showTooltips={showTooltips}
           collisionBoundary={collisionBoundary}
         />
