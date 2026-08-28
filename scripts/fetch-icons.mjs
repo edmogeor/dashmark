@@ -10,7 +10,7 @@ const CDN_BASE = 'https://cdn.jsdelivr.net/gh/selfhst/icons@main'
 
 function downloadTarball(url, dest) {
   return new Promise((resolve, reject) => {
-    const req = http.get(url, res => {
+    const req = http.get(url, (res) => {
       if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         return downloadTarball(res.headers.location, dest).then(resolve).catch(reject)
       }
@@ -32,8 +32,10 @@ function listTarball(tarballPath) {
     const tar = spawn('tar', ['-tzf', tarballPath])
     let output = ''
     tar.stdout.setEncoding('utf8')
-    tar.stdout.on('data', chunk => { output += chunk })
-    tar.on('close', code => {
+    tar.stdout.on('data', (chunk) => {
+      output += chunk
+    })
+    tar.on('close', (code) => {
       if (code === 0) resolve(output.split('\n'))
       else reject(new Error(`tar exited with code ${code}`))
     })
@@ -87,7 +89,7 @@ async function main() {
   }
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error(err)
   process.exit(1)
 })

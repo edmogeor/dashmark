@@ -4,6 +4,6 @@ display:
 value:
   unit: count
 source:
-  url: "{metric_source}/api/v1/indexerstats"
+  url: '{metric_source}/api/v1/indexerstats'
 extract:
   jq: '[.indexers[]?.numberOfFailedGrabs // 0] | add'

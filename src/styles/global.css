@@ -1,7 +1,7 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
-@import "@fontsource-variable/inter";
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import '@fontsource-variable/inter';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -12,33 +12,67 @@
 }
 
 @keyframes dashmark-dialog-backdrop-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes dashmark-dialog-backdrop-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
 @keyframes dashmark-dialog-content-in {
-  from { opacity: 0; translate: -50% calc(-50% + 12px); scale: 0.96; }
-  to { opacity: 1; translate: -50% -50%; scale: 1; }
+  from {
+    opacity: 0;
+    translate: -50% calc(-50% + 12px);
+    scale: 0.96;
+  }
+  to {
+    opacity: 1;
+    translate: -50% -50%;
+    scale: 1;
+  }
 }
 
 @keyframes dashmark-dialog-content-out {
-  from { opacity: 1; translate: -50% -50%; scale: 1; }
-  to { opacity: 0; translate: -50% calc(-50% + 12px); scale: 0.96; }
+  from {
+    opacity: 1;
+    translate: -50% -50%;
+    scale: 1;
+  }
+  to {
+    opacity: 0;
+    translate: -50% calc(-50% + 12px);
+    scale: 0.96;
+  }
 }
 
-.dashmark-dialog-overlay[data-state='open'] { animation: dashmark-dialog-backdrop-in 180ms ease-out; }
-.dashmark-dialog-overlay[data-state='closed'] { animation: dashmark-dialog-backdrop-out 150ms ease-in; }
-.dashmark-dialog-content[data-state='open'] { animation: dashmark-dialog-content-in 180ms ease-out; }
-.dashmark-dialog-content[data-state='closed'] { animation: dashmark-dialog-content-out 150ms ease-in; }
+.dashmark-dialog-overlay[data-state='open'] {
+  animation: dashmark-dialog-backdrop-in 180ms ease-out;
+}
+.dashmark-dialog-overlay[data-state='closed'] {
+  animation: dashmark-dialog-backdrop-out 150ms ease-in;
+}
+.dashmark-dialog-content[data-state='open'] {
+  animation: dashmark-dialog-content-in 180ms ease-out;
+}
+.dashmark-dialog-content[data-state='closed'] {
+  animation: dashmark-dialog-content-out 150ms ease-in;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .dashmark-dialog-overlay,
-  .dashmark-dialog-content { animation: none; }
+  .dashmark-dialog-content {
+    animation: none;
+  }
 }
 
 @theme inline {
@@ -148,11 +182,21 @@
   color: var(--dashmark-state-color);
 }
 
-.dashmark-state-success { --dashmark-state-color: var(--dashmark-status-success); }
-.dashmark-state-info { --dashmark-state-color: var(--dashmark-status-info); }
-.dashmark-state-warning { --dashmark-state-color: var(--dashmark-status-warning); }
-.dashmark-state-error { --dashmark-state-color: var(--dashmark-status-error); }
-.dashmark-state-disabled { --dashmark-state-color: var(--dashmark-status-disabled); }
+.dashmark-state-success {
+  --dashmark-state-color: var(--dashmark-status-success);
+}
+.dashmark-state-info {
+  --dashmark-state-color: var(--dashmark-status-info);
+}
+.dashmark-state-warning {
+  --dashmark-state-color: var(--dashmark-status-warning);
+}
+.dashmark-state-error {
+  --dashmark-state-color: var(--dashmark-status-error);
+}
+.dashmark-state-disabled {
+  --dashmark-state-color: var(--dashmark-status-disabled);
+}
 
 .dashmark-uptime-heartbeat-cell {
   transition: opacity 150ms ease;
@@ -253,87 +297,111 @@
     color: color-mix(in oklab, var(--dashmark-badge-color) 72%, var(--foreground));
   }
 
-  .dashmark-badge-color-0 { --dashmark-badge-color: var(--dashmark-badge-color-0); }
-  .dashmark-badge-color-1 { --dashmark-badge-color: var(--dashmark-badge-color-1); }
-  .dashmark-badge-color-2 { --dashmark-badge-color: var(--dashmark-badge-color-2); }
-  .dashmark-badge-color-3 { --dashmark-badge-color: var(--dashmark-badge-color-3); }
-  .dashmark-badge-color-4 { --dashmark-badge-color: var(--dashmark-badge-color-4); }
-  .dashmark-badge-color-5 { --dashmark-badge-color: var(--dashmark-badge-color-5); }
-  .dashmark-badge-color-6 { --dashmark-badge-color: var(--dashmark-badge-color-6); }
-  .dashmark-badge-color-7 { --dashmark-badge-color: var(--dashmark-badge-color-7); }
-  .dashmark-badge-color-8 { --dashmark-badge-color: var(--dashmark-badge-color-8); }
-  .dashmark-badge-color-9 { --dashmark-badge-color: var(--dashmark-badge-color-9); }
-  .dashmark-badge-color-10 { --dashmark-badge-color: var(--dashmark-badge-color-10); }
-  .dashmark-badge-color-11 { --dashmark-badge-color: var(--dashmark-badge-color-11); }
+  .dashmark-badge-color-0 {
+    --dashmark-badge-color: var(--dashmark-badge-color-0);
+  }
+  .dashmark-badge-color-1 {
+    --dashmark-badge-color: var(--dashmark-badge-color-1);
+  }
+  .dashmark-badge-color-2 {
+    --dashmark-badge-color: var(--dashmark-badge-color-2);
+  }
+  .dashmark-badge-color-3 {
+    --dashmark-badge-color: var(--dashmark-badge-color-3);
+  }
+  .dashmark-badge-color-4 {
+    --dashmark-badge-color: var(--dashmark-badge-color-4);
+  }
+  .dashmark-badge-color-5 {
+    --dashmark-badge-color: var(--dashmark-badge-color-5);
+  }
+  .dashmark-badge-color-6 {
+    --dashmark-badge-color: var(--dashmark-badge-color-6);
+  }
+  .dashmark-badge-color-7 {
+    --dashmark-badge-color: var(--dashmark-badge-color-7);
+  }
+  .dashmark-badge-color-8 {
+    --dashmark-badge-color: var(--dashmark-badge-color-8);
+  }
+  .dashmark-badge-color-9 {
+    --dashmark-badge-color: var(--dashmark-badge-color-9);
+  }
+  .dashmark-badge-color-10 {
+    --dashmark-badge-color: var(--dashmark-badge-color-10);
+  }
+  .dashmark-badge-color-11 {
+    --dashmark-badge-color: var(--dashmark-badge-color-11);
+  }
 }
 
 @layer components {
-.dashboard-search {
-  isolation: isolate;
-}
+  .dashboard-search {
+    isolation: isolate;
+  }
 
-.dashboard-search[data-overflow] {
-  background: var(--background);
-}
+  .dashboard-search[data-overflow] {
+    background: var(--background);
+  }
 
-.dashboard-search::after {
-  position: absolute;
-  z-index: -1;
-  right: 0;
-  bottom: -1.5rem;
-  left: 0;
-  height: 1.5rem;
-  content: '';
-  pointer-events: none;
-  background: linear-gradient(to bottom, var(--background) 0, var(--background) 8px, transparent 24px);
-  opacity: 0;
-  transition: opacity 0.2s ease-out;
-}
+  .dashboard-search::after {
+    position: absolute;
+    z-index: -1;
+    right: 0;
+    bottom: -1.5rem;
+    left: 0;
+    height: 1.5rem;
+    content: '';
+    pointer-events: none;
+    background: linear-gradient(to bottom, var(--background) 0, var(--background) 8px, transparent 24px);
+    opacity: 0;
+    transition: opacity 0.2s ease-out;
+  }
 
-.dashboard-search[data-overflow]::after {
-  opacity: 1;
-}
+  .dashboard-search[data-overflow]::after {
+    opacity: 1;
+  }
 
-.marquee-content {
-  display: inline-block;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  vertical-align: middle;
-  white-space: nowrap;
-  transform: translateX(0);
-}
-
-.group\/marquee:hover .marquee-content,
-.group\/marquee:active .marquee-content {
-  max-width: none;
-  text-overflow: clip;
-  animation: marquee-scroll var(--marquee-duration, 1s) ease-in-out forwards;
-}
-
-.group\/marquee[data-overflow]:hover,
-.group\/marquee[data-overflow]:active {
-  --marquee-right-fade: 1rem;
-  animation: marquee-fade var(--marquee-fade-duration, 0.2s) linear var(--marquee-fade-delay, 0s) forwards;
-  mask-image: linear-gradient(to right, transparent 0, black 1rem, black calc(100% - var(--marquee-right-fade)), transparent 100%);
-  -webkit-mask-image: linear-gradient(to right, transparent 0, black 1rem, black calc(100% - var(--marquee-right-fade)), transparent 100%);
-}
-
-@keyframes marquee-scroll {
-  0% {
+  .marquee-content {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+    white-space: nowrap;
     transform: translateX(0);
   }
-  100% {
-    transform: translateX(var(--marquee-offset, 0));
-  }
-}
 
-@keyframes marquee-fade {
-  0% {
+  .group\/marquee:hover .marquee-content,
+  .group\/marquee:active .marquee-content {
+    max-width: none;
+    text-overflow: clip;
+    animation: marquee-scroll var(--marquee-duration, 1s) ease-in-out forwards;
+  }
+
+  .group\/marquee[data-overflow]:hover,
+  .group\/marquee[data-overflow]:active {
     --marquee-right-fade: 1rem;
+    animation: marquee-fade var(--marquee-fade-duration, 0.2s) linear var(--marquee-fade-delay, 0s) forwards;
+    mask-image: linear-gradient(to right, transparent 0, black 1rem, black calc(100% - var(--marquee-right-fade)), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0, black 1rem, black calc(100% - var(--marquee-right-fade)), transparent 100%);
   }
-  100% {
-    --marquee-right-fade: 0px;
+
+  @keyframes marquee-scroll {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(var(--marquee-offset, 0));
+    }
   }
-}
+
+  @keyframes marquee-fade {
+    0% {
+      --marquee-right-fade: 1rem;
+    }
+    100% {
+      --marquee-right-fade: 0px;
+    }
+  }
 }

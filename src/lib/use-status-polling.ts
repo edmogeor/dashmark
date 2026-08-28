@@ -6,7 +6,7 @@ import { STATUS_TOAST_ID } from './constants'
 import { clearErrorToast, rearmErrorToast, showErrorToast } from './error-toasts'
 
 export function mergeStatuses(cards: Card[], statuses: Record<string, ContainerStatus>): Card[] {
-  return cards.map(card => {
+  return cards.map((card) => {
     if (!card.hasContainer) return card
     const status = statuses[card.id]
     if (!status) {
@@ -83,7 +83,7 @@ export function useStatusPolling({
           setUnavailable(false)
           clearErrorToast(STATUS_TOAST_ID, { immediate: true })
           rearmErrorToast(STATUS_TOAST_ID)
-          setCards(prev => mergeStatuses(prev, data.statuses))
+          setCards((prev) => mergeStatuses(prev, data.statuses))
         }
       } catch {
         if (controller.signal.aborted || stopped) return

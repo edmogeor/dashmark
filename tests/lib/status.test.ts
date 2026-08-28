@@ -3,9 +3,11 @@ import { isMetricsResponse, isStatusResponse } from '@/lib/status'
 
 describe('isStatusResponse', () => {
   it('accepts a valid statuses payload', () => {
-    expect(isStatusResponse({
-      statuses: { plex: { state: 'running', health: 'healthy' } }
-    })).toBe(true)
+    expect(
+      isStatusResponse({
+        statuses: { plex: { state: 'running', health: 'healthy' } }
+      })
+    ).toBe(true)
   })
 
   it('rejects resource usage metrics', () => {
@@ -13,18 +15,20 @@ describe('isStatusResponse', () => {
   })
 
   it('accepts a metrics payload', () => {
-    expect(isMetricsResponse({
-      resource: {
-        cpuPercent: 20,
-        memoryUsage: 1_024,
-        memoryLimit: 2_048,
-        receivedBytesPerSecond: 512,
-        sentBytesPerSecond: 256
-      },
-      pending: true,
-      customMetrics: [],
-      metricErrors: []
-    })).toBe(true)
+    expect(
+      isMetricsResponse({
+        resource: {
+          cpuPercent: 20,
+          memoryUsage: 1_024,
+          memoryLimit: 2_048,
+          receivedBytesPerSecond: 512,
+          sentBytesPerSecond: 256
+        },
+        pending: true,
+        customMetrics: [],
+        metricErrors: []
+      })
+    ).toBe(true)
   })
 
   it('rejects malformed status and error payloads', () => {
@@ -33,29 +37,35 @@ describe('isStatusResponse', () => {
   })
 
   it('accepts numeric and text custom metrics', () => {
-    expect(isMetricsResponse({
-      resource: null,
-      customMetrics: [
-        { key: 'rpm', label: 'RPM', unit: { suffix: 'rpm' }, chart: 'none', value: 900, history: [], historyPeriodMs: 60_000 },
-        { key: 'read', label: 'Read', unit: 'bytes_per_second', chart: 'line', chartGroup: 'disk_io', value: 0, pending: true, history: [], historyPeriodMs: 60_000 },
-        { key: 'version', label: 'Version', value: '1.2.3' },
-        { key: 'state', label: 'State', value: 'Healthy', color: 'success' }
-      ],
-      metricErrors: [{ key: 'failed', message: 'Metric is unavailable' }]
-    })).toBe(true)
+    expect(
+      isMetricsResponse({
+        resource: null,
+        customMetrics: [
+          { key: 'rpm', label: 'RPM', unit: { suffix: 'rpm' }, chart: 'none', value: 900, history: [], historyPeriodMs: 60_000 },
+          { key: 'read', label: 'Read', unit: 'bytes_per_second', chart: 'line', chartGroup: 'disk_io', value: 0, pending: true, history: [], historyPeriodMs: 60_000 },
+          { key: 'version', label: 'Version', value: '1.2.3' },
+          { key: 'state', label: 'State', value: 'Healthy', color: 'success' }
+        ],
+        metricErrors: [{ key: 'failed', message: 'Metric is unavailable' }]
+      })
+    ).toBe(true)
   })
 
   it('accepts observation-backed uptime metrics', () => {
-    expect(isMetricsResponse({
-      resource: null,
-      customMetrics: [],
-      uptimeMetrics: [{
-        key: 'gatus/uptime',
-        label: 'Gatus uptime',
-        current: 'up',
-        observations: [{ timestamp: 1_700_000_000_000, status: 'up', responseTimeMs: 120 }]
-      }],
-      metricErrors: []
-    })).toBe(true)
+    expect(
+      isMetricsResponse({
+        resource: null,
+        customMetrics: [],
+        uptimeMetrics: [
+          {
+            key: 'gatus/uptime',
+            label: 'Gatus uptime',
+            current: 'up',
+            observations: [{ timestamp: 1_700_000_000_000, status: 'up', responseTimeMs: 120 }]
+          }
+        ],
+        metricErrors: []
+      })
+    ).toBe(true)
   })
 })

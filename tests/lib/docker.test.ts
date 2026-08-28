@@ -52,16 +52,23 @@ describe('getCards', () => {
   })
 
   it('filters card metric metadata using namespaced metric access labels', async () => {
-    server.containers = [{
-      Id: 'metric-access', Names: ['/metric-access'], Image: 'nginx', ImageID: 'sha256:metric-access',
-      State: 'running', Status: 'Up 1 hour', Labels: {
-        'dashmark.url': 'https://metrics.example.com',
-        'dashmark.metrics': 'cpu,memory,network',
-        'dashmark.metrics_poll_interval': '5',
-        'dashmark.metrics_access.cpu': 'admins',
-        'dashmark.metrics_access.network': 'admins'
+    server.containers = [
+      {
+        Id: 'metric-access',
+        Names: ['/metric-access'],
+        Image: 'nginx',
+        ImageID: 'sha256:metric-access',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: {
+          'dashmark.url': 'https://metrics.example.com',
+          'dashmark.metrics': 'cpu,memory,network',
+          'dashmark.metrics_poll_interval': '5',
+          'dashmark.metrics_access.cpu': 'admins',
+          'dashmark.metrics_access.network': 'admins'
+        }
       }
-    }]
+    ]
     const config = getConfig()
     config.dockerHost = dockerHost
     config.accessGroupsHeader = 'X-Test-Groups'
@@ -74,13 +81,20 @@ describe('getCards', () => {
   })
 
   it('shows only explicitly selected library metrics', async () => {
-    server.containers = [{
-      Id: 'library-only', Names: ['/radarr'], Image: 'radarr', ImageID: 'sha256:library-only',
-      State: 'running', Status: 'Up 1 hour', Labels: {
-        'dashmark.url': 'https://radarr.example.com',
-        'dashmark.metrics': 'test/queue-depth'
+    server.containers = [
+      {
+        Id: 'library-only',
+        Names: ['/radarr'],
+        Image: 'radarr',
+        ImageID: 'sha256:library-only',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: {
+          'dashmark.url': 'https://radarr.example.com',
+          'dashmark.metrics': 'test/queue-depth'
+        }
       }
-    }]
+    ]
     const config = getConfig()
     config.dockerHost = dockerHost
 
@@ -133,16 +147,18 @@ describe('getCards', () => {
   })
 
   it('marks host-networked containers', async () => {
-    server.containers = [{
-      Id: 'host-network',
-      Names: ['/home-assistant'],
-      Image: 'ghcr.io/home-assistant/home-assistant',
-      ImageID: 'sha256:home-assistant',
-      State: 'running',
-      Status: 'Up 2 hours',
-      Labels: { 'dashmark.url': 'https://hass.example.com' },
-      HostConfig: { NetworkMode: 'host' }
-    }]
+    server.containers = [
+      {
+        Id: 'host-network',
+        Names: ['/home-assistant'],
+        Image: 'ghcr.io/home-assistant/home-assistant',
+        ImageID: 'sha256:home-assistant',
+        State: 'running',
+        Status: 'Up 2 hours',
+        Labels: { 'dashmark.url': 'https://hass.example.com' },
+        HostConfig: { NetworkMode: 'host' }
+      }
+    ]
 
     const config = getConfig()
     config.dockerHost = dockerHost
@@ -154,14 +170,28 @@ describe('getCards', () => {
   it('combines cards and namespaces statuses from multiple Docker hosts', async () => {
     const secondServer = new MockDockerServer()
     const secondHost = await secondServer.start()
-    server.containers = [{
-      Id: 'shared-id', Names: ['/home-app'], Image: 'nginx', ImageID: 'sha256:home',
-      State: 'running', Status: 'Up 1 hour', Labels: { 'dashmark.url': 'https://home.example.com' }
-    }]
-    secondServer.containers = [{
-      Id: 'shared-id', Names: ['/vps-app'], Image: 'nginx', ImageID: 'sha256:vps',
-      State: 'paused', Status: 'Up 1 hour', Labels: { 'dashmark.url': 'https://vps.example.com' }
-    }]
+    server.containers = [
+      {
+        Id: 'shared-id',
+        Names: ['/home-app'],
+        Image: 'nginx',
+        ImageID: 'sha256:home',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: { 'dashmark.url': 'https://home.example.com' }
+      }
+    ]
+    secondServer.containers = [
+      {
+        Id: 'shared-id',
+        Names: ['/vps-app'],
+        Image: 'nginx',
+        ImageID: 'sha256:vps',
+        State: 'paused',
+        Status: 'Up 1 hour',
+        Labels: { 'dashmark.url': 'https://vps.example.com' }
+      }
+    ]
 
     const config = getConfig()
     config.dockerHosts = [
@@ -174,7 +204,7 @@ describe('getCards', () => {
       const { statuses } = await getContainerStatuses(config, new Headers())
 
       expect(error).toBeUndefined()
-      expect(cards.map(card => ({ id: card.id, host: card.host }))).toEqual([
+      expect(cards.map((card) => ({ id: card.id, host: card.host }))).toEqual([
         { id: 'home:shared-id', host: 'home' },
         { id: 'vps:shared-id', host: 'vps' }
       ])
@@ -188,45 +218,73 @@ describe('getCards', () => {
   })
 
   it('shows Docker host badges with a standalone host badge', async () => {
-    server.containers = [{
-      Id: 'docker-app', Names: ['/docker-app'], Image: 'nginx', ImageID: 'sha256:docker-app',
-      State: 'running', Status: 'Up 1 hour', Labels: { 'dashmark.url': 'https://docker.example.com' }
-    }]
+    server.containers = [
+      {
+        Id: 'docker-app',
+        Names: ['/docker-app'],
+        Image: 'nginx',
+        ImageID: 'sha256:docker-app',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: { 'dashmark.url': 'https://docker.example.com' }
+      }
+    ]
     const config = getConfig()
     config.dockerHost = dockerHost
     config.configFile = writeTempConfig('external:\n  url: https://external.example.com\n  host: external\n')
 
     const { cards } = await getCards(config, new Headers())
 
-    expect(cards.find(card => card.hasContainer)).toMatchObject({ host: 'host', hostColor: 0 })
-    expect(cards.find(card => !card.hasContainer)).toMatchObject({ host: 'external', hostColor: 1 })
+    expect(cards.find((card) => card.hasContainer)).toMatchObject({ host: 'host', hostColor: 0 })
+    expect(cards.find((card) => !card.hasContainer)).toMatchObject({ host: 'external', hostColor: 1 })
   })
 
   it('uses a configured Docker host ID for host badges', async () => {
-    server.containers = [{
-      Id: 'named-host-app', Names: ['/named-host-app'], Image: 'nginx', ImageID: 'sha256:named-host-app',
-      State: 'running', Status: 'Up 1 hour', Labels: { 'dashmark.url': 'https://docker.example.com' }
-    }]
+    server.containers = [
+      {
+        Id: 'named-host-app',
+        Names: ['/named-host-app'],
+        Image: 'nginx',
+        ImageID: 'sha256:named-host-app',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: { 'dashmark.url': 'https://docker.example.com' }
+      }
+    ]
     const config = getConfig()
     config.dockerHosts = [{ id: 'home', dockerHost }]
     config.configFile = writeTempConfig('external:\n  url: https://external.example.com\n  host: external\n')
 
     const { cards } = await getCards(config, new Headers())
 
-    expect(cards.find(card => card.hasContainer)).toMatchObject({ host: 'home', hostColor: 0 })
+    expect(cards.find((card) => card.hasContainer)).toMatchObject({ host: 'home', hostColor: 0 })
   })
 
   it('applies host-qualified YAML overrides to matching services only', async () => {
     const secondServer = new MockDockerServer()
     const secondHost = await secondServer.start()
-    server.containers = [{
-      Id: 'home-plex', Names: ['/plex'], Image: 'plexinc/pms-docker', ImageID: 'sha256:home',
-      State: 'running', Status: 'Up 1 hour', Labels: { 'dashmark.url': 'https://home-plex.example.com' }
-    }]
-    secondServer.containers = [{
-      Id: 'vps-plex', Names: ['/plex'], Image: 'plexinc/pms-docker', ImageID: 'sha256:vps',
-      State: 'running', Status: 'Up 1 hour', Labels: { 'dashmark.url': 'https://vps-plex.example.com' }
-    }]
+    server.containers = [
+      {
+        Id: 'home-plex',
+        Names: ['/plex'],
+        Image: 'plexinc/pms-docker',
+        ImageID: 'sha256:home',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: { 'dashmark.url': 'https://home-plex.example.com' }
+      }
+    ]
+    secondServer.containers = [
+      {
+        Id: 'vps-plex',
+        Names: ['/plex'],
+        Image: 'plexinc/pms-docker',
+        ImageID: 'sha256:vps',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: { 'dashmark.url': 'https://vps-plex.example.com' }
+      }
+    ]
 
     const config = getConfig()
     config.dockerHosts = [
@@ -240,8 +298,8 @@ describe('getCards', () => {
 
       expect(error).toBeUndefined()
       expect(cards).toHaveLength(2)
-      expect(cards.find(card => card.id === 'home:home-plex')?.title).toBe('plex')
-      expect(cards.find(card => card.id === 'vps:vps-plex')?.title).toBe('VPS Plex')
+      expect(cards.find((card) => card.id === 'home:home-plex')?.title).toBe('plex')
+      expect(cards.find((card) => card.id === 'vps:vps-plex')?.title).toBe('VPS Plex')
     } finally {
       await secondServer.stop()
     }
@@ -252,15 +310,25 @@ describe('getCards', () => {
     const secondHost = await secondServer.start()
     server.containers = [
       {
-        Id: 'home-container', Names: ['/container'], Image: 'nginx', ImageID: 'sha256:home-container',
-        State: 'running', Status: 'Up 1 hour', Labels: {
+        Id: 'home-container',
+        Names: ['/container'],
+        Image: 'nginx',
+        ImageID: 'sha256:home-container',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: {
           'com.docker.compose.service': 'service',
           'dashmark.url': 'https://home-container.example.com'
         }
       },
       {
-        Id: 'home-other', Names: ['/other'], Image: 'nginx', ImageID: 'sha256:home-other',
-        State: 'running', Status: 'Up 1 hour', Labels: {
+        Id: 'home-other',
+        Names: ['/other'],
+        Image: 'nginx',
+        ImageID: 'sha256:home-other',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: {
           'com.docker.compose.service': 'service',
           'dashmark.url': 'https://home-other.example.com'
         }
@@ -268,15 +336,25 @@ describe('getCards', () => {
     ]
     secondServer.containers = [
       {
-        Id: 'vps-container', Names: ['/container'], Image: 'nginx', ImageID: 'sha256:vps-container',
-        State: 'running', Status: 'Up 1 hour', Labels: {
+        Id: 'vps-container',
+        Names: ['/container'],
+        Image: 'nginx',
+        ImageID: 'sha256:vps-container',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: {
           'com.docker.compose.service': 'service',
           'dashmark.url': 'https://vps-container.example.com'
         }
       },
       {
-        Id: 'vps-other', Names: ['/other'], Image: 'nginx', ImageID: 'sha256:vps-other',
-        State: 'running', Status: 'Up 1 hour', Labels: {
+        Id: 'vps-other',
+        Names: ['/other'],
+        Image: 'nginx',
+        ImageID: 'sha256:vps-other',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: {
           'com.docker.compose.service': 'service',
           'dashmark.url': 'https://vps-other.example.com'
         }
@@ -288,18 +366,15 @@ describe('getCards', () => {
       { id: 'home', dockerHost },
       { id: 'vps', dockerHost: secondHost }
     ]
-    config.configFile = writeTempConfig([
-      'home/container:', '  title: Home container',
-      'home/service:', '  title: Home service',
-      'container:', '  title: Global container',
-      'service:', '  title: Global service'
-    ].join('\n'))
+    config.configFile = writeTempConfig(
+      ['home/container:', '  title: Home container', 'home/service:', '  title: Home service', 'container:', '  title: Global container', 'service:', '  title: Global service'].join('\n')
+    )
 
     try {
       const { cards, error } = await getCards(config, new Headers())
 
       expect(error).toBeUndefined()
-      expect(Object.fromEntries(cards.map(card => [card.id, card.title]))).toEqual({
+      expect(Object.fromEntries(cards.map((card) => [card.id, card.title]))).toEqual({
         'home:home-container': 'Home container',
         'home:home-other': 'Home service',
         'vps:vps-container': 'Global container',
@@ -311,10 +386,17 @@ describe('getCards', () => {
   })
 
   it('keeps cards from reachable hosts when another host is unavailable', async () => {
-    server.containers = [{
-      Id: 'home-app', Names: ['/home-app'], Image: 'nginx', ImageID: 'sha256:home',
-      State: 'running', Status: 'Up 1 hour', Labels: { 'dashmark.url': 'https://home.example.com' }
-    }]
+    server.containers = [
+      {
+        Id: 'home-app',
+        Names: ['/home-app'],
+        Image: 'nginx',
+        ImageID: 'sha256:home',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: { 'dashmark.url': 'https://home.example.com' }
+      }
+    ]
 
     const config = getConfig()
     config.dockerHosts = [
@@ -325,7 +407,7 @@ describe('getCards', () => {
     const { cards, error } = await getCards(config, new Headers())
 
     expect(error).toBeUndefined()
-    expect(cards.map(card => card.id)).toEqual(['home:home-app'])
+    expect(cards.map((card) => card.id)).toEqual(['home:home-app'])
   })
 
   it('returns an error when every configured host is unavailable', async () => {
@@ -550,16 +632,10 @@ describe('getCards', () => {
     const noGroup = await getCards(config, new Headers())
     expect(noGroup.error?.code).toBe('MISSING_GROUPS_HEADER')
 
-    const withGroup = await getCards(
-      config,
-      new Headers({ 'X-Authentik-Groups': 'admins' })
-    )
+    const withGroup = await getCards(config, new Headers({ 'X-Authentik-Groups': 'admins' }))
     expect(withGroup.cards).toHaveLength(1)
 
-    const wrongGroup = await getCards(
-      config,
-      new Headers({ 'X-Authentik-Groups': 'users' })
-    )
+    const wrongGroup = await getCards(config, new Headers({ 'X-Authentik-Groups': 'users' }))
     expect(wrongGroup.cards).toHaveLength(0)
   })
 
@@ -584,16 +660,10 @@ describe('getCards', () => {
     config.enableAccessControl = true
     config.accessGroupsHeader = 'auto'
 
-    const oauth2Proxy = await getCards(
-      config,
-      new Headers({ 'X-Forwarded-Groups': 'admins' })
-    )
+    const oauth2Proxy = await getCards(config, new Headers({ 'X-Forwarded-Groups': 'admins' }))
     expect(oauth2Proxy.cards).toHaveLength(1)
 
-    const keycloakGatekeeper = await getCards(
-      config,
-      new Headers({ 'X-Auth-Groups': 'admins' })
-    )
+    const keycloakGatekeeper = await getCards(config, new Headers({ 'X-Auth-Groups': 'admins' }))
     expect(keycloakGatekeeper.cards).toHaveLength(1)
   })
 
@@ -674,7 +744,10 @@ describe('getCards', () => {
 
     const { cards } = await getCards(config, new Headers())
 
-    expect(cards).toMatchObject([{ host: 'external', hostColor: 0 }, { host: 'external', hostColor: 0 }])
+    expect(cards).toMatchObject([
+      { host: 'external', hostColor: 0 },
+      { host: 'external', hostColor: 0 }
+    ])
   })
 
   it('exposes and collects custom metrics for standalone YAML cards without resource metrics', async () => {
@@ -705,7 +778,10 @@ github:
     expect(cards[0]).toMatchObject({
       id: 'yaml-github',
       hasContainer: false,
-      customMetricLabels: [{ key: 'queue_depth', label: 'Queue depth' }, { key: 'stars', label: 'Stars' }],
+      customMetricLabels: [
+        { key: 'queue_depth', label: 'Queue depth' },
+        { key: 'stars', label: 'Stars' }
+      ],
       metricsPollIntervalMs: 10_000,
       metricsHistoryPeriodMs: 900_000
     })
@@ -720,17 +796,19 @@ github:
       metricErrors: []
     })
     mockGotResponse('{"queue":5,"stars":43}')
-    await expect(collectContainerResourceUsage(config)).resolves.toEqual([{
-      cardId: 'yaml-github',
-      resource: undefined,
-      customMetrics: [
-        { key: 'queue_depth', label: 'Queue depth', unit: 'count', chart: 'step', value: 5 },
-        { key: 'stars', label: 'Stars', unit: 'count', chart: 'step', value: 43 }
-      ],
-      metricErrors: [],
-      metricsPollIntervalMs: 10_000,
-      metricsHistoryPeriodMs: 900_000
-    }])
+    await expect(collectContainerResourceUsage(config)).resolves.toEqual([
+      {
+        cardId: 'yaml-github',
+        resource: undefined,
+        customMetrics: [
+          { key: 'queue_depth', label: 'Queue depth', unit: 'count', chart: 'step', value: 5 },
+          { key: 'stars', label: 'Stars', unit: 'count', chart: 'step', value: 43 }
+        ],
+        metricErrors: [],
+        metricsPollIntervalMs: 10_000,
+        metricsHistoryPeriodMs: 900_000
+      }
+    ])
     expect(server.statsRequests).toBe(0)
   })
 
@@ -797,13 +875,20 @@ github:
   })
 
   it('lets YAML override a Docker card by Compose service name', async () => {
-    server.containers = [{
-      Id: 'abc123', Names: ['/stack_plex_1'], Image: 'plexinc/pms-docker', ImageID: 'sha256:abc',
-      State: 'running', Status: 'Up 2 hours', Labels: {
-        'com.docker.compose.service': 'plex',
-        'dashmark.url': 'https://plex.home.local'
+    server.containers = [
+      {
+        Id: 'abc123',
+        Names: ['/stack_plex_1'],
+        Image: 'plexinc/pms-docker',
+        ImageID: 'sha256:abc',
+        State: 'running',
+        Status: 'Up 2 hours',
+        Labels: {
+          'com.docker.compose.service': 'plex',
+          'dashmark.url': 'https://plex.home.local'
+        }
       }
-    }]
+    ]
 
     const config = getConfig()
     config.dockerHost = dockerHost
@@ -863,10 +948,17 @@ describe('getContainerStatuses', () => {
   })
 
   it('includes CPU, memory, and per-container network rates', async () => {
-    server.containers = [{
-      Id: 'resources', Names: ['/resources'], Image: 'nginx', ImageID: 'sha256:resources',
-      State: 'running', Status: 'Up 1 hour', Labels: { 'dashmark.url': 'https://resources.example.com' }
-    }]
+    server.containers = [
+      {
+        Id: 'resources',
+        Names: ['/resources'],
+        Image: 'nginx',
+        ImageID: 'sha256:resources',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: { 'dashmark.url': 'https://resources.example.com' }
+      }
+    ]
     server.stats.resources = {
       cpu_stats: {
         cpu_usage: { total_usage: 300, percpu_usage: [150, 150] },
@@ -899,7 +991,7 @@ describe('getContainerStatuses', () => {
 
       now.mockReturnValue(1_000)
       server.stats.resources = {
-        ...server.stats.resources as Record<string, unknown>,
+        ...(server.stats.resources as Record<string, unknown>),
         networks: { eth0: { rx_bytes: 3_000, tx_bytes: 1_000 } }
       }
       const second = await getContainerResourceUsage(config, new Headers(), 'default:resources')
@@ -913,10 +1005,17 @@ describe('getContainerStatuses', () => {
   })
 
   it('skips Docker stats when resource usage is disabled or not authorized', async () => {
-    server.containers = [{
-      Id: 'restricted-resources', Names: ['/restricted-resources'], Image: 'nginx', ImageID: 'sha256:restricted',
-      State: 'running', Status: 'Up 1 hour', Labels: { 'dashmark.url': 'https://resources.example.com' }
-    }]
+    server.containers = [
+      {
+        Id: 'restricted-resources',
+        Names: ['/restricted-resources'],
+        Image: 'nginx',
+        ImageID: 'sha256:restricted',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: { 'dashmark.url': 'https://resources.example.com' }
+      }
+    ]
     server.stats['restricted-resources'] = {
       cpu_stats: { cpu_usage: { total_usage: 200 }, system_cpu_usage: 400 },
       precpu_stats: { cpu_usage: { total_usage: 100 }, system_cpu_usage: 200 }
@@ -942,13 +1041,20 @@ describe('getContainerStatuses', () => {
   })
 
   it('limits resource metrics per card and skips stats when none are selected', async () => {
-    server.containers = [{
-      Id: 'selected-resources', Names: ['/selected-resources'], Image: 'nginx', ImageID: 'sha256:selected',
-      State: 'running', Status: 'Up 1 hour', Labels: {
-        'dashmark.url': 'https://resources.example.com',
-        'dashmark.metrics': 'cpu'
+    server.containers = [
+      {
+        Id: 'selected-resources',
+        Names: ['/selected-resources'],
+        Image: 'nginx',
+        ImageID: 'sha256:selected',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: {
+          'dashmark.url': 'https://resources.example.com',
+          'dashmark.metrics': 'cpu'
+        }
       }
-    }]
+    ]
     server.stats['selected-resources'] = {
       cpu_stats: { cpu_usage: { total_usage: 200 }, system_cpu_usage: 400 },
       precpu_stats: { cpu_usage: { total_usage: 100 }, system_cpu_usage: 200 },
@@ -975,13 +1081,20 @@ describe('getContainerStatuses', () => {
   })
 
   it('collects configured local YAML metrics', async () => {
-    server.containers = [{
-      Id: 'custom-metrics', Names: ['/radarr'], Image: 'radarr', ImageID: 'sha256:radarr',
-      State: 'running', Status: 'Up 1 hour', Labels: {
-        'dashmark.url': 'https://radarr.example.com',
-        'dashmark.metrics': 'active_downloads'
+    server.containers = [
+      {
+        Id: 'custom-metrics',
+        Names: ['/radarr'],
+        Image: 'radarr',
+        ImageID: 'sha256:radarr',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: {
+          'dashmark.url': 'https://radarr.example.com',
+          'dashmark.metrics': 'active_downloads'
+        }
       }
-    }]
+    ]
     mockGotResponse('{"totalRecords":4}')
     const config = getConfig()
     config.dockerHost = dockerHost
@@ -1007,13 +1120,20 @@ radarr:
   })
 
   it('maps state values to labels and colors for state metrics', async () => {
-    server.containers = [{
-      Id: 'state-metric', Names: ['/backup'], Image: 'service', ImageID: 'sha256:service',
-      State: 'running', Status: 'Up 1 hour', Labels: {
-        'dashmark.url': 'https://service.example.test',
-        'dashmark.metrics': 'health'
+    server.containers = [
+      {
+        Id: 'state-metric',
+        Names: ['/backup'],
+        Image: 'service',
+        ImageID: 'sha256:service',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: {
+          'dashmark.url': 'https://service.example.test',
+          'dashmark.metrics': 'health'
+        }
       }
-    }]
+    ]
     const config = getConfig()
     config.dockerHost = dockerHost
     config.configFile = writeTempConfig(`
@@ -1043,14 +1163,21 @@ backup:
   })
 
   it('collects a fixture library metric from the card URL and API-key label', async () => {
-    server.containers = [{
-      Id: 'catalog-metric', Names: ['/service'], Image: 'service', ImageID: 'sha256:service',
-      State: 'running', Status: 'Up 1 hour', Labels: {
-        'dashmark.url': 'https://service.example.com',
-        'dashmark.metrics': 'test/queue-depth',
-        'dashmark.metric_api_key': 'label-api-key'
+    server.containers = [
+      {
+        Id: 'catalog-metric',
+        Names: ['/service'],
+        Image: 'service',
+        ImageID: 'sha256:service',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: {
+          'dashmark.url': 'https://service.example.com',
+          'dashmark.metrics': 'test/queue-depth',
+          'dashmark.metric_api_key': 'label-api-key'
+        }
       }
-    }]
+    ]
     mockGotResponse('{"totalCount":4}')
     const config = getConfig()
     config.dockerHost = dockerHost
@@ -1066,37 +1193,55 @@ backup:
   })
 
   it('resolves library inputs and API URLs from provider-specific labels', async () => {
-    server.containers = [{
-      Id: 'gatus-metric', Names: ['/plex'], Image: 'plex', ImageID: 'sha256:plex',
-      State: 'running', Status: 'Up 1 hour', Labels: {
-        'dashmark.url': 'https://plex.example.com',
-        'dashmark.metrics': 'test/uptime',
-        'dashmark.metrics_source.test': 'http://metrics.example.test',
-        'dashmark.metrics_input.test.uptime.group': 'Media Servers',
-        'dashmark.metrics_input.test.uptime.name': 'Plex / Main'
+    server.containers = [
+      {
+        Id: 'gatus-metric',
+        Names: ['/plex'],
+        Image: 'plex',
+        ImageID: 'sha256:plex',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: {
+          'dashmark.url': 'https://plex.example.com',
+          'dashmark.metrics': 'test/uptime',
+          'dashmark.metrics_source.test': 'http://metrics.example.test',
+          'dashmark.metrics_input.test.uptime.group': 'Media Servers',
+          'dashmark.metrics_input.test.uptime.name': 'Plex / Main'
+        }
       }
-    }]
+    ]
     mockGotResponse('{"results":[{"timestamp":"2026-08-27T18:00:00Z","success":true,"duration":12000000}]}')
     const config = getConfig()
     config.dockerHost = dockerHost
 
     await expect(getContainerMetricUsage(config, new Headers(), 'default:gatus-metric')).resolves.toMatchObject({
-      uptimeMetrics: [{
-        key: 'test/uptime', label: 'Uptime', current: 'up',
-        observations: [{ timestamp: Date.parse('2026-08-27T18:00:00Z'), status: 'up', responseTimeMs: 12 }]
-      }]
+      uptimeMetrics: [
+        {
+          key: 'test/uptime',
+          label: 'Uptime',
+          current: 'up',
+          observations: [{ timestamp: Date.parse('2026-08-27T18:00:00Z'), status: 'up', responseTimeMs: 12 }]
+        }
+      ]
     })
     expect(String(got.mock.calls[0]?.[0])).toBe('http://metrics.example.test/api/endpoints/media-servers_plex---main/statuses')
   })
 
   it('falls back to the card URL for {metric_source} custom metric sources', async () => {
-    server.containers = [{
-      Id: 'metrics-url-fallback', Names: ['/service'], Image: 'service', ImageID: 'sha256:service',
-      State: 'running', Status: 'Up 1 hour', Labels: {
-        'dashmark.url': 'https://service.example.com',
-        'dashmark.metrics': 'status'
+    server.containers = [
+      {
+        Id: 'metrics-url-fallback',
+        Names: ['/service'],
+        Image: 'service',
+        ImageID: 'sha256:service',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: {
+          'dashmark.url': 'https://service.example.com',
+          'dashmark.metrics': 'status'
+        }
       }
-    }]
+    ]
     mockGotResponse('{"value":4}')
     const config = getConfig()
     config.dockerHost = dockerHost
@@ -1116,14 +1261,21 @@ service:
   })
 
   it('uses YAML provider sources over Docker labels for custom metric sources', async () => {
-    server.containers = [{
-      Id: 'metrics-url-override', Names: ['/service'], Image: 'service', ImageID: 'sha256:service',
-      State: 'running', Status: 'Up 1 hour', Labels: {
-        'dashmark.url': 'https://service.example.com',
-        'dashmark.metrics_source.status': 'https://label-api.example.com',
-        'dashmark.metrics': 'status'
+    server.containers = [
+      {
+        Id: 'metrics-url-override',
+        Names: ['/service'],
+        Image: 'service',
+        ImageID: 'sha256:service',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: {
+          'dashmark.url': 'https://service.example.com',
+          'dashmark.metrics_source.status': 'https://label-api.example.com',
+          'dashmark.metrics': 'status'
+        }
       }
-    }]
+    ]
     mockGotResponse('{"value":4}')
     const config = getConfig()
     config.dockerHost = dockerHost
@@ -1145,15 +1297,22 @@ service:
   })
 
   it('resolves HTTP Basic credential labels for a Docker metric source', async () => {
-    server.containers = [{
-      Id: 'basic-metric', Names: ['/service'], Image: 'service', ImageID: 'sha256:service',
-      State: 'running', Status: 'Up 1 hour', Labels: {
-        'dashmark.url': 'https://service.example.com',
-        'dashmark.metrics': 'basic',
-        'dashmark.metric_api_key': 'container-key',
-        'dashmark.metric_api_secret': 'container-secret'
+    server.containers = [
+      {
+        Id: 'basic-metric',
+        Names: ['/service'],
+        Image: 'service',
+        ImageID: 'sha256:service',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: {
+          'dashmark.url': 'https://service.example.com',
+          'dashmark.metrics': 'basic',
+          'dashmark.metric_api_key': 'container-key',
+          'dashmark.metric_api_secret': 'container-secret'
+        }
       }
-    }]
+    ]
     mockGotResponse('{"value":4}')
     const config = getConfig()
     config.dockerHost = dockerHost
@@ -1180,13 +1339,20 @@ service:
   })
 
   it('validates metric access without collecting live values', async () => {
-    server.containers = [{
-      Id: 'cached-metrics', Names: ['/radarr'], Image: 'radarr', ImageID: 'sha256:radarr',
-      State: 'running', Status: 'Up 1 hour', Labels: {
-        'dashmark.url': 'https://radarr.example.com',
-        'dashmark.metrics': 'active_downloads'
+    server.containers = [
+      {
+        Id: 'cached-metrics',
+        Names: ['/radarr'],
+        Image: 'radarr',
+        ImageID: 'sha256:radarr',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: {
+          'dashmark.url': 'https://radarr.example.com',
+          'dashmark.metrics': 'active_downloads'
+        }
       }
-    }]
+    ]
     const config = getConfig()
     config.dockerHost = dockerHost
     config.configFile = writeTempConfig(`
@@ -1211,13 +1377,20 @@ radarr:
   })
 
   it('collects library metrics without a metric provider admission gate', async () => {
-    server.containers = [{
-      Id: 'provider-metrics', Names: ['/radarr'], Image: 'radarr', ImageID: 'sha256:radarr',
-      State: 'running', Status: 'Up 1 hour', Labels: {
-        'dashmark.url': 'https://radarr.example.com',
-        'dashmark.metric_api_key': 'label-api-key'
+    server.containers = [
+      {
+        Id: 'provider-metrics',
+        Names: ['/radarr'],
+        Image: 'radarr',
+        ImageID: 'sha256:radarr',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: {
+          'dashmark.url': 'https://radarr.example.com',
+          'dashmark.metric_api_key': 'label-api-key'
+        }
       }
-    }]
+    ]
     const config = getConfig()
     config.dockerHost = dockerHost
     config.configFile = writeTempConfig(`
@@ -1303,16 +1476,10 @@ radarr:
     const noGroup = await getContainerStatuses(config, new Headers())
     expect(noGroup.error?.code).toBe('MISSING_GROUPS_HEADER')
 
-    const withGroup = await getContainerStatuses(
-      config,
-      new Headers({ 'X-Authentik-Groups': 'admins' })
-    )
+    const withGroup = await getContainerStatuses(config, new Headers({ 'X-Authentik-Groups': 'admins' }))
     expect(withGroup.statuses).toHaveProperty('default:admin1')
 
-    const wrongGroup = await getContainerStatuses(
-      config,
-      new Headers({ 'X-Authentik-Groups': 'users' })
-    )
+    const wrongGroup = await getContainerStatuses(config, new Headers({ 'X-Authentik-Groups': 'users' }))
     expect(Object.keys(wrongGroup.statuses)).toHaveLength(0)
   })
 

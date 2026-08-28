@@ -28,9 +28,7 @@ export default defineConfig({
         Sidebar: './src/components/Sidebar.astro',
         ThemeSelect: './src/components/ThemeSelect.astro'
       },
-      social: [
-        { icon: 'github', label: 'GitHub', href: 'https://github.com/edmogeor/dashmark' }
-      ],
+      social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/edmogeor/dashmark' }],
       sidebar: [
         {
           label: 'Get started',
@@ -59,10 +57,8 @@ export default defineConfig({
         },
         {
           label: 'Deployment',
-          items: [
-            { label: 'Deployment and security', link: '/deployment/security/' }
-          ]
-        },
+          items: [{ label: 'Deployment and security', link: '/deployment/security/' }]
+        }
       ]
     })
   ]

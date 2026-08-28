@@ -27,9 +27,7 @@ async function makeSvg(fill: string): Promise<Buffer> {
 }
 
 function mockFetchWith(buffer: Buffer, contentType: string) {
-  global.fetch = vi.fn().mockResolvedValue(
-    new Response(new Uint8Array(buffer), { status: 200, headers: { 'Content-Type': contentType } })
-  )
+  global.fetch = vi.fn().mockResolvedValue(new Response(new Uint8Array(buffer), { status: 200, headers: { 'Content-Type': contentType } }))
 }
 
 describe('analyzeIconLuminance', () => {

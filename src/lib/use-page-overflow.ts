@@ -10,10 +10,8 @@ export function usePageOverflow(): boolean {
       // This tracks the visible viewport when virtual keyboards overlay the layout viewport.
       const viewportHeight = visualViewport?.height ?? window.innerHeight
       document.documentElement.style.setProperty('--dashmark-viewport-height', `${viewportHeight}px`)
-      const hasOverflow = main
-        ? main.getBoundingClientRect().bottom + window.scrollY > viewportHeight
-        : document.documentElement.scrollHeight > viewportHeight
-      setHasPageOverflow(current => current === hasOverflow ? current : hasOverflow)
+      const hasOverflow = main ? main.getBoundingClientRect().bottom + window.scrollY > viewportHeight : document.documentElement.scrollHeight > viewportHeight
+      setHasPageOverflow((current) => (current === hasOverflow ? current : hasOverflow))
     }
 
     const observer = new ResizeObserver(updateOverflow)

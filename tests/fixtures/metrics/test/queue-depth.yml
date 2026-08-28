@@ -3,7 +3,7 @@ display:
 value:
   unit: count
 source:
-  url: "{url}/api/queue"
+  url: '{url}/api/queue'
   headers:
     X-Api-Key:
       env: DASHMARK_TEST_API_KEY

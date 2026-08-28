@@ -40,9 +40,7 @@ async function extractJqValue(key: string, document: unknown, metric: MetricOver
   try {
     const value = await jq.run(metric.jq.expression, document as JsonInput, { input: 'json', output: 'json' })
     if (metric.valueType === 'string' || metric.valueType === 'state') return typeof value === 'string' ? { value } : unavailable(key, 'jq extraction did not produce a string')
-    return typeof value === 'number' && Number.isFinite(value)
-      ? { value }
-      : unavailable(key, 'jq extraction did not produce a finite number')
+    return typeof value === 'number' && Number.isFinite(value) ? { value } : unavailable(key, 'jq extraction did not produce a finite number')
   } catch {
     return unavailable(key, 'jq extraction failed')
   }
@@ -104,12 +102,7 @@ async function extractUptimeDocument(key: string, document: JsonInput, metric: E
   }
 }
 
-async function collectPaginatedJq(
-  key: string,
-  text: string,
-  metric: MetricOverride,
-  request: (url: URL) => Promise<{ status: number; text: string }>,
-): Promise<MetricResult> {
+async function collectPaginatedJq(key: string, text: string, metric: MetricOverride, request: (url: URL) => Promise<{ status: number; text: string }>): Promise<MetricResult> {
   if (!metric.pagination || !('jq' in metric)) return unavailable(key, 'pagination requires a jq extractor')
   try {
     const items: JsonInput[] = []
@@ -119,11 +112,9 @@ async function collectPaginatedJq(
       if (!Array.isArray(pageItems)) return unavailable(key, 'pagination item extraction did not produce an array')
       items.push(...pageItems)
       const next: unknown = await jq.run(metric.pagination.next.expression, document, { input: 'json', output: 'json' })
-        if (next === 0 || next === null) {
-          return metric.valueType === 'uptime'
-            ? extractUptimeDocument(key, { items }, metric)
-            : extractJqValue(key, { items }, metric)
-        }
+      if (next === 0 || next === null) {
+        return metric.valueType === 'uptime' ? extractUptimeDocument(key, { items }, metric) : extractJqValue(key, { items }, metric)
+      }
       if (typeof next !== 'number' || !Number.isInteger(next) || next < 1) return unavailable(key, 'pagination next extraction did not produce a page number')
       const url = new URL(metric.source.url)
       url.searchParams.set('page', String(next))
@@ -144,7 +135,7 @@ async function collectForEachMetric(key: string, text: string, metric: MetricOve
   try {
     const document = JSON.parse(text) as JsonInput
     const extracted = await jq.run(forEach.items.expression, document, { input: 'json', output: 'json' })
-    if (!Array.isArray(extracted) || !extracted.every(item => typeof item === 'string' || (typeof item === 'number' && Number.isFinite(item)))) {
+    if (!Array.isArray(extracted) || !extracted.every((item) => typeof item === 'string' || (typeof item === 'number' && Number.isFinite(item)))) {
       return unavailable(key, 'for_each item extraction did not produce an array of strings or finite numbers')
     }
     const items = [...new Set(extracted.map(String))]
@@ -153,15 +144,17 @@ async function collectForEachMetric(key: string, text: string, metric: MetricOve
 
     const values: number[] = []
     for (let index = 0; index < items.length; index += FOR_EACH_CONCURRENCY) {
-      const batch = await Promise.all(items.slice(index, index + FOR_EACH_CONCURRENCY).map(async item => {
-        const url = new URL(forEach.requestUrl.replaceAll('{item}', encodeURIComponent(item)))
-        const response = await request(url)
-        if (response.status < 200 || response.status >= 300) throw new Error(`child request returned HTTP ${response.status}`)
-        const childDocument = JSON.parse(response.text) as JsonInput
-        const value = await jq.run(forEach.value.expression, childDocument, { input: 'json', output: 'json' })
-        if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error('child value extraction did not produce a finite number')
-        return value
-      }))
+      const batch = await Promise.all(
+        items.slice(index, index + FOR_EACH_CONCURRENCY).map(async (item) => {
+          const url = new URL(forEach.requestUrl.replaceAll('{item}', encodeURIComponent(item)))
+          const response = await request(url)
+          if (response.status < 200 || response.status >= 300) throw new Error(`child request returned HTTP ${response.status}`)
+          const childDocument = JSON.parse(response.text) as JsonInput
+          const value = await jq.run(forEach.value.expression, childDocument, { input: 'json', output: 'json' })
+          if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error('child value extraction did not produce a finite number')
+          return value
+        })
+      )
       values.push(...batch)
     }
     const value = reduce(values, forEach.reduce)
@@ -194,7 +187,10 @@ function parseLabels(input: string): Record<string, string> | undefined {
     let closed = false
     while (index < input.length) {
       const character = input[index++]
-      if (character === '"') { closed = true; break }
+      if (character === '"') {
+        closed = true
+        break
+      }
       if (character === '\\') {
         const escaped = input[index++]
         if (escaped === undefined) return undefined
@@ -234,9 +230,7 @@ function extractPrometheus(key: string, text: string, metric: MetricOverride): M
     return textValues.length === 1 ? { value: textValues[0] } : unavailable(key, 'Prometheus extraction did not produce one matching label value')
   }
   const value = reduce(values, extractor.reduce)
-  return value === undefined || !Number.isFinite(value)
-    ? unavailable(key, 'Prometheus extraction did not produce the required numeric values')
-    : { value }
+  return value === undefined || !Number.isFinite(value) ? unavailable(key, 'Prometheus extraction did not produce the required numeric values') : { value }
 }
 
 function transform(key: string, result: MetricResult, metric: MetricOverride): MetricResult {
@@ -257,14 +251,26 @@ type JsonValue = RequestValue | null | JsonValue[] | { [key: string]: JsonValue 
 type ValueReferences = Record<string, RequestValue>
 
 function isTokenReference(value: unknown): value is TokenReference {
-  return typeof value === 'object' && value !== null && Object.keys(value).every(key => key === 'token' || key === 'prefix')
-    && typeof (value as TokenReference).token === 'string' && ((value as TokenReference).prefix === undefined || typeof (value as TokenReference).prefix === 'string')
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Object.keys(value).every((key) => key === 'token' || key === 'prefix') &&
+    typeof (value as TokenReference).token === 'string' &&
+    ((value as TokenReference).prefix === undefined || typeof (value as TokenReference).prefix === 'string')
+  )
 }
 
 function isSecretReference(value: unknown): value is SecretReference {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    && Object.keys(value).every(key => ['env', 'file', 'label', 'value'].includes(key))
-    && (typeof (value as SecretReference).env === 'string' || typeof (value as SecretReference).file === 'string' || typeof (value as SecretReference).label === 'string' || typeof (value as SecretReference).value === 'string')
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.keys(value).every((key) => ['env', 'file', 'label', 'value'].includes(key)) &&
+    (typeof (value as SecretReference).env === 'string' ||
+      typeof (value as SecretReference).file === 'string' ||
+      typeof (value as SecretReference).label === 'string' ||
+      typeof (value as SecretReference).value === 'string')
+  )
 }
 
 function resolveReferences(metric: MetricOverride, references: ValueReferences, kind: string, tokens: Record<string, string> = {}): { values?: Record<string, string>; error?: string } {
@@ -277,13 +283,16 @@ function resolveReferences(metric: MetricOverride, references: ValueReferences, 
       const value = isToken
         ? tokens[reference.token] && `${reference.prefix ?? ''}${tokens[reference.token]}`
         : isReference
-          ? secret.value ?? (secret.env === undefined ? readFileSync(secret.file!, 'utf8').trim() : process.env[secret.env])
+          ? (secret.value ?? (secret.env === undefined ? readFileSync(secret.file!, 'utf8').trim() : process.env[secret.env]))
           : String(reference)
       if (!value) throw new Error(isToken ? 'authentication token is unavailable' : isReference && secret.env === undefined ? 'secret file is empty' : 'environment variable is unset')
       values[name] = value
     } catch (error) {
       logger.error('metrics', 'failed to resolve custom metric secret', { metric: metric.label, [kind]: name, error: error instanceof Error ? error.message : 'unknown error' })
-      return { error: typeof reference === 'object' && 'token' in reference ? `Authentication token ${reference.token} is unavailable` : `Credential ${credentialName(reference as SecretReference)} is unavailable` }
+      return {
+        error:
+          typeof reference === 'object' && 'token' in reference ? `Authentication token ${reference.token} is unavailable` : `Credential ${credentialName(reference as SecretReference)} is unavailable`
+      }
     }
   }
   return { values }
@@ -396,25 +405,23 @@ async function prepareMetricRequest(
   return { request: { url, headers } }
 }
 
-async function requestMetric(
-  metric: MetricOverride,
-  cookieJar: CookieJar,
-  targetUrl: URL,
-  includeSourceValues: boolean
-): Promise<{ response?: { status: number; text: string }; error?: string }> {
+async function requestMetric(metric: MetricOverride, cookieJar: CookieJar, targetUrl: URL, includeSourceValues: boolean): Promise<{ response?: { status: number; text: string }; error?: string }> {
   const optional = metric.source.auth?.optional === true
   let prepared = await prepareMetricRequest(metric, cookieJar, targetUrl, !optional, includeSourceValues)
   if (prepared.error || !prepared.request) return { error: prepared.error ?? 'Could not prepare metric request' }
-  let response = await requestText(prepared.request.url, prepared.request.headers, cookieJar, includeSourceValues ? metric.source.method ?? 'GET' : 'GET', prepared.request.body)
+  let response = await requestText(prepared.request.url, prepared.request.headers, cookieJar, includeSourceValues ? (metric.source.method ?? 'GET') : 'GET', prepared.request.body)
   if (!optional || (response.status !== 401 && response.status !== 403)) return { response }
 
   prepared = await prepareMetricRequest(metric, cookieJar, targetUrl, true, includeSourceValues)
   if (prepared.error || !prepared.request) return { error: `Authentication is required, but ${prepared.error ?? 'credentials are unavailable'}` }
-  response = await requestText(prepared.request.url, prepared.request.headers, cookieJar, includeSourceValues ? metric.source.method ?? 'GET' : 'GET', prepared.request.body)
+  response = await requestText(prepared.request.url, prepared.request.headers, cookieJar, includeSourceValues ? (metric.source.method ?? 'GET') : 'GET', prepared.request.body)
   return { response }
 }
 
-async function extractTokens(text: string, extract: NonNullable<Extract<NonNullable<MetricOverride['source']['auth']>, { type: 'cookie_session' }>['steps'][number]['extract']>): Promise<{ tokens?: Record<string, string>; error?: string }> {
+async function extractTokens(
+  text: string,
+  extract: NonNullable<Extract<NonNullable<MetricOverride['source']['auth']>, { type: 'cookie_session' }>['steps'][number]['extract']>
+): Promise<{ tokens?: Record<string, string>; error?: string }> {
   const tokens: Record<string, string> = {}
   for (const [name, extractor] of Object.entries(extract)) {
     if ('jq' in extractor) {
@@ -483,7 +490,12 @@ function resolveJson(metric: MetricOverride, value: JsonValue, tokens: Record<st
   return { value: entries }
 }
 
-function resolveBody(metric: MetricOverride, form: Record<string, RequestValue> | undefined, json: Record<string, JsonValue> | undefined, tokens: Record<string, string>): { value?: { form?: Record<string, string>; json?: Record<string, JsonValue> }; error?: string } {
+function resolveBody(
+  metric: MetricOverride,
+  form: Record<string, RequestValue> | undefined,
+  json: Record<string, JsonValue> | undefined,
+  tokens: Record<string, string>
+): { value?: { form?: Record<string, string>; json?: Record<string, JsonValue> }; error?: string } {
   if (form) {
     const resolved = resolveReferences(metric, form, 'body', tokens)
     return resolved.error || !resolved.values ? { error: resolved.error ?? 'Could not resolve a metric value' } : { value: { form: resolved.values } }
@@ -495,7 +507,10 @@ function resolveBody(metric: MetricOverride, form: Record<string, RequestValue> 
     : { value: { json: resolved.value as Record<string, JsonValue> } }
 }
 
-function socketIoArguments(metric: MetricOverride, args: (string | number | boolean | { env?: string; file?: string; label?: string; value?: string })[] | undefined): { values?: (string | number | boolean)[]; error?: string } {
+function socketIoArguments(
+  metric: MetricOverride,
+  args: (string | number | boolean | { env?: string; file?: string; label?: string; value?: string })[] | undefined
+): { values?: (string | number | boolean)[]; error?: string } {
   if (!args) return { values: [] }
   const values: (string | number | boolean)[] = []
   for (const argument of args) {
@@ -527,8 +542,14 @@ async function collectSocketIoMetric(key: string, metric: MetricOverride, url: U
   try {
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('Socket.IO connection timed out')), REQUEST_TIMEOUT_MS)
-      socket.once('connect', () => { clearTimeout(timer); resolve() })
-      socket.once('connect_error', error => { clearTimeout(timer); reject(error) })
+      socket.once('connect', () => {
+        clearTimeout(timer)
+        resolve()
+      })
+      socket.once('connect_error', (error) => {
+        clearTimeout(timer)
+        reject(error)
+      })
       socket.connect()
     })
     if (socketio.login) await socket.timeout(REQUEST_TIMEOUT_MS).emitWithAck(socketio.login.event, ...loginArguments.values)
@@ -570,20 +591,24 @@ export async function collectCustomMetric(key: string, metric: MetricOverride): 
       return { error: `Source returned HTTP ${response.status}` }
     }
     const extracted = metric.forEach
-      ? await collectForEachMetric(key, response.text, metric, async childUrl => {
+      ? await collectForEachMetric(key, response.text, metric, async (childUrl) => {
           const child = await requestMetric(metric, cookieJar, childUrl, false)
           if (child.error || !child.response) throw new Error(child.error ?? 'Could not reach metric source')
           return child.response
         })
       : metric.pagination
-        ? await collectPaginatedJq(key, response.text, metric, async pageUrl => {
+        ? await collectPaginatedJq(key, response.text, metric, async (pageUrl) => {
             const page = await requestMetric(metric, cookieJar, pageUrl, true)
             if (page.error || !page.response) throw new Error(page.error ?? 'Could not reach metric source')
             return page.response
           })
         : metric.valueType === 'uptime'
           ? await extractUptime(key, response.text, metric)
-          : metric.text ? extractText(key, response.text, metric) : 'jq' in metric ? await extractJq(key, response.text, metric) : extractPrometheus(key, response.text, metric)
+          : metric.text
+            ? extractText(key, response.text, metric)
+            : 'jq' in metric
+              ? await extractJq(key, response.text, metric)
+              : extractPrometheus(key, response.text, metric)
     return transform(key, extracted, metric)
   } catch (error) {
     const detail = error instanceof Error ? error.name : 'unknown error'

@@ -23,14 +23,7 @@ function useDarkMode(): boolean {
 const Toaster = ({ ...props }: ToasterProps) => {
   const isDark = useDarkMode()
 
-  return (
-    <Sonner
-      theme={isDark ? 'dark' : 'light'}
-      position="top-center"
-      richColors
-      {...props}
-    />
-  )
+  return <Sonner theme={isDark ? 'dark' : 'light'} position="top-center" richColors {...props} />
 }
 
 export { Toaster }

@@ -3,7 +3,7 @@ export function getInitials(title: string): string {
     .trim()
     .split(/\s+/)
     .slice(0, 2)
-    .map(word => word[0]?.toUpperCase())
+    .map((word) => word[0]?.toUpperCase())
     .filter(Boolean)
     .join('')
 

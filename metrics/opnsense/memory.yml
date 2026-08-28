@@ -4,6 +4,6 @@ display:
 value:
   unit: bytes
 source:
-  url: "{metric_source}/api/diagnostics/activity/getActivity"
+  url: '{metric_source}/api/diagnostics/activity/getActivity'
 extract:
   jq: '(.headers[3] | capture("Mem: (?<active>[0-9.]+)(?<unit>[KMGT]?) Active,") | (.active | tonumber) * ({"": 1, "K": 1024, "M": 1048576, "G": 1073741824, "T": 1099511627776}[.unit]))'

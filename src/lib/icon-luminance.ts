@@ -43,12 +43,7 @@ export async function analyzeIconLuminance(url: string): Promise<IconContrast | 
     }
 
     const buffer = Buffer.from(await response.arrayBuffer())
-    const { data, info } = await sharp(buffer)
-      .resize(ANALYSIS_SIZE, ANALYSIS_SIZE, { fit: 'inside' })
-      .blur(BLUR_SIGMA)
-      .raw()
-      .ensureAlpha()
-      .toBuffer({ resolveWithObject: true })
+    const { data, info } = await sharp(buffer).resize(ANALYSIS_SIZE, ANALYSIS_SIZE, { fit: 'inside' }).blur(BLUR_SIGMA).raw().ensureAlpha().toBuffer({ resolveWithObject: true })
 
     let totalLuminance = 0
     let opaquePixels = 0

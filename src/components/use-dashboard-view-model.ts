@@ -39,7 +39,7 @@ export type CategoryItem = {
 }
 
 export function buildCategoryItems(cards: Card[], categoryOrder: string[] = []): CategoryItem[] {
-  const configuredNames = new Map(categoryOrder.map(category => [categoryKey(category), category]))
+  const configuredNames = new Map(categoryOrder.map((category) => [categoryKey(category), category]))
   const groups = new Map<string, CategoryItem>()
   for (const card of cards) {
     const key = categoryKey(card.category)
@@ -81,18 +81,10 @@ type DashboardViewModel = {
   categories: { name: string; count: number }[]
 }
 
-export function useDashboardViewModel(
-  cards: Card[],
-  search: string,
-  selectedCategory: string | null,
-  hasError: boolean,
-  categoryOrder: string[]
-): DashboardViewModel {
+export function useDashboardViewModel(cards: Card[], search: string, selectedCategory: string | null, hasError: boolean, categoryOrder: string[]): DashboardViewModel {
   const filtered = useMemo(() => {
     const selected = selectedCategory === null ? null : selectedCategoryKey(selectedCategory)
-    const categoryFiltered = selected !== null
-      ? cards.filter(card => categoryKey(card.category) === selected)
-      : cards
+    const categoryFiltered = selected !== null ? cards.filter((card) => categoryKey(card.category) === selected) : cards
 
     const query = normalizeUrlSearch(search.trim())
     if (!query) return categoryFiltered
@@ -103,27 +95,18 @@ export function useDashboardViewModel(
       ignoreLocation: true,
       shouldSort: false
     })
-    return fuse.search(query).map(result => result.item)
+    return fuse.search(query).map((result) => result.item)
   }, [cards, search, selectedCategory])
 
-  const categoryItems = useMemo(
-    () => buildCategoryItems(filtered, categoryOrder),
-    [filtered, categoryOrder]
-  )
-  const uncategorised = categoryItems.find(item => item.key === UNCATEGORISED_KEY)?.cards ?? []
-  const hasCategories = useMemo(
-    () => cards.some(card => Boolean(card.category?.trim())),
-    [cards]
-  )
+  const categoryItems = useMemo(() => buildCategoryItems(filtered, categoryOrder), [filtered, categoryOrder])
+  const uncategorised = categoryItems.find((item) => item.key === UNCATEGORISED_KEY)?.cards ?? []
+  const hasCategories = useMemo(() => cards.some((card) => Boolean(card.category?.trim())), [cards])
   const isSearching = search.trim().length > 0
   const categoryCount = categoryItems.length
   const shouldUseCategoryContainers = hasCategories && selectedCategory === null && !isSearching
   const flatCards = shouldUseCategoryContainers ? uncategorised : filtered
   const willRenderMasonry = !hasError && categoryCount > 0 && shouldUseCategoryContainers
-  const categories = useMemo(
-    () => buildCategoryItems(cards, categoryOrder).map(({ category, cards }) => ({ name: category, count: cards.length })),
-    [cards, categoryOrder]
-  )
+  const categories = useMemo(() => buildCategoryItems(cards, categoryOrder).map(({ category, cards }) => ({ name: category, count: cards.length })), [cards, categoryOrder])
 
   return {
     hasResults: filtered.length > 0,

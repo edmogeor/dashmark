@@ -4,6 +4,6 @@ display:
 value:
   unit: bytes_per_second
 source:
-  url: "{metric_source}/api/v2/torrents/info"
+  url: '{metric_source}/api/v2/torrents/info'
 extract:
   jq: '[.[].upspeed] | add // 0'

@@ -6,45 +6,17 @@ export const ACCESS_GROUPS_HEADER_TOKEN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/
 
 export const AUTH_TOKEN_HEADER = 'X-Dashmark-Token'
 
-export const AUTO_GROUP_HEADERS = [
-  'X-Authentik-Groups',
-  'Remote-Groups',
-  'X-Auth-Request-Groups',
-  'X-Forwarded-Groups',
-  'X-Auth-Groups'
-]
+export const AUTO_GROUP_HEADERS = ['X-Authentik-Groups', 'Remote-Groups', 'X-Auth-Request-Groups', 'X-Forwarded-Groups', 'X-Auth-Groups']
 
-export const AUTO_NAME_HEADERS = [
-  'X-Authentik-Name',
-  'Remote-Name',
-  'X-Auth-Request-Preferred-Username',
-  'X-Forwarded-Preferred-Username',
-  'X-Auth-Name'
-]
+export const AUTO_NAME_HEADERS = ['X-Authentik-Name', 'Remote-Name', 'X-Auth-Request-Preferred-Username', 'X-Forwarded-Preferred-Username', 'X-Auth-Name']
 
-export const AUTO_FIRST_NAME_HEADERS = [
-  'X-Authentik-Given-Name'
-]
+export const AUTO_FIRST_NAME_HEADERS = ['X-Authentik-Given-Name']
 
-export const AUTO_LAST_NAME_HEADERS = [
-  'X-Authentik-Family-Name'
-]
+export const AUTO_LAST_NAME_HEADERS = ['X-Authentik-Family-Name']
 
-export const AUTO_USERNAME_HEADERS = [
-  'X-Authentik-Username',
-  'Remote-User',
-  'X-Auth-Request-User',
-  'X-Forwarded-User',
-  'X-Auth-Username'
-]
+export const AUTO_USERNAME_HEADERS = ['X-Authentik-Username', 'Remote-User', 'X-Auth-Request-User', 'X-Forwarded-User', 'X-Auth-Username']
 
-export const AUTO_EMAIL_HEADERS = [
-  'X-Authentik-Email',
-  'Remote-Email',
-  'X-Auth-Request-Email',
-  'X-Forwarded-Email',
-  'X-Auth-Email'
-]
+export const AUTO_EMAIL_HEADERS = ['X-Authentik-Email', 'Remote-Email', 'X-Auth-Request-Email', 'X-Forwarded-Email', 'X-Auth-Email']
 
 export const DOCKER_REQUEST_TIMEOUT_MS = 10_000
 export const DOCKER_MAX_RESPONSE_BYTES = 10 * 1024 * 1024

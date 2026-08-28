@@ -1,7 +1,10 @@
 import { IMAGE_SUFFIXES } from './constants'
 
 export function normalizeServiceCandidate(value: string): string {
-  return value.toLowerCase().replace(/[\s_.]+/g, '-').replace(/[^a-z0-9-]/g, '')
+  return value
+    .toLowerCase()
+    .replace(/[\s_.]+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
 }
 
 export function getServiceCandidates(imageName: string | undefined, containerName: string, title: string): string[] {

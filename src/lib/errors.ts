@@ -1,7 +1,4 @@
-export type ErrorCode =
-  | 'DOCKER_UNREACHABLE'
-  | 'CONFIG_INVALID'
-  | 'MISSING_GROUPS_HEADER'
+export type ErrorCode = 'DOCKER_UNREACHABLE' | 'CONFIG_INVALID' | 'MISSING_GROUPS_HEADER'
 
 export type DashmarkError = {
   code: ErrorCode
@@ -15,25 +12,14 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isErrorCode(value: unknown): value is ErrorCode {
-  return value === 'DOCKER_UNREACHABLE'
-    || value === 'CONFIG_INVALID'
-    || value === 'MISSING_GROUPS_HEADER'
+  return value === 'DOCKER_UNREACHABLE' || value === 'CONFIG_INVALID' || value === 'MISSING_GROUPS_HEADER'
 }
 
 export function isDashmarkError(value: unknown): value is DashmarkError {
-  return isRecord(value)
-    && isErrorCode(value.code)
-    && typeof value.message === 'string'
-    && typeof value.retryable === 'boolean'
-    && (value.detail === undefined || typeof value.detail === 'string')
+  return isRecord(value) && isErrorCode(value.code) && typeof value.message === 'string' && typeof value.retryable === 'boolean' && (value.detail === undefined || typeof value.detail === 'string')
 }
 
-export function dashmarkError(
-  code: ErrorCode,
-  message: string,
-  retryable = false,
-  detail?: string
-): DashmarkError {
+export function dashmarkError(code: ErrorCode, message: string, retryable = false, detail?: string): DashmarkError {
   return { code, message, retryable, detail }
 }
 

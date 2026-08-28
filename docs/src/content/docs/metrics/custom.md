@@ -34,22 +34,22 @@ The key under `metrics.entries` is the metric name. Use lowercase letters, numbe
 
 ### 2. Set the display
 
-| Option | Required | Purpose |
-| --- | --- | --- |
-| `display.label` | Yes | Text shown on the card. |
-| `display.chart` | No | A graph type (`step`, `line`, `area`, or `none`) or the name of a chart group. |
+| Option          | Required | Purpose                                                                        |
+| --------------- | -------- | ------------------------------------------------------------------------------ |
+| `display.label` | Yes      | Text shown on the card.                                                        |
+| `display.chart` | No       | A graph type (`step`, `line`, `area`, or `none`) or the name of a chart group. |
 
 ### 3. Define the value
 
-| Option | Required | Purpose |
-| --- | --- | --- |
-| `value.kind` | No | `number` (default), `string`, or `state`. |
-| `value.unit` | Numeric metrics | Unit such as `count`, `bytes`, `bytes_per_second`, `percent`, `seconds`, or `celsius`. A custom suffix can use `{ suffix: "requests" }`. |
-| `value.rate` | No | Set to `true` for an increasing counter. Dashmark shows the per-second rate after the first sample. |
-| `value.transform` | No | Change a numeric value after extraction with `multiply` and/or `add`. |
-| `value.default_color` | State metrics | Default state badge color: `success`, `info`, `warning`, `error`, or `disabled`. |
-| `value.colors` | No | Map response values to state badge colors. |
-| `value.labels` | No | Map response values to readable labels. |
+| Option                | Required        | Purpose                                                                                                                                  |
+| --------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `value.kind`          | No              | `number` (default), `string`, or `state`.                                                                                                |
+| `value.unit`          | Numeric metrics | Unit such as `count`, `bytes`, `bytes_per_second`, `percent`, `seconds`, or `celsius`. A custom suffix can use `{ suffix: "requests" }`. |
+| `value.rate`          | No              | Set to `true` for an increasing counter. Dashmark shows the per-second rate after the first sample.                                      |
+| `value.transform`     | No              | Change a numeric value after extraction with `multiply` and/or `add`.                                                                    |
+| `value.default_color` | State metrics   | Default state badge color: `success`, `info`, `warning`, `error`, or `disabled`.                                                         |
+| `value.colors`        | No              | Map response values to state badge colors.                                                                                               |
+| `value.labels`        | No              | Map response values to readable labels.                                                                                                  |
 
 `string` and `state` metrics do not have units or history charts. State metrics require `value.default_color`.
 
@@ -65,18 +65,18 @@ value:
 
 `source.url` is required. It must be an HTTP(S) URL, or begin with `{url}` or `{metric_source}`. Use the card URL for `{url}`. For `{metric_source}`, configure `metrics.sources.<metric-name>` with a private API address.
 
-| Option | Purpose |
-| --- | --- |
-| `source.method` | `GET` (default) or `POST`. |
-| `source.headers` | Request headers. Values can be strings, numbers, booleans, or `{ env: VARIABLE }` and `{ file: /path/to/secret }` references. |
-| `source.query` | Query-string parameters, using the same values as `headers`. |
-| `source.form` | Form body for a `POST` request. |
-| `source.json` | JSON body for a `POST` request. Values can be nested objects, arrays, scalars, or secret references. |
-| `source.authentication` | A `basic`, `token`, or `cookie_session` login flow. |
-| `source.type` | Set to `socket_io` for a Socket.IO source. |
-| `source.socket` | Socket.IO path, auth, optional login event, and required request event. |
-| `source.use` | Name of a top-level `shared_metric_sources` entry to reuse its base URL and authentication. |
-| `source.path` | Required path beginning with `/` when using `source.use`. |
+| Option                  | Purpose                                                                                                                       |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `source.method`         | `GET` (default) or `POST`.                                                                                                    |
+| `source.headers`        | Request headers. Values can be strings, numbers, booleans, or `{ env: VARIABLE }` and `{ file: /path/to/secret }` references. |
+| `source.query`          | Query-string parameters, using the same values as `headers`.                                                                  |
+| `source.form`           | Form body for a `POST` request.                                                                                               |
+| `source.json`           | JSON body for a `POST` request. Values can be nested objects, arrays, scalars, or secret references.                          |
+| `source.authentication` | A `basic`, `token`, or `cookie_session` login flow.                                                                           |
+| `source.type`           | Set to `socket_io` for a Socket.IO source.                                                                                    |
+| `source.socket`         | Socket.IO path, auth, optional login event, and required request event.                                                       |
+| `source.use`            | Name of a top-level `shared_metric_sources` entry to reuse its base URL and authentication.                                   |
+| `source.path`           | Required path beginning with `/` when using `source.use`.                                                                     |
 
 Use one body type per request: `form` or `json`. `GET` requests cannot have a body.
 
@@ -88,7 +88,7 @@ source:
   authentication:
     kind: token
     header: Authorization
-    prefix: "Bearer "
+    prefix: 'Bearer '
     value: { env: SERVICE_TOKEN }
 ```
 
@@ -96,12 +96,12 @@ source:
 
 Define exactly one of these extractors:
 
-| Option | Response type and purpose |
-| --- | --- |
-| `extract.jq` | Reads one value from a JSON response. |
-| `extract.prometheus` | Reads a Prometheus sample by metric name, with optional labels, reduction, and value label. |
-| `extract.text` | Uses the complete plain-text response. |
-| `extract.for_each` | For numeric HTTP metrics, requests each discovered item and combines the values with a reduction. |
+| Option               | Response type and purpose                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------- |
+| `extract.jq`         | Reads one value from a JSON response.                                                             |
+| `extract.prometheus` | Reads a Prometheus sample by metric name, with optional labels, reduction, and value label.       |
+| `extract.text`       | Uses the complete plain-text response.                                                            |
+| `extract.for_each`   | For numeric HTTP metrics, requests each discovered item and combines the values with a reduction. |
 
 `extract.pagination` is available with `jq`. It defines `items` and `next` jq expressions so Dashmark can collect JSON pages before it runs the metric's `jq` expression.
 
@@ -117,12 +117,12 @@ extract:
 
 Numeric metrics can show a history graph. Set `display.chart` to one of these graph types:
 
-| Type | Use it for |
-| --- | --- |
-| `step` | Values that change in discrete steps, such as queue size. |
-| `line` | Continuous values, such as a temperature. |
+| Type   | Use it for                                                         |
+| ------ | ------------------------------------------------------------------ |
+| `step` | Values that change in discrete steps, such as queue size.          |
+| `line` | Continuous values, such as a temperature.                          |
 | `area` | Values where a filled graph is easier to read, such as throughput. |
-| `none` | A current value without a history graph. |
+| `none` | A current value without a history graph.                           |
 
 Use a named chart group when several metrics should share one graph. Define the group under `metrics.charts`, then reference its name in each metric's `display.chart`. Metrics in the same group must use the same graph type and unit.
 
@@ -184,7 +184,7 @@ shared_metric_sources:
     authentication:
       kind: token
       header: Authorization
-      prefix: "Bearer "
+      prefix: 'Bearer '
       value: { env: HOME_ASSISTANT_TOKEN }
 
 office:

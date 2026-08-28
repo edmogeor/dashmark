@@ -6,12 +6,12 @@ transforms:
     trim: true
     lowercase: true
     replace:
-      "/": "-"
-      "_": "-"
-      ".": "-"
-      ",": "-"
-      " ": "-"
-      "#": "-"
-      "+": "-"
-      "&": "-"
+      '/': '-'
+      '_': '-'
+      '.': '-'
+      ',': '-'
+      ' ': '-'
+      '#': '-'
+      '+': '-'
+      '&': '-'
 notes: Use persistent SQLite or Postgres storage and increase storage.maximum-number-of-results to retain the uptime history you want Dashmark to display.

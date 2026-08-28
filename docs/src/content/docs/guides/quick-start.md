@@ -12,7 +12,7 @@ services:
   dashmark:
     image: ghcr.io/edmogeor/dashmark:latest
     ports:
-      - "127.0.0.1:4321:4321"
+      - '127.0.0.1:4321:4321'
     volumes:
       - ./data:/data
     environment:

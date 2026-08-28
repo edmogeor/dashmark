@@ -3,7 +3,7 @@ source:
     kind: cookie_session
     optional: true
     requests:
-      - url: "{metric_source}/control/login"
+      - url: '{metric_source}/control/login'
         method: POST
         json:
           name:

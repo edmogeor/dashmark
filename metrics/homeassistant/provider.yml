@@ -2,7 +2,7 @@ source:
   authentication:
     kind: token
     header: Authorization
-    prefix: "Bearer "
+    prefix: 'Bearer '
     value:
       env: DASHMARK_HOMEASSISTANT_TOKEN
       label: dashmark.metric_token

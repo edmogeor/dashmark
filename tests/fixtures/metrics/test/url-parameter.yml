@@ -8,6 +8,6 @@ parameters:
     label: Resource
     type: url_component
 source:
-  url: "{url}/api/{resource}"
+  url: '{url}/api/{resource}'
 extract:
   jq: .state

@@ -21,7 +21,7 @@ function isSelfhstReference(value: string): boolean {
 
 function resolveSelfhstReference(value: string, icons: SelfhstIcon[]): string | null {
   const reference = normalizeServiceCandidate(value)
-  return icons.find(icon => icon.reference === reference)?.url ?? null
+  return icons.find((icon) => icon.reference === reference)?.url ?? null
 }
 
 function resolveFileIcon(config: AppConfig, value: string): string | null {
@@ -40,12 +40,10 @@ function resolveFileIcon(config: AppConfig, value: string): string | null {
   return null
 }
 
-export type IconResult =
-  | { type: 'image'; src: string; alt: string; contrast?: IconContrast }
-  | { type: 'placeholder'; initials: string }
+export type IconResult = { type: 'image'; src: string; alt: string; contrast?: IconContrast } | { type: 'placeholder'; initials: string }
 
 async function imageIcon(src: string, alt: string): Promise<IconResult> {
-  const contrast = src.startsWith(SELFHST_CDN) ? (await analyzeIconLuminance(src)) ?? undefined : undefined
+  const contrast = src.startsWith(SELFHST_CDN) ? ((await analyzeIconLuminance(src)) ?? undefined) : undefined
   return { type: 'image', src, alt, contrast }
 }
 

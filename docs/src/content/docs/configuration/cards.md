@@ -24,30 +24,30 @@ labels:
   dashmark.description: Movie collection manager
   dashmark.icon: selfhst:radarr
   dashmark.category: Media
-  dashmark.order: "10"
+  dashmark.order: '10'
 ```
 
 `dashmark.order` sorts cards within a category, lowest first. Cards without an order follow ordered cards and are sorted alphabetically by title. Set `CATEGORY_ORDER=Media,Home` to order categories.
 
 ## Available labels
 
-| Label | Value and effect |
-| --- | --- |
-| `dashmark.hidden` | `true` hides the container. |
-| `dashmark.url` | Card URL. |
-| `dashmark.title` | Display name, defaulting to the container name. |
-| `dashmark.description` | Tooltip text. Use `none` to disable automatic descriptions. |
-| `dashmark.icon` | `selfhst:<slug>`, an `http(s)` URL, a path in `ICONS_DIR`, or `placeholder`. |
-| `dashmark.category` | Category name. Matching ignores case. |
-| `dashmark.order` | Numeric order within the category. |
-| `dashmark.search_aliases` | Comma-separated additional search terms. |
-| `dashmark.access` | Comma-separated groups, usernames, or email addresses. |
-| `dashmark.show_status` | `false` hides this card's status badge and usage tooltip. |
-| `dashmark.metrics` | Comma-separated metric entries. Use `cpu`, `memory`, and `network` for Docker resource usage, or library metrics such as `radarr/queue`. When set, only the listed metrics are shown. Use `none` to hide all metrics for the card. |
-| `dashmark.metrics_source.<provider>` | Private HTTP(S) API base URL for one library provider. Defaults to the card URL. |
-| `dashmark.metrics_input.<provider>.<metric>.<input>` | Input for one library metric. Replace `/` with `.` in the metric key. |
-| `dashmark.metrics_access.<metric>` | Comma-separated access entries for one metric. Replace `/` with `.` in a library metric key. |
-| `dashmark.metric_*` | Credential for a library metric. Prefer YAML environment-variable or secret-file references because Docker labels are visible through Docker APIs. |
+| Label                                                | Value and effect                                                                                                                                                                                                                   |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dashmark.hidden`                                    | `true` hides the container.                                                                                                                                                                                                        |
+| `dashmark.url`                                       | Card URL.                                                                                                                                                                                                                          |
+| `dashmark.title`                                     | Display name, defaulting to the container name.                                                                                                                                                                                    |
+| `dashmark.description`                               | Tooltip text. Use `none` to disable automatic descriptions.                                                                                                                                                                        |
+| `dashmark.icon`                                      | `selfhst:<slug>`, an `http(s)` URL, a path in `ICONS_DIR`, or `placeholder`.                                                                                                                                                       |
+| `dashmark.category`                                  | Category name. Matching ignores case.                                                                                                                                                                                              |
+| `dashmark.order`                                     | Numeric order within the category.                                                                                                                                                                                                 |
+| `dashmark.search_aliases`                            | Comma-separated additional search terms.                                                                                                                                                                                           |
+| `dashmark.access`                                    | Comma-separated groups, usernames, or email addresses.                                                                                                                                                                             |
+| `dashmark.show_status`                               | `false` hides this card's status badge and usage tooltip.                                                                                                                                                                          |
+| `dashmark.metrics`                                   | Comma-separated metric entries. Use `cpu`, `memory`, and `network` for Docker resource usage, or library metrics such as `radarr/queue`. When set, only the listed metrics are shown. Use `none` to hide all metrics for the card. |
+| `dashmark.metrics_source.<provider>`                 | Private HTTP(S) API base URL for one library provider. Defaults to the card URL.                                                                                                                                                   |
+| `dashmark.metrics_input.<provider>.<metric>.<input>` | Input for one library metric. Replace `/` with `.` in the metric key.                                                                                                                                                              |
+| `dashmark.metrics_access.<metric>`                   | Comma-separated access entries for one metric. Replace `/` with `.` in a library metric key.                                                                                                                                       |
+| `dashmark.metric_*`                                  | Credential for a library metric. Prefer YAML environment-variable or secret-file references because Docker labels are visible through Docker APIs.                                                                                 |
 
 ## Traefik URLs
 

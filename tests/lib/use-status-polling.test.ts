@@ -17,15 +17,14 @@ function containerCard(id: string, state?: string): Card {
 
 describe('mergeStatuses', () => {
   it('updates same-ID containers from different Docker hosts independently', () => {
-    const cards = [
-      containerCard('home:shared-id', 'exited'),
-      containerCard('vps:shared-id', 'exited')
-    ]
+    const cards = [containerCard('home:shared-id', 'exited'), containerCard('vps:shared-id', 'exited')]
 
-    expect(mergeStatuses(cards, {
-      'home:shared-id': { state: 'running', health: 'healthy' },
-      'vps:shared-id': { state: 'paused' }
-    })).toMatchObject([
+    expect(
+      mergeStatuses(cards, {
+        'home:shared-id': { state: 'running', health: 'healthy' },
+        'vps:shared-id': { state: 'paused' }
+      })
+    ).toMatchObject([
       { id: 'home:shared-id', state: 'running', health: 'healthy' },
       { id: 'vps:shared-id', state: 'paused' }
     ])

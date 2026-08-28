@@ -4,6 +4,6 @@ display:
 value:
   unit: count
 source:
-  url: "{metric_source}/api/v3/series"
+  url: '{metric_source}/api/v3/series'
 extract:
   jq: length

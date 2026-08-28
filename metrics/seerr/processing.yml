@@ -4,7 +4,7 @@ display:
 value:
   unit: count
 source:
-  url: "{metric_source}/api/v1/request/count"
+  url: '{metric_source}/api/v1/request/count'
   headers:
     X-Api-Key:
       env: DASHMARK_SEERR_API_KEY

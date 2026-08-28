@@ -21,10 +21,11 @@ function applyTheme(override: Theme | null): void {
 }
 
 function transitionTheme(override: Theme | null, update: () => void): void {
-  const apply = () => flushSync(() => {
-    update()
-    applyTheme(override)
-  })
+  const apply = () =>
+    flushSync(() => {
+      update()
+      applyTheme(override)
+    })
 
   if (document.startViewTransition) document.startViewTransition(apply)
   else apply()
@@ -91,9 +92,12 @@ export function ThemeToggle() {
     return () => document.removeEventListener('pointerdown', onPointerDown)
   }, [revealed])
 
-  useEffect(() => () => {
-    if (hideTimer.current) clearTimeout(hideTimer.current)
-  }, [])
+  useEffect(
+    () => () => {
+      if (hideTimer.current) clearTimeout(hideTimer.current)
+    },
+    []
+  )
 
   function clearHideTimer() {
     if (hideTimer.current) {

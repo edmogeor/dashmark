@@ -17,7 +17,7 @@ display:
 value:
   unit: count
 source:
-  url: "{metric_source}/api/v3/queue/status"
+  url: '{metric_source}/api/v3/queue/status'
 extract:
   jq: .totalCount
 ```
@@ -49,7 +49,7 @@ parameters:
     label: Entity ID
     type: url_component
 source:
-  url: "{metric_source}/api/states/{entity_id}"
+  url: '{metric_source}/api/states/{entity_id}'
 ```
 
 Keep source settings shared by a provider, such as authentication, headers, query parameters, chart groups, and URL value transforms, in `metrics/<provider>/provider.yml`. Keep service-specific paths, extractors, and labels in each metric file. Add an optional non-empty `notes` string to either file for usage requirements or caveats; it appears in the generated metric library table.
@@ -63,7 +63,7 @@ transforms:
     trim: true
     lowercase: true
     replace:
-      " ": "-"
+      ' ': '-'
 
 # metrics/<provider>/<metric-name>.yml
 parameters:

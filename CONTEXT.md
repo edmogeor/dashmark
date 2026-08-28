@@ -72,56 +72,56 @@ Selfhst icons are analysed for luminance when resolved. If an icon is dominated 
 
 ### Environment variables
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `DOCKER_HOSTS` | `unix:///var/run/docker.sock` | One endpoint, or comma-separated `<host-id>=<endpoint>` Docker endpoints |
-| `CONFIG_FILE` | `/data/config.yml` | Optional YAML config file path |
-| `ICONS_DIR` | `/data/icons` | Directory for custom icon files |
-| `ENABLE_ACCESS_CONTROL` | `false` | When `true`, filter cards by authenticated access entries |
-| `ACCESS_GROUPS_HEADER` | `auto` | Group header; `auto` detects `X-Authentik-Groups` (Authentik), `Remote-Groups` (Authelia), `X-Forwarded-Groups` or `X-Auth-Request-Groups` (oauth2-proxy for Keycloak/Pocket ID/Zitadel), `X-Auth-Groups` (Keycloak Gatekeeper) |
-| `USER_NAME_HEADER` | auto | Custom header for `{full_name}` |
-| `USER_FIRST_NAME_HEADER` | auto | Custom header for `{first_name}` |
-| `USER_LAST_NAME_HEADER` | auto | Custom header for `{last_name}` |
-| `USER_USERNAME_HEADER` | auto | Custom header for `{username}` |
-| `USER_EMAIL_HEADER` | auto | Custom header for `{email}` |
-| `SHOW_HEADER` | `true` | Show a greeting header with the user's name and group tags |
-| `SHOW_GROUP_TAGS` | `true` | Show the user's relevant access or status-badge group tags in the header |
-| `SHOW_THEME_TOGGLE` | `true` | Show the light/dark toggle; when `false`, always follow the system preference |
-| `CUSTOM_HEADER` | unset | Header greeting template with `{greeting}`, `{full_name}`, `{first_name}`, `{last_name}`, `{username}`, `{email}` tags |
-| `GREETING_MORNING` | `Good morning` | Morning greeting, used by `{greeting}` and the default greeting |
-| `GREETING_AFTERNOON` | `Good afternoon` | Afternoon greeting |
-| `GREETING_EVENING` | `Good evening` | Evening greeting |
-| `SHOW_SEARCH` | `true` | Show the search bar and category filter |
-| `SHOW_STATUS` | `true` | Show state/health badges on cards |
-| `STATUS_BADGE_ACCESS` | unset | Comma-separated access entries allowed to see status badges; unset shows them to everyone |
-| `SHOW_METRICS` | `true` | Fetch and show container and custom metrics |
-| `METRICS_ACCESS` | unset | Comma-separated access entries allowed to receive metrics |
-| `STATUS_POLL_INTERVAL` | `30` | Seconds between container status updates |
-| `CATEGORY_ORDER` | unset | Comma-separated category order; unlisted categories follow alphabetically |
-| `ENABLE_AUTOMATIC_DESCRIPTIONS` | `true` | When `false`, skip matching cards without explicit descriptions to the bundled selfh.st app directory index |
-| `ENABLE_AUTOMATIC_ICONS` | `true` | When `false`, skip auto-matching container images to icons; cards without an explicit icon fall back to a placeholder |
-| `SHOW_BRANDING` | `true` | Show the Dashmark logo next to the search bar |
-| `NEW_TAB` | `false` | When `true`, card links open in a new tab |
-| `PORT` | `4321` | HTTP listen port |
-| `AUTH_TOKEN` | unset | Optional shared secret. When set, every request must include the `X-Dashmark-Token` header with the token (set by the reverse proxy). Off by default |
+| Variable                        | Default                       | Purpose                                                                                                                                                                                                                         |
+| ------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DOCKER_HOSTS`                  | `unix:///var/run/docker.sock` | One endpoint, or comma-separated `<host-id>=<endpoint>` Docker endpoints                                                                                                                                                        |
+| `CONFIG_FILE`                   | `/data/config.yml`            | Optional YAML config file path                                                                                                                                                                                                  |
+| `ICONS_DIR`                     | `/data/icons`                 | Directory for custom icon files                                                                                                                                                                                                 |
+| `ENABLE_ACCESS_CONTROL`         | `false`                       | When `true`, filter cards by authenticated access entries                                                                                                                                                                       |
+| `ACCESS_GROUPS_HEADER`          | `auto`                        | Group header; `auto` detects `X-Authentik-Groups` (Authentik), `Remote-Groups` (Authelia), `X-Forwarded-Groups` or `X-Auth-Request-Groups` (oauth2-proxy for Keycloak/Pocket ID/Zitadel), `X-Auth-Groups` (Keycloak Gatekeeper) |
+| `USER_NAME_HEADER`              | auto                          | Custom header for `{full_name}`                                                                                                                                                                                                 |
+| `USER_FIRST_NAME_HEADER`        | auto                          | Custom header for `{first_name}`                                                                                                                                                                                                |
+| `USER_LAST_NAME_HEADER`         | auto                          | Custom header for `{last_name}`                                                                                                                                                                                                 |
+| `USER_USERNAME_HEADER`          | auto                          | Custom header for `{username}`                                                                                                                                                                                                  |
+| `USER_EMAIL_HEADER`             | auto                          | Custom header for `{email}`                                                                                                                                                                                                     |
+| `SHOW_HEADER`                   | `true`                        | Show a greeting header with the user's name and group tags                                                                                                                                                                      |
+| `SHOW_GROUP_TAGS`               | `true`                        | Show the user's relevant access or status-badge group tags in the header                                                                                                                                                        |
+| `SHOW_THEME_TOGGLE`             | `true`                        | Show the light/dark toggle; when `false`, always follow the system preference                                                                                                                                                   |
+| `CUSTOM_HEADER`                 | unset                         | Header greeting template with `{greeting}`, `{full_name}`, `{first_name}`, `{last_name}`, `{username}`, `{email}` tags                                                                                                          |
+| `GREETING_MORNING`              | `Good morning`                | Morning greeting, used by `{greeting}` and the default greeting                                                                                                                                                                 |
+| `GREETING_AFTERNOON`            | `Good afternoon`              | Afternoon greeting                                                                                                                                                                                                              |
+| `GREETING_EVENING`              | `Good evening`                | Evening greeting                                                                                                                                                                                                                |
+| `SHOW_SEARCH`                   | `true`                        | Show the search bar and category filter                                                                                                                                                                                         |
+| `SHOW_STATUS`                   | `true`                        | Show state/health badges on cards                                                                                                                                                                                               |
+| `STATUS_BADGE_ACCESS`           | unset                         | Comma-separated access entries allowed to see status badges; unset shows them to everyone                                                                                                                                       |
+| `SHOW_METRICS`                  | `true`                        | Fetch and show container and custom metrics                                                                                                                                                                                     |
+| `METRICS_ACCESS`                | unset                         | Comma-separated access entries allowed to receive metrics                                                                                                                                                                       |
+| `STATUS_POLL_INTERVAL`          | `30`                          | Seconds between container status updates                                                                                                                                                                                        |
+| `CATEGORY_ORDER`                | unset                         | Comma-separated category order; unlisted categories follow alphabetically                                                                                                                                                       |
+| `ENABLE_AUTOMATIC_DESCRIPTIONS` | `true`                        | When `false`, skip matching cards without explicit descriptions to the bundled selfh.st app directory index                                                                                                                     |
+| `ENABLE_AUTOMATIC_ICONS`        | `true`                        | When `false`, skip auto-matching container images to icons; cards without an explicit icon fall back to a placeholder                                                                                                           |
+| `SHOW_BRANDING`                 | `true`                        | Show the Dashmark logo next to the search bar                                                                                                                                                                                   |
+| `NEW_TAB`                       | `false`                       | When `true`, card links open in a new tab                                                                                                                                                                                       |
+| `PORT`                          | `4321`                        | HTTP listen port                                                                                                                                                                                                                |
+| `AUTH_TOKEN`                    | unset                         | Optional shared secret. When set, every request must include the `X-Dashmark-Token` header with the token (set by the reverse proxy). Off by default                                                                            |
 
 ### Docker labels
 
 All labels use the `dashmark.` prefix:
 
-| Label | Meaning |
-|---|---|
-| `dashmark.hidden` | `"true"` hides the container regardless of other labels |
-| `dashmark.url` | URL the card links to (may instead come from YAML or a Traefik rule) |
-| `dashmark.title` | Display title; falls back to the container name |
-| `dashmark.description` | Short description shown in a tooltip; `none` suppresses automatic descriptions |
-| `dashmark.icon` | `selfhst:<slug>` reference, URL, path inside `ICONS_DIR`, or `placeholder` (unset auto-matches) |
-| `dashmark.category` | Group name |
-| `dashmark.show_status` | `"false"` hides the status badge and resource-usage tooltip for this card |
-| `dashmark.metrics` | Comma-separated metric entries. `cpu`, `memory`, and `network` select Docker resource metrics; library metrics use `provider/metric` keys. When set, only listed metrics are shown. `none` hides all metrics for the card. |
-| `dashmark.access` | Comma-separated access allow-list |
-| `dashmark.search_aliases` | Comma-separated extra search terms |
-| `dashmark.order` | Numeric sort priority within a category |
+| Label                     | Meaning                                                                                                                                                                                                                    |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dashmark.hidden`         | `"true"` hides the container regardless of other labels                                                                                                                                                                    |
+| `dashmark.url`            | URL the card links to (may instead come from YAML or a Traefik rule)                                                                                                                                                       |
+| `dashmark.title`          | Display title; falls back to the container name                                                                                                                                                                            |
+| `dashmark.description`    | Short description shown in a tooltip; `none` suppresses automatic descriptions                                                                                                                                             |
+| `dashmark.icon`           | `selfhst:<slug>` reference, URL, path inside `ICONS_DIR`, or `placeholder` (unset auto-matches)                                                                                                                            |
+| `dashmark.category`       | Group name                                                                                                                                                                                                                 |
+| `dashmark.show_status`    | `"false"` hides the status badge and resource-usage tooltip for this card                                                                                                                                                  |
+| `dashmark.metrics`        | Comma-separated metric entries. `cpu`, `memory`, and `network` select Docker resource metrics; library metrics use `provider/metric` keys. When set, only listed metrics are shown. `none` hides all metrics for the card. |
+| `dashmark.access`         | Comma-separated access allow-list                                                                                                                                                                                          |
+| `dashmark.search_aliases` | Comma-separated extra search terms                                                                                                                                                                                         |
+| `dashmark.order`          | Numeric sort priority within a category                                                                                                                                                                                    |
 
 With no `dashmark.url` (and no YAML URL), the URL is derived from a Traefik label `traefik.http.routers.<name>.rule` containing `Host(...)`, defaulting to `https://`. This fallback only applies when the container has at least one `dashmark.*` label or a matching YAML entry; a container with only Traefik labels produces no Card.
 
@@ -154,21 +154,21 @@ When group tags are enabled, matching status-badge groups appear in the header e
 
 ## Key modules
 
-| Module | Responsibility |
-|---|---|
-| `src/lib/config.ts` | Merges environment variables and YAML settings into `AppConfig` |
-| `src/lib/docker.ts` | Docker HTTP client, container -> Card mapping, access-group filtering, caching, `getCards`/`getContainerStatuses` |
-| `src/lib/labels.ts` | Parses `dashmark.*` labels, `isValidUrl`, Traefik `Host(...)` -> URL |
-| `src/lib/auth.ts` | Detects name/username/email/groups from auth headers (`getUser`) |
-| `src/lib/greeting.ts` | Renders the greeting template (`{greeting}`, name/username/email tags) with time-of-day |
-| `src/lib/config-file.ts` | YAML config parsing + mtime/size cache |
-| `src/lib/icons.ts` | Icon resolution (URL/file/selfhst/fuzzy/placeholder) |
-| `src/lib/selfhst.ts` | Loads the selfhst icon index and fuzzy-matches candidates |
-| `src/lib/errors.ts` | `DashmarkError` type and factory |
-| `src/lib/logger.ts` | JSON line logger to stdout/stderr |
-| `src/lib/strings.ts` | UI copy and `statusLabel` |
-| `src/lib/paths.ts` | `isOutsideDirectory` path-traversal guard |
-| `src/lib/use-stable-loading.ts` | Delays/min-duration spinner signal |
+| Module                          | Responsibility                                                                                                    |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `src/lib/config.ts`             | Merges environment variables and YAML settings into `AppConfig`                                                   |
+| `src/lib/docker.ts`             | Docker HTTP client, container -> Card mapping, access-group filtering, caching, `getCards`/`getContainerStatuses` |
+| `src/lib/labels.ts`             | Parses `dashmark.*` labels, `isValidUrl`, Traefik `Host(...)` -> URL                                              |
+| `src/lib/auth.ts`               | Detects name/username/email/groups from auth headers (`getUser`)                                                  |
+| `src/lib/greeting.ts`           | Renders the greeting template (`{greeting}`, name/username/email tags) with time-of-day                           |
+| `src/lib/config-file.ts`        | YAML config parsing + mtime/size cache                                                                            |
+| `src/lib/icons.ts`              | Icon resolution (URL/file/selfhst/fuzzy/placeholder)                                                              |
+| `src/lib/selfhst.ts`            | Loads the selfhst icon index and fuzzy-matches candidates                                                         |
+| `src/lib/errors.ts`             | `DashmarkError` type and factory                                                                                  |
+| `src/lib/logger.ts`             | JSON line logger to stdout/stderr                                                                                 |
+| `src/lib/strings.ts`            | UI copy and `statusLabel`                                                                                         |
+| `src/lib/paths.ts`              | `isOutsideDirectory` path-traversal guard                                                                         |
+| `src/lib/use-stable-loading.ts` | Delays/min-duration spinner signal                                                                                |
 
 Components live under `src/components/` (`Dashboard`, `AppCard`, `StatusBadge`, `SearchBar`, `CategoryFilter`, `ThemeToggle`, `MarqueeText`); `src/components/ui/` holds generated shadcn components.
 

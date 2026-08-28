@@ -31,9 +31,7 @@ async function latestRelease(): Promise<Release | undefined> {
 
 async function getVersionResponse(): Promise<Response> {
   const release = await latestRelease()
-  const body = release && isNewerVersion(release.tagName)
-    ? { version: APP_VERSION, update: release }
-    : { version: APP_VERSION }
+  const body = release && isNewerVersion(release.tagName) ? { version: APP_VERSION, update: release } : { version: APP_VERSION }
   return new Response(JSON.stringify(body), {
     headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store' }
   })

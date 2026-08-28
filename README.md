@@ -50,21 +50,21 @@ Dashmark shows Docker resource usage by default. Browse the available [metric li
 
    ```yaml
    services:
-      dashmark:
-        image: ghcr.io/edmogeor/dashmark:latest
-        ports:
-          - "127.0.0.1:4321:4321"
-        volumes:
-          - /var/run/docker.sock:/var/run/docker.sock:ro
-          - ./data:/data
-        restart: unless-stopped
+     dashmark:
+       image: ghcr.io/edmogeor/dashmark:latest
+       ports:
+         - '127.0.0.1:4321:4321'
+       volumes:
+         - /var/run/docker.sock:/var/run/docker.sock:ro
+         - ./data:/data
+       restart: unless-stopped
 
-      plex:
-        image: plexinc/pms-docker
-        labels:
-          dashmark.url: https://plex.example.com
-          dashmark.title: Plex
-          dashmark.category: Media
+     plex:
+       image: plexinc/pms-docker
+       labels:
+         dashmark.url: https://plex.example.com
+         dashmark.title: Plex
+         dashmark.category: Media
    ```
 
 2. Start Dashmark and your labeled services:

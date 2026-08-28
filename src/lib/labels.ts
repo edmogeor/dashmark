@@ -20,11 +20,16 @@ export type ParsedLabels = {
 }
 
 export const RESOURCE_STATS = ['cpu', 'memory', 'network'] as const
-export type ResourceStat = typeof RESOURCE_STATS[number]
+export type ResourceStat = (typeof RESOURCE_STATS)[number]
 const METRIC_KEY = /^[a-z][a-z0-9_-]*(?:\/[a-z][a-z0-9_-]*)*$/
 
 function parseCommaSeparated(value: string | undefined): string[] {
-  return value?.split(',').map(item => item.trim()).filter(Boolean) ?? []
+  return (
+    value
+      ?.split(',')
+      .map((item) => item.trim())
+      .filter(Boolean) ?? []
+  )
 }
 
 function parseOptionalBool(value: string | undefined): boolean | undefined {
@@ -40,10 +45,8 @@ function parseInterval(value: string | undefined): number | undefined {
 
 export function parseResourceStats(value: string | string[] | undefined): ResourceStat[] | undefined {
   if (value === undefined) return undefined
-  const values = (typeof value === 'string' ? value.split(',') : value)
-    .map(item => item.trim().toLowerCase())
-    .filter(Boolean)
-  return RESOURCE_STATS.filter(stat => values.includes(stat))
+  const values = (typeof value === 'string' ? value.split(',') : value).map((item) => item.trim().toLowerCase()).filter(Boolean)
+  return RESOURCE_STATS.filter((stat) => values.includes(stat))
 }
 
 export function parseLabels(labels: Record<string, string>): ParsedLabels {
@@ -97,7 +100,7 @@ export function parseLabels(labels: Record<string, string>): ParsedLabels {
 }
 
 export function hasDashmarkLabels(labels: Record<string, string>): boolean {
-  return Object.keys(labels).some(key => key.startsWith(`${LABEL_PREFIX}.`))
+  return Object.keys(labels).some((key) => key.startsWith(`${LABEL_PREFIX}.`))
 }
 
 export function isValidUrl(url: string): boolean {

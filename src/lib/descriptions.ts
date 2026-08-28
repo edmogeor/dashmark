@@ -14,10 +14,7 @@ type ServiceDescription = {
 let cachedDescriptions: ServiceDescription[] | undefined
 
 function isServiceDescription(value: unknown): value is ServiceDescription {
-  return isRecord(value)
-    && typeof value.reference === 'string'
-    && typeof value.name === 'string'
-    && typeof value.description === 'string'
+  return isRecord(value) && typeof value.reference === 'string' && typeof value.name === 'string' && typeof value.description === 'string'
 }
 
 export function clearDescriptionCache(): void {
@@ -38,10 +35,7 @@ function loadDescriptions(): ServiceDescription[] {
   return cachedDescriptions
 }
 
-export function resolveDescription(
-  config: AppConfig,
-  options: { imageName?: string; title: string; containerName: string }
-): string | undefined {
+export function resolveDescription(config: AppConfig, options: { imageName?: string; title: string; containerName: string }): string | undefined {
   if (!config.enableAutomaticDescriptions) return undefined
 
   const descriptions = loadDescriptions()

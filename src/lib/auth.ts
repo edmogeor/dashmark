@@ -21,17 +21,17 @@ export type AuthUser = {
 }
 
 export function groupHeaderNames(config: AppConfig): string[] {
-  return config.accessGroupsHeader === AUTO_ACCESS_GROUPS_HEADER
-    ? AUTO_GROUP_HEADERS
-    : [config.accessGroupsHeader]
+  return config.accessGroupsHeader === AUTO_ACCESS_GROUPS_HEADER ? AUTO_GROUP_HEADERS : [config.accessGroupsHeader]
 }
 
 export function accessHeaderNames(config: AppConfig): string[] {
-  return [...new Set([
-    ...groupHeaderNames(config),
-    ...(config.userUsernameHeader ? [config.userUsernameHeader] : AUTO_USERNAME_HEADERS),
-    ...(config.userEmailHeader ? [config.userEmailHeader] : AUTO_EMAIL_HEADERS),
-  ])]
+  return [
+    ...new Set([
+      ...groupHeaderNames(config),
+      ...(config.userUsernameHeader ? [config.userUsernameHeader] : AUTO_USERNAME_HEADERS),
+      ...(config.userEmailHeader ? [config.userEmailHeader] : AUTO_EMAIL_HEADERS)
+    ])
+  ]
 }
 
 export function parseUserGroups(headerValue: string | null | undefined): string[] {
@@ -41,22 +41,23 @@ export function parseUserGroups(headerValue: string | null | undefined): string[
   if (value.startsWith('[')) {
     try {
       const groups = JSON.parse(value)
-      if (Array.isArray(groups) && groups.every(group => typeof group === 'string')) {
-        return groups.map(group => group.trim()).filter(Boolean)
+      if (Array.isArray(groups) && groups.every((group) => typeof group === 'string')) {
+        return groups.map((group) => group.trim()).filter(Boolean)
       }
     } catch {}
   }
 
-  return value.split(/[,;|]/).map(group => group.trim()).filter(Boolean)
+  return value
+    .split(/[,;|]/)
+    .map((group) => group.trim())
+    .filter(Boolean)
 }
 
 export function hasAllowedAccess(user: Pick<AuthUser, 'groups' | 'username' | 'email'>, allowedAccess: string[]): boolean {
   if (allowedAccess.length === 0) return true
-  const identities = [...user.groups, user.username, user.email]
-    .filter((identity): identity is string => Boolean(identity))
-    .map(identity => identity.toLowerCase())
-  const allowed = new Set(allowedAccess.map(entry => entry.toLowerCase()))
-  return identities.some(identity => allowed.has(identity))
+  const identities = [...user.groups, user.username, user.email].filter((identity): identity is string => Boolean(identity)).map((identity) => identity.toLowerCase())
+  const allowed = new Set(allowedAccess.map((entry) => entry.toLowerCase()))
+  return identities.some((identity) => allowed.has(identity))
 }
 
 function firstHeader(headers: Headers, names: string[], override?: string): string | undefined {

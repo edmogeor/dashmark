@@ -3,6 +3,6 @@ display:
 value:
   unit: count
 source:
-  url: "{metric_source}/api/v3/queue/status"
+  url: '{metric_source}/api/v3/queue/status'
 extract:
   jq: .totalCount

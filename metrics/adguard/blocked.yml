@@ -4,6 +4,6 @@ display:
 value:
   unit: count
 source:
-  url: "{metric_source}/control/stats"
+  url: '{metric_source}/control/stats'
 extract:
   jq: .num_blocked_filtering

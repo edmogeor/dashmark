@@ -33,7 +33,7 @@ display:
 value:
   unit: count
 source:
-  url: "{url}/api/stats"
+  url: '{url}/api/stats'
   headers:
     X-Api-Key:
       env: DASHMARK_PROVIDER_API_KEY

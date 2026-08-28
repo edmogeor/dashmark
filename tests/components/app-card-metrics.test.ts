@@ -1,12 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  formatAxisBytes,
-  formatAxisPercent,
-  formatBytes,
-  formatCustomMetric,
-  formatDetailedBytes,
-  formatDetailedPercent,
-} from '@/components/app-card-metrics'
+import { formatAxisBytes, formatAxisPercent, formatBytes, formatCustomMetric, formatDetailedBytes, formatDetailedPercent } from '@/components/app-card-metrics'
 
 describe('metric formatting', () => {
   it('uses three significant digits for cards and axes', () => {

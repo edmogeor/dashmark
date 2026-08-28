@@ -8,10 +8,12 @@ const siteUrl = 'https://edmogeor.github.io/dashmark/docs'
 
 async function markdownFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true })
-  const files = await Promise.all(entries.map((entry) => {
-    const path = join(directory, entry.name)
-    return entry.isDirectory() ? markdownFiles(path) : entry.name.match(/\.mdx?$/) ? [path] : []
-  }))
+  const files = await Promise.all(
+    entries.map((entry) => {
+      const path = join(directory, entry.name)
+      return entry.isDirectory() ? markdownFiles(path) : entry.name.match(/\.mdx?$/) ? [path] : []
+    })
+  )
   return files.flat().sort()
 }
 
@@ -27,4 +29,7 @@ for (const file of files) {
   links.push(`- [${relativePath}](${siteUrl}/${relativePath})`)
 }
 
-await writeFile(join(outputDirectory, 'llms.txt'), `# Dashmark Documentation\n\n> Dashmark is a lightweight dashboard for Docker services.\n\nEach documentation page is also available as Markdown.\n\n## Markdown documentation\n\n${links.join('\n')}\n\n## Source and support\n\n- [Repository](https://github.com/edmogeor/dashmark)\n- [Documentation source](https://github.com/edmogeor/dashmark/tree/main/docs/src/content/docs)\n- [Configuration examples](https://github.com/edmogeor/dashmark/tree/main/config)\n`)
+await writeFile(
+  join(outputDirectory, 'llms.txt'),
+  `# Dashmark Documentation\n\n> Dashmark is a lightweight dashboard for Docker services.\n\nEach documentation page is also available as Markdown.\n\n## Markdown documentation\n\n${links.join('\n')}\n\n## Source and support\n\n- [Repository](https://github.com/edmogeor/dashmark)\n- [Documentation source](https://github.com/edmogeor/dashmark/tree/main/docs/src/content/docs)\n- [Configuration examples](https://github.com/edmogeor/dashmark/tree/main/config)\n`
+)

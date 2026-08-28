@@ -4,11 +4,11 @@ display:
 value:
   unit: count
 source:
-  url: "{metric_source}/api/v3/core/users/?page_size=1"
+  url: '{metric_source}/api/v3/core/users/?page_size=1'
   authentication:
     kind: token
     header: Authorization
-    prefix: "Bearer "
+    prefix: 'Bearer '
     value:
       env: DASHMARK_AUTHENTIK_TOKEN
       label: dashmark.metric_token

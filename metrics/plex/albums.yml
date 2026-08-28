@@ -4,11 +4,11 @@ display:
 value:
   unit: count
 source:
-  url: "{metric_source}/library/sections"
+  url: '{metric_source}/library/sections'
 extract:
   for_each:
     items: '[.MediaContainer.Directory[] | select(.type == "artist") | .key]'
     request:
-      url: "{metric_source}/library/sections/{item}/all"
+      url: '{metric_source}/library/sections/{item}/all'
     value: '.MediaContainer.size // .MediaContainer.totalSize // 0'
     reduce: sum

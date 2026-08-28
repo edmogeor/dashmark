@@ -7,11 +7,7 @@ import { LOADING_DELAY_MS, LOADING_MIN_DURATION_MS } from './constants'
  * - Waits `delay` ms before showing the spinner, so fast loads don't flash.
  * - Once shown, keeps the spinner visible for at least `minDuration` ms.
  */
-export function useStableLoading(
-  isLoading: boolean,
-  delay = LOADING_DELAY_MS,
-  minDuration = LOADING_MIN_DURATION_MS
-): boolean {
+export function useStableLoading(isLoading: boolean, delay = LOADING_DELAY_MS, minDuration = LOADING_MIN_DURATION_MS): boolean {
   const [show, setShow] = useState(false)
   const showStartRef = useRef<number | null>(null)
   const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)

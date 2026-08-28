@@ -40,7 +40,7 @@ const trackedVars = [
   'CUSTOM_STYLESHEET'
 ]
 
-const originals = trackedVars.map(name => ({ name, value: process.env[name] }))
+const originals = trackedVars.map((name) => ({ name, value: process.env[name] }))
 
 afterEach(() => {
   for (const { name, value } of originals) {
@@ -84,9 +84,7 @@ describe('getConfig Docker hosts', () => {
 
   it('uses default as the host ID for a single bare endpoint', () => {
     process.env.DOCKER_HOSTS = 'tcp://dockerproxy:2375'
-    expect(getConfig().dockerHosts).toEqual([
-      { id: 'default', dockerHost: 'tcp://dockerproxy:2375' }
-    ])
+    expect(getConfig().dockerHosts).toEqual([{ id: 'default', dockerHost: 'tcp://dockerproxy:2375' }])
   })
 
   it('ignores malformed and duplicate Docker host entries', () => {
@@ -247,7 +245,9 @@ describe('getConfig YAML settings', () => {
     const { join } = await import('node:path')
     const directory = await mkdtemp(join(tmpdir(), 'dashmark-'))
     const configFile = join(directory, 'config.yml')
-    await writeFile(configFile, `
+    await writeFile(
+      configFile,
+      `
 settings:
   port: 9876
   docker_hosts:
@@ -258,7 +258,8 @@ settings:
   category_order: Media, Home
   greeting_morning: Hello
   auth_token: { env: YAML_AUTH_TOKEN }
-`)
+`
+    )
     process.env.CONFIG_FILE = configFile
     delete process.env.DOCKER_HOSTS
     process.env.PORT = '9999'
@@ -317,8 +318,8 @@ describe('getConfig greeting values', () => {
   })
 
   it('reads and trims custom period greetings', () => {
-    process.env.GREETING_AFTERNOON = '  G\'day  '
-    expect(getConfig().greetingAfternoon).toBe('G\'day')
+    process.env.GREETING_AFTERNOON = "  G'day  "
+    expect(getConfig().greetingAfternoon).toBe("G'day")
   })
 })
 

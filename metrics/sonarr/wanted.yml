@@ -4,6 +4,6 @@ display:
 value:
   unit: count
 source:
-  url: "{metric_source}/api/v3/wanted/missing"
+  url: '{metric_source}/api/v3/wanted/missing'
 extract:
   jq: .totalRecords

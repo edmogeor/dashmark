@@ -27,33 +27,41 @@ describe('resolveDescription', () => {
   })
 
   it('matches an image name to a selfh.st description', () => {
-    expect(resolveDescription(config, {
-      imageName: 'plexinc/pms-docker:latest',
-      title: 'Plex',
-      containerName: 'plex'
-    })).toBe('Media server')
+    expect(
+      resolveDescription(config, {
+        imageName: 'plexinc/pms-docker:latest',
+        title: 'Plex',
+        containerName: 'plex'
+      })
+    ).toBe('Media server')
   })
 
   it('matches a multi-word service title using a kebab-case reference', () => {
-    expect(resolveDescription(config, {
-      title: 'Home Assistant',
-      containerName: 'homeassistant'
-    })).toBe('Home automation focused on privacy')
+    expect(
+      resolveDescription(config, {
+        title: 'Home Assistant',
+        containerName: 'homeassistant'
+      })
+    ).toBe('Home automation focused on privacy')
   })
 
   it('does not use an unrelated partial match', () => {
-    expect(resolveDescription(config, {
-      title: 'Code',
-      containerName: 'code'
-    })).toBeUndefined()
+    expect(
+      resolveDescription(config, {
+        title: 'Code',
+        containerName: 'code'
+      })
+    ).toBeUndefined()
   })
 
   it('skips matching when automatic descriptions are disabled', () => {
     config.enableAutomaticDescriptions = false
-    expect(resolveDescription(config, {
-      imageName: 'plexinc/pms-docker:latest',
-      title: 'Plex',
-      containerName: 'plex'
-    })).toBeUndefined()
+    expect(
+      resolveDescription(config, {
+        imageName: 'plexinc/pms-docker:latest',
+        title: 'Plex',
+        containerName: 'plex'
+      })
+    ).toBeUndefined()
   })
 })

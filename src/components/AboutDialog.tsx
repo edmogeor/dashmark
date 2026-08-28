@@ -28,7 +28,7 @@ export function AboutDialog() {
     if (isDemo || !open || version || loading) return
     setLoading(true)
     void fetch(versionApiPath)
-      .then(async response => response.ok ? response.json() as Promise<VersionResponse> : undefined)
+      .then(async (response) => (response.ok ? (response.json() as Promise<VersionResponse>) : undefined))
       .then(setVersion)
       .catch(() => undefined)
       .finally(() => setLoading(false))
@@ -50,7 +50,12 @@ export function AboutDialog() {
           <img src={brandMarkPath} alt="" className="mb-2 h-10 w-10" />
           <DialogTitle>Dashmark</DialogTitle>
           <DialogDescription>A lightweight dashboard of links to your Docker services.</DialogDescription>
-          <p className="text-sm text-muted-foreground">Created by <a href="https://github.com/edmogeor" target="_blank" rel="noreferrer" className="font-medium text-foreground underline-offset-4 hover:underline">edmogeor</a></p>
+          <p className="text-sm text-muted-foreground">
+            Created by{' '}
+            <a href="https://github.com/edmogeor" target="_blank" rel="noreferrer" className="font-medium text-foreground underline-offset-4 hover:underline">
+              edmogeor
+            </a>
+          </p>
           <p className="text-xs text-muted-foreground">Copyright © 2026 edmogeor</p>
         </DialogHeader>
         <div className="space-y-3 rounded-md border bg-muted/30 p-4 text-sm">
@@ -58,17 +63,31 @@ export function AboutDialog() {
             <span className="text-muted-foreground">{isDemo ? 'Latest stable version' : 'Installed version'}</span>
             <code className="font-medium">v{displayedVersion ?? version?.version ?? APP_VERSION}</code>
           </div>
-          {loading && <div className="flex items-center gap-2 text-muted-foreground"><LoaderCircle className="h-4 w-4 animate-spin" /> Checking for updates</div>}
+          {loading && (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <LoaderCircle className="h-4 w-4 animate-spin" /> Checking for updates
+            </div>
+          )}
           {version?.update && (
             <a href={version.update.url} target="_blank" rel="noreferrer" className="flex items-center justify-between gap-3 font-medium text-primary hover:underline">
-              <span className="flex items-center gap-2"><CircleX className="h-4 w-4" /> Update available: {version.update.tagName}</span>
+              <span className="flex items-center gap-2">
+                <CircleX className="h-4 w-4" /> Update available: {version.update.tagName}
+              </span>
               <ExternalLink className="h-4 w-4 shrink-0" />
             </a>
           )}
-          {(isDemo || (version && !version.update)) && <p className="flex items-center gap-2 text-muted-foreground"><CircleCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> You are up to date.</p>}
+          {(isDemo || (version && !version.update)) && (
+            <p className="flex items-center gap-2 text-muted-foreground">
+              <CircleCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> You are up to date.
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap justify-center gap-2">
-          <Button variant="outline" asChild><a href={GITHUB_URL} target="_blank" rel="noreferrer"><GitHubIcon /> GitHub <ExternalLink /></a></Button>
+          <Button variant="outline" asChild>
+            <a href={GITHUB_URL} target="_blank" rel="noreferrer">
+              <GitHubIcon /> GitHub <ExternalLink />
+            </a>
+          </Button>
           <a href={BUY_ME_A_COFFEE_URL} target="_blank" rel="noreferrer" className="rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none">
             <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" className="h-8 w-auto" />
           </a>

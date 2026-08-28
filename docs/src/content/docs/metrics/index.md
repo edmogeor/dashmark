@@ -9,11 +9,11 @@ Browse the [metrics catalogue](https://github.com/edmogeor/dashmark/blob/main/me
 
 ## Metric types
 
-| Type | Best for | Configuration |
-| --- | --- | --- |
+| Type              | Best for                                               | Configuration          |
+| ----------------- | ------------------------------------------------------ | ---------------------- |
 | Container metrics | CPU, memory, and network usage for a Docker container. | Docker labels or YAML. |
-| Library metrics | Values from a supported service API. | Docker labels or YAML. |
-| Custom metrics | Values from an API not covered by the library. | YAML. |
+| Library metrics   | Values from a supported service API.                   | Docker labels or YAML. |
+| Custom metrics    | Values from an API not covered by the library.         | YAML.                  |
 
 Standalone YAML cards support library and custom metrics, but not container metrics.
 

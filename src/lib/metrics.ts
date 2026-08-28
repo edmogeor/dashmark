@@ -27,7 +27,7 @@ const customMetricCounterCache = new Map<string, { value: number; timestamp: num
 const uptimeMetricCache = new Map<string, UptimeObservation[]>()
 
 export function counterRates(cardId: string, metrics: ContainerMetricUsage['customMetrics'], timestamp: number): ContainerMetricUsage['customMetrics'] {
-  return metrics.flatMap(metric => {
+  return metrics.flatMap((metric) => {
     if (!('rate' in metric) || metric.rate !== true) return [metric]
     const key = `${cardId}:${metric.key}`
     const previous = customMetricCounterCache.get(key)
@@ -44,11 +44,11 @@ function observationKey(observation: UptimeObservation): string {
 function mergeUptimeMetrics(cardId: string, metrics: UptimeMetric[] | undefined, historyPeriodMs: number, timestamp: number): UptimeMetric[] | undefined {
   if (!metrics?.length) return undefined
   const cutoff = timestamp - historyPeriodMs
-  return metrics.map(metric => {
+  return metrics.map((metric) => {
     const key = `${cardId}\0${metric.key}`
-    const observations = new Map((uptimeMetricCache.get(key) ?? []).map(observation => [observationKey(observation), observation]))
+    const observations = new Map((uptimeMetricCache.get(key) ?? []).map((observation) => [observationKey(observation), observation]))
     for (const observation of metric.observations) observations.set(observationKey(observation), observation)
-    const retained = [...observations.values()].filter(observation => observation.timestamp >= cutoff).sort((a, b) => a.timestamp - b.timestamp)
+    const retained = [...observations.values()].filter((observation) => observation.timestamp >= cutoff).sort((a, b) => a.timestamp - b.timestamp)
     uptimeMetricCache.set(key, retained)
     return { ...metric, current: retained.at(-1)?.status ?? 'unknown', observations: retained }
   })
@@ -85,28 +85,16 @@ function database(path: string): DatabaseSync {
   return db
 }
 
-export function saveResourceMetric(
-  config: AppConfig,
-  cardId: string,
-  resource: ContainerResources,
-  historyPeriodMs = config.metricsHistoryPeriodMs,
-  timestamp = Date.now()
-): void {
+export function saveResourceMetric(config: AppConfig, cardId: string, resource: ContainerResources, historyPeriodMs = config.metricsHistoryPeriodMs, timestamp = Date.now()): void {
   const db = database(config.metricsDatabasePath)
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO resource_metrics (
       card_id, timestamp, cpu_percent, memory_usage, memory_limit,
       received_bytes_per_second, sent_bytes_per_second
     ) VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    cardId,
-    timestamp,
-    resource.cpuPercent ?? null,
-    resource.memoryUsage ?? null,
-    resource.memoryLimit ?? null,
-    resource.receivedBytesPerSecond ?? null,
-    resource.sentBytesPerSecond ?? null
-  )
+  `
+  ).run(cardId, timestamp, resource.cpuPercent ?? null, resource.memoryUsage ?? null, resource.memoryLimit ?? null, resource.receivedBytesPerSecond ?? null, resource.sentBytesPerSecond ?? null)
   db.prepare('DELETE FROM resource_metrics WHERE card_id = ? AND timestamp < ?').run(cardId, timestamp - historyPeriodMs)
   for (const [key, value] of Object.entries({
     cpu: resource.cpuPercent,
@@ -118,15 +106,12 @@ export function saveResourceMetric(
   }
 }
 
-export function getResourceMetricHistory(
-  config: AppConfig,
-  cardId: string,
-  historyPeriodMs = config.metricsHistoryPeriodMs,
-  now = Date.now()
-): ResourceMetricSample[] {
+export function getResourceMetricHistory(config: AppConfig, cardId: string, historyPeriodMs = config.metricsHistoryPeriodMs, now = Date.now()): ResourceMetricSample[] {
   const db = database(config.metricsDatabasePath)
   const cutoff = now - historyPeriodMs
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(
+      `
     SELECT
       timestamp,
       cpu_percent AS cpuPercent,
@@ -137,8 +122,10 @@ export function getResourceMetricHistory(
     FROM resource_metrics
     WHERE card_id = ? AND timestamp >= ?
     ORDER BY timestamp
-  `).all(cardId, cutoff) as DatabaseMetricRow[]
-  return rows.map(row => ({
+  `
+    )
+    .all(cardId, cutoff) as DatabaseMetricRow[]
+  return rows.map((row) => ({
     timestamp: row.timestamp,
     cpuPercent: row.cpuPercent ?? undefined,
     memoryUsage: row.memoryUsage ?? undefined,
@@ -148,37 +135,26 @@ export function getResourceMetricHistory(
   }))
 }
 
-export function saveMetricSample(
-  config: AppConfig,
-  cardId: string,
-  metricKey: string,
-  value: number,
-  historyPeriodMs = config.metricsHistoryPeriodMs,
-  timestamp = Date.now()
-): void {
+export function saveMetricSample(config: AppConfig, cardId: string, metricKey: string, value: number, historyPeriodMs = config.metricsHistoryPeriodMs, timestamp = Date.now()): void {
   if (!Number.isFinite(value)) return
   const db = database(config.metricsDatabasePath)
-  db.prepare('INSERT INTO metric_samples (card_id, metric_key, timestamp, value) VALUES (?, ?, ?, ?)')
-    .run(cardId, metricKey, timestamp, value)
-  db.prepare('DELETE FROM metric_samples WHERE card_id = ? AND metric_key = ? AND timestamp < ?')
-    .run(cardId, metricKey, timestamp - historyPeriodMs)
+  db.prepare('INSERT INTO metric_samples (card_id, metric_key, timestamp, value) VALUES (?, ?, ?, ?)').run(cardId, metricKey, timestamp, value)
+  db.prepare('DELETE FROM metric_samples WHERE card_id = ? AND metric_key = ? AND timestamp < ?').run(cardId, metricKey, timestamp - historyPeriodMs)
 }
 
-export function getMetricHistory(
-  config: AppConfig,
-  cardId: string,
-  metricKey: string,
-  historyPeriodMs = config.metricsHistoryPeriodMs,
-  now = Date.now()
-): GenericMetricRow[] {
+export function getMetricHistory(config: AppConfig, cardId: string, metricKey: string, historyPeriodMs = config.metricsHistoryPeriodMs, now = Date.now()): GenericMetricRow[] {
   const cutoff = now - historyPeriodMs
   const db = database(config.metricsDatabasePath)
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     SELECT timestamp, value
     FROM metric_samples
     WHERE card_id = ? AND metric_key = ? AND timestamp >= ?
     ORDER BY timestamp
-  `).all(cardId, metricKey, cutoff) as GenericMetricRow[]
+  `
+    )
+    .all(cardId, metricKey, cutoff) as GenericMetricRow[]
 }
 
 function pruneMetricHistory(config: AppConfig, timestamp: number): void {
@@ -199,12 +175,7 @@ async function collectAndSave(config: AppConfig): Promise<void> {
     cardId,
     resource,
     customMetrics: counterRates(cardId, customMetrics, timestamp),
-    uptimeMetrics: mergeUptimeMetrics(
-      cardId,
-      uptimeMetrics ?? latestMetricUsage.get(cardId)?.uptimeMetrics,
-      metricsHistoryPeriodMs,
-      timestamp,
-    ),
+    uptimeMetrics: mergeUptimeMetrics(cardId, uptimeMetrics ?? latestMetricUsage.get(cardId)?.uptimeMetrics, metricsHistoryPeriodMs, timestamp),
     metricErrors,
     metricsHistoryPeriodMs
   }))
@@ -237,7 +208,9 @@ function collectInBackground(config: AppConfig): void {
   collectionInProgress = true
   void collectAndSave(config)
     .catch(() => undefined)
-    .finally(() => { collectionInProgress = false })
+    .finally(() => {
+      collectionInProgress = false
+    })
 }
 
 export function getLatestMetricUsage(cardId: string): ContainerMetricUsage | undefined {

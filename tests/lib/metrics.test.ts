@@ -26,9 +26,7 @@ describe('resource metric history', () => {
     expect(getResourceMetricHistory(config, 'default:container', 5_000, 6_001)).toEqual([
       { timestamp: 6_000, cpuPercent: 20, memoryUsage: 200, memoryLimit: undefined, receivedBytesPerSecond: undefined, sentBytesPerSecond: undefined }
     ])
-    expect(getMetricHistory(config, 'default:container', 'cpu', 5_000, 6_001)).toEqual([
-      { timestamp: 6_000, value: 20 }
-    ])
+    expect(getMetricHistory(config, 'default:container', 'cpu', 5_000, 6_001)).toEqual([{ timestamp: 6_000, value: 20 }])
   })
 
   it('stores each custom metric with its own retention period', () => {
@@ -40,9 +38,7 @@ describe('resource metric history', () => {
     saveMetricSample(config, 'default:radarr', 'active_downloads', 2, 60_000, 1_000)
     saveMetricSample(config, 'default:radarr', 'active_downloads', 3, 60_000, 62_000)
 
-    expect(getMetricHistory(config, 'default:radarr', 'active_downloads', 60_000, 62_000)).toEqual([
-      { timestamp: 62_000, value: 3 }
-    ])
+    expect(getMetricHistory(config, 'default:radarr', 'active_downloads', 60_000, 62_000)).toEqual([{ timestamp: 62_000, value: 3 }])
   })
 })
 
@@ -54,14 +50,10 @@ describe('counter rates', () => {
       unit: 'bytes_per_second' as const,
       chart: 'line' as const,
       rate: true as const,
-      value: 1_000,
+      value: 1_000
     }
 
-    expect(counterRates('default:opnsense', [metric], 1_000)).toEqual([
-      { ...metric, value: 0, pending: true },
-    ])
-    expect(counterRates('default:opnsense', [{ ...metric, value: 1_500 }], 2_000)).toEqual([
-      { ...metric, value: 500 },
-    ])
+    expect(counterRates('default:opnsense', [metric], 1_000)).toEqual([{ ...metric, value: 0, pending: true }])
+    expect(counterRates('default:opnsense', [{ ...metric, value: 1_500 }], 2_000)).toEqual([{ ...metric, value: 500 }])
   })
 })

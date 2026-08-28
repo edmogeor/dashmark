@@ -25,31 +25,31 @@ settings:
 
 ## Docker and files
 
-| Environment variable | Default | YAML key | Purpose |
-| --- | --- | --- | --- |
-| `DOCKER_HOSTS` | `unix:///var/run/docker.sock` | `docker_hosts` | Docker endpoint, or named comma-separated endpoints. |
-| `CONFIG_FILE` | `/data/config.yml` | None | YAML configuration file path. |
-| `ICONS_DIR` | `/data/icons` | `icons_dir` | Local icon directory. |
-| `CUSTOM_STYLESHEET` | unset | `custom_stylesheet` | Mounted CSS file, served as `/custom.css`. |
-| `PORT` | `4321` | `port` | HTTP port. |
+| Environment variable | Default                       | YAML key            | Purpose                                              |
+| -------------------- | ----------------------------- | ------------------- | ---------------------------------------------------- |
+| `DOCKER_HOSTS`       | `unix:///var/run/docker.sock` | `docker_hosts`      | Docker endpoint, or named comma-separated endpoints. |
+| `CONFIG_FILE`        | `/data/config.yml`            | None                | YAML configuration file path.                        |
+| `ICONS_DIR`          | `/data/icons`                 | `icons_dir`         | Local icon directory.                                |
+| `CUSTOM_STYLESHEET`  | unset                         | `custom_stylesheet` | Mounted CSS file, served as `/custom.css`.           |
+| `PORT`               | `4321`                        | `port`              | HTTP port.                                           |
 
 ## Interface
 
-| Environment variable | Default | YAML key | Purpose |
-| --- | --- | --- | --- |
-| `SHOW_HEADER` | `true` | `show_header` | Show the greeting header. |
-| `SHOW_GROUP_TAGS` | `true` | `show_group_tags` | Show matching access or status groups. |
-| `SHOW_THEME_TOGGLE` | `true` | `show_theme_toggle` | Show the light and dark theme control. |
-| `SHOW_SEARCH` | `true` | `show_search` | Show search and category filters. |
-| `SHOW_STATUS` | `true` | `show_status` | Show container state and health badges. |
-| `SHOW_METRICS` | `true` | `show_metrics` | Collect and show metrics. |
-| `SHOW_BRANDING` | `true` | `show_branding` | Show the Dashmark logo near search. |
-| `NEW_TAB` | `false` | `new_tab` | Open card links in a new tab. |
-| `CATEGORY_ORDER` | unset | `category_order` | Set category order; unlisted categories follow alphabetically. |
-| `CUSTOM_HEADER` | unset | `custom_header` | Set a greeting template. |
-| `GREETING_MORNING` | `Good morning` | `greeting_morning` | Morning greeting text. |
-| `GREETING_AFTERNOON` | `Good afternoon` | `greeting_afternoon` | Afternoon greeting text. |
-| `GREETING_EVENING` | `Good evening` | `greeting_evening` | Evening greeting text. |
+| Environment variable | Default          | YAML key             | Purpose                                                        |
+| -------------------- | ---------------- | -------------------- | -------------------------------------------------------------- |
+| `SHOW_HEADER`        | `true`           | `show_header`        | Show the greeting header.                                      |
+| `SHOW_GROUP_TAGS`    | `true`           | `show_group_tags`    | Show matching access or status groups.                         |
+| `SHOW_THEME_TOGGLE`  | `true`           | `show_theme_toggle`  | Show the light and dark theme control.                         |
+| `SHOW_SEARCH`        | `true`           | `show_search`        | Show search and category filters.                              |
+| `SHOW_STATUS`        | `true`           | `show_status`        | Show container state and health badges.                        |
+| `SHOW_METRICS`       | `true`           | `show_metrics`       | Collect and show metrics.                                      |
+| `SHOW_BRANDING`      | `true`           | `show_branding`      | Show the Dashmark logo near search.                            |
+| `NEW_TAB`            | `false`          | `new_tab`            | Open card links in a new tab.                                  |
+| `CATEGORY_ORDER`     | unset            | `category_order`     | Set category order; unlisted categories follow alphabetically. |
+| `CUSTOM_HEADER`      | unset            | `custom_header`      | Set a greeting template.                                       |
+| `GREETING_MORNING`   | `Good morning`   | `greeting_morning`   | Morning greeting text.                                         |
+| `GREETING_AFTERNOON` | `Good afternoon` | `greeting_afternoon` | Afternoon greeting text.                                       |
+| `GREETING_EVENING`   | `Good evening`   | `greeting_evening`   | Evening greeting text.                                         |
 
 ![Dashmark's category filter menu, alongside the service-card dashboard.](../../../assets/category-filter.png)
 
@@ -59,12 +59,12 @@ Set `USER_NAME_HEADER`, `USER_FIRST_NAME_HEADER`, `USER_LAST_NAME_HEADER`, `USER
 
 ## Polling and storage
 
-| Environment variable | Default | YAML key |
-| --- | --- | --- |
-| `STATUS_POLL_INTERVAL` | `30` seconds | `status_poll_interval` |
-| `METRICS_POLL_INTERVAL` | `10` seconds | `metrics_poll_interval` |
-| `METRICS_HISTORY_PERIOD` | `300` seconds | `metrics_history_period` |
-| `METRICS_DATABASE_PATH` | `/tmp/dashmark/metrics.db` | `metrics_database_path` |
+| Environment variable     | Default                    | YAML key                 |
+| ------------------------ | -------------------------- | ------------------------ |
+| `STATUS_POLL_INTERVAL`   | `30` seconds               | `status_poll_interval`   |
+| `METRICS_POLL_INTERVAL`  | `10` seconds               | `metrics_poll_interval`  |
+| `METRICS_HISTORY_PERIOD` | `300` seconds              | `metrics_history_period` |
+| `METRICS_DATABASE_PATH`  | `/tmp/dashmark/metrics.db` | `metrics_database_path`  |
 
 Set `METRICS_DATABASE_PATH` to a mounted path such as `/data/metrics.db` if history must survive container replacement.
 

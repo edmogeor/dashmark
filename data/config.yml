@@ -69,11 +69,11 @@ plex:
   order: 1
   # Set false to hide this card's status badge.
   show_status: false
-# All YAML metric configuration lives under `metrics`. Docker labels remain a
-# separate input path. These YAML keys have no aliases: `metrics` lists,
-# `metric_providers`, `metrics_url`, `metric_parameters`,
-# `metrics_poll_interval`, `metrics_history_period`, `metrics_access`, and
-# `custom_metrics` are removed.
+  # All YAML metric configuration lives under `metrics`. Docker labels remain a
+  # separate input path. These YAML keys have no aliases: `metrics` lists,
+  # `metric_providers`, `metrics_url`, `metric_parameters`,
+  # `metrics_poll_interval`, `metrics_history_period`, `metrics_access`, and
+  # `custom_metrics` are removed.
   metrics:
     # sources: { plex: http://plex:32400 }
     collection:

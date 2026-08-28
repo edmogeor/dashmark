@@ -28,15 +28,21 @@ beforeAll(async () => {
       return
     }
     if (path === '/uptime') {
-      response.end(JSON.stringify({ results: [
-        { timestamp: '2026-08-26T12:00:00Z', success: true, duration: 12_000_000 },
-        { timestamp: '2026-08-26T12:05:00Z', success: false, duration: 40_000_000 }
-      ] }))
+      response.end(
+        JSON.stringify({
+          results: [
+            { timestamp: '2026-08-26T12:00:00Z', success: true, duration: 12_000_000 },
+            { timestamp: '2026-08-26T12:05:00Z', success: false, duration: 40_000_000 }
+          ]
+        })
+      )
       return
     }
     if (path === '/login') {
       let body = ''
-      request.on('data', chunk => { body += chunk })
+      request.on('data', (chunk) => {
+        body += chunk
+      })
       request.on('end', () => {
         loginRequests.push({ body, cookie: request.headers.cookie ?? '' })
         if (body === 'username=admin&password=secret') response.setHeader('Set-Cookie', 'metric-session=authenticated; Path=/')
@@ -61,7 +67,9 @@ beforeAll(async () => {
     }
     if (path === '/session') {
       let body = ''
-      request.on('data', chunk => { body += chunk })
+      request.on('data', (chunk) => {
+        body += chunk
+      })
       request.on('end', () => {
         const valid = request.headers.cookie?.includes('csrf-session=active') && body === 'csrf=csrf-token'
         if (valid) response.setHeader('Set-Cookie', 'metric-session=token; Path=/')
@@ -72,11 +80,11 @@ beforeAll(async () => {
     }
     if (path === '/post-metric?token=api-token') {
       let body = ''
-      request.on('data', chunk => { body += chunk })
+      request.on('data', (chunk) => {
+        body += chunk
+      })
       request.on('end', () => {
-        const valid = request.headers.cookie?.includes('metric-session=token')
-          && request.headers['x-api-token'] === 'api-token'
-          && body === JSON.stringify({ token: 'api-token' })
+        const valid = request.headers.cookie?.includes('metric-session=token') && request.headers['x-api-token'] === 'api-token' && body === JSON.stringify({ token: 'api-token' })
         response.statusCode = valid ? 200 : 403
         response.end(JSON.stringify({ value: valid ? 11 : 0 }))
       })
@@ -84,7 +92,9 @@ beforeAll(async () => {
     }
     if (path === '/form-metric') {
       let body = ''
-      request.on('data', chunk => { body += chunk })
+      request.on('data', (chunk) => {
+        body += chunk
+      })
       request.on('end', () => response.end(JSON.stringify({ value: body === 'scope=metrics' ? 13 : 0 })))
       return
     }
@@ -104,7 +114,9 @@ beforeAll(async () => {
     }
     if (path === '/json-metric') {
       let body = ''
-      request.on('data', chunk => { body += chunk })
+      request.on('data', (chunk) => {
+        body += chunk
+      })
       request.on('end', () => {
         response.end(JSON.stringify({ value: body === JSON.stringify({ method: 'status', params: [], credentials: { token: 'nested-token' } }) ? 15 : 0 }))
       })
@@ -122,18 +134,16 @@ beforeAll(async () => {
     }
     if (path.startsWith('/paginated')) {
       const page = new URL(path, 'http://metrics.test').searchParams.get('page')
-      response.end(JSON.stringify(page === '2'
-        ? { results: [{ user: 2 }, { user: 3 }], pagination: { next: 0 } }
-        : { results: [{ user: 1 }, { user: 2 }], pagination: { next: 2 } }
-      ))
+      response.end(JSON.stringify(page === '2' ? { results: [{ user: 2 }, { user: 3 }], pagination: { next: 0 } } : { results: [{ user: 1 }, { user: 2 }], pagination: { next: 2 } }))
       return
     }
     if (path.startsWith('/uptime-paginated')) {
       const page = new URL(path, 'http://metrics.test').searchParams.get('page')
-      response.end(JSON.stringify(page === '2'
-        ? { results: [{ timestamp: 1_760_000_600, success: false }], pagination: { next: 0 } }
-        : { results: [{ timestamp: 1_760_000_000, success: true }], pagination: { next: 2 } }
-      ))
+      response.end(
+        JSON.stringify(
+          page === '2' ? { results: [{ timestamp: 1_760_000_600, success: false }], pagination: { next: 0 } } : { results: [{ timestamp: 1_760_000_000, success: true }], pagination: { next: 2 } }
+        )
+      )
       return
     }
     const responses: Record<string, string> = {
@@ -150,8 +160,8 @@ beforeAll(async () => {
     response.end(responses[path] ?? '')
   })
   socketServer = new SocketIoServer(server)
-  socketServer.use((socket, next) => socket.handshake.auth.token === 'socket-token' ? next() : next(new Error('Unauthorized')))
-  socketServer.on('connection', socket => {
+  socketServer.use((socket, next) => (socket.handshake.auth.token === 'socket-token' ? next() : next(new Error('Unauthorized'))))
+  socketServer.on('connection', (socket) => {
     socketHeaders.push(socket.handshake.headers)
     socket.on('login', (...args) => {
       const callback = args.pop()
@@ -169,7 +179,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  await new Promise<void>(resolve => socketServer.close(() => resolve()))
+  await new Promise<void>((resolve) => socketServer.close(() => resolve()))
 })
 
 function metric(extractor: Pick<MetricOverride, 'jq'> | Pick<MetricOverride, 'prometheus'>): MetricOverride {
@@ -183,85 +193,140 @@ describe('collectCustomMetric', () => {
   })
 
   it('extracts normalized uptime observations with jq', async () => {
-    await expect(collectCustomMetric('uptime', {
-      label: 'Uptime', valueType: 'uptime', source: { url: `${baseUrl}/uptime` },
-      jq: { expression: '[.results[] | { timestamp, status: (if .success then "up" else "down" end), responseTimeMs: (.duration / 1000000) }]' }
-    })).resolves.toEqual({ observations: [
-      { timestamp: Date.parse('2026-08-26T12:00:00Z'), status: 'up', responseTimeMs: 12 },
-      { timestamp: Date.parse('2026-08-26T12:05:00Z'), status: 'down', responseTimeMs: 40 }
-    ] })
+    await expect(
+      collectCustomMetric('uptime', {
+        label: 'Uptime',
+        valueType: 'uptime',
+        source: { url: `${baseUrl}/uptime` },
+        jq: { expression: '[.results[] | { timestamp, status: (if .success then "up" else "down" end), responseTimeMs: (.duration / 1000000) }]' }
+      })
+    ).resolves.toEqual({
+      observations: [
+        { timestamp: Date.parse('2026-08-26T12:00:00Z'), status: 'up', responseTimeMs: 12 },
+        { timestamp: Date.parse('2026-08-26T12:05:00Z'), status: 'down', responseTimeMs: 40 }
+      ]
+    })
   })
 
   it('extracts uptime observations across existing pagination', async () => {
-    await expect(collectCustomMetric('uptime-pages', {
-      label: 'Uptime', valueType: 'uptime', source: { url: `${baseUrl}/uptime-paginated` },
-      pagination: { items: { expression: '.results' }, next: { expression: '.pagination.next' } },
-      jq: { expression: '[.items[] | { timestamp, status: (if .success then "up" else "down" end) }]' }
-    })).resolves.toEqual({ observations: [
-      { timestamp: 1_760_000_000_000, status: 'up' },
-      { timestamp: 1_760_000_600_000, status: 'down' }
-    ] })
+    await expect(
+      collectCustomMetric('uptime-pages', {
+        label: 'Uptime',
+        valueType: 'uptime',
+        source: { url: `${baseUrl}/uptime-paginated` },
+        pagination: { items: { expression: '.results' }, next: { expression: '.pagination.next' } },
+        jq: { expression: '[.items[] | { timestamp, status: (if .success then "up" else "down" end) }]' }
+      })
+    ).resolves.toEqual({
+      observations: [
+        { timestamp: 1_760_000_000_000, status: 'up' },
+        { timestamp: 1_760_000_600_000, status: 'down' }
+      ]
+    })
   })
 
   it('collects bounded, encoded child requests and reduces their numeric values', async () => {
     forEachRequests = []
-    await expect(collectCustomMetric('for-each', {
-      label: 'Library items', valueType: 'number', unit: 'count', chart: 'step',
-      source: { url: `${baseUrl}/for-each/discover`, auth: { type: 'token', optional: true, header: 'Authorization', prefix: 'Bearer ', value: { value: 'aggregate-token' } } },
-      forEach: {
-        items: { expression: '.ids' },
-        requestUrl: `${baseUrl}/for-each/{item}`,
-        value: { expression: '.total' },
-        reduce: 'sum'
-      }
-    })).resolves.toEqual({ value: 5 })
+    await expect(
+      collectCustomMetric('for-each', {
+        label: 'Library items',
+        valueType: 'number',
+        unit: 'count',
+        chart: 'step',
+        source: { url: `${baseUrl}/for-each/discover`, auth: { type: 'token', optional: true, header: 'Authorization', prefix: 'Bearer ', value: { value: 'aggregate-token' } } },
+        forEach: {
+          items: { expression: '.ids' },
+          requestUrl: `${baseUrl}/for-each/{item}`,
+          value: { expression: '.total' },
+          reduce: 'sum'
+        }
+      })
+    ).resolves.toEqual({ value: 5 })
     expect(forEachRequests.sort()).toEqual(['/for-each/movie', '/for-each/movie', '/for-each/music%20%2F%201', '/for-each/music%20%2F%201'])
   })
 
   it('collects every page before extracting a JSON metric', async () => {
-    await expect(collectCustomMetric('paginated', {
-      label: 'Unique users', valueType: 'number', unit: 'count', chart: 'step',
-      source: { url: `${baseUrl}/paginated?page_size=2` },
-      pagination: { items: { expression: '.results' }, next: { expression: '.pagination.next' } },
-      jq: { expression: '[.items[].user] | unique | length' }
-    })).resolves.toEqual({ value: 3 })
+    await expect(
+      collectCustomMetric('paginated', {
+        label: 'Unique users',
+        valueType: 'number',
+        unit: 'count',
+        chart: 'step',
+        source: { url: `${baseUrl}/paginated?page_size=2` },
+        pagination: { items: { expression: '.results' }, next: { expression: '.pagination.next' } },
+        jq: { expression: '[.items[].user] | unique | length' }
+      })
+    ).resolves.toEqual({ value: 3 })
   })
 
   it('applies numeric transforms after extraction', async () => {
-    await expect(collectCustomMetric('bytes', {
-      label: 'Bytes', valueType: 'number', unit: 'bytes', chart: 'step',
-      source: { url: `${baseUrl}/megabytes` }, transform: { multiply: 1_048_576 },
-      jq: { expression: '.megabytes' }
-    })).resolves.toEqual({ value: 2_097_152 })
+    await expect(
+      collectCustomMetric('bytes', {
+        label: 'Bytes',
+        valueType: 'number',
+        unit: 'bytes',
+        chart: 'step',
+        source: { url: `${baseUrl}/megabytes` },
+        transform: { multiply: 1_048_576 },
+        jq: { expression: '.megabytes' }
+      })
+    ).resolves.toEqual({ value: 2_097_152 })
   })
 
   it('reports an unavailable metric when jq produces a non-numeric value', async () => {
-    await expect(collectCustomMetric('items', { ...metric({ jq: { expression: '.items' } }), source: { url: `${baseUrl}/items` } })).resolves.toMatchObject({ error: 'jq extraction did not produce a finite number' })
+    await expect(collectCustomMetric('items', { ...metric({ jq: { expression: '.items' } }), source: { url: `${baseUrl}/items` } })).resolves.toMatchObject({
+      error: 'jq extraction did not produce a finite number'
+    })
   })
 
   it('parses Prometheus samples, labels, comments, and reductions', async () => {
-    await expect(collectCustomMetric('queue', {
-      ...metric({ prometheus: { name: 'queue_depth', labels: { queue: 'primary' }, reduce: 'average' } }),
-      source: { url: `${baseUrl}/queue` }
-    })).resolves.toEqual({ value: 3 })
+    await expect(
+      collectCustomMetric('queue', {
+        ...metric({ prometheus: { name: 'queue_depth', labels: { queue: 'primary' }, reduce: 'average' } }),
+        source: { url: `${baseUrl}/queue` }
+      })
+    ).resolves.toEqual({ value: 3 })
   })
 
   it('extracts text values without coercing them to numeric samples', async () => {
-    await expect(collectCustomMetric('status', {
-      label: 'Status', valueType: 'string', source: { url: `${baseUrl}/status` }, jq: { expression: '.status' }
-    })).resolves.toEqual({ value: 'healthy' })
-    await expect(collectCustomMetric('version', {
-      label: 'Version', valueType: 'string', source: { url: `${baseUrl}/metrics` }, prometheus: { name: 'build_info', valueLabel: 'version' }
-    })).resolves.toEqual({ value: '1.2.3' })
+    await expect(
+      collectCustomMetric('status', {
+        label: 'Status',
+        valueType: 'string',
+        source: { url: `${baseUrl}/status` },
+        jq: { expression: '.status' }
+      })
+    ).resolves.toEqual({ value: 'healthy' })
+    await expect(
+      collectCustomMetric('version', {
+        label: 'Version',
+        valueType: 'string',
+        source: { url: `${baseUrl}/metrics` },
+        prometheus: { name: 'build_info', valueLabel: 'version' }
+      })
+    ).resolves.toEqual({ value: '1.2.3' })
   })
 
   it('extracts plain-text state and numeric values', async () => {
-    await expect(collectCustomMetric('text-state', {
-      label: 'State', valueType: 'state', color: 'info', source: { url: `${baseUrl}/text-state` }, text: true
-    })).resolves.toEqual({ value: 'open' })
-    await expect(collectCustomMetric('text-number', {
-      label: 'Temperature', valueType: 'number', unit: 'celsius', chart: 'line', source: { url: `${baseUrl}/text-number` }, text: true
-    })).resolves.toEqual({ value: 21.5 })
+    await expect(
+      collectCustomMetric('text-state', {
+        label: 'State',
+        valueType: 'state',
+        color: 'info',
+        source: { url: `${baseUrl}/text-state` },
+        text: true
+      })
+    ).resolves.toEqual({ value: 'open' })
+    await expect(
+      collectCustomMetric('text-number', {
+        label: 'Temperature',
+        valueType: 'number',
+        unit: 'celsius',
+        chart: 'line',
+        source: { url: `${baseUrl}/text-number` },
+        text: true
+      })
+    ).resolves.toEqual({ value: 21.5 })
   })
 
   it('caches cookies for each metric key and source', async () => {
@@ -282,10 +347,13 @@ describe('collectCustomMetric', () => {
         url: `${baseUrl}/protected`,
         auth: {
           type: 'cookie_session' as const,
-          steps: [{
-            url: `${baseUrl}/login`, method: 'POST' as const,
-            form: { username: { value: 'admin' }, password: { value: 'secret' } }
-          }]
+          steps: [
+            {
+              url: `${baseUrl}/login`,
+              method: 'POST' as const,
+              form: { username: { value: 'admin' }, password: { value: 'secret' } }
+            }
+          ]
         }
       }
     }
@@ -299,70 +367,87 @@ describe('collectCustomMetric', () => {
   })
 
   it('uses HTTP Basic credentials from secret references', async () => {
-    await expect(collectCustomMetric('basic', {
-      ...metric({ jq: { expression: '.value' } }),
-      source: {
-        url: `${baseUrl}/basic`,
-        auth: { type: 'basic', username: { value: 'api-key' }, password: { value: 'api-secret' } }
-      }
-    })).resolves.toEqual({ value: 8 })
+    await expect(
+      collectCustomMetric('basic', {
+        ...metric({ jq: { expression: '.value' } }),
+        source: {
+          url: `${baseUrl}/basic`,
+          auth: { type: 'basic', username: { value: 'api-key' }, password: { value: 'api-secret' } }
+        }
+      })
+    ).resolves.toEqual({ value: 8 })
   })
 
   it('retries optional authentication only after an unauthorized response', async () => {
-    await expect(collectCustomMetric('optional-basic', {
-      ...metric({ jq: { expression: '.value' } }),
-      source: {
-        url: `${baseUrl}/basic`,
-        auth: { type: 'basic', optional: true, username: { value: 'api-key' }, password: { value: 'api-secret' } }
-      }
-    })).resolves.toEqual({ value: 8 })
+    await expect(
+      collectCustomMetric('optional-basic', {
+        ...metric({ jq: { expression: '.value' } }),
+        source: {
+          url: `${baseUrl}/basic`,
+          auth: { type: 'basic', optional: true, username: { value: 'api-key' }, password: { value: 'api-secret' } }
+        }
+      })
+    ).resolves.toEqual({ value: 8 })
   })
 
   it('does not resolve unavailable optional credentials for a public metric', async () => {
-    await expect(collectCustomMetric('optional-public', {
-      ...metric({ jq: { expression: '.stats.value' } }),
-      source: {
-        url: `${baseUrl}/data`,
-        auth: { type: 'token', optional: true, header: 'Authorization', value: { env: 'DASHMARK_TEST_MISSING_OPTIONAL_TOKEN' } }
-      }
-    })).resolves.toEqual({ value: 12.5 })
+    await expect(
+      collectCustomMetric('optional-public', {
+        ...metric({ jq: { expression: '.stats.value' } }),
+        source: {
+          url: `${baseUrl}/data`,
+          auth: { type: 'token', optional: true, header: 'Authorization', value: { env: 'DASHMARK_TEST_MISSING_OPTIONAL_TOKEN' } }
+        }
+      })
+    ).resolves.toEqual({ value: 12.5 })
   })
 
   it('reports missing optional credentials after authentication is required', async () => {
-    await expect(collectCustomMetric('optional-missing', {
-      ...metric({ jq: { expression: '.value' } }),
-      source: {
-        url: `${baseUrl}/basic`,
-        auth: { type: 'basic', optional: true, username: { env: 'DASHMARK_TEST_MISSING_OPTIONAL_USERNAME' }, password: { env: 'DASHMARK_TEST_MISSING_OPTIONAL_PASSWORD' } }
-      }
-    })).resolves.toMatchObject({ error: 'Authentication is required, but Credential DASHMARK_TEST_MISSING_OPTIONAL_USERNAME is unavailable' })
+    await expect(
+      collectCustomMetric('optional-missing', {
+        ...metric({ jq: { expression: '.value' } }),
+        source: {
+          url: `${baseUrl}/basic`,
+          auth: { type: 'basic', optional: true, username: { env: 'DASHMARK_TEST_MISSING_OPTIONAL_USERNAME' }, password: { env: 'DASHMARK_TEST_MISSING_OPTIONAL_PASSWORD' } }
+        }
+      })
+    ).resolves.toMatchObject({ error: 'Authentication is required, but Credential DASHMARK_TEST_MISSING_OPTIONAL_USERNAME is unavailable' })
   })
 
   it('sends static headers and prefixed token authentication', async () => {
-    await expect(collectCustomMetric('token', {
-      ...metric({ jq: { expression: '.value' } }),
-      source: {
-        url: `${baseUrl}/token`, headers: { Accept: 'application/json' },
-        auth: { type: 'token', header: 'Authorization', prefix: 'Bearer ', value: { value: 'metric-token' } }
-      }
-    })).resolves.toEqual({ value: 14 })
+    await expect(
+      collectCustomMetric('token', {
+        ...metric({ jq: { expression: '.value' } }),
+        source: {
+          url: `${baseUrl}/token`,
+          headers: { Accept: 'application/json' },
+          auth: { type: 'token', header: 'Authorization', prefix: 'Bearer ', value: { value: 'metric-token' } }
+        }
+      })
+    ).resolves.toEqual({ value: 14 })
   })
 
   it('applies optional token authentication through a query parameter', async () => {
-    await expect(collectCustomMetric('query-token', {
-      ...metric({ jq: { expression: '.value' } }),
-      source: {
-        url: `${baseUrl}/query-token`,
-        auth: { type: 'token', optional: true, query: 'api_key', value: { value: 'metric-token' } }
-      }
-    })).resolves.toEqual({ value: 16 })
+    await expect(
+      collectCustomMetric('query-token', {
+        ...metric({ jq: { expression: '.value' } }),
+        source: {
+          url: `${baseUrl}/query-token`,
+          auth: { type: 'token', optional: true, query: 'api_key', value: { value: 'metric-token' } }
+        }
+      })
+    ).resolves.toEqual({ value: 16 })
   })
 
   it('uses shared cookies and extracted HTML and JSON tokens in later requests', async () => {
     const authenticatedPostMetric = {
-      label: 'Authenticated POST metric', valueType: 'number' as const, unit: 'count', chart: 'step' as const,
+      label: 'Authenticated POST metric',
+      valueType: 'number' as const,
+      unit: 'count',
+      chart: 'step' as const,
       source: {
-        url: `${baseUrl}/post-metric`, method: 'POST' as const,
+        url: `${baseUrl}/post-metric`,
+        method: 'POST' as const,
         headers: { 'X-Api-Token': { token: 'api-token' } },
         query: { token: { token: 'api-token' } },
         json: { token: { token: 'api-token' } },
@@ -381,29 +466,43 @@ describe('collectCustomMetric', () => {
   })
 
   it('sends form POST metric sources', async () => {
-    await expect(collectCustomMetric('form-post', {
-      label: 'Form POST metric', valueType: 'number', unit: 'count', chart: 'step',
-      source: { url: `${baseUrl}/form-metric`, method: 'POST', form: { scope: { value: 'metrics' } } },
-      jq: { expression: '.value' }
-    } as MetricOverride)).resolves.toEqual({ value: 13 })
+    await expect(
+      collectCustomMetric('form-post', {
+        label: 'Form POST metric',
+        valueType: 'number',
+        unit: 'count',
+        chart: 'step',
+        source: { url: `${baseUrl}/form-metric`, method: 'POST', form: { scope: { value: 'metrics' } } },
+        jq: { expression: '.value' }
+      } as MetricOverride)
+    ).resolves.toEqual({ value: 13 })
   })
 
   it('sends literal and secret values in nested JSON request bodies', async () => {
-    await expect(collectCustomMetric('json-post', {
-      label: 'JSON POST metric', valueType: 'number', unit: 'count', chart: 'step',
-      source: {
-        url: `${baseUrl}/json-metric`, method: 'POST',
-        json: { method: 'status', params: [], credentials: { token: { value: 'nested-token' } } }
-      },
-      jq: { expression: '.value' }
-    } as MetricOverride)).resolves.toEqual({ value: 15 })
+    await expect(
+      collectCustomMetric('json-post', {
+        label: 'JSON POST metric',
+        valueType: 'number',
+        unit: 'count',
+        chart: 'step',
+        source: {
+          url: `${baseUrl}/json-metric`,
+          method: 'POST',
+          json: { method: 'status', params: [], credentials: { token: { value: 'nested-token' } } }
+        },
+        jq: { expression: '.value' }
+      } as MetricOverride)
+    ).resolves.toEqual({ value: 15 })
   })
 
   it('collects a Socket.IO acknowledgement with handshake auth and login', async () => {
     socketEvents = []
     socketHeaders = []
     const socketMetric = {
-      label: 'Socket metric', valueType: 'number' as const, unit: 'count', chart: 'step' as const,
+      label: 'Socket metric',
+      valueType: 'number' as const,
+      unit: 'count',
+      chart: 'step' as const,
       source: {
         url: baseUrl,
         transport: 'socketio' as const,
@@ -426,9 +525,14 @@ describe('collectCustomMetric', () => {
   it('uses cookie-session authentication and explicit headers for Socket.IO metrics', async () => {
     socketHeaders = []
     const socketMetric = {
-      label: 'Socket session metric', valueType: 'number' as const, unit: 'count', chart: 'step' as const,
+      label: 'Socket session metric',
+      valueType: 'number' as const,
+      unit: 'count',
+      chart: 'step' as const,
       source: {
-        url: baseUrl, transport: 'socketio' as const, headers: { 'X-Metric-Client': 'dashmark' },
+        url: baseUrl,
+        transport: 'socketio' as const,
+        headers: { 'X-Metric-Client': 'dashmark' },
         auth: {
           type: 'cookie_session' as const,
           steps: [{ url: `${baseUrl}/login`, method: 'POST' as const, form: { username: { value: 'admin' }, password: { value: 'secret' } } }]

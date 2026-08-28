@@ -235,11 +235,7 @@ describe('accessHeaderNames', () => {
     config.userUsernameHeader = 'X-User-Id'
     config.userEmailHeader = 'X-User-Mail'
 
-    expect(accessHeaderNames(config)).toEqual([
-      'X-Custom-Groups',
-      'X-User-Id',
-      'X-User-Mail',
-    ])
+    expect(accessHeaderNames(config)).toEqual(['X-Custom-Groups', 'X-User-Id', 'X-User-Mail'])
   })
 })
 

@@ -30,10 +30,7 @@ export function StatusBadge({ state, health, loading, asCard = false }: StatusBa
   if (loading) {
     return (
       <span
-        className={cn(
-          'dashmark-app-status dashmark-app-status-loading inline-flex h-5 w-5 items-center justify-center rounded-full',
-          asCard ? 'bg-muted' : 'bg-surface-active'
-        )}
+        className={cn('dashmark-app-status dashmark-app-status-loading inline-flex h-5 w-5 items-center justify-center rounded-full', asCard ? 'bg-muted' : 'bg-surface-active')}
         aria-busy="true"
         aria-label={strings.status.loading}
       >
@@ -48,14 +45,5 @@ export function StatusBadge({ state, health, loading, asCard = false }: StatusBa
 
   const colorClass = getColorClass(display.toLowerCase())
 
-  return (
-    <span
-      className={cn(
-        'dashmark-app-status dashmark-state-badge inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        colorClass
-      )}
-    >
-      {statusLabel(display)}
-    </span>
-  )
+  return <span className={cn('dashmark-app-status dashmark-state-badge inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium', colorClass)}>{statusLabel(display)}</span>
 }

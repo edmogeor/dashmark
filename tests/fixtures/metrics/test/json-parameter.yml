@@ -8,7 +8,7 @@ parameters:
     label: Value
     type: json_value
 source:
-  url: "{url}/api"
+  url: '{url}/api'
   method: POST
   json:
     value:

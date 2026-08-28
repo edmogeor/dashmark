@@ -1,9 +1,9 @@
-import * as React from "react"
-import * as RechartsPrimitive from "recharts"
+import * as React from 'react'
+import * as RechartsPrimitive from 'recharts'
 
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils'
 
-const THEMES = { light: "", dark: ".dark" } as const
+const THEMES = { light: '', dark: '.dark' } as const
 const INITIAL_DIMENSION = { width: 320, height: 200 } as const
 
 export type ChartConfig = Record<
@@ -11,10 +11,7 @@ export type ChartConfig = Record<
   {
     label?: React.ReactNode
     icon?: React.ComponentType
-  } & (
-    | { color?: string; theme?: never }
-    | { color?: never; theme: Record<keyof typeof THEMES, string> }
-  )
+  } & ({ color?: string; theme?: never } | { color?: never; theme: Record<keyof typeof THEMES, string> })
 >
 
 function ChartContainer({
@@ -24,13 +21,13 @@ function ChartContainer({
   config,
   initialDimension = INITIAL_DIMENSION,
   ...props
-}: React.ComponentProps<"div"> & {
+}: React.ComponentProps<'div'> & {
   config: ChartConfig
-  children: React.ComponentProps<typeof RechartsPrimitive.ResponsiveContainer>["children"]
+  children: React.ComponentProps<typeof RechartsPrimitive.ResponsiveContainer>['children']
   initialDimension?: { width: number; height: number }
 }) {
   const uniqueId = React.useId()
-  const chartId = `chart-${id ?? uniqueId.replace(/:/g, "")}`
+  const chartId = `chart-${id ?? uniqueId.replace(/:/g, '')}`
 
   return (
     <div
@@ -43,9 +40,7 @@ function ChartContainer({
       {...props}
     >
       <ChartStyle id={chartId} config={config} />
-      <RechartsPrimitive.ResponsiveContainer initialDimension={initialDimension}>
-        {children}
-      </RechartsPrimitive.ResponsiveContainer>
+      <RechartsPrimitive.ResponsiveContainer initialDimension={initialDimension}>{children}</RechartsPrimitive.ResponsiveContainer>
     </div>
   )
 }
@@ -57,14 +52,20 @@ function ChartStyle({ id, config }: { id: string; config: ChartConfig }) {
   return (
     <style
       dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES).map(([theme, prefix]) => `
+        __html: Object.entries(THEMES)
+          .map(
+            ([theme, prefix]) => `
 ${prefix} [data-chart=${id}] {
-${colorConfig.map(([key, item]) => {
-  const color = item.theme?.[theme as keyof typeof item.theme] ?? item.color
-  return color ? `  --color-${key}: ${color};` : null
-}).join("\n")}
+${colorConfig
+  .map(([key, item]) => {
+    const color = item.theme?.[theme as keyof typeof item.theme] ?? item.color
+    return color ? `  --color-${key}: ${color};` : null
+  })
+  .join('\n')}
 }
-`).join("\n")
+`
+          )
+          .join('\n')
       }}
     />
   )

@@ -10,11 +10,7 @@ const TooltipControllerContext = createContext<TooltipController | null>(null)
 export function TooltipControllerProvider({ children }: { children: ReactNode }) {
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null)
 
-  return (
-    <TooltipControllerContext.Provider value={{ activeTooltip, setActiveTooltip }}>
-      {children}
-    </TooltipControllerContext.Provider>
-  )
+  return <TooltipControllerContext.Provider value={{ activeTooltip, setActiveTooltip }}>{children}</TooltipControllerContext.Provider>
 }
 
 export function useTooltipController(): TooltipController {

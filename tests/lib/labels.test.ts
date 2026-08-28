@@ -97,9 +97,7 @@ describe('hasDashmarkLabels', () => {
   })
 
   it('ignores non-dashmark labels', () => {
-    expect(
-      hasDashmarkLabels({ 'traefik.http.routers.app.rule': 'Host(`app.example.com`)' })
-    ).toBe(false)
+    expect(hasDashmarkLabels({ 'traefik.http.routers.app.rule': 'Host(`app.example.com`)' })).toBe(false)
     expect(hasDashmarkLabels({})).toBe(false)
   })
 })
@@ -124,9 +122,7 @@ describe('isValidUrl', () => {
 
 describe('traefikUrl', () => {
   it('builds an https URL from a single Host rule', () => {
-    expect(
-      traefikUrl({ 'traefik.http.routers.plex.rule': 'Host(`plex.example.com`)' })
-    ).toBe('https://plex.example.com')
+    expect(traefikUrl({ 'traefik.http.routers.plex.rule': 'Host(`plex.example.com`)' })).toBe('https://plex.example.com')
   })
 
   it('uses the first host from a multi-host rule', () => {

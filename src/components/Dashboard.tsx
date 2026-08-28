@@ -28,11 +28,7 @@ const MASONRY_OVERSCAN = 3
 const POSITION_TRANSITION: Transition = { duration: 0.25, ease: 'easeOut' }
 const brandMarkPath = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/brand/logo-mark.svg`
 
-function measureElement<T extends Element>(
-  element: T,
-  entry: ResizeObserverEntry | undefined,
-  instance: Virtualizer<Window, T>
-): number {
+function measureElement<T extends Element>(element: T, entry: ResizeObserverEntry | undefined, instance: Virtualizer<Window, T>): number {
   const borderBox = entry?.borderBoxSize
   if (Array.isArray(borderBox) && borderBox[0]) {
     return borderBox[0].blockSize
@@ -76,13 +72,13 @@ function UserGroupsBadge({ groups, colorOffset }: { groups: string[]; colorOffse
       <GroupBadge group={groups[0]} colorIndex={colorOffset} />
       {groups.length > 1 && (
         <TooltipProvider delayDuration={TOOLTIP_DELAY_MS}>
-          <Tooltip open={activeTooltip === tooltipId} onOpenChange={open => setActiveTooltip(open ? tooltipId : null)}>
+          <Tooltip open={activeTooltip === tooltipId} onOpenChange={(open) => setActiveTooltip(open ? tooltipId : null)}>
             <TooltipTrigger asChild>
               <button
                 type="button"
                 aria-label={`Show ${groups.length - 1} more groups`}
                 className="dashmark-group-badge dashmark-group-badge-overflow inline-flex cursor-help items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                onClick={event => event.preventDefault()}
+                onClick={(event) => event.preventDefault()}
                 onPointerDown={handleMoreGroupsPointerDown}
               >
                 +{groups.length - 1}
@@ -102,18 +98,13 @@ function UserGroupsBadge({ groups, colorOffset }: { groups: string[]; colorOffse
 
 function ErrorPanel({ error }: { error: DashmarkError }) {
   return (
-    <AnimatedGridItem
-      className="dashmark-error flex items-center justify-center"
-      delay={0.08}
-    >
+    <AnimatedGridItem className="dashmark-error flex items-center justify-center" delay={0.08}>
       <div className="dashmark-error-panel mx-auto flex w-full max-w-xl gap-4 rounded-lg border border-error-border bg-error-bg p-6 text-error-text">
         <CircleAlert className="mt-0.5 h-5 w-5 shrink-0" />
         <div className="min-w-0">
           <p className="font-semibold">{strings.errors.unableToLoadServices}</p>
           <p className="mt-1 text-sm">{error.message}</p>
-          {error.detail && (
-            <p className="mt-2 whitespace-pre-wrap text-xs opacity-80">{error.detail}</p>
-          )}
+          {error.detail && <p className="mt-2 whitespace-pre-wrap text-xs opacity-80">{error.detail}</p>}
         </div>
       </div>
     </AnimatedGridItem>
@@ -132,17 +123,7 @@ type AnimatedGridItemProps = {
   animate?: boolean
 }
 
-function AnimatedGridItem({
-  children,
-  className,
-  style,
-  layoutId,
-  dataIndex,
-  measureElement,
-  isReentry = false,
-  delay = 0,
-  animate = true
-}: AnimatedGridItemProps) {
+function AnimatedGridItem({ children, className, style, layoutId, dataIndex, measureElement, isReentry = false, delay = 0, animate = true }: AnimatedGridItemProps) {
   const hidden = isReentry ? { opacity: 0 } : { opacity: 0, y: 12 }
   const shown = isReentry ? { opacity: 1 } : { opacity: 1, y: 0 }
 
@@ -183,7 +164,7 @@ function CategoryColumn({ data, twoColumn, showStatus, showMetrics, isLoading, o
       </CardHeader>
       <CardContent className="p-5 pt-0">
         <div className={cn('dashmark-category-apps grid grid-cols-1 gap-4', twoColumn && '@[520px]:grid-cols-2')}>
-          {cards.map(card => (
+          {cards.map((card) => (
             <motion.div
               key={`${card.id}-${enableCardLayout ? 'layout' : 'static'}`}
               initial={false}
@@ -192,7 +173,7 @@ function CategoryColumn({ data, twoColumn, showStatus, showMetrics, isLoading, o
               className="h-full"
               transition={{ layout: POSITION_TRANSITION }}
             >
-                <AppCard card={card} showStatus={showStatus} showMetrics={showMetrics} isLoading={isLoading} openInNewTab={openInNewTab} />
+              <AppCard card={card} showStatus={showStatus} showMetrics={showMetrics} isLoading={isLoading} openInNewTab={openInNewTab} />
             </motion.div>
           ))}
         </div>
@@ -202,7 +183,7 @@ function CategoryColumn({ data, twoColumn, showStatus, showMetrics, isLoading, o
 }
 
 function itemsSignature(items: CategoryItem[]): string {
-  return items.map(item => `${item.key}:${item.cards.length}`).join('\0')
+  return items.map((item) => `${item.key}:${item.cards.length}`).join('\0')
 }
 
 type MasonryGridProps = {
@@ -256,8 +237,8 @@ function MasonryGrid({ items, entries, onReady, animate, showStatus, showMetrics
     lanes,
     gap: COLUMN_GUTTER,
     overscan: MASONRY_OVERSCAN,
-    estimateSize: index => estimateCategoryHeight(index, items),
-    getItemKey: index => items[index]?.key ?? index,
+    estimateSize: (index) => estimateCategoryHeight(index, items),
+    getItemKey: (index) => items[index]?.key ?? index,
     measureElement
   })
 
@@ -272,13 +253,9 @@ function MasonryGrid({ items, entries, onReady, animate, showStatus, showMetrics
   }, [itemsKey, virtualizer])
 
   const virtualItems = virtualizer.getVirtualItems()
-  const visualRank = new Map(
-    [...virtualItems]
-      .sort((a, b) => a.lane - b.lane || a.start - b.start)
-      .map((item, rank) => [item.index, rank])
-  )
+  const visualRank = new Map([...virtualItems].sort((a, b) => a.lane - b.lane || a.start - b.start).map((item, rank) => [item.index, rank]))
 
-  const twoColumn = items.some(item => item.cards.length > 1)
+  const twoColumn = items.some((item) => item.cards.length > 1)
   const showGrid = width > 0
 
   return (
@@ -286,7 +263,7 @@ function MasonryGrid({ items, entries, onReady, animate, showStatus, showMetrics
       {showGrid && (
         <div className="dashmark-category-grid-items relative w-full" style={{ height: virtualizer.getTotalSize() }}>
           <AnimatePresence>
-            {virtualItems.map(virtualItem => {
+            {virtualItems.map((virtualItem) => {
               const item = items[virtualItem.index]
               if (!item) return null
               const entry = entries.get(item.key)
@@ -375,35 +352,15 @@ type DashboardSearchPanelProps = {
   setSelectedCategory: (category: string | null) => void
 }
 
-function DashboardSearchPanel({
-  showBranding,
-  search,
-  setSearch,
-  error,
-  categories,
-  hasCategories,
-  totalCards,
-  selectedCategory,
-  setSelectedCategory
-}: DashboardSearchPanelProps) {
+function DashboardSearchPanel({ showBranding, search, setSearch, error, categories, hasCategories, totalCards, selectedCategory, setSelectedCategory }: DashboardSearchPanelProps) {
   return (
     <Card className="dashmark-search-panel overflow-hidden bg-surface shadow-none">
       <CardContent className="dashmark-search-panel-content flex flex-row items-center gap-4 p-5">
-        {showBranding && (
-          <img src={brandMarkPath} alt="Dashmark" className="dashmark-brand h-8 w-8 shrink-0" />
-        )}
+        {showBranding && <img src={brandMarkPath} alt="Dashmark" className="dashmark-brand h-8 w-8 shrink-0" />}
         <div className="min-w-0 flex-1">
           <SearchBar value={search} onChange={setSearch} disabled={!!error} />
         </div>
-        {hasCategories && (
-          <CategoryFilter
-            categories={categories}
-            total={totalCards}
-            selected={selectedCategory}
-            onSelect={setSelectedCategory}
-            disabled={!!error}
-          />
-        )}
+        {hasCategories && <CategoryFilter categories={categories} total={totalCards} selected={selectedCategory} onSelect={setSelectedCategory} disabled={!!error} />}
       </CardContent>
     </Card>
   )
@@ -454,9 +411,7 @@ function DashboardSearch({
           transition={{ duration: 0.3, ease: 'easeOut', layout: POSITION_TRANSITION }}
           onAnimationComplete={onAnimationComplete}
         >
-          {showHeader && (
-            <DashboardGreeting greeting={greeting} showGroups={showGroups} userGroups={userGroups} groupColorOffset={groupColorOffset} hasSearch={showSearch} />
-          )}
+          {showHeader && <DashboardGreeting greeting={greeting} showGroups={showGroups} userGroups={userGroups} groupColorOffset={groupColorOffset} hasSearch={showSearch} />}
           {showSearch && (
             <DashboardSearchPanel
               showBranding={showBranding}
@@ -535,8 +490,8 @@ function DashboardResults({
   animateMasonry,
   enableCardLayout
 }: DashboardResultsProps) {
-  const cardEntries = useItemEntries(uncategorised.map(card => card.id))
-  const categoryEntries = useItemEntries(categoryItems.map(item => item.key))
+  const cardEntries = useItemEntries(uncategorised.map((card) => card.id))
+  const categoryEntries = useItemEntries(categoryItems.map((item) => item.key))
 
   if (error) return <ErrorPanel error={error} />
 
@@ -630,17 +585,14 @@ function DashboardContent({
     return () => clearTimeout(timeout)
   }, [mockStatusPolling])
 
-  const {
-    hasResults,
-    hasCategories,
-    isSearching,
-    shouldUseCategoryContainers,
-    flatCards,
-    willRenderMasonry,
-    categoryItems,
-    categories
-  } = useDashboardViewModel(cards, deferredSearch, selectedCategory, Boolean(error), categoryOrder)
-  const groupColorOffset = new Set(cards.flatMap(card => card.host ? [card.host] : [])).size
+  const { hasResults, hasCategories, isSearching, shouldUseCategoryContainers, flatCards, willRenderMasonry, categoryItems, categories } = useDashboardViewModel(
+    cards,
+    deferredSearch,
+    selectedCategory,
+    Boolean(error),
+    categoryOrder
+  )
+  const groupColorOffset = new Set(cards.flatMap((card) => (card.host ? [card.host] : []))).size
 
   const [masonryLayoutReady, setMasonryLayoutReady] = useState(false)
   const [searchBarDone, setSearchBarDone] = useState(false)

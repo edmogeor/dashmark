@@ -1,12 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { getConfig } from '@/lib/config'
 import type { AuthUser } from '@/lib/auth'
-import {
-  resolveGreeting,
-  renderGreeting,
-  timeOfDayGreeting,
-  greetingPeriod
-} from '@/lib/greeting'
+import { resolveGreeting, renderGreeting, timeOfDayGreeting, greetingPeriod } from '@/lib/greeting'
 
 function user(overrides: Partial<AuthUser> = {}): AuthUser {
   return {
@@ -53,15 +48,11 @@ describe('renderGreeting', () => {
   const date = new Date(2026, 0, 1, 14)
 
   it('replaces known tags', () => {
-    expect(
-      renderGreeting('{greeting}, {first_name} {last_name}!', cfg, user(), date)
-    ).toBe('Good afternoon, John Doe!')
+    expect(renderGreeting('{greeting}, {first_name} {last_name}!', cfg, user(), date)).toBe('Good afternoon, John Doe!')
   })
 
   it('supports email, username, and full name tags', () => {
-    expect(
-      renderGreeting('{full_name} / {username} / {email}', cfg, user(), date)
-    ).toBe('John Doe / john / john@example.com')
+    expect(renderGreeting('{full_name} / {username} / {email}', cfg, user(), date)).toBe('John Doe / john / john@example.com')
   })
 
   it('replaces missing values with an empty string', () => {

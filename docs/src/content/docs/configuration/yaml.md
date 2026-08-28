@@ -5,10 +5,10 @@ description: Override Docker cards and add standalone cards with config.yml.
 
 Mount a host directory at `/data`. Use these paths for configuration and custom assets:
 
-| Path | Purpose |
-| --- | --- |
-| `/data/config.yml` | Dashboard settings and card overrides. |
-| `/data/icons` | Custom icon files. |
+| Path               | Purpose                                                  |
+| ------------------ | -------------------------------------------------------- |
+| `/data/config.yml` | Dashboard settings and card overrides.                   |
+| `/data/icons`      | Custom icon files.                                       |
 | `/data/custom.css` | Custom stylesheet when `CUSTOM_STYLESHEET` points to it. |
 
 ## Create config.yml

@@ -10,14 +10,11 @@ function observationMetric(now: number): UptimeMetric {
     const timestamp = currentHour - (HISTORY_HOURS - 1 - hour) * HOUR_MS
     if (hour % 197 === 0) continue
     const status: UptimeStatus = hour % 113 === 0 ? 'down' : 'up'
-    observations.push({ timestamp, status, responseTimeMs: 80 + (hour * 17) % 240 })
+    observations.push({ timestamp, status, responseTimeMs: 80 + ((hour * 17) % 240) })
   }
 
   // Ensure the compact 24-hour view demonstrates each heartbeat state.
-  observations.push(
-    { timestamp: currentHour - 4 * HOUR_MS, status: 'down', responseTimeMs: 1_940 },
-    { timestamp: currentHour - 8 * HOUR_MS, status: 'down', responseTimeMs: 1_210 },
-  )
+  observations.push({ timestamp: currentHour - 4 * HOUR_MS, status: 'down', responseTimeMs: 1_940 }, { timestamp: currentHour - 8 * HOUR_MS, status: 'down', responseTimeMs: 1_210 })
   return { key: 'gatus/uptime', label: 'Uptime', current: 'up', observations }
 }
 

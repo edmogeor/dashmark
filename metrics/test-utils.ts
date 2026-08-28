@@ -33,7 +33,11 @@ type MetricDefinition = {
     authentication?:
       | { kind: 'basic'; optional?: boolean; username: unknown; password: unknown }
       | ({ kind: 'token'; optional?: boolean; prefix?: string; value: unknown } & ({ header: string; query?: never } | { header?: never; query: string }))
-      | { kind: 'cookie_session'; optional?: boolean; requests: { url: string; method?: 'GET' | 'POST'; form?: Record<string, unknown>; json?: Record<string, unknown>; extract?: Record<string, unknown> }[] }
+      | {
+          kind: 'cookie_session'
+          optional?: boolean
+          requests: { url: string; method?: 'GET' | 'POST'; form?: Record<string, unknown>; json?: Record<string, unknown>; extract?: Record<string, unknown> }[]
+        }
   }
 }
 
@@ -45,7 +49,7 @@ type ProviderDefinition = {
 function loadDefinition(definitionUrl: URL): [MetricDefinition, ProviderDefinition] {
   const definition = yaml.load(readFileSync(definitionUrl, 'utf8')) as MetricDefinition
   const providerUrl = new URL('./provider.yml', definitionUrl)
-  const provider = existsSync(providerUrl) ? yaml.load(readFileSync(providerUrl, 'utf8')) as ProviderDefinition : {}
+  const provider = existsSync(providerUrl) ? (yaml.load(readFileSync(providerUrl, 'utf8')) as ProviderDefinition) : {}
   return [definition, provider]
 }
 
@@ -60,7 +64,7 @@ function sourceFor(definition: MetricDefinition, provider: ProviderDefinition): 
 }
 
 function parameterValues(definition: MetricDefinition): Record<string, string> {
-  return Object.fromEntries(Object.keys(definition.parameters ?? {}).map(name => [name, `test-${name}`]))
+  return Object.fromEntries(Object.keys(definition.parameters ?? {}).map((name) => [name, `test-${name}`]))
 }
 
 function resolveParameterValues(value: unknown, values: Record<string, string>): unknown {
@@ -70,7 +74,10 @@ function resolveParameterValues(value: unknown, values: Record<string, string>):
 }
 
 function resolveUrl(url: string, baseUrl: string, values: Record<string, string>): string {
-  return url.replace('{url}', baseUrl).replace('{metric_source}', baseUrl).replace(/\{([a-z][a-z0-9_]*)\}/g, (_, name: string) => values[name] === undefined ? `{${name}}` : encodeURIComponent(values[name]))
+  return url
+    .replace('{url}', baseUrl)
+    .replace('{metric_source}', baseUrl)
+    .replace(/\{([a-z][a-z0-9_]*)\}/g, (_, name: string) => (values[name] === undefined ? `{${name}}` : encodeURIComponent(values[name])))
 }
 
 function requestValues(values: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
@@ -98,12 +105,20 @@ function loadMetric(definitionUrl: URL, baseUrl: string): MetricOverride {
   const headers = requestValues(source.headers)
   const query = requestValues(source.query)
   const form = requestValues(source.form)
-  const basic = source.authentication?.kind === 'basic'
-    ? { type: 'basic' as const, ...(source.authentication.optional ? { optional: true } : {}), username: { value: 'test-username' }, password: { value: 'test-password' } }
-    : undefined
-  const token = source.authentication?.kind === 'token'
-    ? { type: 'token' as const, ...(source.authentication.optional ? { optional: true } : {}), ...('header' in source.authentication ? { header: source.authentication.header } : { query: source.authentication.query }), ...(source.authentication.prefix ? { prefix: source.authentication.prefix } : {}), value: { value: 'test-token' } }
-    : undefined
+  const basic =
+    source.authentication?.kind === 'basic'
+      ? { type: 'basic' as const, ...(source.authentication.optional ? { optional: true } : {}), username: { value: 'test-username' }, password: { value: 'test-password' } }
+      : undefined
+  const token =
+    source.authentication?.kind === 'token'
+      ? {
+          type: 'token' as const,
+          ...(source.authentication.optional ? { optional: true } : {}),
+          ...('header' in source.authentication ? { header: source.authentication.header } : { query: source.authentication.query }),
+          ...(source.authentication.prefix ? { prefix: source.authentication.prefix } : {}),
+          value: { value: 'test-token' }
+        }
+      : undefined
   const loginSteps = source.authentication?.kind === 'cookie_session' ? source.authentication.requests : []
 
   return {
@@ -127,10 +142,10 @@ function loadMetric(definitionUrl: URL, baseUrl: string): MetricOverride {
             auth: {
               type: 'cookie_session',
               ...(source.authentication?.optional ? { optional: true } : {}),
-              steps: loginSteps.map(step => ({
+              steps: loginSteps.map((step) => ({
                 url: resolveUrl(step.url, baseUrl, parameters),
                 ...(step.method ? { method: step.method } : {}),
-                ...(step.form ? { form: Object.fromEntries(Object.keys(step.form).map(name => [name, { value: `test-${name}` }])) } : {}),
+                ...(step.form ? { form: Object.fromEntries(Object.keys(step.form).map((name) => [name, { value: `test-${name}` }])) } : {}),
                 ...(step.json ? { json: jsonSecretReferences(step.json) as Record<string, unknown> } : {}),
                 ...(step.extract ? { extract: step.extract } : {})
               }))
@@ -139,8 +154,17 @@ function loadMetric(definitionUrl: URL, baseUrl: string): MetricOverride {
         : {})
     },
     ...(definition.extract.for_each
-      ? { forEach: { items: { expression: definition.extract.for_each.items }, requestUrl: resolveUrl(definition.extract.for_each.request.url, baseUrl, parameters), value: { expression: definition.extract.for_each.value }, reduce: definition.extract.for_each.reduce } }
-      : definition.extract.text ? { text: true } : { jq: { expression: definition.extract.jq! } }),
+      ? {
+          forEach: {
+            items: { expression: definition.extract.for_each.items },
+            requestUrl: resolveUrl(definition.extract.for_each.request.url, baseUrl, parameters),
+            value: { expression: definition.extract.for_each.value },
+            reduce: definition.extract.for_each.reduce
+          }
+        }
+      : definition.extract.text
+        ? { text: true }
+        : { jq: { expression: definition.extract.jq! } }),
     ...(definition.extract.pagination ? { pagination: { items: { expression: definition.extract.pagination.items }, next: { expression: definition.extract.pagination.next } } } : {}),
     ...(definition.value.default_color ? { color: definition.value.default_color } : {}),
     ...(definition.value.colors ? { stateColors: definition.value.colors } : {}),
@@ -159,31 +183,28 @@ export async function expectFixtureMetric(definitionUrl: URL, fixture: unknown, 
   const requiresCookieSession = source.authentication?.kind === 'cookie_session'
   const requiresBasicAuth = source.authentication?.kind === 'basic'
   const requiresTokenAuth = source.authentication?.kind === 'token'
-  const tokenPrefix = source.authentication?.kind === 'token' ? source.authentication.prefix ?? '' : ''
+  const tokenPrefix = source.authentication?.kind === 'token' ? (source.authentication.prefix ?? '') : ''
   const tokenHeader = source.authentication?.kind === 'token' && 'header' in source.authentication ? source.authentication.header : undefined
   const tokenQuery = source.authentication?.kind === 'token' && 'query' in source.authentication ? source.authentication.query : undefined
   const optionalAuthentication = source.authentication?.optional === true
-  const loginPath = source.authentication?.kind === 'cookie_session'
-    ? new URL(source.authentication.requests[0]?.url.replace('{url}', 'http://metrics.test').replace('{metric_source}', 'http://metrics.test') ?? 'http://metrics.test/unconfigured').pathname
-    : undefined
-  const loginForm = source.authentication?.kind === 'cookie_session'
-    ? source.authentication.requests[0]?.form
-    : undefined
-  const loginJson = source.authentication?.kind === 'cookie_session'
-    ? source.authentication.requests[0]?.json
-    : undefined
+  const loginPath =
+    source.authentication?.kind === 'cookie_session'
+      ? new URL(source.authentication.requests[0]?.url.replace('{url}', 'http://metrics.test').replace('{metric_source}', 'http://metrics.test') ?? 'http://metrics.test/unconfigured').pathname
+      : undefined
+  const loginForm = source.authentication?.kind === 'cookie_session' ? source.authentication.requests[0]?.form : undefined
+  const loginJson = source.authentication?.kind === 'cookie_session' ? source.authentication.requests[0]?.json : undefined
   const headerNames = Object.keys(source.headers ?? {})
   const sessionAuthorization = source.headers?.Authorization
   const sessionAuthorizationReference = sessionAuthorization as { token?: unknown; prefix?: unknown } | undefined
-  const sessionTokenPrefix = typeof sessionAuthorizationReference?.token === 'string' && typeof sessionAuthorizationReference.prefix === 'string'
-    ? sessionAuthorizationReference.prefix
-    : undefined
+  const sessionTokenPrefix = typeof sessionAuthorizationReference?.token === 'string' && typeof sessionAuthorizationReference.prefix === 'string' ? sessionAuthorizationReference.prefix : undefined
   const server = createServer((request, response) => {
     if (request.url === loginPath) {
       let body = ''
-      request.on('data', chunk => { body += chunk })
+      request.on('data', (chunk) => {
+        body += chunk
+      })
       request.on('end', () => {
-        if (loginForm) expect(body).toBe(new URLSearchParams(Object.keys(loginForm).map(name => [name, `test-${name}`])).toString())
+        if (loginForm) expect(body).toBe(new URLSearchParams(Object.keys(loginForm).map((name) => [name, `test-${name}`])).toString())
         if (loginJson) expect(JSON.parse(body)).toEqual(resolvedJsonRequestValues(loginJson))
         response.setHeader('Set-Cookie', 'metric-session=active; Path=/')
         response.end('{"token":"test-token"}')
@@ -202,9 +223,11 @@ export async function expectFixtureMetric(definitionUrl: URL, fixture: unknown, 
       response.end(JSON.stringify({ MediaContainer: { size: 2 } }))
       return
     }
-    const hasAuthentication = (requiresCookieSession && request.headers.cookie?.includes('metric-session=active'))
-      || (requiresBasicAuth && request.headers.authorization === `Basic ${Buffer.from('test-username:test-password').toString('base64')}`)
-      || (requiresTokenAuth && (tokenQuery ? new URL(request.url ?? '/', 'http://metrics.test').searchParams.get(tokenQuery) === 'test-token' : request.headers[tokenHeader!.toLowerCase()] === `${tokenPrefix}test-token`))
+    const hasAuthentication =
+      (requiresCookieSession && request.headers.cookie?.includes('metric-session=active')) ||
+      (requiresBasicAuth && request.headers.authorization === `Basic ${Buffer.from('test-username:test-password').toString('base64')}`) ||
+      (requiresTokenAuth &&
+        (tokenQuery ? new URL(request.url ?? '/', 'http://metrics.test').searchParams.get(tokenQuery) === 'test-token' : request.headers[tokenHeader!.toLowerCase()] === `${tokenPrefix}test-token`))
     if (optionalAuthentication && !hasAuthentication) {
       response.statusCode = 401
       response.end()
@@ -224,11 +247,11 @@ export async function expectFixtureMetric(definitionUrl: URL, fixture: unknown, 
     response.end(definition.extract.text ? String(fixture) : JSON.stringify(fixture))
   })
 
-  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   try {
     const baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
     await expect(collectCustomMetric(definitionUrl.pathname, loadMetric(definitionUrl, baseUrl))).resolves.toEqual({ value: expected })
   } finally {
-    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
+    await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())))
   }
 }

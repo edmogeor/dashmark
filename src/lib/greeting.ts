@@ -41,10 +41,12 @@ function defaultGreeting(config: AppConfig, user: AuthUser, date: Date): string 
 }
 
 export function renderGreeting(template: string, config: AppConfig, user: AuthUser, date: Date): string {
-  return template.replace(/\{(\w+)\}/g, (match, tag: string) => {
-    const resolve = TAG_RESOLVERS[tag]
-    return resolve ? resolve(config, user, date) : match
-  }).trim()
+  return template
+    .replace(/\{(\w+)\}/g, (match, tag: string) => {
+      const resolve = TAG_RESOLVERS[tag]
+      return resolve ? resolve(config, user, date) : match
+    })
+    .trim()
 }
 
 export function resolveGreeting(config: AppConfig, user: AuthUser, date = new Date()): string {

@@ -56,7 +56,7 @@ service:
     const metrics = loadYamlConfig(config).config.services.service?.metrics as unknown as Record<string, unknown>
 
     expect(metrics).toMatchObject({
-          collection: expect.objectContaining({ intervalMs: expect.anything(), retentionMs: expect.anything() }),
+      collection: expect.objectContaining({ intervalMs: expect.anything(), retentionMs: expect.anything() }),
       entries: expect.arrayContaining(['test/url-parameter', 'test/queue-depth', 'active_downloads']),
       entryInputs: expect.objectContaining({ 'test/url-parameter': { resource: 'garage_door' } }),
       entryAccess: expect.objectContaining({ 'test/url-parameter': ['admins', 'operators'] }),

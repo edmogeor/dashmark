@@ -30,15 +30,11 @@ type ReferenceMatch = {
 const cache = new Map<string, SelfhstIcon[]>()
 
 function isSelfhstIcon(value: unknown): value is SelfhstIcon {
-  return isRecord(value)
-    && typeof value.reference === 'string'
-    && typeof value.name === 'string'
-    && typeof value.url === 'string'
+  return isRecord(value) && typeof value.reference === 'string' && typeof value.name === 'string' && typeof value.url === 'string'
 }
 
 function isGitHubIconFile(value: unknown): value is { name: string } {
-  return isRecord(value)
-    && typeof value.name === 'string'
+  return isRecord(value) && typeof value.name === 'string'
 }
 
 function loadLocalIcons(): SelfhstIcon[] | null {
@@ -50,7 +46,7 @@ function loadLocalIcons(): SelfhstIcon[] | null {
     if (!Array.isArray(icons) || !icons.every(isSelfhstIcon)) {
       throw new Error('Local icon index had an invalid format')
     }
-    const normalized = icons.flatMap(icon => {
+    const normalized = icons.flatMap((icon) => {
       try {
         const segments = new URL(icon.url).pathname.split('/').filter(Boolean)
         const iconPath = segments.slice(-2).join('/')
@@ -72,10 +68,7 @@ async function fetchIconPage(page: number): Promise<{ name: string }[]> {
   const timeout = setTimeout(() => controller.abort(), SELFHST_FETCH_TIMEOUT_MS)
 
   try {
-    const response = await fetch(
-      `${SELFHST_GITHUB_API_URL}?per_page=${SELFHST_PAGE_SIZE}&page=${page}`,
-      { signal: controller.signal }
-    )
+    const response = await fetch(`${SELFHST_GITHUB_API_URL}?per_page=${SELFHST_PAGE_SIZE}&page=${page}`, { signal: controller.signal })
     if (!response.ok) throw new Error(`GitHub API responded with ${response.status}`)
 
     const data: unknown = await response.json()
@@ -159,7 +152,7 @@ function getFuse<T extends ReferenceMatch>(items: T[]): Fuse<T> {
 
 function findExactMatch<T extends ReferenceMatch>(candidates: string[], items: T[]): T | null {
   const candidateSet = new Set(candidates)
-  return items.find(item => candidateSet.has(item.reference)) ?? null
+  return items.find((item) => candidateSet.has(item.reference)) ?? null
 }
 
 function hasSimilarLength(candidate: string, reference: string): boolean {
