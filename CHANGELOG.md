@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Use a pointer cursor for card description buttons.
+
 ## [0.4.4] - 2026-08-28
 
 ### Changed

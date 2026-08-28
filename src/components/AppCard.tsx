@@ -162,7 +162,7 @@ function AppCardActions({
             <TooltipTrigger asChild>
               <button
                 type="button"
-                className="dashmark-app-description-trigger card-action-button cursor-help rounded-full p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
+                className="dashmark-app-description-trigger card-action-button cursor-pointer rounded-full p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
                 onClick={(event) => event.preventDefault()}
                 onPointerDown={(event) => onPointerDown(event, descriptionId)}
               >
