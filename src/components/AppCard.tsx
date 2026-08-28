@@ -325,7 +325,7 @@ export const AppCard = memo(function AppCard({
             activeTooltip &&
             !(
               event.target instanceof Element &&
-              event.target.closest('.card-action-button')
+              event.target.closest('.card-action-button, .dashmark-app-resources')
             )
           ) {
             event.preventDefault()

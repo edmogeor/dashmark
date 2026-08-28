@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Gauge, X } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -24,30 +24,41 @@ export function UptimeDetailDialog({
 }) {
   const [rangeIndex, setRangeIndex] = useState(2)
   const [dialogContent, setDialogContent] = useState<HTMLDivElement | null>(null)
+  const [displayedMetric, setDisplayedMetric] = useState(metric)
+  useEffect(() => {
+    if (metric) setDisplayedMetric(metric)
+  }, [metric])
+  const currentMetric = metric ?? displayedMetric
   const range = ranges[rangeIndex]!
-  const percent = uptimePercent(uptimeBuckets(metric?.observations ?? [], range.durationMs, range.bucketCount))
+  const percent = uptimePercent(
+    uptimeBuckets(
+      currentMetric?.observations ?? [],
+      range.durationMs,
+      range.bucketCount,
+    ),
+  )
   return (
     <Dialog open={metric !== null} onOpenChange={onOpenChange}>
-      <DialogContent ref={setDialogContent} showCloseButton={false} className="dashmark-metric-dialog">
-        {metric && (
+      <DialogContent
+        ref={setDialogContent}
+        showCloseButton={false}
+        className="dashmark-metric-dialog"
+        onAnimationEnd={(event) => {
+          if (
+            event.target === event.currentTarget &&
+            event.currentTarget.dataset.state === 'closed'
+          )
+            setDisplayedMetric(null)
+        }}
+      >
+        {currentMetric && (
           <>
             <DialogHeader className="dashmark-metric-dialog-header !flex-row !items-center !justify-between !space-y-0">
-              <DialogTitle className="flex h-4 items-center gap-2 text-sm leading-none font-medium tracking-[0.16em] text-muted-foreground uppercase">
+              <DialogTitle className="flex items-center gap-2 text-sm font-medium tracking-[0.16em] text-muted-foreground uppercase">
                 <Gauge className="h-4 w-4 shrink-0" aria-hidden="true" />
-                {metric.label}
+                {currentMetric.label}
               </DialogTitle>
-              <button type="button" className="cursor-pointer rounded-sm p-1 opacity-70 transition-opacity hover:bg-accent hover:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none" onClick={() => onOpenChange(false)}>
-                <X className="h-4 w-4" />
-                <span className="sr-only">Close</span>
-              </button>
-              <DialogDescription className="sr-only">Uptime history</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-6 pt-2">
-              <div className="flex items-end justify-between gap-4">
-                <div>
-                  <p className="text-3xl font-semibold tabular-nums">{formatPercent(percent)}</p>
-                  <p className="text-xs text-muted-foreground">availability for the selected period</p>
-                </div>
+              <div className="flex items-center gap-2">
                 <ToggleGroup
                   type="single"
                   value={range.label}
@@ -69,8 +80,19 @@ export function UptimeDetailDialog({
                     </ToggleGroupItem>
                   ))}
                 </ToggleGroup>
+                <button type="button" className="cursor-pointer rounded-sm p-1 opacity-70 transition-opacity hover:bg-accent hover:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none" onClick={() => onOpenChange(false)}>
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
+                </button>
               </div>
-              <UptimeHeartbeat observations={metric.observations} durationMs={range.durationMs} bucketCount={range.bucketCount} className="h-20 gap-1" showTooltips collisionBoundary={dialogContent} />
+              <DialogDescription className="sr-only">Uptime history</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6 pt-2">
+              <div>
+                <p className="text-3xl font-semibold tabular-nums">{formatPercent(percent)}</p>
+                <p className="text-xs text-muted-foreground">availability for the selected period</p>
+              </div>
+              <UptimeHeartbeat observations={currentMetric.observations} durationMs={range.durationMs} bucketCount={range.bucketCount} className="h-20 gap-1" showTooltips collisionBoundary={dialogContent} />
               <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-sm bg-success" />Up</span>
                 <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-sm bg-destructive" />Down</span>

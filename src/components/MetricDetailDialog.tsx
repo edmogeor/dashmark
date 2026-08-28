@@ -65,9 +65,20 @@ function chartData(detail: MetricDetail): ChartPoint[] {
 }
 
 function MetricTooltip({ detail }: { detail: MetricDetail }) {
+  const [isTouch, setIsTouch] = useState(false)
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(hover: none)')
+    const updateIsTouch = () => setIsTouch(mediaQuery.matches)
+    updateIsTouch()
+    mediaQuery.addEventListener('change', updateIsTouch)
+    return () => mediaQuery.removeEventListener('change', updateIsTouch)
+  }, [])
+
   return (
     <ChartTooltip
       cursor={false}
+      trigger={isTouch ? 'click' : 'hover'}
       content={({ active, label, payload }) => {
         const values =
           payload?.flatMap((item) => {

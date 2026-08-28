@@ -351,6 +351,58 @@ function NetworkMetrics({
   )
 }
 
+function ResourceStatMetric({
+  metricKey,
+  resources,
+  history,
+  historyPeriodMs,
+  onSelect,
+}: Pick<Props, 'resources' | 'history' | 'historyPeriodMs'> & {
+  metricKey: 'cpu' | 'memory'
+  onSelect: (detail: MetricDetail) => void
+}) {
+  const label = strings.card[metricKey]
+  const value =
+    metricKey === 'cpu' ? resources?.cpuPercent : resources?.memoryUsage
+  if (value === undefined || !resources)
+    return <UnavailableMetric label={label} metricKey={metricKey} />
+  return (
+    <ResourceMetric
+      label={label}
+      metricKey={metricKey}
+      value={
+        metricKey === 'memory'
+          ? resources.memoryLimit
+            ? formatPercent((value / resources.memoryLimit) * 100)
+            : formatBytes(value)
+          : formatPercent(value)
+      }
+      onSelect={() =>
+        onSelect(
+          resourceDetail(
+            label,
+            history,
+            historyPeriodMs,
+            metricKey,
+            resources,
+          ),
+        )
+      }
+    />
+  )
+}
+
+function PendingMetricEntry({ metricKey, label }: { metricKey: string; label: string }) {
+  if (metricKey !== 'network')
+    return <PendingMetric label={label} metricKey={metricKey} />
+  return (
+    <>
+      <PendingMetric label={strings.card.received} metricKey="received" />
+      <PendingMetric label={strings.card.sent} metricKey="sent" />
+    </>
+  )
+}
+
 function CustomMetrics({
   selected,
   customMetrics,
@@ -505,95 +557,77 @@ function ResourceMetrics({
       ?.filter((key) => !['cpu', 'memory', 'network', 'none'].includes(key))
       .map((key) => ({ key, label: key })) ??
     []
-  const metricCount = Number(showCpu) + Number(showMemory) + (showNetwork ? 2 : 0) + selected.length
+  const configuredMetrics = card.metrics?.filter(
+    (key) =>
+      (key === 'cpu' && showCpu) ||
+      (key === 'memory' && showMemory) ||
+      (key === 'network' && showNetwork) ||
+      selected.some((metric) => metric.key === key),
+  )
+  const metrics = configuredMetrics ?? [
+    ...(showCpu ? ['cpu'] : []),
+    ...(showMemory ? ['memory'] : []),
+    ...(showNetwork ? ['network'] : []),
+    ...selected.map((metric) => metric.key),
+  ]
+  const metricCount = metrics.reduce(
+    (count, key) => count + (key === 'network' ? 2 : 1),
+    0,
+  )
+  const selectedByKey = new Map(selected.map((metric) => [metric.key, metric]))
+  const metricLabel = (key: string) =>
+    key === 'cpu' || key === 'memory'
+      ? strings.card[key]
+      : selectedByKey.get(key)?.label ?? key
   if (loading && resources === null)
     return (
       <MetricList scrollable={metricCount > 4}>
-        {showCpu && <PendingMetric label={strings.card.cpu} metricKey="cpu" />}
-        {showMemory && (
-          <PendingMetric label={strings.card.memory} metricKey="memory" />
-        )}
-        {showNetwork && (
-          <>
-            <PendingMetric label={strings.card.received} metricKey="received" />
-            <PendingMetric label={strings.card.sent} metricKey="sent" />
-          </>
-        )}
-        {selected.map((metric) => (
-          <PendingMetric
-            key={metric.key}
-            label={metric.label}
-            metricKey={metric.key}
+        {metrics.map((key) => (
+          <PendingMetricEntry
+            key={key}
+            metricKey={key}
+            label={metricLabel(key)}
           />
         ))}
       </MetricList>
     )
   return (
     <MetricList scrollable={metricCount > 4}>
-      {showCpu &&
-        (resources?.cpuPercent !== undefined ? (
-          <ResourceMetric
-            label={strings.card.cpu}
-            metricKey="cpu"
-            value={formatPercent(resources.cpuPercent)}
-            onSelect={() =>
-              onDetailSelect(
-                resourceDetail(
-                  strings.card.cpu,
-                  history,
-                  historyPeriodMs,
-                  'cpu',
-                  resources,
-                ),
-              )
-            }
+      {metrics.map((key) => {
+        if (key === 'cpu' || key === 'memory')
+          return (
+            <ResourceStatMetric
+              key={key}
+              metricKey={key}
+              resources={resources}
+              history={history}
+              historyPeriodMs={historyPeriodMs}
+              onSelect={onDetailSelect}
+            />
+          )
+        if (key === 'network')
+          return (
+            <NetworkMetrics
+              key={key}
+              resources={resources}
+              pending={loading || resources?.networkRatePending === true}
+              history={history}
+              historyPeriodMs={historyPeriodMs}
+              onSelect={onDetailSelect}
+            />
+          )
+        const metric = selectedByKey.get(key)
+        return metric ? (
+          <SelectedMetrics
+            key={key}
+            selected={[metric]}
+            customMetrics={customMetrics}
+            uptimeMetrics={uptimeMetrics}
+            onDetailSelect={onDetailSelect}
+            onUptimeDetailSelect={onUptimeDetailSelect}
           />
-        ) : (
-          <UnavailableMetric label={strings.card.cpu} metricKey="cpu" />
-        ))}
-      {showMemory &&
-        (resources?.memoryUsage !== undefined ? (
-          <ResourceMetric
-            label={strings.card.memory}
-            metricKey="memory"
-            value={
-              resources.memoryLimit
-                ? formatPercent(
-                    (resources.memoryUsage / resources.memoryLimit) * 100,
-                  )
-                : formatBytes(resources.memoryUsage)
-            }
-            onSelect={() =>
-              onDetailSelect(
-                resourceDetail(
-                  strings.card.memory,
-                  history,
-                  historyPeriodMs,
-                  'memory',
-                  resources,
-                ),
-              )
-            }
-          />
-        ) : (
-          <UnavailableMetric label={strings.card.memory} metricKey="memory" />
-        ))}
-      {showNetwork && (
-        <NetworkMetrics
-          resources={resources}
-          pending={loading || resources?.networkRatePending === true}
-          history={history}
-          historyPeriodMs={historyPeriodMs}
-          onSelect={onDetailSelect}
-        />
-      )}
-      <SelectedMetrics
-        selected={selected}
-        customMetrics={customMetrics}
-        uptimeMetrics={uptimeMetrics}
-        onDetailSelect={onDetailSelect}
-        onUptimeDetailSelect={onUptimeDetailSelect}
-      />
+        ) : null
+      })}
     </MetricList>
   )
 }
