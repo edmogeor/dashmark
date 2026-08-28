@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-08-28
+
 ### Changed
 
 - Bundle server dependencies into the application build, reducing the production image dependency footprint.
