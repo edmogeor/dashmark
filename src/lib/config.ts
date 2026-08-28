@@ -2,9 +2,9 @@ import fs from 'node:fs'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
 import { AUTO_ACCESS_GROUPS_HEADER, ACCESS_GROUPS_HEADER_TOKEN, DEFAULT_METRICS_POLL_INTERVAL_MS, DEFAULT_PORT, MAX_PORT, METRICS_HISTORY_PERIOD_MS, STATUS_POLL_INTERVAL_MS } from './constants'
-import { loadYamlConfig } from './config-file'
+import { loadYamlConfig, type DashboardSettings } from './config-file'
 
-export type AppConfig = {
+export type AppConfig = DashboardSettings & {
   dockerHost: string
   dockerHosts?: DockerHostConfig[]
   configFile: string
@@ -27,18 +27,6 @@ export type AppConfig = {
   metricsPollIntervalMs: number
   metricsHistoryPeriodMs: number
   statusPollIntervalMs: number
-  categoryOrder: string[]
-  enableAutomaticDescriptions: boolean
-  enableAutomaticIcons: boolean
-  showBranding: boolean
-  showHeader: boolean
-  showGroupTags: boolean
-  showThemeToggle: boolean
-  openInNewTab: boolean
-  customHeader?: string
-  greetingMorning?: string
-  greetingAfternoon?: string
-  greetingEvening?: string
   authToken?: string
 }
 
@@ -59,7 +47,9 @@ function isValidHeaderToken(value: string): boolean {
 function parseAccessGroupsHeader(value: string | undefined): string {
   const header = value || AUTO_ACCESS_GROUPS_HEADER
   if (isValidHeaderToken(header)) return header
-  logger.error('config', logMessages.config.invalidAccessGroupsHeader, { header })
+  logger.error('config', logMessages.config.invalidAccessGroupsHeader, {
+    header
+  })
   return AUTO_ACCESS_GROUPS_HEADER
 }
 
@@ -79,10 +69,6 @@ function parsePort(value: string | undefined, defaultValue: number): number {
 function parseInterval(value: string | undefined, defaultValue: number): number {
   const seconds = Number(value)
   return Number.isInteger(seconds) && seconds > 0 ? seconds * 1_000 : defaultValue
-}
-
-function parseStringArray(value: string[] | undefined): string[] {
-  return parseAccess(value?.join(','))
 }
 
 function parseAccess(value: string | undefined): string[] {
@@ -113,7 +99,10 @@ function resolveSecret(value: { env?: string; file?: string } | undefined): stri
 function parseDockerHosts(value: string | undefined): DockerHostConfig[] | undefined {
   if (!value?.trim()) return undefined
 
-  const entries = value.split(',').map(entry => entry.trim()).filter(Boolean)
+  const entries = value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
   if (entries.length === 1 && !entries[0].includes('=')) {
     return [{ id: 'default', dockerHost: entries[0] }]
   }
@@ -123,7 +112,9 @@ function parseDockerHosts(value: string | undefined): DockerHostConfig[] | undef
   for (const entry of entries) {
     const [id, dockerHost, ...extra] = entry.split('=')
     if (!id || !dockerHost || extra.length > 0 || !/^[a-zA-Z0-9_-]+$/.test(id) || ids.has(id)) {
-      logger.error('config', logMessages.config.invalidDockerHosts, { entry: entry.trim() })
+      logger.error('config', logMessages.config.invalidDockerHosts, {
+        entry: entry.trim()
+      })
       continue
     }
     ids.add(id)
@@ -147,7 +138,7 @@ export function getConfig(): AppConfig {
   }
   const accessValue = (name: string, value: string[] | undefined) => {
     const configured = yamlOrEnv(name, value)
-    return Array.isArray(configured) ? parseStringArray(configured) : parseAccess(configured)
+    return Array.isArray(configured) ? parseAccess(configured.join(',')) : parseAccess(configured)
   }
   const categoryOrder = accessValue('CATEGORY_ORDER', settings.categoryOrder)
   const enableAccessControl = boolValue('ENABLE_ACCESS_CONTROL', settings.enableAccessControl, false)

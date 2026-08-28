@@ -2,7 +2,6 @@ import type { APIRoute } from 'astro'
 import { getConfig } from '@/lib/config'
 import { sharedCacheControl } from '@/lib/cache'
 import { getContainerStatuses, addAccessVaryHeader } from '@/lib/docker'
-import type { StatusResponse } from '@/lib/status'
 
 export async function getStatusResponse(request: Request): Promise<Response> {
   const config = getConfig()
@@ -14,8 +13,7 @@ export async function getStatusResponse(request: Request): Promise<Response> {
   })
   addAccessVaryHeader(headers, config)
 
-  const body: StatusResponse = error ? { error } : { statuses }
-  return new Response(JSON.stringify(body), {
+  return new Response(JSON.stringify(error ? { error } : { statuses }), {
     status: 200,
     headers
   })

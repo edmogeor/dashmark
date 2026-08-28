@@ -1,3 +1,14 @@
+import fs from 'node:fs'
+import path from 'node:path'
+
+export function metricFiles(directory) {
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const file = path.join(directory, entry.name)
+    if (entry.isDirectory()) return metricFiles(file)
+    return entry.name.endsWith('.yml') && entry.name !== 'provider.yml' ? [file] : []
+  })
+}
+
 export function sourceWithDefaults(provider, metric) {
   const defaults = provider.source ?? {}
   const source = metric.source ?? {}

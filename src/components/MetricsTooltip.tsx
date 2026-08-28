@@ -7,14 +7,7 @@ import { cn } from '@/lib/utils'
 import { badgeColor, chartColorVariable } from '@/lib/badge-color'
 import type { Card as CardType } from '@/lib/docker'
 import { strings } from '@/lib/strings'
-import type {
-  ContainerResources,
-  CustomMetric,
-  CustomMetricStateColor,
-  NumericCustomMetric,
-  ResourceMetricSample,
-  UptimeMetric,
-} from '@/lib/status'
+import type { ContainerResources, CustomMetric, CustomMetricStateColor, NumericCustomMetric, ResourceMetricSample, UptimeMetric } from '@/lib/status'
 import {
   customMetricsHistory,
   formatAxisBytes,
@@ -28,9 +21,9 @@ import {
   formatPercent,
   resourceMetricHistory,
   tickerConfig,
-  type MetricDetail,
+  type MetricDetail
 } from './app-card-metrics'
-import { formatUptimeBucketTime, UptimeHeartbeat, uptimeBuckets, uptimePercent, type UptimeBucket } from './UptimeHeartbeat'
+import { formatUptimeBucketTime, UptimeHeartbeat, uptimeBucketStatusLabel, uptimeBuckets, uptimePercent, type UptimeBucket } from './UptimeHeartbeat'
 
 type Props = {
   card: CardType
@@ -44,19 +37,7 @@ type Props = {
   onUptimeDetailSelect: (metric: UptimeMetric) => void
 }
 
-function ResourceMetric({
-  label,
-  value,
-  metricKey,
-  pending = false,
-  onSelect,
-}: {
-  label: string
-  value: ReactNode
-  metricKey?: string
-  pending?: boolean
-  onSelect?: () => void
-}) {
+function ResourceMetric({ label, value, metricKey, pending = false, onSelect }: { label: string; value: ReactNode; metricKey?: string; pending?: boolean; onSelect?: () => void }) {
   const interactive = onSelect !== undefined && !pending
   const select = (event: React.SyntheticEvent) => {
     event.preventDefault()
@@ -68,8 +49,7 @@ function ResourceMetric({
       className={cn(
         'dashmark-app-resource-metric flex min-h-8 items-center gap-3 rounded-md px-1.5 text-xs',
         pending && 'opacity-50 cursor-not-allowed',
-        interactive &&
-          'card-action-button cursor-pointer hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+        interactive && 'card-action-button cursor-pointer hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'
       )}
       role={interactive ? 'button' : undefined}
       aria-disabled={pending || undefined}
@@ -84,27 +64,15 @@ function ResourceMetric({
           : undefined
       }
     >
-      <span className="dashmark-app-resource-metric-label min-w-0 truncate text-muted-foreground">
-        {label}
-      </span>
+      <span className="dashmark-app-resource-metric-label min-w-0 truncate text-muted-foreground">{label}</span>
       <div className="dashmark-app-resource-metric-value ml-auto shrink-0">
-        <span className="dashmark-app-resource-metric-number font-medium tabular-nums">
-          {value}
-        </span>
+        <span className="dashmark-app-resource-metric-number font-medium tabular-nums">{value}</span>
       </div>
     </div>
   )
 }
 
-function PendingMetric({
-  label,
-  metricKey,
-  waitingForNetwork = false,
-}: {
-  label: string
-  metricKey?: string
-  waitingForNetwork?: boolean
-}) {
+function PendingMetric({ label, metricKey, waitingForNetwork = false }: { label: string; metricKey?: string; waitingForNetwork?: boolean }) {
   return (
     <ResourceMetric
       label={label}
@@ -112,45 +80,19 @@ function PendingMetric({
       pending
       value={
         <span role="status">
-          <LoaderCircle
-            className="h-3.5 w-3.5 animate-spin"
-            aria-hidden="true"
-          />
-          <span className="sr-only">
-            {waitingForNetwork
-              ? strings.card.waitingForNetwork
-              : `Loading ${label}`}
-          </span>
+          <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+          <span className="sr-only">{waitingForNetwork ? strings.card.waitingForNetwork : `Loading ${label}`}</span>
         </span>
       }
     />
   )
 }
 
-function UnavailableMetric({
-  label,
-  metricKey,
-}: {
-  label: string
-  metricKey?: string
-}) {
-  return (
-    <ResourceMetric
-      label={label}
-      metricKey={metricKey}
-      value={strings.card.unavailable}
-      pending
-    />
-  )
+function UnavailableMetric({ label, metricKey }: { label: string; metricKey?: string }) {
+  return <ResourceMetric label={label} metricKey={metricKey} value={strings.card.unavailable} pending />
 }
 
-function MetricList({
-  scrollable,
-  children,
-}: {
-  scrollable: boolean
-  children: ReactNode
-}) {
+function MetricList({ scrollable, children }: { scrollable: boolean; children: ReactNode }) {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const [fade, setFade] = useState({ top: false, bottom: false })
 
@@ -158,10 +100,11 @@ function MetricList({
     if (!scrollable) return
     const viewport = scrollAreaRef.current?.querySelector<HTMLElement>('[data-radix-scroll-area-viewport]')
     if (!viewport) return
-    const updateFade = () => setFade({
-      top: viewport.scrollTop > 1,
-      bottom: viewport.scrollTop + viewport.clientHeight < viewport.scrollHeight - 1,
-    })
+    const updateFade = () =>
+      setFade({
+        top: viewport.scrollTop > 1,
+        bottom: viewport.scrollTop + viewport.clientHeight < viewport.scrollHeight - 1
+      })
     updateFade()
     viewport.addEventListener('scroll', updateFade)
     const observer = new ResizeObserver(updateFade)
@@ -177,41 +120,20 @@ function MetricList({
   if (!scrollable) return content
   return (
     <div className="relative h-36">
-      <ScrollArea ref={scrollAreaRef} className="h-full pr-4">{content}</ScrollArea>
+      <ScrollArea ref={scrollAreaRef} className="h-full pr-4">
+        {content}
+      </ScrollArea>
       <div className={cn('pointer-events-none absolute inset-x-0 top-0 h-4 bg-linear-to-b from-popover to-transparent transition-opacity', fade.top ? 'opacity-100' : 'opacity-0')} />
       <div className={cn('pointer-events-none absolute inset-x-0 bottom-0 h-4 bg-linear-to-t from-popover to-transparent transition-opacity', fade.bottom ? 'opacity-100' : 'opacity-0')} />
     </div>
   )
 }
 
-function MetricBadge({
-  value,
-  valueLabel,
-  color,
-}: {
-  value: string
-  valueLabel?: string
-  color: CustomMetricStateColor
-}) {
-  return (
-    <Badge
-      className={cn(
-        'dashmark-state-badge max-w-full rounded-full',
-        `dashmark-state-${color}`,
-      )}
-    >
-      {valueLabel ?? value.replace(/_/g, ' ')}
-    </Badge>
-  )
+function MetricBadge({ value, valueLabel, color }: { value: string; valueLabel?: string; color: CustomMetricStateColor }) {
+  return <Badge className={cn('dashmark-state-badge max-w-full rounded-full', `dashmark-state-${color}`)}>{valueLabel ?? value.replace(/_/g, ' ')}</Badge>
 }
 
-function resourceDetail(
-  label: string,
-  history: ResourceMetricSample[],
-  historyPeriodMs: number,
-  key: 'cpu' | 'memory',
-  resources: ContainerResources,
-): MetricDetail {
+function resourceDetail(label: string, history: ResourceMetricSample[], historyPeriodMs: number, key: 'cpu' | 'memory', resources: ContainerResources): MetricDetail {
   const memory = key === 'memory'
   const limit = resources.memoryLimit
   return {
@@ -223,37 +145,17 @@ function resourceDetail(
         key,
         label,
         color: tickerConfig[key].color,
-        value: (sample) =>
-          memory && limit && sample.memory !== undefined
-            ? (sample.memory / limit) * 100
-            : sample[key],
-      },
+        value: (sample) => (memory && limit && sample.memory !== undefined ? (sample.memory / limit) * 100 : sample[key])
+      }
     ],
-    formatValue: (value) =>
-      memory && limit
-        ? formatDetailedPercent(value)
-        : memory
-          ? formatDetailedBytes(value)
-          : formatDetailedPercent(value),
-    formatTooltipValue:
-      memory && limit
-        ? (value) =>
-            `${formatDetailedBytes((value / 100) * limit)} (${formatDetailedPercent(value)})`
-        : undefined,
-    formatAxisValue:
-      memory && limit
-        ? formatAxisPercent
-        : memory
-          ? formatAxisBytes
-          : formatAxisPercent,
-    chart: 'line',
+    formatValue: (value) => (memory && limit ? formatDetailedPercent(value) : memory ? formatDetailedBytes(value) : formatDetailedPercent(value)),
+    formatTooltipValue: memory && limit ? (value) => `${formatDetailedBytes((value / 100) * limit)} (${formatDetailedPercent(value)})` : undefined,
+    formatAxisValue: memory && limit ? formatAxisPercent : memory ? formatAxisBytes : formatAxisPercent,
+    chart: 'line'
   }
 }
 
-function networkDetail(
-  history: ResourceMetricSample[],
-  historyPeriodMs: number,
-): MetricDetail {
+function networkDetail(history: ResourceMetricSample[], historyPeriodMs: number): MetricDetail {
   return {
     label: 'Network usage',
     history: resourceMetricHistory(history),
@@ -263,32 +165,24 @@ function networkDetail(
         key: 'received',
         label: strings.card.received,
         color: tickerConfig.received.color,
-        value: (sample) => sample.received,
+        value: (sample) => sample.received
       },
       {
         key: 'sent',
         label: strings.card.sent,
         color: tickerConfig.sent.color,
-        value: (sample) => sample.sent,
-      },
+        value: (sample) => sample.sent
+      }
     ],
     formatValue: (value) => `${formatDetailedBytes(value)}/s`,
     formatAxisValue: (value) => `${formatAxisBytes(value)}/s`,
-    chart: 'step',
+    chart: 'step'
   }
 }
 
-function customMetricDetail(
-  metric: NumericCustomMetric,
-  customMetrics: CustomMetric[],
-): MetricDetail {
+function customMetricDetail(metric: NumericCustomMetric, customMetrics: CustomMetric[]): MetricDetail {
   const chartMetrics =
-    metric.chartGroup === undefined
-      ? [metric]
-      : customMetrics.filter(
-          (candidate): candidate is NumericCustomMetric =>
-            'unit' in candidate && candidate.chartGroup === metric.chartGroup,
-        )
+    metric.chartGroup === undefined ? [metric] : customMetrics.filter((candidate): candidate is NumericCustomMetric => 'unit' in candidate && candidate.chartGroup === metric.chartGroup)
   return {
     label: metric.label,
     history: customMetricsHistory(chartMetrics),
@@ -297,12 +191,12 @@ function customMetricDetail(
       key: candidate.key,
       label: candidate.label,
       color: chartColorVariable(index),
-      value: (sample) => sample[candidate.key],
+      value: (sample) => sample[candidate.key]
     })),
     formatValue: (value) => formatDetailedCustomMetric(value, metric.unit),
     formatAxisValue: (value) => formatAxisCustomMetric(value, metric.unit),
     chart: metric.chart === 'none' ? 'step' : metric.chart,
-    customMetricKeys: chartMetrics.map((candidate) => candidate.key),
+    customMetricKeys: chartMetrics.map((candidate) => candidate.key)
   }
 }
 
@@ -311,7 +205,7 @@ function NetworkMetrics({
   pending,
   history,
   historyPeriodMs,
-  onSelect,
+  onSelect
 }: Pick<Props, 'resources' | 'history' | 'historyPeriodMs'> & {
   pending: boolean
   onSelect: (detail: MetricDetail) => void
@@ -320,31 +214,13 @@ function NetworkMetrics({
   return (
     <>
       {(['received', 'sent'] as const).map((key) => {
-        const value =
-          resources?.[
-            key === 'received' ? 'receivedBytesPerSecond' : 'sentBytesPerSecond'
-          ]
+        const value = resources?.[key === 'received' ? 'receivedBytesPerSecond' : 'sentBytesPerSecond']
         return value !== undefined ? (
-          <ResourceMetric
-            key={key}
-            label={strings.card[key]}
-            metricKey={key}
-            value={`${formatBytes(value)}/s`}
-            onSelect={detail}
-          />
+          <ResourceMetric key={key} label={strings.card[key]} metricKey={key} value={`${formatBytes(value)}/s`} onSelect={detail} />
         ) : pending ? (
-          <PendingMetric
-            key={key}
-            label={strings.card[key]}
-            metricKey={key}
-            waitingForNetwork
-          />
+          <PendingMetric key={key} label={strings.card[key]} metricKey={key} waitingForNetwork />
         ) : (
-          <UnavailableMetric
-            key={key}
-            label={strings.card[key]}
-            metricKey={key}
-          />
+          <UnavailableMetric key={key} label={strings.card[key]} metricKey={key} />
         )
       })}
     </>
@@ -356,45 +232,26 @@ function ResourceStatMetric({
   resources,
   history,
   historyPeriodMs,
-  onSelect,
+  onSelect
 }: Pick<Props, 'resources' | 'history' | 'historyPeriodMs'> & {
   metricKey: 'cpu' | 'memory'
   onSelect: (detail: MetricDetail) => void
 }) {
   const label = strings.card[metricKey]
-  const value =
-    metricKey === 'cpu' ? resources?.cpuPercent : resources?.memoryUsage
-  if (value === undefined || !resources)
-    return <UnavailableMetric label={label} metricKey={metricKey} />
+  const value = metricKey === 'cpu' ? resources?.cpuPercent : resources?.memoryUsage
+  if (value === undefined || !resources) return <UnavailableMetric label={label} metricKey={metricKey} />
   return (
     <ResourceMetric
       label={label}
       metricKey={metricKey}
-      value={
-        metricKey === 'memory'
-          ? resources.memoryLimit
-            ? formatPercent((value / resources.memoryLimit) * 100)
-            : formatBytes(value)
-          : formatPercent(value)
-      }
-      onSelect={() =>
-        onSelect(
-          resourceDetail(
-            label,
-            history,
-            historyPeriodMs,
-            metricKey,
-            resources,
-          ),
-        )
-      }
+      value={metricKey === 'memory' ? (resources.memoryLimit ? formatPercent((value / resources.memoryLimit) * 100) : formatBytes(value)) : formatPercent(value)}
+      onSelect={() => onSelect(resourceDetail(label, history, historyPeriodMs, metricKey, resources))}
     />
   )
 }
 
 function PendingMetricEntry({ metricKey, label }: { metricKey: string; label: string }) {
-  if (metricKey !== 'network')
-    return <PendingMetric label={label} metricKey={metricKey} />
+  if (metricKey !== 'network') return <PendingMetric label={label} metricKey={metricKey} />
   return (
     <>
       <PendingMetric label={strings.card.received} metricKey="received" />
@@ -403,54 +260,20 @@ function PendingMetricEntry({ metricKey, label }: { metricKey: string; label: st
   )
 }
 
-function CustomMetrics({
-  selected,
-  customMetrics,
-  onSelect,
-}: {
-  selected: { key: string; label: string }[]
-  customMetrics: CustomMetric[]
-  onSelect: (detail: MetricDetail) => void
-}) {
+function CustomMetrics({ selected, customMetrics, onSelect }: { selected: { key: string; label: string }[]; customMetrics: CustomMetric[]; onSelect: (detail: MetricDetail) => void }) {
   return (
     <>
       {selected.map((selectedMetric) => {
-        const metric = customMetrics.find(
-          (candidate) => candidate.key === selectedMetric.key,
-        )
-        if (!metric)
-          return (
-            <UnavailableMetric
-              key={selectedMetric.key}
-              label={selectedMetric.label}
-              metricKey={selectedMetric.key}
-            />
-          )
-        if ('pending' in metric && metric.pending)
-          return (
-            <PendingMetric
-              key={metric.key}
-              label={metric.label}
-              metricKey={metric.key}
-            />
-          )
+        const metric = customMetrics.find((candidate) => candidate.key === selectedMetric.key)
+        if (!metric) return <UnavailableMetric key={selectedMetric.key} label={selectedMetric.label} metricKey={selectedMetric.key} />
+        if ('pending' in metric && metric.pending) return <PendingMetric key={metric.key} label={metric.label} metricKey={metric.key} />
         if (!('unit' in metric))
           return (
             <ResourceMetric
               key={metric.key}
               label={metric.label}
               metricKey={metric.key}
-              value={
-                'color' in metric ? (
-                  <MetricBadge
-                    value={metric.value}
-                    valueLabel={metric.valueLabel}
-                    color={metric.color}
-                  />
-                ) : (
-                  metric.value
-                )
-              }
+              value={'color' in metric ? <MetricBadge value={metric.value} valueLabel={metric.valueLabel} color={metric.color} /> : metric.value}
             />
           )
         const interactive = metric.chart !== 'none'
@@ -460,11 +283,7 @@ function CustomMetrics({
             label={metric.label}
             metricKey={metric.key}
             value={formatCustomMetric(metric.value, metric.unit)}
-            onSelect={
-              interactive
-                ? () => onSelect(customMetricDetail(metric, customMetrics))
-                : undefined
-            }
+            onSelect={interactive ? () => onSelect(customMetricDetail(metric, customMetrics)) : undefined}
           />
         )
       })}
@@ -473,26 +292,27 @@ function CustomMetrics({
 }
 
 function formatUptimePercent(value: number | undefined): string {
-  return value === undefined
-    ? strings.card.unavailable
-    : `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}%`
+  return value === undefined ? strings.card.unavailable : `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}%`
 }
 
-function uptimeBucketSummary(bucket: UptimeBucket): { label: string; value: string } {
+function uptimeBucketSummary(bucket: UptimeBucket): {
+  label: string
+  value: string
+} {
   const label = formatUptimeBucketTime(bucket.start)
-  const value = {
-    up: 'Up',
-    down: 'Down',
-    mixed: 'Partial',
-    unknown: 'No data',
-  }[bucket.status]
+  const value = uptimeBucketStatusLabel[bucket.status]
   return { label, value }
 }
 
 function UptimeMetricRow({ metric, onSelect }: { metric: UptimeMetric; onSelect: (metric: UptimeMetric) => void }) {
   const [hoveredBucket, setHoveredBucket] = useState<UptimeBucket>()
   const buckets = uptimeBuckets(metric.observations, 24 * 60 * 60 * 1_000, 24)
-  const summary = hoveredBucket ? uptimeBucketSummary(hoveredBucket) : { label: metric.label, value: formatUptimePercent(uptimePercent(buckets)) }
+  const summary = hoveredBucket
+    ? uptimeBucketSummary(hoveredBucket)
+    : {
+        label: metric.label,
+        value: formatUptimePercent(uptimePercent(buckets))
+      }
   return (
     <button
       type="button"
@@ -520,7 +340,7 @@ function SelectedMetrics({
   customMetrics,
   uptimeMetrics,
   onDetailSelect,
-  onUptimeDetailSelect,
+  onUptimeDetailSelect
 }: {
   selected: { key: string; label: string }[]
   customMetrics: CustomMetric[]
@@ -530,64 +350,31 @@ function SelectedMetrics({
 }) {
   return selected.map((selectedMetric) => {
     const metric = uptimeMetrics.find((candidate) => candidate.key === selectedMetric.key)
-    return metric
-      ? <UptimeMetricRow key={metric.key} metric={metric} onSelect={onUptimeDetailSelect} />
-      : <CustomMetrics key={selectedMetric.key} selected={[selectedMetric]} customMetrics={customMetrics} onSelect={onDetailSelect} />
+    return metric ? (
+      <UptimeMetricRow key={metric.key} metric={metric} onSelect={onUptimeDetailSelect} />
+    ) : (
+      <CustomMetrics key={selectedMetric.key} selected={[selectedMetric]} customMetrics={customMetrics} onSelect={onDetailSelect} />
+    )
   })
 }
 
-function ResourceMetrics({
-  card,
-  resources,
-  history,
-  historyPeriodMs,
-  customMetrics,
-  uptimeMetrics,
-  loading,
-  onDetailSelect,
-  onUptimeDetailSelect,
-}: Props) {
+function ResourceMetrics({ card, resources, history, historyPeriodMs, customMetrics, uptimeMetrics, loading, onDetailSelect, onUptimeDetailSelect }: Props) {
   const showCpu = card.resourceStats?.includes('cpu')
   const showMemory = card.resourceStats?.includes('memory')
-  const showNetwork =
-    card.resourceStats?.includes('network') && !card.usesHostNetwork
-  const selected =
-    card.customMetricLabels ??
-    card.metrics
-      ?.filter((key) => !['cpu', 'memory', 'network', 'none'].includes(key))
-      .map((key) => ({ key, label: key })) ??
-    []
+  const showNetwork = card.resourceStats?.includes('network') && !card.usesHostNetwork
+  const selected = card.customMetricLabels ?? card.metrics?.filter((key) => !['cpu', 'memory', 'network', 'none'].includes(key)).map((key) => ({ key, label: key })) ?? []
   const configuredMetrics = card.metrics?.filter(
-    (key) =>
-      (key === 'cpu' && showCpu) ||
-      (key === 'memory' && showMemory) ||
-      (key === 'network' && showNetwork) ||
-      selected.some((metric) => metric.key === key),
+    (key) => (key === 'cpu' && showCpu) || (key === 'memory' && showMemory) || (key === 'network' && showNetwork) || selected.some((metric) => metric.key === key)
   )
-  const metrics = configuredMetrics ?? [
-    ...(showCpu ? ['cpu'] : []),
-    ...(showMemory ? ['memory'] : []),
-    ...(showNetwork ? ['network'] : []),
-    ...selected.map((metric) => metric.key),
-  ]
-  const metricCount = metrics.reduce(
-    (count, key) => count + (key === 'network' ? 2 : 1),
-    0,
-  )
+  const metrics = configuredMetrics ?? [...(showCpu ? ['cpu'] : []), ...(showMemory ? ['memory'] : []), ...(showNetwork ? ['network'] : []), ...selected.map((metric) => metric.key)]
+  const metricCount = metrics.reduce((count, key) => count + (key === 'network' ? 2 : 1), 0)
   const selectedByKey = new Map(selected.map((metric) => [metric.key, metric]))
-  const metricLabel = (key: string) =>
-    key === 'cpu' || key === 'memory'
-      ? strings.card[key]
-      : selectedByKey.get(key)?.label ?? key
+  const metricLabel = (key: string) => (key === 'cpu' || key === 'memory' ? strings.card[key] : (selectedByKey.get(key)?.label ?? key))
   if (loading && resources === null)
     return (
       <MetricList scrollable={metricCount > 4}>
         {metrics.map((key) => (
-          <PendingMetricEntry
-            key={key}
-            metricKey={key}
-            label={metricLabel(key)}
-          />
+          <PendingMetricEntry key={key} metricKey={key} label={metricLabel(key)} />
         ))}
       </MetricList>
     )
@@ -595,37 +382,14 @@ function ResourceMetrics({
     <MetricList scrollable={metricCount > 4}>
       {metrics.map((key) => {
         if (key === 'cpu' || key === 'memory')
-          return (
-            <ResourceStatMetric
-              key={key}
-              metricKey={key}
-              resources={resources}
-              history={history}
-              historyPeriodMs={historyPeriodMs}
-              onSelect={onDetailSelect}
-            />
-          )
+          return <ResourceStatMetric key={key} metricKey={key} resources={resources} history={history} historyPeriodMs={historyPeriodMs} onSelect={onDetailSelect} />
         if (key === 'network')
           return (
-            <NetworkMetrics
-              key={key}
-              resources={resources}
-              pending={loading || resources?.networkRatePending === true}
-              history={history}
-              historyPeriodMs={historyPeriodMs}
-              onSelect={onDetailSelect}
-            />
+            <NetworkMetrics key={key} resources={resources} pending={loading || resources?.networkRatePending === true} history={history} historyPeriodMs={historyPeriodMs} onSelect={onDetailSelect} />
           )
         const metric = selectedByKey.get(key)
         return metric ? (
-          <SelectedMetrics
-            key={key}
-            selected={[metric]}
-            customMetrics={customMetrics}
-            uptimeMetrics={uptimeMetrics}
-            onDetailSelect={onDetailSelect}
-            onUptimeDetailSelect={onUptimeDetailSelect}
-          />
+          <SelectedMetrics key={key} selected={[metric]} customMetrics={customMetrics} uptimeMetrics={uptimeMetrics} onDetailSelect={onDetailSelect} onUptimeDetailSelect={onUptimeDetailSelect} />
         ) : null
       })}
     </MetricList>
@@ -635,24 +399,11 @@ function ResourceMetrics({
 export function MetricsTooltip(props: Props) {
   const { card } = props
   return (
-    <TooltipContent
-      side="top"
-      align="center"
-      collisionPadding={16}
-      className="dashmark-app-resources w-60 p-3"
-      data-card-id={card.id}
-    >
+    <TooltipContent side="top" align="center" collisionPadding={16} className="dashmark-app-resources w-60 p-3" data-card-id={card.id}>
       <div className="dashmark-app-resources-header mb-3 flex items-baseline justify-between gap-3 border-b pb-2">
-        <span className="dashmark-app-resources-title text-[0.6875rem] leading-none font-medium tracking-[0.16em] text-muted-foreground uppercase">
-          Metrics
-        </span>
+        <span className="dashmark-app-resources-title text-[0.6875rem] leading-none font-medium tracking-[0.16em] text-muted-foreground uppercase">Metrics</span>
         {card.host && (
-          <span
-            className={cn(
-              'dashmark-app-resource-host inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
-              badgeColor(card.hostColor ?? 0),
-            )}
-          >
+          <span className={cn('dashmark-app-resource-host inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', badgeColor(card.hostColor ?? 0))}>
             <Server className="h-3 w-3" aria-hidden="true" />
             {card.host}
           </span>

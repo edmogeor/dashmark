@@ -97,23 +97,25 @@ type DockerStats = {
 }
 
 function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every(item => typeof item === 'string')
+  return Array.isArray(value) && value.every((item) => typeof item === 'string')
 }
 
 function isStringRecord(value: unknown): value is Record<string, string> {
-  return isRecord(value) && Object.values(value).every(item => typeof item === 'string')
+  return isRecord(value) && Object.values(value).every((item) => typeof item === 'string')
 }
 
 function isDockerContainer(value: unknown): value is DockerContainer {
-  return isRecord(value)
-    && typeof value.Id === 'string'
-    && (value.Names === undefined || isStringArray(value.Names))
-    && typeof value.Image === 'string'
-    && typeof value.ImageID === 'string'
-    && typeof value.State === 'string'
-    && typeof value.Status === 'string'
-    && (value.Labels === undefined || isStringRecord(value.Labels))
-    && (value.HostConfig === undefined || (isRecord(value.HostConfig) && (value.HostConfig.NetworkMode === undefined || typeof value.HostConfig.NetworkMode === 'string')))
+  return (
+    isRecord(value) &&
+    typeof value.Id === 'string' &&
+    (value.Names === undefined || isStringArray(value.Names)) &&
+    typeof value.Image === 'string' &&
+    typeof value.ImageID === 'string' &&
+    typeof value.State === 'string' &&
+    typeof value.Status === 'string' &&
+    (value.Labels === undefined || isStringRecord(value.Labels)) &&
+    (value.HostConfig === undefined || (isRecord(value.HostConfig) && (value.HostConfig.NetworkMode === undefined || typeof value.HostConfig.NetworkMode === 'string')))
+  )
 }
 
 function number(value: unknown): number | undefined {
@@ -137,17 +139,26 @@ function parseDockerStats(value: unknown): DockerStats | undefined {
   const onlineCpus = number(value.cpu_stats.online_cpus)
   const memoryStats = isRecord(value.memory_stats) ? value.memory_stats : undefined
   const networks = isRecord(value.networks) ? Object.values(value.networks) : []
-  const receivedBytes = networks.reduce<number | undefined>((total, network) => {
-    const received = isRecord(network) ? number(network.rx_bytes) : undefined
-    return total === undefined || received === undefined ? undefined : total + received
-  }, networks.length > 0 ? 0 : undefined)
-  const sentBytes = networks.reduce<number | undefined>((total, network) => {
-    const sent = isRecord(network) ? number(network.tx_bytes) : undefined
-    return total === undefined || sent === undefined ? undefined : total + sent
-  }, networks.length > 0 ? 0 : undefined)
+  const receivedBytes = networks.reduce<number | undefined>(
+    (total, network) => {
+      const received = isRecord(network) ? number(network.rx_bytes) : undefined
+      return total === undefined || received === undefined ? undefined : total + received
+    },
+    networks.length > 0 ? 0 : undefined
+  )
+  const sentBytes = networks.reduce<number | undefined>(
+    (total, network) => {
+      const sent = isRecord(network) ? number(network.tx_bytes) : undefined
+      return total === undefined || sent === undefined ? undefined : total + sent
+    },
+    networks.length > 0 ? 0 : undefined
+  )
   return {
     cpuStats: { totalUsage, systemUsage, onlineCpus, cpuCount },
-    previousCpuStats: { totalUsage: previousTotalUsage, systemUsage: previousSystemUsage },
+    previousCpuStats: {
+      totalUsage: previousTotalUsage,
+      systemUsage: previousSystemUsage
+    },
     memoryUsage: number(memoryStats?.usage),
     memoryLimit: number(memoryStats?.limit),
     receivedBytes,
@@ -179,11 +190,7 @@ const apiVersionCache = new Map<string, string>()
 type Timestamped<T> = { data: T; timestamp: number }
 const containerListCache = new Map<string, Timestamped<DockerContainer[]>>()
 const networkUsageCache = new Map<string, { receivedBytes: number; sentBytes: number; timestamp: number }>()
-async function rawDockerRequest(
-  dockerHost: string,
-  path: string,
-  apiVersion?: string
-): Promise<unknown> {
+async function rawDockerRequest(dockerHost: string, path: string, apiVersion?: string): Promise<unknown> {
   const host = parseDockerHost(dockerHost)
 
   return new Promise((resolve, reject) => {
@@ -200,11 +207,11 @@ async function rawDockerRequest(
     }
 
     const request = host.secure ? https.request : http.request
-    const req = request(options, res => {
+    const req = request(options, (res) => {
       let data = ''
       let responseBytes = 0
       res.setEncoding('utf8')
-      res.on('data', chunk => {
+      res.on('data', (chunk) => {
         responseBytes += Buffer.byteLength(chunk)
         if (responseBytes > DOCKER_MAX_RESPONSE_BYTES) {
           req.destroy(new Error(`Docker API response exceeded ${DOCKER_MAX_RESPONSE_BYTES} bytes`))
@@ -278,7 +285,10 @@ async function getCachedContainers(dockerHost: string, ttlMs: number): Promise<D
   }
 
   const containers = await listContainers(dockerHost)
-  containerListCache.set(dockerHost, { data: containers, timestamp: Date.now() })
+  containerListCache.set(dockerHost, {
+    data: containers,
+    timestamp: Date.now()
+  })
   return containers
 }
 
@@ -288,23 +298,23 @@ function networkRates(dockerHost: string, containerId: string, stats: DockerStat
   const timestamp = Date.now()
   const elapsedSeconds = previous ? (timestamp - previous.timestamp) / 1_000 : 0
   const hasNetworkCounters = stats.receivedBytes !== undefined && stats.sentBytes !== undefined
-  const receivedBytesPerSecond = previous && elapsedSeconds > 0 && stats.receivedBytes !== undefined
-    ? Math.max(0, (stats.receivedBytes - previous.receivedBytes) / elapsedSeconds)
-    : undefined
-  const sentBytesPerSecond = previous && elapsedSeconds > 0 && stats.sentBytes !== undefined
-    ? Math.max(0, (stats.sentBytes - previous.sentBytes) / elapsedSeconds)
-    : undefined
+  const receivedBytesPerSecond = previous && elapsedSeconds > 0 && stats.receivedBytes !== undefined ? Math.max(0, (stats.receivedBytes - previous.receivedBytes) / elapsedSeconds) : undefined
+  const sentBytesPerSecond = previous && elapsedSeconds > 0 && stats.sentBytes !== undefined ? Math.max(0, (stats.sentBytes - previous.sentBytes) / elapsedSeconds) : undefined
   if (hasNetworkCounters) {
-    networkUsageCache.set(cacheKey, { receivedBytes: stats.receivedBytes!, sentBytes: stats.sentBytes!, timestamp })
+    networkUsageCache.set(cacheKey, {
+      receivedBytes: stats.receivedBytes!,
+      sentBytes: stats.sentBytes!,
+      timestamp
+    })
   }
-  return { receivedBytesPerSecond, sentBytesPerSecond, networkRatePending: hasNetworkCounters && previous === undefined }
+  return {
+    receivedBytesPerSecond,
+    sentBytesPerSecond,
+    networkRatePending: hasNetworkCounters && previous === undefined
+  }
 }
 
-async function getContainerResources(
-  dockerHost: string,
-  containerId: string,
-  resourceStats: readonly ResourceStat[]
-): Promise<ContainerResources | undefined> {
+async function getContainerResources(dockerHost: string, containerId: string, resourceStats: readonly ResourceStat[]): Promise<ContainerResources | undefined> {
   try {
     const data = await dockerRequest(dockerHost, `/containers/${encodeURIComponent(containerId)}/stats?stream=false`)
     const stats = parseDockerStats(data)
@@ -313,9 +323,7 @@ async function getContainerResources(
     const cpuDelta = stats.cpuStats.totalUsage - stats.previousCpuStats.totalUsage
     const systemDelta = stats.cpuStats.systemUsage - stats.previousCpuStats.systemUsage
     const cpuCount = stats.cpuStats.onlineCpus || stats.cpuStats.cpuCount
-    const cpuPercent = systemDelta > 0 && cpuDelta >= 0
-      ? (cpuDelta / systemDelta) * cpuCount * 100
-      : undefined
+    const cpuPercent = systemDelta > 0 && cpuDelta >= 0 ? (cpuDelta / systemDelta) * cpuCount * 100 : undefined
     const network = networkRates(dockerHost, containerId, stats)
 
     return {
@@ -337,10 +345,12 @@ function configuredDockerHosts(config: AppConfig): DockerHostConfig[] {
 
 async function fetchContainers(config: AppConfig): Promise<{ containers: DiscoveredContainer[]; error?: DashmarkError }> {
   const hosts = configuredDockerHosts(config)
-  const results = await Promise.allSettled(hosts.map(async host => ({
-    hostId: host.id,
-    containers: await getCachedContainers(host.dockerHost, DOCKER_STATUS_CACHE_TTL_MS)
-  })))
+  const results = await Promise.allSettled(
+    hosts.map(async (host) => ({
+      hostId: host.id,
+      containers: await getCachedContainers(host.dockerHost, DOCKER_STATUS_CACHE_TTL_MS)
+    }))
+  )
   const containers: DiscoveredContainer[] = []
   let failure: unknown
   let hasSuccessfulHost = false
@@ -348,7 +358,12 @@ async function fetchContainers(config: AppConfig): Promise<{ containers: Discove
   for (const [index, result] of results.entries()) {
     if (result.status === 'fulfilled') {
       hasSuccessfulHost = true
-      containers.push(...result.value.containers.map(container => ({ hostId: result.value.hostId, container })))
+      containers.push(
+        ...result.value.containers.map((container) => ({
+          hostId: result.value.hostId,
+          container
+        }))
+      )
       continue
     }
 
@@ -387,11 +402,7 @@ function containerName(container: DockerContainer): string {
   return name.startsWith('/') ? name.slice(1) : name
 }
 
-function lookupYamlService(
-  yamlServices: Record<string, ServiceOverrides>,
-  hostId: string,
-  container: DockerContainer
-): { key?: string; service?: ServiceOverrides } {
+function lookupYamlService(yamlServices: Record<string, ServiceOverrides>, hostId: string, container: DockerContainer): { key?: string; service?: ServiceOverrides } {
   const name = containerName(container)
   const composeService = container.Labels?.[COMPOSE_SERVICE_LABEL]
   const hostName = `${hostId}/${name}`
@@ -400,7 +411,10 @@ function lookupYamlService(
   if (composeService) {
     const hostComposeService = `${hostId}/${composeService}`
     if (yamlServices[hostComposeService]) {
-      return { key: hostComposeService, service: yamlServices[hostComposeService] }
+      return {
+        key: hostComposeService,
+        service: yamlServices[hostComposeService]
+      }
     }
   }
 
@@ -413,10 +427,7 @@ function lookupYamlService(
   return {}
 }
 
-function mergeWithYaml(
-  labels: ReturnType<typeof parseLabels>,
-  yamlService?: ServiceOverrides
-): ReturnType<typeof parseLabels> {
+function mergeWithYaml(labels: ReturnType<typeof parseLabels>, yamlService?: ServiceOverrides): ReturnType<typeof parseLabels> {
   if (!yamlService) return labels
   const yamlMetrics = yamlService.metrics
   const metricsAccess = yamlMetrics?.entryAccess ?? {}
@@ -431,7 +442,7 @@ function mergeWithYaml(
     category: yamlService.category ?? labels.category,
     order: yamlService.order ?? labels.order,
     showStatus: yamlService.showStatus ?? labels.showStatus,
-    resourceStats: yamlMetrics ? parseResourceStats(yamlMetrics.entries) ?? [] : labels.resourceStats,
+    resourceStats: yamlMetrics ? (parseResourceStats(yamlMetrics.entries) ?? []) : labels.resourceStats,
     metrics: yamlMetrics ? yamlMetrics.entries : labels.metrics,
     metricsPollIntervalMs: yamlMetrics?.collection?.intervalMs ?? labels.metricsPollIntervalMs,
     metricsHistoryPeriodMs: yamlMetrics?.collection?.retentionMs ?? labels.metricsHistoryPeriodMs,
@@ -441,58 +452,38 @@ function mergeWithYaml(
   }
 }
 
-function yamlMetricOverrides(service: ServiceOverrides | undefined): ServiceMetricOverrides | undefined {
-  if (!service?.metrics) return undefined
-  return service.metrics.entryOverrides
-}
-
-function yamlMetricParameters(service: ServiceOverrides | undefined): Record<string, Record<string, string | number | boolean>> | undefined {
-  if (!service?.metrics) return undefined
-  return service.metrics.entryInputs
-}
-
-function yamlMetricErrors(service: ServiceOverrides | undefined): Record<string, string> | undefined {
-  return service?.metrics?.entryErrors
-}
-
 function canAccess(config: AppConfig, headers: Headers, access: string[]): boolean {
   return !config.enableAccessControl || hasAllowedAccess(getUser(config, headers), access)
 }
 
-function resolveCardDescription(
-  config: AppConfig,
-  description: string | undefined,
-  options: Parameters<typeof resolveDescription>[1]
-): string | undefined {
+function resolveCardDescription(config: AppConfig, description: string | undefined, options: Parameters<typeof resolveDescription>[1]): string | undefined {
   if (description?.trim().toLowerCase() === 'none') return undefined
   return description ?? resolveDescription(config, options)
 }
 
 function filterCardsByAccess(cards: Card[], config: AppConfig, headers: Headers): Card[] {
-  return cards.filter(card => canAccess(config, headers, card.access)).map(card => {
-    const visible = (metric: string) => canViewMetric(config, headers, card.metricsAccess, metric)
-    return {
-      ...card,
-      resourceStats: card.resourceStats?.filter(visible),
-      customMetricLabels: card.customMetricLabels?.filter(metric => visible(metric.key)),
-      metricErrors: card.metricErrors?.filter(error => visible(error.key))
-    }
-  })
+  return cards
+    .filter((card) => canAccess(config, headers, card.access))
+    .map((card) => {
+      const visible = (metric: string) => canViewMetric(config, headers, card.metricsAccess, metric)
+      return {
+        ...card,
+        resourceStats: card.resourceStats?.filter(visible),
+        customMetricLabels: card.customMetricLabels?.filter((metric) => visible(metric.key)),
+        metricErrors: card.metricErrors?.filter((error) => visible(error.key))
+      }
+    })
 }
 
 function missingAccessIdentity(config: AppConfig, headers: Headers, cards: { access: string[] }[]): DashmarkError | undefined {
-  if (!config.enableAccessControl || !cards.some(card => card.access.length > 0)) return undefined
+  if (!config.enableAccessControl || !cards.some((card) => card.access.length > 0)) return undefined
 
   const user = getUser(config, headers)
   if (user.groups.length > 0 || user.username || user.email) return undefined
   return dashmarkError('MISSING_GROUPS_HEADER', strings.errors.missingGroupsHeader)
 }
 
-function resolveCardUrl(
-  primaryUrl: string | undefined,
-  labels: Record<string, string>,
-  useTraefikFallback: boolean
-): string | undefined {
+function resolveCardUrl(primaryUrl: string | undefined, labels: Record<string, string>, useTraefikFallback: boolean): string | undefined {
   if (primaryUrl && isValidUrl(primaryUrl)) return primaryUrl
   if (!useTraefikFallback) return undefined
   const derived = traefikUrl(labels)
@@ -501,10 +492,12 @@ function resolveCardUrl(
 
 function selectedCatalogMetrics(keys: string[] | undefined): ServiceMetricOverrides {
   const catalog = loadMetricCatalog()
-  return Object.fromEntries((keys ?? []).flatMap(key => {
-    const metric = catalog[key]
-    return metric ? [[key, metric]] : []
-  }))
+  return Object.fromEntries(
+    (keys ?? []).flatMap((key) => {
+      const metric = catalog[key]
+      return metric ? [[key, metric]] : []
+    })
+  )
 }
 
 type ResolvedContainer = {
@@ -517,35 +510,37 @@ type ResolvedContainer = {
   url?: string
 }
 
-function resolveContainer(
-  yamlServices: Record<string, ServiceOverrides>,
-  hostId: string,
-  container: DockerContainer
-): ResolvedContainer {
+function resolveContainer(yamlServices: Record<string, ServiceOverrides>, hostId: string, container: DockerContainer): ResolvedContainer {
   const { key: yamlKey, service: yamlService } = lookupYamlService(yamlServices, hostId, container)
   const rawLabels = container.Labels ?? {}
   const labels = mergeWithYaml(parseLabels(rawLabels), yamlService)
   const url = resolveCardUrl(labels.url, rawLabels, yamlService !== undefined || hasDashmarkLabels(rawLabels))
-  const customMetrics = { ...selectedCatalogMetrics(labels.metrics), ...yamlMetricOverrides(yamlService) }
+  const customMetrics = {
+    ...selectedCatalogMetrics(labels.metrics),
+    ...yamlService?.metrics?.entryOverrides
+  }
 
   return {
     container,
     name: containerName(container),
     yamlKey,
     labels,
-    customMetrics: resolveMetricSources(customMetrics, url, labels.metricSources, rawLabels, yamlMetricParameters(yamlService)),
-    customMetricErrors: yamlMetricErrors(yamlService),
+    customMetrics: resolveMetricSources(customMetrics, url, labels.metricSources, rawLabels, yamlService?.metrics?.entryInputs),
+    customMetricErrors: yamlService?.metrics?.entryErrors,
     url
   }
 }
 
 function resolveYamlMetrics(service: ServiceOverrides, url: string): ResolvedMetricCard {
   const labels = mergeWithYaml(parseLabels({}), service)
-  const customMetrics = { ...selectedCatalogMetrics(labels.metrics), ...yamlMetricOverrides(service) }
+  const customMetrics = {
+    ...selectedCatalogMetrics(labels.metrics),
+    ...service?.metrics?.entryOverrides
+  }
   return {
     labels,
-    customMetrics: resolveMetricSources(customMetrics, url, labels.metricSources, {}, yamlMetricParameters(service)),
-    customMetricErrors: yamlMetricErrors(service)
+    customMetrics: resolveMetricSources(customMetrics, url, labels.metricSources, {}, service?.metrics?.entryInputs),
+    customMetricErrors: service?.metrics?.entryErrors
   }
 }
 
@@ -566,11 +561,9 @@ function resolveMetricSources(
     return text
   }
   const resolveUrl = (url: string, metricApiUrl: string | undefined, parameters: MetricOverride['parameters'], values: Record<string, string | number | boolean> | undefined): string | undefined => {
-    const baseUrl = url.startsWith('{metric_source}') ? metricApiUrl ?? cardUrl : url.startsWith('{url}') ? cardUrl : undefined
+    const baseUrl = url.startsWith('{metric_source}') ? (metricApiUrl ?? cardUrl) : url.startsWith('{url}') ? cardUrl : undefined
     const placeholder = url.startsWith('{metric_source}') ? '{metric_source}' : '{url}'
-    const resolved = baseUrl === undefined && url.startsWith('{')
-      ? undefined
-      : baseUrl ? `${baseUrl.replace(/\/$/, '')}${url.slice(placeholder.length)}` : url
+    const resolved = baseUrl === undefined && url.startsWith('{') ? undefined : baseUrl ? `${baseUrl.replace(/\/$/, '')}${url.slice(placeholder.length)}` : url
     return resolved?.replace(/\{([a-z][a-z0-9_]*)\}/g, (match, name: string) => {
       if (!parameters?.[name] || values?.[name] === undefined) return match
       return encodeURIComponent(formatParameter(values[name], parameters[name]))
@@ -580,28 +573,45 @@ function resolveMetricSources(
     if (reference === null || typeof reference !== 'object' || Array.isArray(reference)) return reference
     const keys = Object.keys(reference)
     if (keys.length === 1 && typeof (reference as { token?: unknown }).token === 'string') return reference
-    if (keys.every(key => ['env', 'file', 'label', 'value'].includes(key)) && keys.some(key => typeof (reference as Record<string, unknown>)[key] === 'string')) {
+    if (keys.every((key) => ['env', 'file', 'label', 'value'].includes(key)) && keys.some((key) => typeof (reference as Record<string, unknown>)[key] === 'string')) {
       const secret = reference as { label?: string }
       const value = secret.label === undefined ? undefined : labels[secret.label]
       return value === undefined ? reference : { ...reference, value }
     }
     return Object.fromEntries(Object.entries(reference).map(([name, value]) => [name, resolveReference(value)]))
   }
-  const resolveReferences = (references: typeof metrics[string]['source']['headers']) => Object.fromEntries(Object.entries(references ?? {}).map(([name, reference]) => [name, resolveReference(reference)])) as NonNullable<typeof references>
-  const resolveSocketIo = (socketio: NonNullable<typeof metrics[string]['source']['socketio']>) => {
-    const resolveArguments = (args: typeof socketio.request.args) => args?.map(argument => {
-      if (typeof argument !== 'object') return argument
-      return resolveReference(argument) as typeof argument
-    })
+  const resolveReferences = (references: (typeof metrics)[string]['source']['headers']) =>
+    Object.fromEntries(Object.entries(references ?? {}).map(([name, reference]) => [name, resolveReference(reference)])) as NonNullable<typeof references>
+  const resolveSocketIo = (socketio: NonNullable<(typeof metrics)[string]['source']['socketio']>) => {
+    const resolveArguments = (args: typeof socketio.request.args) =>
+      args?.map((argument) => {
+        if (typeof argument !== 'object') return argument
+        return resolveReference(argument) as typeof argument
+      })
     const auth = resolveReferences(socketio.auth)
     return {
       ...socketio,
       ...(Object.keys(auth).length > 0 ? { auth } : {}),
-      ...(socketio.login ? { login: { ...socketio.login, ...(socketio.login.args ? { args: resolveArguments(socketio.login.args) } : {}) } } : {}),
-      request: { ...socketio.request, ...(socketio.request.args ? { args: resolveArguments(socketio.request.args) } : {}) }
+      ...(socketio.login
+        ? {
+            login: {
+              ...socketio.login,
+              ...(socketio.login.args ? { args: resolveArguments(socketio.login.args) } : {})
+            }
+          }
+        : {}),
+      request: {
+        ...socketio.request,
+        ...(socketio.request.args ? { args: resolveArguments(socketio.request.args) } : {})
+      }
     }
   }
-  const resolveRequest = (request: Extract<NonNullable<typeof metrics[string]['source']['auth']>, { type: 'cookie_session' }>['steps'][number], metric: MetricOverride, metricApiUrl: string | undefined, values: Record<string, string | number | boolean> | undefined) => {
+  const resolveRequest = (
+    request: Extract<NonNullable<(typeof metrics)[string]['source']['auth']>, { type: 'cookie_session' }>['steps'][number],
+    metric: MetricOverride,
+    metricApiUrl: string | undefined,
+    values: Record<string, string | number | boolean> | undefined
+  ) => {
     const url = resolveUrl(request.url, metricApiUrl, metric.parameters, values)
     if (!url) return undefined
     const headers = resolveReferences(request.headers)
@@ -615,7 +625,7 @@ function resolveMetricSources(
       }
       return Object.fromEntries(Object.entries(value).map(([name, item]) => [name, resolveJsonParameters(item)]))
     }
-    const json = request.json === undefined ? undefined : resolveJsonParameters(resolveReference(request.json)) as typeof request.json
+    const json = request.json === undefined ? undefined : (resolveJsonParameters(resolveReference(request.json)) as typeof request.json)
     return {
       ...request,
       url,
@@ -630,46 +640,68 @@ function resolveMetricSources(
     const requestUrl = resolveUrl(metric.forEach.requestUrl, metricApiUrl, metric.parameters, values)
     return requestUrl ? { ...metric, forEach: { ...metric.forEach, requestUrl } } : undefined
   }
-  const resolved = Object.fromEntries(Object.entries(metrics).flatMap(([key, metric]) => {
-    const metricLabel = key.replaceAll('/', '.')
-    const labelValues = Object.fromEntries(Object.keys(metric.parameters ?? {}).flatMap(name => {
-      const value = labels[`${LABEL_PREFIX}.metrics_input.${metricLabel}.${name}`]
-      return value === undefined ? [] : [[name, value]]
-    }))
-    const values = { ...metricParameters?.[key], ...labelValues }
-    if (Object.keys(metric.parameters ?? {}).some(name => values?.[name] === undefined)) return []
-    const provider = key.split('/')[0]
-    const metricApiUrl = metricSources?.[provider]
-    const resolvedMetric = resolveForEach(metric, metricApiUrl, values)
-    if (!resolvedMetric) return []
-    const request = resolveRequest({ ...resolvedMetric.source, method: resolvedMetric.source.method ?? 'GET' }, resolvedMetric, metricApiUrl, values)
-    if (!request) return []
-    const auth = resolvedMetric.source.auth
-    const steps = auth?.type === 'cookie_session' ? auth.steps.map(step => resolveRequest(step, resolvedMetric, metricApiUrl, values)) : undefined
-    if (steps?.some(step => !step)) return []
-    const basicAuth = auth?.type === 'basic'
-      ? {
-          ...auth,
-          username: resolveReferences({ username: auth.username }).username! as typeof auth.username,
-          password: resolveReferences({ password: auth.password }).password! as typeof auth.password
-        }
-      : undefined
-    const tokenAuth = auth?.type === 'token'
-      ? { ...auth, value: resolveReferences({ value: auth.value }).value! as typeof auth.value }
-      : undefined
-    return [[key, {
-      ...resolvedMetric,
-      source: {
-        ...request,
-        ...(resolvedMetric.source.transport ? { transport: resolvedMetric.source.transport } : {}),
-        ...(resolvedMetric.source.socketio ? { socketio: resolveSocketIo(resolvedMetric.source.socketio) } : {}),
-        ...(auth?.type === 'cookie_session' && steps ? { auth: { ...auth, steps: steps as typeof auth.steps } } : {}),
-        ...(basicAuth ? { auth: basicAuth } : {}),
-        ...(tokenAuth ? { auth: tokenAuth } : {})
-      }
-    }]]
-  }))
-  return Object.keys(resolved).length > 0 ? resolved as ServiceMetricOverrides : undefined
+  const resolved = Object.fromEntries(
+    Object.entries(metrics).flatMap(([key, metric]) => {
+      const metricLabel = key.replaceAll('/', '.')
+      const labelValues = Object.fromEntries(
+        Object.keys(metric.parameters ?? {}).flatMap((name) => {
+          const value = labels[`${LABEL_PREFIX}.metrics_input.${metricLabel}.${name}`]
+          return value === undefined ? [] : [[name, value]]
+        })
+      )
+      const values = { ...metricParameters?.[key], ...labelValues }
+      if (Object.keys(metric.parameters ?? {}).some((name) => values?.[name] === undefined)) return []
+      const provider = key.split('/')[0]
+      const metricApiUrl = metricSources?.[provider]
+      const resolvedMetric = resolveForEach(metric, metricApiUrl, values)
+      if (!resolvedMetric) return []
+      const request = resolveRequest(
+        {
+          ...resolvedMetric.source,
+          method: resolvedMetric.source.method ?? 'GET'
+        },
+        resolvedMetric,
+        metricApiUrl,
+        values
+      )
+      if (!request) return []
+      const auth = resolvedMetric.source.auth
+      const steps = auth?.type === 'cookie_session' ? auth.steps.map((step) => resolveRequest(step, resolvedMetric, metricApiUrl, values)) : undefined
+      if (steps?.some((step) => !step)) return []
+      const basicAuth =
+        auth?.type === 'basic'
+          ? {
+              ...auth,
+              username: resolveReferences({ username: auth.username }).username! as typeof auth.username,
+              password: resolveReferences({ password: auth.password }).password! as typeof auth.password
+            }
+          : undefined
+      const tokenAuth =
+        auth?.type === 'token'
+          ? {
+              ...auth,
+              value: resolveReferences({ value: auth.value }).value! as typeof auth.value
+            }
+          : undefined
+      return [
+        [
+          key,
+          {
+            ...resolvedMetric,
+            source: {
+              ...request,
+              ...(resolvedMetric.source.transport ? { transport: resolvedMetric.source.transport } : {}),
+              ...(resolvedMetric.source.socketio ? { socketio: resolveSocketIo(resolvedMetric.source.socketio) } : {}),
+              ...(auth?.type === 'cookie_session' && steps ? { auth: { ...auth, steps: steps as typeof auth.steps } } : {}),
+              ...(basicAuth ? { auth: basicAuth } : {}),
+              ...(tokenAuth ? { auth: tokenAuth } : {})
+            }
+          }
+        ]
+      ]
+    })
+  )
+  return Object.keys(resolved).length > 0 ? (resolved as ServiceMetricOverrides) : undefined
 }
 
 function isVisibleContainer(config: AppConfig, headers: Headers, { labels, url }: ResolvedContainer): boolean {
@@ -677,43 +709,39 @@ function isVisibleContainer(config: AppConfig, headers: Headers, { labels, url }
 }
 
 export function addAccessVaryHeader(headers: Headers, config: AppConfig): void {
-  const names = [
-    ...(config.authToken ? [AUTH_TOKEN_HEADER] : []),
-    ...(config.enableAccessControl ? accessHeaderNames(config) : []),
-  ]
+  const names = [...(config.authToken ? [AUTH_TOKEN_HEADER] : []), ...(config.enableAccessControl ? accessHeaderNames(config) : [])]
   if (names.length > 0) headers.set('Vary', names.join(', '))
 }
 
 export function addResourceUsageVaryHeader(headers: Headers, config: AppConfig): void {
-  const names = [
-    ...(config.authToken ? [AUTH_TOKEN_HEADER] : []),
-    ...accessHeaderNames(config),
-  ]
+  const names = [...(config.authToken ? [AUTH_TOKEN_HEADER] : []), ...accessHeaderNames(config)]
   headers.set('Vary', names.join(', '))
 }
 
 export function canViewMetric(config: AppConfig, headers: Headers, access: Record<string, string[]> | undefined, metric: string): boolean {
   if (!config.showMetrics) return false
   const user = getUser(config, headers)
-  return hasAllowedAccess(user, config.metricsAccess)
-    && hasAllowedAccess(user, access?.[metric] ?? [])
+  return hasAllowedAccess(user, config.metricsAccess) && hasAllowedAccess(user, access?.[metric] ?? [])
 }
 
-async function cardFromContainer(
-  config: AppConfig,
-  resolved: ResolvedContainer,
-  hostId: string,
-  host: string | undefined,
-  hostColor: number
-): Promise<Card | null> {
+async function cardFromContainer(config: AppConfig, resolved: ResolvedContainer, hostId: string, host: string | undefined, hostColor: number): Promise<Card | null> {
   const { container, name, labels, url } = resolved
 
   if (labels.hidden || !url) return null
 
   const title = labels.title || name
   const [icon, description] = await Promise.all([
-    resolveIcon(config, { iconLabel: labels.icon, imageName: container.Image, title, containerName: name }),
-    resolveCardDescription(config, labels.description, { imageName: container.Image, title, containerName: name })
+    resolveIcon(config, {
+      iconLabel: labels.icon,
+      imageName: container.Image,
+      title,
+      containerName: name
+    }),
+    resolveCardDescription(config, labels.description, {
+      imageName: container.Image,
+      title,
+      containerName: name
+    })
   ])
   const customMetrics = selectedCustomMetrics(resolved)
   const metricErrors = selectedCustomMetricErrors(resolved)
@@ -737,7 +765,14 @@ async function cardFromContainer(
     usesHostNetwork: container.HostConfig?.NetworkMode === 'host',
     resourceStats: labels.resourceStats ?? [...RESOURCE_STATS],
     metrics: labels.metrics,
-    ...(customMetrics.length > 0 ? { customMetricLabels: customMetrics.map(([key, metric]) => ({ key, label: metric.label })) } : {}),
+    ...(customMetrics.length > 0
+      ? {
+          customMetricLabels: customMetrics.map(([key, metric]) => ({
+            key,
+            label: metric.label
+          }))
+        }
+      : {}),
     metricsPollIntervalMs: labels.metricsPollIntervalMs ?? config.metricsPollIntervalMs,
     metricsHistoryPeriodMs: labels.metricsHistoryPeriodMs,
     metricsAccess: labels.metricsAccess,
@@ -745,20 +780,22 @@ async function cardFromContainer(
   }
 }
 
-async function cardFromYaml(
-  config: AppConfig,
-  name: string,
-  service: ServiceOverrides,
-  hostColor: number
-): Promise<Card | null> {
+async function cardFromYaml(config: AppConfig, name: string, service: ServiceOverrides, hostColor: number): Promise<Card | null> {
   if (service.hidden || !service.url || !isValidUrl(service.url)) {
     return null
   }
 
   const title = service.title || name
   const [icon, description] = await Promise.all([
-    resolveIcon(config, { iconLabel: service.icon, title, containerName: name }),
-    resolveCardDescription(config, service.description, { title, containerName: name })
+    resolveIcon(config, {
+      iconLabel: service.icon,
+      title,
+      containerName: name
+    }),
+    resolveCardDescription(config, service.description, {
+      title,
+      containerName: name
+    })
   ])
   const resolved = resolveYamlMetrics(service, service.url)
   const customMetrics = selectedCustomMetrics(resolved)
@@ -779,7 +816,14 @@ async function cardFromYaml(
     host: service.host,
     hostColor: service.host === undefined ? undefined : hostColor,
     metrics: resolved.labels.metrics,
-    ...(customMetrics.length > 0 ? { customMetricLabels: customMetrics.map(([key, metric]) => ({ key, label: metric.label })) } : {}),
+    ...(customMetrics.length > 0
+      ? {
+          customMetricLabels: customMetrics.map(([key, metric]) => ({
+            key,
+            label: metric.label
+          }))
+        }
+      : {}),
     metricsPollIntervalMs: resolved.labels.metricsPollIntervalMs ?? config.metricsPollIntervalMs,
     metricsHistoryPeriodMs: resolved.labels.metricsHistoryPeriodMs,
     metricsAccess: resolved.labels.metricsAccess,
@@ -821,7 +865,10 @@ async function loadServicesAndContainers(config: AppConfig): Promise<LoadedServi
 export async function getContainerStatuses(
   config: AppConfig,
   headers: Headers
-): Promise<{ statuses: Record<string, ContainerStatus>; error?: DashmarkError }> {
+): Promise<{
+  statuses: Record<string, ContainerStatus>
+  error?: DashmarkError
+}> {
   if (!config.showStatus) {
     return { statuses: {} }
   }
@@ -833,33 +880,38 @@ export async function getContainerStatuses(
     container,
     resolved: resolveContainer(yamlServices, hostId, container)
   }))
-  const accessCards = resolvedContainers
-    .filter(({ resolved }) => !resolved.labels.hidden && resolved.url !== undefined)
-    .map(({ resolved }) => ({ access: resolved.labels.access }))
+  const accessCards = resolvedContainers.filter(({ resolved }) => !resolved.labels.hidden && resolved.url !== undefined).map(({ resolved }) => ({ access: resolved.labels.access }))
   const accessError = missingAccessIdentity(config, headers, accessCards)
   if (accessError) return { statuses: {}, error: accessError }
 
-  const statusEntries = resolvedContainers.map(({ hostId, container, resolved }) => {
-    if (!isVisibleContainer(config, headers, resolved)) return undefined
-
-    return [`${hostId}:${container.Id}`, {
-      state: container.State,
-      health: parseHealth(container.Status)
-    }] as const
-  })
-
-  const statuses: Record<string, ContainerStatus> = {}
-  for (const entry of statusEntries) {
-    if (entry) statuses[entry[0]] = entry[1]
-  }
+  const statuses = Object.fromEntries(
+    resolvedContainers.flatMap(({ hostId, container, resolved }) =>
+      isVisibleContainer(config, headers, resolved) ? [[`${hostId}:${container.Id}`, { state: container.State, health: parseHealth(container.Status) }]] : []
+    )
+  )
 
   return { statuses }
 }
 
 export type CollectedCustomMetric =
-  | { key: string; label: string; unit: Extract<MetricOverride, { valueType: 'number' }>['unit']; chart: Extract<MetricOverride, { valueType: 'number' }>['chart']; chartGroup?: string; rate?: true; value: number; pending?: true }
+  | {
+      key: string
+      label: string
+      unit: Extract<MetricOverride, { valueType: 'number' }>['unit']
+      chart: Extract<MetricOverride, { valueType: 'number' }>['chart']
+      chartGroup?: string
+      rate?: true
+      value: number
+      pending?: true
+    }
   | { key: string; label: string; value: string }
-  | { key: string; label: string; color: Extract<MetricOverride, { valueType: 'state' }>['color']; valueLabel?: string; value: string }
+  | {
+      key: string
+      label: string
+      color: Extract<MetricOverride, { valueType: 'state' }>['color']
+      valueLabel?: string
+      value: string
+    }
 
 export type CollectedUptimeMetric = UptimeMetric
 
@@ -899,7 +951,7 @@ type ContainerMetricSample = {
 
 function selectedCustomMetrics(resolved: ResolvedMetricCard): SelectedCustomMetric[] {
   if (!resolved.customMetrics || !resolved.labels.metrics) return []
-  return resolved.labels.metrics.flatMap(key => {
+  return resolved.labels.metrics.flatMap((key) => {
     const metric = resolved.customMetrics?.[key]
     return metric ? [[key, metric]] : []
   })
@@ -907,7 +959,7 @@ function selectedCustomMetrics(resolved: ResolvedMetricCard): SelectedCustomMetr
 
 function selectedCustomMetricErrors(resolved: ResolvedMetricCard): { key: string; message: string }[] {
   if (!resolved.labels.metrics) return []
-  return resolved.labels.metrics.flatMap(key => {
+  return resolved.labels.metrics.flatMap((key) => {
     const message = resolved.customMetricErrors?.[key]
     return message ? [{ key, message }] : []
   })
@@ -915,7 +967,7 @@ function selectedCustomMetricErrors(resolved: ResolvedMetricCard): { key: string
 
 function metricDetails(resolved: ResolvedMetricCard, config: AppConfig, hasContainer = true): ResolvedMetricDetails {
   return {
-    resourceStats: hasContainer ? resolved.labels.resourceStats ?? RESOURCE_STATS : [],
+    resourceStats: hasContainer ? (resolved.labels.resourceStats ?? RESOURCE_STATS) : [],
     selectedMetrics: selectedCustomMetrics(resolved),
     metricErrors: selectedCustomMetricErrors(resolved),
     historyPeriodMs: resolved.labels.metricsHistoryPeriodMs ?? config.metricsHistoryPeriodMs,
@@ -928,10 +980,24 @@ function collectedCustomMetric(key: string, metric: MetricOverride, value: numbe
   if (metric.valueType === 'string' && typeof value === 'string') return { key, label: metric.label, value }
   if (metric.valueType === 'state' && typeof value === 'string') {
     const valueLabel = metric.stateLabels?.[value]
-    return { key, label: metric.label, ...(valueLabel === undefined ? {} : { valueLabel }), color: metric.stateColors?.[value] ?? metric.color, value }
+    return {
+      key,
+      label: metric.label,
+      ...(valueLabel === undefined ? {} : { valueLabel }),
+      color: metric.stateColors?.[value] ?? metric.color,
+      value
+    }
   }
   if (metric.valueType === 'number' && typeof value === 'number') {
-    return { key, label: metric.label, unit: metric.unit, chart: metric.chart, ...(metric.chartGroup === undefined ? {} : { chartGroup: metric.chartGroup }), ...(metric.rate ? { rate: true } : {}), value }
+    return {
+      key,
+      label: metric.label,
+      unit: metric.unit,
+      chart: metric.chart,
+      ...(metric.chartGroup === undefined ? {} : { chartGroup: metric.chartGroup }),
+      ...(metric.rate ? { rate: true } : {}),
+      value
+    }
   }
   return undefined
 }
@@ -940,28 +1006,37 @@ async function collectSelectedCustomMetrics(
   metrics: SelectedCustomMetric[],
   metricErrors: ContainerMetricUsage['metricErrors']
 ): Promise<Pick<ContainerMetricUsage, 'customMetrics' | 'uptimeMetrics' | 'metricErrors'>> {
-  const results = await Promise.all(metrics.map(async ([key, metric]) => ({ key, metric, result: await collectCustomMetric(key, metric) })))
+  const results = await Promise.all(
+    metrics.map(async ([key, metric]) => ({
+      key,
+      metric,
+      result: await collectCustomMetric(key, metric)
+    }))
+  )
   const customMetrics: ContainerMetricUsage['customMetrics'] = []
   const uptimeMetrics: ContainerMetricUsage['uptimeMetrics'] = []
   const collectedErrors = [...metricErrors]
   for (const { key, metric, result } of results) {
     if ('observations' in result && metric.valueType === 'uptime') {
-      uptimeMetrics.push({ key, label: metric.label, current: result.observations.at(-1)?.status ?? 'unknown', observations: result.observations })
+      uptimeMetrics.push({
+        key,
+        label: metric.label,
+        current: result.observations.at(-1)?.status ?? 'unknown',
+        observations: result.observations
+      })
     } else if ('value' in result) {
       const collected = collectedCustomMetric(key, metric, result.value)
       if (collected) customMetrics.push(collected)
-    }
-    else if ('error' in result) collectedErrors.push({ key, message: result.error })
+    } else if ('error' in result) collectedErrors.push({ key, message: result.error })
   }
-  return { customMetrics, ...(uptimeMetrics.length > 0 ? { uptimeMetrics } : {}), metricErrors: collectedErrors }
+  return {
+    customMetrics,
+    ...(uptimeMetrics.length > 0 ? { uptimeMetrics } : {}),
+    metricErrors: collectedErrors
+  }
 }
 
-export async function getContainerMetricUsage(
-  config: AppConfig,
-  headers: Headers,
-  cardId: string,
-  collect = true
-): Promise<ContainerMetricUsage | undefined> {
+export async function getContainerMetricUsage(config: AppConfig, headers: Headers, cardId: string, collect = true): Promise<ContainerMetricUsage | undefined> {
   if (!config.showMetrics || !hasAllowedAccess(getUser(config, headers), config.metricsAccess)) return undefined
 
   if (cardId.startsWith('yaml-')) {
@@ -975,14 +1050,25 @@ export async function getContainerMetricUsage(
     const details = metricDetails(resolveYamlMetrics(service, service.url), config, false)
     const { selectedMetrics, metricErrors, historyPeriodMs, metricsAccess, metricsPollIntervalMs } = details
     if (selectedMetrics.length === 0 && metricErrors.length === 0) return undefined
-    if (!collect) return { historyPeriodMs, customMetrics: [], metricErrors, ...(metricsAccess ? { metricsAccess } : {}), metricsPollIntervalMs }
+    if (!collect)
+      return {
+        historyPeriodMs,
+        customMetrics: [],
+        metricErrors,
+        ...(metricsAccess ? { metricsAccess } : {}),
+        metricsPollIntervalMs
+      }
 
     const collected = await collectSelectedCustomMetrics(selectedMetrics, metricErrors)
     if (collected.customMetrics.length === 0 && !collected.uptimeMetrics?.length && collected.metricErrors.length === 0) return undefined
-    return { ...collected, historyPeriodMs, ...(metricsAccess ? { metricsAccess } : {}) }
+    return {
+      ...collected,
+      historyPeriodMs,
+      ...(metricsAccess ? { metricsAccess } : {})
+    }
   }
 
-  const host = configuredDockerHosts(config).find(candidate => cardId.startsWith(`${candidate.id}:`))
+  const host = configuredDockerHosts(config).find((candidate) => cardId.startsWith(`${candidate.id}:`))
   if (!host) return undefined
   const containerId = cardId.slice(host.id.length + 1)
   if (!containerId) return undefined
@@ -992,7 +1078,7 @@ export async function getContainerMetricUsage(
 
   try {
     const containers = await getCachedContainers(host.dockerHost, DOCKER_STATUS_CACHE_TTL_MS)
-    const container = containers.find(candidate => candidate.Id === containerId)
+    const container = containers.find((candidate) => candidate.Id === containerId)
     if (!container || container.State !== 'running') return undefined
 
     const resolved = resolveContainer(yamlConfig.config.services, host.id, container)
@@ -1000,31 +1086,36 @@ export async function getContainerMetricUsage(
     const details = metricDetails(resolved, config)
     const { resourceStats, selectedMetrics, metricErrors, historyPeriodMs, metricsAccess, metricsPollIntervalMs } = details
     if (resourceStats.length === 0 && selectedMetrics.length === 0 && metricErrors.length === 0) return undefined
-    if (!collect) return { historyPeriodMs, customMetrics: [], metricErrors, ...(metricsAccess ? { metricsAccess } : {}), metricsPollIntervalMs }
+    if (!collect)
+      return {
+        historyPeriodMs,
+        customMetrics: [],
+        metricErrors,
+        ...(metricsAccess ? { metricsAccess } : {}),
+        metricsPollIntervalMs
+      }
 
     const [resource, collected] = await Promise.all([
       resourceStats.length > 0 ? getContainerResources(host.dockerHost, container.Id, resourceStats) : undefined,
       collectSelectedCustomMetrics(selectedMetrics, metricErrors)
     ])
     if (!resource && collected.customMetrics.length === 0 && !collected.uptimeMetrics?.length && collected.metricErrors.length === 0) return undefined
-    return { resource, ...collected, historyPeriodMs, ...(metricsAccess ? { metricsAccess } : {}) }
+    return {
+      resource,
+      ...collected,
+      historyPeriodMs,
+      ...(metricsAccess ? { metricsAccess } : {})
+    }
   } catch {
     return undefined
   }
 }
 
-export async function getContainerResourceUsage(
-  config: AppConfig,
-  headers: Headers,
-  cardId: string
-): Promise<ContainerResources | undefined> {
+export async function getContainerResourceUsage(config: AppConfig, headers: Headers, cardId: string): Promise<ContainerResources | undefined> {
   return (await getContainerMetricUsage(config, headers, cardId))?.resource
 }
 
-export async function collectContainerResourceUsage(
-  config: AppConfig,
-  isDue: (cardId: string, pollIntervalMs: number) => boolean = () => true
-): Promise<ContainerMetricSample[]> {
+export async function collectContainerResourceUsage(config: AppConfig, isDue: (cardId: string, pollIntervalMs: number) => boolean = () => true): Promise<ContainerMetricSample[]> {
   if (!config.showMetrics) return []
 
   const yamlConfig = loadYamlConfig(config)
@@ -1032,60 +1123,66 @@ export async function collectContainerResourceUsage(
   const samples: ContainerMetricSample[] = []
   const matchedYamlKeys = new Set<string>()
 
-  await Promise.all(configuredDockerHosts(config).map(async host => {
-    try {
-      const containers = await getCachedContainers(host.dockerHost, DOCKER_STATUS_CACHE_TTL_MS)
-      const results = await Promise.all(containers.map(async container => {
-        const resolved = resolveContainer(yamlConfig.config.services, host.id, container)
-        if (resolved.yamlKey) matchedYamlKeys.add(resolved.yamlKey)
-        if (container.State !== 'running') return undefined
-        if (resolved.labels.hidden || !resolved.url || resolved.labels.showStatus === false) return undefined
-        const { resourceStats, selectedMetrics, historyPeriodMs } = metricDetails(resolved, config)
-        if (resourceStats.length === 0 && selectedMetrics.length === 0) return undefined
-        const cardId = `${host.id}:${container.Id}`
-        const metricsPollIntervalMs = resolved.labels.metricsPollIntervalMs ?? config.metricsPollIntervalMs
-        if (!isDue(cardId, metricsPollIntervalMs)) return undefined
-        const [resource, collected] = await Promise.all([
-          resourceStats.length > 0 ? getContainerResources(host.dockerHost, container.Id, resourceStats) : undefined,
-          collectSelectedCustomMetrics(selectedMetrics, [])
-        ])
-        if (!resource && collected.customMetrics.length === 0 && !collected.uptimeMetrics?.length && collected.metricErrors.length === 0) return undefined
-        return {
-          cardId,
-          resource,
-          customMetrics: collected.customMetrics,
-          ...(collected.uptimeMetrics ? { uptimeMetrics: collected.uptimeMetrics } : {}),
-          metricErrors: collected.metricErrors,
-          metricsPollIntervalMs,
-          metricsHistoryPeriodMs: historyPeriodMs
-        }
-      }))
-      samples.push(...results.filter((sample): sample is ContainerMetricSample => sample !== undefined))
-    } catch {
-      // Resource metrics are optional, so an unavailable host does not affect the dashboard.
-    }
-  }))
+  await Promise.all(
+    configuredDockerHosts(config).map(async (host) => {
+      try {
+        const containers = await getCachedContainers(host.dockerHost, DOCKER_STATUS_CACHE_TTL_MS)
+        const results = await Promise.all(
+          containers.map(async (container) => {
+            const resolved = resolveContainer(yamlConfig.config.services, host.id, container)
+            if (resolved.yamlKey) matchedYamlKeys.add(resolved.yamlKey)
+            if (container.State !== 'running') return undefined
+            if (resolved.labels.hidden || !resolved.url || resolved.labels.showStatus === false) return undefined
+            const { resourceStats, selectedMetrics, historyPeriodMs } = metricDetails(resolved, config)
+            if (resourceStats.length === 0 && selectedMetrics.length === 0) return undefined
+            const cardId = `${host.id}:${container.Id}`
+            const metricsPollIntervalMs = resolved.labels.metricsPollIntervalMs ?? config.metricsPollIntervalMs
+            if (!isDue(cardId, metricsPollIntervalMs)) return undefined
+            const [resource, collected] = await Promise.all([
+              resourceStats.length > 0 ? getContainerResources(host.dockerHost, container.Id, resourceStats) : undefined,
+              collectSelectedCustomMetrics(selectedMetrics, [])
+            ])
+            if (!resource && collected.customMetrics.length === 0 && !collected.uptimeMetrics?.length && collected.metricErrors.length === 0) return undefined
+            return {
+              cardId,
+              resource,
+              customMetrics: collected.customMetrics,
+              ...(collected.uptimeMetrics ? { uptimeMetrics: collected.uptimeMetrics } : {}),
+              metricErrors: collected.metricErrors,
+              metricsPollIntervalMs,
+              metricsHistoryPeriodMs: historyPeriodMs
+            }
+          })
+        )
+        samples.push(...results.filter((sample): sample is ContainerMetricSample => sample !== undefined))
+      } catch {
+        // Resource metrics are optional, so an unavailable host does not affect the dashboard.
+      }
+    })
+  )
 
-  const standaloneSamples = await Promise.all(Object.entries(yamlConfig.config.services).map(async ([name, service]): Promise<ContainerMetricSample | undefined> => {
-    if (matchedYamlKeys.has(name) || service.hidden || !service.url || !isValidUrl(service.url) || service.showStatus === false) return undefined
-    const resolved = resolveYamlMetrics(service, service.url)
-    const { selectedMetrics, historyPeriodMs } = metricDetails(resolved, config, false)
-    if (selectedMetrics.length === 0) return undefined
-    const cardId = `yaml-${name}`
-    const metricsPollIntervalMs = service.metrics?.collection?.intervalMs ?? config.metricsPollIntervalMs
-    if (!isDue(cardId, metricsPollIntervalMs)) return undefined
-    const collected = await collectSelectedCustomMetrics(selectedMetrics, [])
-    if (collected.customMetrics.length === 0 && !collected.uptimeMetrics?.length && collected.metricErrors.length === 0) return undefined
-    return {
-      cardId,
-      resource: undefined,
-      customMetrics: collected.customMetrics,
-      ...(collected.uptimeMetrics ? { uptimeMetrics: collected.uptimeMetrics } : {}),
-      metricErrors: collected.metricErrors,
-      metricsPollIntervalMs,
-      metricsHistoryPeriodMs: historyPeriodMs
-    }
-  }))
+  const standaloneSamples = await Promise.all(
+    Object.entries(yamlConfig.config.services).map(async ([name, service]): Promise<ContainerMetricSample | undefined> => {
+      if (matchedYamlKeys.has(name) || service.hidden || !service.url || !isValidUrl(service.url) || service.showStatus === false) return undefined
+      const resolved = resolveYamlMetrics(service, service.url)
+      const { selectedMetrics, historyPeriodMs } = metricDetails(resolved, config, false)
+      if (selectedMetrics.length === 0) return undefined
+      const cardId = `yaml-${name}`
+      const metricsPollIntervalMs = service.metrics?.collection?.intervalMs ?? config.metricsPollIntervalMs
+      if (!isDue(cardId, metricsPollIntervalMs)) return undefined
+      const collected = await collectSelectedCustomMetrics(selectedMetrics, [])
+      if (collected.customMetrics.length === 0 && !collected.uptimeMetrics?.length && collected.metricErrors.length === 0) return undefined
+      return {
+        cardId,
+        resource: undefined,
+        customMetrics: collected.customMetrics,
+        ...(collected.uptimeMetrics ? { uptimeMetrics: collected.uptimeMetrics } : {}),
+        metricErrors: collected.metricErrors,
+        metricsPollIntervalMs,
+        metricsHistoryPeriodMs: historyPeriodMs
+      }
+    })
+  )
   samples.push(...standaloneSamples.filter((sample): sample is ContainerMetricSample => sample !== undefined))
 
   return samples
@@ -1096,13 +1193,15 @@ async function buildAllCards(config: AppConfig): Promise<{ cards: Card[]; error?
   if (error) return { cards: [], error }
 
   const cards: Card[] = []
-  const matchedKeys = new Set(containers.flatMap(({ hostId, container }) => {
-    const key = lookupYamlService(yamlServices, hostId, container).key
-    return key === undefined ? [] : [key]
-  }))
+  const matchedKeys = new Set(
+    containers.flatMap(({ hostId, container }) => {
+      const key = lookupYamlService(yamlServices, hostId, container).key
+      return key === undefined ? [] : [key]
+    })
+  )
   const hostIds = [...new Set(containers.map(({ hostId }) => hostId))]
-  const dockerHostName = (hostId: string) => hostId === 'default' ? 'host' : hostId
-  const yamlHostNames = [...new Set(Object.entries(yamlServices).flatMap(([name, service]) => !matchedKeys.has(name) && service.host ? [service.host] : []))]
+  const dockerHostName = (hostId: string) => (hostId === 'default' ? 'host' : hostId)
+  const yamlHostNames = [...new Set(Object.entries(yamlServices).flatMap(([name, service]) => (!matchedKeys.has(name) && service.host ? [service.host] : [])))]
   const showHost = hostIds.length > 1 || yamlHostNames.length > 0
   const hostColors = new Map([...new Set([...hostIds.map(dockerHostName), ...yamlHostNames])].map((host, index) => [host, index]))
 
@@ -1127,12 +1226,19 @@ async function buildAllCards(config: AppConfig): Promise<{ cards: Card[]; error?
 export async function getCards(
   config: AppConfig,
   headers: Headers
-): Promise<{ cards: Card[]; usesAccessControl: boolean; error?: DashmarkError }> {
+): Promise<{
+  cards: Card[]
+  usesAccessControl: boolean
+  error?: DashmarkError
+}> {
   const { cards: allCards, error } = await buildAllCards(config)
   if (error) return { cards: [], usesAccessControl: false, error }
 
-  const usesAccessControl = allCards.some(card => card.access.length > 0)
+  const usesAccessControl = allCards.some((card) => card.access.length > 0)
   const accessError = missingAccessIdentity(config, headers, allCards)
   if (accessError) return { cards: [], usesAccessControl, error: accessError }
-  return { cards: filterCardsByAccess(allCards, config, headers), usesAccessControl }
+  return {
+    cards: filterCardsByAccess(allCards, config, headers),
+    usesAccessControl
+  }
 }

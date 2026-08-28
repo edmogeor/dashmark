@@ -2,13 +2,29 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import yaml from 'js-yaml'
-import { sourceWithDefaults } from './metric-utils.mjs'
+import { metricFiles, sourceWithDefaults } from './metric-utils.mjs'
 
 const metricsDirectory = path.resolve('metrics')
 const units = new Set([
-  'number', 'count', 'percent', 'ratio', 'bytes', 'bytes_per_second',
-  'bits', 'bits_per_second', 'seconds', 'milliseconds', 'microseconds',
-  'duration', 'hertz', 'watts', 'volts', 'amperes', 'celsius', 'fahrenheit', 'boolean'
+  'number',
+  'count',
+  'percent',
+  'ratio',
+  'bytes',
+  'bytes_per_second',
+  'bits',
+  'bits_per_second',
+  'seconds',
+  'milliseconds',
+  'microseconds',
+  'duration',
+  'hertz',
+  'watts',
+  'volts',
+  'amperes',
+  'celsius',
+  'fahrenheit',
+  'boolean'
 ])
 const reductions = new Set(['count', 'sum', 'average', 'minimum', 'maximum'])
 const charts = new Set(['step', 'line', 'area', 'none'])
@@ -16,14 +32,6 @@ const badgeColors = new Set(['success', 'info', 'warning', 'error', 'disabled'])
 const metricName = /^[a-z][a-z0-9_-]*$/
 const prometheusName = /^[a-zA-Z_:][a-zA-Z0-9_:]*$/
 const sourceBase = /^\{(?:url|metric_source)\}(?:\/|$)/
-
-function files(directory) {
-  return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
-    const file = path.join(directory, entry.name)
-    if (entry.isDirectory()) return files(file)
-    return entry.name.endsWith('.yml') && entry.name !== 'provider.yml' ? [file] : []
-  })
-}
 
 function record(value, message) {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) throw new Error(message)
@@ -44,26 +52,31 @@ function validatePath(file) {
 }
 
 function validateUnit(unit) {
-  const validUnit = typeof unit === 'string'
-    ? units.has(unit)
-    : unit !== null && typeof unit === 'object' && !Array.isArray(unit)
-      && Object.keys(unit).length === 1 && typeof unit.suffix === 'string' && Boolean(unit.suffix)
+  const validUnit =
+    typeof unit === 'string'
+      ? units.has(unit)
+      : unit !== null && typeof unit === 'object' && !Array.isArray(unit) && Object.keys(unit).length === 1 && typeof unit.suffix === 'string' && Boolean(unit.suffix)
   if (!validUnit) throw new Error('unit must be a supported unit or { suffix: string }')
 }
 
 function validatePrometheus(extractor, valueType) {
   allowed(extractor, new Set(['name', 'labels', 'reduce', 'value_label']), 'prometheus')
   if (typeof extractor.name !== 'string' || !prometheusName.test(extractor.name)) throw new Error('prometheus.name is invalid')
-  if (extractor.labels !== undefined && (extractor.labels === null || typeof extractor.labels !== 'object' || Array.isArray(extractor.labels) || !Object.values(extractor.labels).every(value => typeof value === 'string'))) throw new Error('prometheus.labels must map strings to strings')
+  if (
+    extractor.labels !== undefined &&
+    (extractor.labels === null || typeof extractor.labels !== 'object' || Array.isArray(extractor.labels) || !Object.values(extractor.labels).every((value) => typeof value === 'string'))
+  )
+    throw new Error('prometheus.labels must map strings to strings')
   if (extractor.reduce !== undefined && (typeof extractor.reduce !== 'string' || !reductions.has(extractor.reduce))) throw new Error('prometheus.reduce is invalid')
-  if (valueType !== 'number' && (typeof extractor.value_label !== 'string' || !extractor.value_label || extractor.reduce !== undefined)) throw new Error('text and state Prometheus metrics require value_label and cannot use reduce')
+  if (valueType !== 'number' && (typeof extractor.value_label !== 'string' || !extractor.value_label || extractor.reduce !== undefined))
+    throw new Error('text and state Prometheus metrics require value_label and cannot use reduce')
   if (valueType === 'number' && extractor.value_label !== undefined) throw new Error('numeric Prometheus metrics cannot use value_label')
 }
 
 function validateTransform(transform) {
   const value = record(transform, 'transform must be a mapping')
   allowed(value, new Set(['multiply', 'add']), 'transform')
-  if (Object.keys(value).length === 0 || !Object.values(value).every(number => typeof number === 'number' && Number.isFinite(number))) {
+  if (Object.keys(value).length === 0 || !Object.values(value).every((number) => typeof number === 'number' && Number.isFinite(number))) {
     throw new Error('transform must define finite multiply and/or add values')
   }
 }
@@ -93,7 +106,13 @@ function validateParameters(parameters, transforms) {
     if (!/^[a-z][a-z0-9_]*$/.test(name)) throw new Error('parameter name is invalid')
     const definition = record(parameter, `parameters.${name} must be a mapping`)
     allowed(definition, new Set(['label', 'type', 'transform']), `parameters.${name}`)
-    if (typeof definition.label !== 'string' || !definition.label || !['url_component', 'json_value'].includes(definition.type) || (definition.transform !== undefined && (definition.type !== 'url_component' || typeof definition.transform !== 'string' || !transforms?.[definition.transform]))) throw new Error(`parameters.${name} must define a label and type url_component or json_value, with an optional provider transform for URL components`)
+    if (
+      typeof definition.label !== 'string' ||
+      !definition.label ||
+      !['url_component', 'json_value'].includes(definition.type) ||
+      (definition.transform !== undefined && (definition.type !== 'url_component' || typeof definition.transform !== 'string' || !transforms?.[definition.transform]))
+    )
+      throw new Error(`parameters.${name} must define a label and type url_component or json_value, with an optional provider transform for URL components`)
   }
 }
 
@@ -105,7 +124,8 @@ function validateForEach(forEach) {
   if (typeof value.reduce !== 'string' || !reductions.has(value.reduce)) throw new Error('for_each.reduce is invalid')
   const request = record(value.request, 'for_each.request must be a mapping')
   allowed(request, new Set(['url']), 'for_each.request')
-  if (typeof request.url !== 'string' || !sourceBase.test(request.url) || !request.url.includes('{item}')) throw new Error('for_each.request.url must begin with {url} or {metric_source} and contain {item}')
+  if (typeof request.url !== 'string' || !sourceBase.test(request.url) || !request.url.includes('{item}'))
+    throw new Error('for_each.request.url must begin with {url} or {metric_source} and contain {item}')
 }
 
 function validatePagination(pagination) {
@@ -157,7 +177,14 @@ function validateTransforms(transforms) {
     allowed(definition, new Set(['trim', 'lowercase', 'replace']), `provider transform ${name}`)
     if (definition.trim !== undefined && definition.trim !== true) throw new Error(`provider transform ${name}.trim must be true`)
     if (definition.lowercase !== undefined && definition.lowercase !== true) throw new Error(`provider transform ${name}.lowercase must be true`)
-    if (definition.replace !== undefined && (definition.replace === null || typeof definition.replace !== 'object' || Array.isArray(definition.replace) || Object.keys(definition.replace).some(key => !key || typeof definition.replace[key] !== 'string'))) throw new Error(`provider transform ${name}.replace must map non-empty strings to strings`)
+    if (
+      definition.replace !== undefined &&
+      (definition.replace === null ||
+        typeof definition.replace !== 'object' ||
+        Array.isArray(definition.replace) ||
+        Object.keys(definition.replace).some((key) => !key || typeof definition.replace[key] !== 'string'))
+    )
+      throw new Error(`provider transform ${name}.replace must map non-empty strings to strings`)
     if (Object.keys(definition).length === 0) throw new Error(`provider transform ${name} must not be empty`)
     parsed[name] = definition
   }
@@ -207,17 +234,27 @@ function validateSecretReference(name, reference, context, kind) {
 
 function validateValueReference(name, reference, context, kind, allowToken) {
   if (typeof reference === 'string' || typeof reference === 'boolean' || (typeof reference === 'number' && Number.isFinite(reference))) return
-  if (allowToken && reference !== null && typeof reference === 'object' && !Array.isArray(reference) && typeof reference.token === 'string' && metricName.test(reference.token) && Object.keys(reference).every(key => key === 'token' || key === 'prefix') && (reference.prefix === undefined || typeof reference.prefix === 'string')) return
+  if (
+    allowToken &&
+    reference !== null &&
+    typeof reference === 'object' &&
+    !Array.isArray(reference) &&
+    typeof reference.token === 'string' &&
+    metricName.test(reference.token) &&
+    Object.keys(reference).every((key) => key === 'token' || key === 'prefix') &&
+    (reference.prefix === undefined || typeof reference.prefix === 'string')
+  )
+    return
   validateSecretReference(name, reference, context, kind)
 }
 
 function validateJsonValue(value, context) {
   if (value === null || typeof value === 'string' || typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value))) return
-  if (Array.isArray(value)) return value.forEach(item => validateJsonValue(item, context))
+  if (Array.isArray(value)) return value.forEach((item) => validateJsonValue(item, context))
   const object = record(value, `${context} must contain JSON values`)
-  if (Object.keys(object).some(key => !key)) throw new Error(`${context} must use non-empty property names`)
-  if (Object.keys(object).some(key => ['env', 'file', 'label', 'token'].includes(key))) return validateValueReference('value', object, context, 'json', true)
-  Object.values(object).forEach(item => validateJsonValue(item, context))
+  if (Object.keys(object).some((key) => !key)) throw new Error(`${context} must use non-empty property names`)
+  if (Object.keys(object).some((key) => ['env', 'file', 'label', 'token'].includes(key))) return validateValueReference('value', object, context, 'json', true)
+  Object.values(object).forEach((item) => validateJsonValue(item, context))
 }
 
 function validateSecretMappings(value, context, allowToken = false, kinds = ['headers', 'query']) {
@@ -242,7 +279,11 @@ function validateHttpAuth(authentication) {
   if (value.kind === 'token') {
     allowed(value, new Set(['kind', 'optional', 'header', 'query', 'prefix', 'value']), 'source.authentication')
     if (value.optional !== undefined && typeof value.optional !== 'boolean') throw new Error('source.authentication.optional must be a boolean')
-    if (Number(typeof value.header === 'string' && Boolean(value.header)) + Number(typeof value.query === 'string' && Boolean(value.query)) !== 1 || (value.prefix !== undefined && typeof value.prefix !== 'string')) throw new Error('source.authentication token requires one header or query target and an optional string prefix')
+    if (
+      Number(typeof value.header === 'string' && Boolean(value.header)) + Number(typeof value.query === 'string' && Boolean(value.query)) !== 1 ||
+      (value.prefix !== undefined && typeof value.prefix !== 'string')
+    )
+      throw new Error('source.authentication token requires one header or query target and an optional string prefix')
     validateSecretReference('value', value.value, 'source.authentication', 'token')
     return
   }
@@ -265,7 +306,7 @@ function validateRequest(request, context, allowToken) {
   if (value.json !== undefined) {
     const json = record(value.json, `${context}.json must be a mapping`)
     if (Object.keys(json).length === 0) throw new Error(`${context}.json must not be empty`)
-    Object.values(json).forEach(item => validateJsonValue(item, `${context}.json`))
+    Object.values(json).forEach((item) => validateJsonValue(item, `${context}.json`))
   }
   if (value.extract === undefined) return
   const extract = record(value.extract, `${context}.extract must be a mapping`)
@@ -276,7 +317,14 @@ function validateRequest(request, context, allowToken) {
     allowed(value, new Set(['jq', 'cheerio']), `${context}.extract.${name}`)
     const hasJq = typeof value.jq === 'string' && Boolean(value.jq.trim())
     const cheerio = value.cheerio
-    const hasCheerio = cheerio !== null && typeof cheerio === 'object' && !Array.isArray(cheerio) && typeof cheerio.selector === 'string' && cheerio.selector.trim().length <= 256 && (cheerio.attribute === undefined || typeof cheerio.attribute === 'string') && Object.keys(cheerio).every(key => key === 'selector' || key === 'attribute')
+    const hasCheerio =
+      cheerio !== null &&
+      typeof cheerio === 'object' &&
+      !Array.isArray(cheerio) &&
+      typeof cheerio.selector === 'string' &&
+      cheerio.selector.trim().length <= 256 &&
+      (cheerio.attribute === undefined || typeof cheerio.attribute === 'string') &&
+      Object.keys(cheerio).every((key) => key === 'selector' || key === 'attribute')
     if (Number(hasJq) + Number(hasCheerio) !== 1) throw new Error(`${context}.extract.${name} must define jq or a bounded cheerio selector`)
   }
 }
@@ -345,7 +393,7 @@ function validate(file, provider) {
 
 const errors = []
 const providers = new Map()
-for (const file of files(metricsDirectory)) {
+for (const file of metricFiles(metricsDirectory)) {
   try {
     const providerDirectory = path.dirname(file)
     if (!providers.has(providerDirectory)) {

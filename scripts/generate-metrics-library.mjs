@@ -3,32 +3,24 @@ import path from 'node:path'
 import process from 'node:process'
 import { execFileSync } from 'node:child_process'
 import yaml from 'js-yaml'
-import { sourceWithDefaults } from './metric-utils.mjs'
+import { metricFiles, sourceWithDefaults } from './metric-utils.mjs'
 
 const metricsDirectory = path.resolve('metrics')
 const libraryPath = path.join(metricsDirectory, 'LIBRARY.md')
 const staged = process.argv.includes('--staged')
 
-function metricFiles(directory) {
-  return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
-    const file = path.join(directory, entry.name)
-    if (entry.isDirectory()) return metricFiles(file)
-    return entry.name.endsWith('.yml') && entry.name !== 'provider.yml' ? [file] : []
-  })
-}
-
 function credentialOptions(value, options = new Set()) {
   if (Array.isArray(value)) {
-    value.forEach(item => credentialOptions(item, options))
+    value.forEach((item) => credentialOptions(item, options))
     return options
   }
   if (value === null || typeof value !== 'object') return options
 
   const reference = value
   if (typeof reference.env === 'string' || typeof reference.file === 'string' || typeof reference.label === 'string') {
-    options.add([reference.env, reference.file, reference.label].filter(item => typeof item === 'string').join(' or '))
+    options.add([reference.env, reference.file, reference.label].filter((item) => typeof item === 'string').join(' or '))
   }
-  Object.values(reference).forEach(item => credentialOptions(item, options))
+  Object.values(reference).forEach((item) => credentialOptions(item, options))
   return options
 }
 
@@ -44,8 +36,7 @@ function metricInputs(parameters) {
 }
 
 function metricNotes(provider, metric) {
-  const notes = [provider.notes, metric.notes]
-    .filter(note => typeof note === 'string' && note.trim())
+  const notes = [provider.notes, metric.notes].filter((note) => typeof note === 'string' && note.trim())
   return notes.length > 0 ? notes.join('\n') : 'None'
 }
 
@@ -58,16 +49,14 @@ function library() {
     const provider = fs.existsSync(providerPath) ? yaml.load(fs.readFileSync(providerPath, 'utf8')) : {}
     const relative = path.relative(metricsDirectory, file).split(path.sep)
     const source = sourceWithDefaults(provider, metric)
-    const credentials = [...credentialOptions(source)]
-      .map(credential => source.authentication?.optional === true ? `${credential} (optional)` : credential)
-      .sort()
+    const credentials = [...credentialOptions(source)].map((credential) => (source.authentication?.optional === true ? `${credential} (optional)` : credential)).sort()
     rows.push([
       relative[0],
       path.basename(relative[1], '.yml'),
-       metric.display.label,
-       metricInputs(metric.parameters),
-       credentials.length > 0 ? credentials.join(', ') : 'None',
-       metricNotes(provider, metric)
+      metric.display.label,
+      metricInputs(metric.parameters),
+      credentials.length > 0 ? credentials.join(', ') : 'None',
+      metricNotes(provider, metric)
     ])
   }
 
@@ -80,7 +69,7 @@ function library() {
     '',
     '| Provider | Metric | Label | Required inputs | Credential options | Notes |',
     '| --- | --- | --- | --- | --- | --- |',
-    ...rows.map(row => `| ${row.map(value => escapeCell(value)).join(' | ')} |`),
+    ...rows.map((row) => `| ${row.map((value) => escapeCell(value)).join(' | ')} |`),
     ''
   ]
   return lines.join('\n')
