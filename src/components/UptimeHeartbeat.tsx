@@ -1,3 +1,4 @@
+import { useState, type PointerEvent } from 'react'
 import type { UptimeObservation, UptimeStatus } from '@/lib/status'
 import { Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -133,20 +134,42 @@ function UptimeBucketTooltip({ bucket }: { bucket: UptimeBucket }) {
 function UptimeCell({
   bucket,
   onHover,
+  selectedBucketStart,
+  onTouchSelect,
+  onPointerInteraction,
   showTooltips,
   collisionBoundary
 }: {
   bucket: UptimeBucket
   onHover?: (bucket: UptimeBucket) => void
+  selectedBucketStart: number | null
+  onTouchSelect: (bucketStart: number) => void
+  onPointerInteraction: () => void
   showTooltips: boolean
   collisionBoundary?: Element | null
 }) {
   const className = cn('dashmark-uptime-heartbeat-cell min-w-0 rounded-sm', statusClass[bucket.status])
+  function handlePointerDown(event: PointerEvent<HTMLButtonElement>) {
+    if (event.pointerType !== 'touch') return
+    event.preventDefault()
+    onTouchSelect(bucket.start)
+  }
+
+  const open = selectedBucketStart === null ? undefined : selectedBucketStart === bucket.start
   if (showTooltips)
     return (
-      <Tooltip>
+      <Tooltip open={open}>
         <TooltipTrigger asChild>
-          <button type="button" className={cn(className, 'cursor-help focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none')} aria-label={bucketLabel(bucket)} />
+          <button
+            type="button"
+            className={cn(className, 'cursor-help focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none')}
+            aria-label={bucketLabel(bucket)}
+            onPointerDown={handlePointerDown}
+            onPointerEnter={(event) => {
+              if (event.pointerType === 'mouse') onPointerInteraction()
+            }}
+            onFocus={onPointerInteraction}
+          />
         </TooltipTrigger>
         <TooltipContent side="top" collisionBoundary={collisionBoundary} collisionPadding={8} className="w-48 p-3 text-xs">
           <UptimeBucketTooltip bucket={bucket} />
@@ -173,7 +196,12 @@ export function UptimeHeartbeat({
   showTooltips?: boolean
   collisionBoundary?: Element | null
 }) {
+  const [selectedBucketStart, setSelectedBucketStart] = useState<number | null>(null)
   const buckets = uptimeBuckets(observations, durationMs, bucketCount)
+  function toggleTouchTooltip(bucketStart: number) {
+    setSelectedBucketStart((current) => (current === bucketStart ? null : bucketStart))
+  }
+
   const cells = (
     <div
       className={cn('dashmark-uptime-heartbeat grid grid-flow-col auto-cols-fr gap-0.5', className)}
@@ -181,7 +209,16 @@ export function UptimeHeartbeat({
       onPointerLeave={() => onBucketHover?.(undefined)}
     >
       {buckets.map((bucket) => (
-        <UptimeCell key={bucket.start} bucket={bucket} onHover={onBucketHover} showTooltips={showTooltips} collisionBoundary={collisionBoundary} />
+        <UptimeCell
+          key={bucket.start}
+          bucket={bucket}
+          onHover={onBucketHover}
+          selectedBucketStart={selectedBucketStart}
+          onTouchSelect={toggleTouchTooltip}
+          onPointerInteraction={() => setSelectedBucketStart(null)}
+          showTooltips={showTooltips}
+          collisionBoundary={collisionBoundary}
+        />
       ))}
     </div>
   )

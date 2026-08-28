@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import type { AppConfig } from './config'
+import { UPTIME_HISTORY_PERIOD_MS } from './constants'
 import { collectContainerResourceUsage } from './docker'
 import type { ContainerMetricUsage } from './docker'
 import type { ContainerResources, ResourceMetricSample, UptimeMetric, UptimeObservation } from './status'
@@ -176,7 +177,7 @@ async function collectAndSave(config: AppConfig, force = false): Promise<void> {
     cardId,
     resource,
     customMetrics: counterRates(cardId, customMetrics, timestamp),
-    uptimeMetrics: mergeUptimeMetrics(cardId, uptimeMetrics ?? latestMetricUsage.get(cardId)?.uptimeMetrics, metricsHistoryPeriodMs, timestamp),
+    uptimeMetrics: mergeUptimeMetrics(cardId, uptimeMetrics ?? latestMetricUsage.get(cardId)?.uptimeMetrics, Math.max(metricsHistoryPeriodMs, UPTIME_HISTORY_PERIOD_MS), timestamp),
     metricErrors,
     metricsHistoryPeriodMs
   }))

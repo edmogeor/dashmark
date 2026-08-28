@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-08-28
+
+### Fixed
+
+- Retain provider-supplied uptime history for 30 days, independently of resource metric history.
+- Keep selected uptime heartbeat tooltips open on touch devices.
+
+## [0.4.1] - 2026-08-28
+
 ### Changed
 
 - Render metrics panels in configured order, including built-in resource, library, and custom metrics.
