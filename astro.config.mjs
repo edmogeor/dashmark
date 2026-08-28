@@ -1,5 +1,5 @@
 import fs from 'node:fs'
-import { defineConfig } from 'astro/config'
+import { defineConfig, passthroughImageService } from 'astro/config'
 import react from '@astrojs/react'
 import node from '@astrojs/node'
 import tailwindcss from '@tailwindcss/vite'
@@ -24,6 +24,9 @@ export default defineConfig({
   base: process.env.ASTRO_BASE,
   site: process.env.ASTRO_SITE,
   adapter: node({ mode: 'standalone' }),
+  image: {
+    service: passthroughImageService()
+  },
   integrations: [react()],
   vite: {
     define: {
@@ -35,6 +38,9 @@ export default defineConfig({
       alias: {
         '@': '/src'
       }
+    },
+    ssr: {
+      noExternal: true
     }
   },
   server: {

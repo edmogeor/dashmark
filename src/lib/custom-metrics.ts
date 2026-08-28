@@ -1,11 +1,10 @@
 import { readFileSync } from 'node:fs'
 import * as cheerio from 'cheerio'
 import got from 'got'
-import jq from 'node-jq'
-import type { JsonInput } from 'node-jq/lib/options'
 import { io } from 'socket.io-client'
 import { CookieJar } from 'tough-cookie'
 import type { CustomMetricReduction, MetricOverride } from './config-file'
+import { runJq } from './jq'
 import { logger } from './logger'
 import type { UptimeObservation, UptimeStatus } from './status'
 
@@ -38,7 +37,7 @@ function reduce(values: number[], reduction: CustomMetricReduction | undefined):
 async function extractJqValue(key: string, document: unknown, metric: MetricOverride): Promise<MetricResult> {
   if (!metric.jq) return unavailable(key, 'jq extractor was not configured')
   try {
-    const value = await jq.run(metric.jq.expression, document as JsonInput, { input: 'json', output: 'json' })
+    const value = await runJq(metric.jq.expression, document)
     if (metric.valueType === 'string' || metric.valueType === 'state') return typeof value === 'string' ? { value } : unavailable(key, 'jq extraction did not produce a string')
     return typeof value === 'number' && Number.isFinite(value) ? { value } : unavailable(key, 'jq extraction did not produce a finite number')
   } catch {
@@ -74,16 +73,16 @@ function uptimeStatus(value: unknown): UptimeStatus | undefined {
 
 async function extractUptime(key: string, text: string, metric: Extract<MetricOverride, { valueType: 'uptime' }>): Promise<MetricResult> {
   try {
-    const document = JSON.parse(text) as JsonInput
+    const document = JSON.parse(text)
     return extractUptimeDocument(key, document, metric)
   } catch {
     return unavailable(key, 'response is not valid JSON')
   }
 }
 
-async function extractUptimeDocument(key: string, document: JsonInput, metric: Extract<MetricOverride, { valueType: 'uptime' }>): Promise<MetricResult> {
+async function extractUptimeDocument(key: string, document: unknown, metric: Extract<MetricOverride, { valueType: 'uptime' }>): Promise<MetricResult> {
   try {
-    const items = await jq.run(metric.jq.expression, document, { input: 'json', output: 'json' })
+    const items = await runJq(metric.jq.expression, document)
     if (!Array.isArray(items)) return unavailable(key, 'uptime observation extraction did not produce an array')
     const observations: UptimeObservation[] = []
     for (const item of items) {
@@ -105,13 +104,13 @@ async function extractUptimeDocument(key: string, document: JsonInput, metric: E
 async function collectPaginatedJq(key: string, text: string, metric: MetricOverride, request: (url: URL) => Promise<{ status: number; text: string }>): Promise<MetricResult> {
   if (!metric.pagination || !('jq' in metric)) return unavailable(key, 'pagination requires a jq extractor')
   try {
-    const items: JsonInput[] = []
-    let document = JSON.parse(text) as JsonInput
+    const items: unknown[] = []
+    let document = JSON.parse(text)
     for (let page = 0; page < MAX_PAGINATION_PAGES; page++) {
-      const pageItems = await jq.run(metric.pagination.items.expression, document, { input: 'json', output: 'json' })
+      const pageItems = await runJq(metric.pagination.items.expression, document)
       if (!Array.isArray(pageItems)) return unavailable(key, 'pagination item extraction did not produce an array')
       items.push(...pageItems)
-      const next: unknown = await jq.run(metric.pagination.next.expression, document, { input: 'json', output: 'json' })
+      const next = await runJq(metric.pagination.next.expression, document)
       if (next === 0 || next === null) {
         return metric.valueType === 'uptime' ? extractUptimeDocument(key, { items }, metric) : extractJqValue(key, { items }, metric)
       }
@@ -120,7 +119,7 @@ async function collectPaginatedJq(key: string, text: string, metric: MetricOverr
       url.searchParams.set('page', String(next))
       const response = await request(url)
       if (response.status < 200 || response.status >= 300) return unavailable(key, `pagination request returned HTTP ${response.status}`)
-      document = JSON.parse(response.text) as JsonInput
+      document = JSON.parse(response.text)
     }
     return unavailable(key, `pagination exceeded the ${MAX_PAGINATION_PAGES} page limit`)
   } catch {
@@ -133,8 +132,8 @@ async function collectForEachMetric(key: string, text: string, metric: MetricOve
   if (!forEach) return unavailable(key, 'for_each extractor was not configured')
 
   try {
-    const document = JSON.parse(text) as JsonInput
-    const extracted = await jq.run(forEach.items.expression, document, { input: 'json', output: 'json' })
+    const document = JSON.parse(text)
+    const extracted = await runJq(forEach.items.expression, document)
     if (!Array.isArray(extracted) || !extracted.every((item) => typeof item === 'string' || (typeof item === 'number' && Number.isFinite(item)))) {
       return unavailable(key, 'for_each item extraction did not produce an array of strings or finite numbers')
     }
@@ -149,8 +148,8 @@ async function collectForEachMetric(key: string, text: string, metric: MetricOve
           const url = new URL(forEach.requestUrl.replaceAll('{item}', encodeURIComponent(item)))
           const response = await request(url)
           if (response.status < 200 || response.status >= 300) throw new Error(`child request returned HTTP ${response.status}`)
-          const childDocument = JSON.parse(response.text) as JsonInput
-          const value = await jq.run(forEach.value.expression, childDocument, { input: 'json', output: 'json' })
+          const childDocument = JSON.parse(response.text)
+          const value = await runJq(forEach.value.expression, childDocument)
           if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error('child value extraction did not produce a finite number')
           return value
         })
@@ -426,7 +425,7 @@ async function extractTokens(
   for (const [name, extractor] of Object.entries(extract)) {
     if ('jq' in extractor) {
       try {
-        const value = await jq.run(extractor.jq, JSON.parse(text) as JsonInput, { input: 'json', output: 'json' })
+        const value = await runJq(extractor.jq, JSON.parse(text))
         if (typeof value !== 'string' || !value) return { error: `Token ${name} was not found` }
         tokens[name] = value
       } catch {

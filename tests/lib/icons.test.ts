@@ -16,6 +16,9 @@ describe('resolveIcon', () => {
 
   beforeEach(() => {
     global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify([{ name: 'plex.svg' }, { name: 'grafana.svg' }]), { status: 200 }))
+    vi.mocked(fs.readFileSync).mockImplementation(
+      (filePath) => (String(filePath).endsWith('icon-contrast.json') ? JSON.stringify({ 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/plex.svg': 'dark' }) : undefined) as never
+    )
   })
 
   afterEach(() => {
@@ -64,7 +67,8 @@ describe('resolveIcon', () => {
     expect(result).toEqual({
       type: 'image',
       src: 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/plex.svg',
-      alt: 'Plex'
+      alt: 'Plex',
+      contrast: 'dark'
     })
   })
 
@@ -143,7 +147,8 @@ describe('resolveIcon', () => {
     expect(result).toEqual({
       type: 'image',
       src: 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/plex.svg',
-      alt: 'Plex'
+      alt: 'Plex',
+      contrast: 'dark'
     })
   })
 

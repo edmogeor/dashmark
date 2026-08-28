@@ -8,7 +8,7 @@ import { fetchSelfhstIcons, fuzzyMatchIcon, type SelfhstIcon } from './selfhst'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
 import { SELFHST_CDN, SELFHST_PREFIX } from './constants'
-import { analyzeIconLuminance, type IconContrast } from './icon-luminance'
+import { getIconContrast, type IconContrast } from './icon-contrast'
 import { getServiceCandidates, normalizeServiceCandidate } from './service-candidates'
 
 function looksLikeUrl(value: string): boolean {
@@ -42,8 +42,8 @@ function resolveFileIcon(config: AppConfig, value: string): string | null {
 
 export type IconResult = { type: 'image'; src: string; alt: string; contrast?: IconContrast } | { type: 'placeholder'; initials: string }
 
-async function imageIcon(src: string, alt: string): Promise<IconResult> {
-  const contrast = src.startsWith(SELFHST_CDN) ? ((await analyzeIconLuminance(src)) ?? undefined) : undefined
+function imageIcon(src: string, alt: string): IconResult {
+  const contrast = src.startsWith(SELFHST_CDN) ? getIconContrast(src) : undefined
   return { type: 'image', src, alt, contrast }
 }
 

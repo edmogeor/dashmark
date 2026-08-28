@@ -3,7 +3,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 type PackageLock = {
-  packages: Record<string, { dependencies?: Record<string, string>; dev?: boolean }>
+  packages: Record<string, { dependencies?: Record<string, string>; devDependencies?: Record<string, string>; dev?: boolean }>
 }
 
 function readPackageLock(): PackageLock {
@@ -11,10 +11,11 @@ function readPackageLock(): PackageLock {
 }
 
 describe('runtime dependencies', () => {
-  it('includes the Node adapter and its standalone server dependency', () => {
+  it('keeps only the startup YAML parser outside the bundled server', () => {
     const packageLock = readPackageLock()
 
-    expect(packageLock.packages['']?.dependencies?.['@astrojs/node']).toBeDefined()
-    expect(packageLock.packages['node_modules/server-destroy']?.dev).not.toBe(true)
+    expect(packageLock.packages['']?.dependencies).toEqual({ 'js-yaml': '^4.1.0' })
+    expect(packageLock.packages['']?.devDependencies?.['@astrojs/node']).toBeDefined()
+    expect(packageLock.packages['node_modules/server-destroy']?.dev).toBe(true)
   })
 })
