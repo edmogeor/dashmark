@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Bundle server dependencies into the application build, reducing the production image dependency footprint.
+- Use Alpine's Node runtime package instead of the larger Node base image.
 - Precompute selfh.st icon contrast during the build instead of processing icons at runtime.
 - Run custom metric jq extractors with the image's system jq executable instead of the `node-jq` dependency.
 

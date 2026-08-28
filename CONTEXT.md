@@ -145,7 +145,7 @@ When group tags are enabled, matching status-badge groups appear in the header e
 
 ## Deployment
 
-- Multi-stage `node:22-alpine` image; the runtime runs `node ./scripts/start.mjs` and listens on `PORT` (default 4321). `src/data/icons.json`, `src/data/icon-contrast.json`, and `src/data/descriptions.json` are copied into the image (generated at build via `prebuild`).
+- Multi-stage image with a minimal `alpine:3.22` runtime; it installs Alpine's Node 22 LTS package and jq, then runs `node ./scripts/start.mjs` on `PORT` (default 4321). `src/data/icons.json`, `src/data/icon-contrast.json`, and `src/data/descriptions.json` are copied into the image (generated at build via `prebuild`).
 - `vite.ssr.noExternal: true` bundles application dependencies into `dist`, keeping `js-yaml` as the only runtime npm dependency for `scripts/start.mjs`. Any dependency used by a new runtime script outside `dist` must remain in `dependencies`; verify this with the runtime-dependencies test and a production build.
 - Custom metric jq extractors use the system `jq` executable. The image installs it with Alpine, and contributors need `jq` available locally to run jq metric tests.
 - Mount the Docker socket read-only (`/var/run/docker.sock:/var/run/docker.sock:ro`); Dashmark only reads container metadata.
