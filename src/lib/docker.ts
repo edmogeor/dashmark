@@ -500,13 +500,11 @@ function selectedCatalogMetrics(keys: string[] | undefined): ServiceMetricOverri
   )
 }
 
-type ResolvedContainer = {
+type ResolvedContainer = Omit<ResolvedMetricCard, 'labels'> & {
   container: DockerContainer
   name: string
   yamlKey?: string
   labels: ParsedLabels
-  customMetrics?: Record<string, MetricOverride>
-  customMetricErrors?: Record<string, string>
   url?: string
 }
 
@@ -515,7 +513,7 @@ function resolveContainer(yamlServices: Record<string, ServiceOverrides>, hostId
   const rawLabels = container.Labels ?? {}
   const labels = mergeWithYaml(parseLabels(rawLabels), yamlService)
   const url = resolveCardUrl(labels.url, rawLabels, yamlService !== undefined || hasDashmarkLabels(rawLabels))
-  const customMetrics = {
+  const metricDefinitions = {
     ...selectedCatalogMetrics(labels.metrics),
     ...yamlService?.metrics?.entryOverrides
   }
@@ -525,7 +523,8 @@ function resolveContainer(yamlServices: Record<string, ServiceOverrides>, hostId
     name: containerName(container),
     yamlKey,
     labels,
-    customMetrics: resolveMetricSources(customMetrics, url, labels.metricSources, rawLabels, yamlService?.metrics?.entryInputs),
+    metricDefinitions,
+    customMetrics: resolveMetricSources(metricDefinitions, url, labels.metricSources, rawLabels, yamlService?.metrics?.entryInputs),
     customMetricErrors: yamlService?.metrics?.entryErrors,
     url
   }
@@ -533,13 +532,14 @@ function resolveContainer(yamlServices: Record<string, ServiceOverrides>, hostId
 
 function resolveYamlMetrics(service: ServiceOverrides, url: string): ResolvedMetricCard {
   const labels = mergeWithYaml(parseLabels({}), service)
-  const customMetrics = {
+  const metricDefinitions = {
     ...selectedCatalogMetrics(labels.metrics),
     ...service?.metrics?.entryOverrides
   }
   return {
     labels,
-    customMetrics: resolveMetricSources(customMetrics, url, labels.metricSources, {}, service?.metrics?.entryInputs),
+    metricDefinitions,
+    customMetrics: resolveMetricSources(metricDefinitions, url, labels.metricSources, {}, service?.metrics?.entryInputs),
     customMetricErrors: service?.metrics?.entryErrors
   }
 }
@@ -743,7 +743,7 @@ async function cardFromContainer(config: AppConfig, resolved: ResolvedContainer,
       containerName: name
     })
   ])
-  const customMetrics = selectedCustomMetrics(resolved)
+  const customMetricLabels = selectedMetricLabels(resolved)
   const metricErrors = selectedCustomMetricErrors(resolved)
 
   return {
@@ -765,9 +765,9 @@ async function cardFromContainer(config: AppConfig, resolved: ResolvedContainer,
     usesHostNetwork: container.HostConfig?.NetworkMode === 'host',
     resourceStats: labels.resourceStats ?? [...RESOURCE_STATS],
     metrics: labels.metrics,
-    ...(customMetrics.length > 0
+    ...(customMetricLabels.length > 0
       ? {
-          customMetricLabels: customMetrics.map(([key, metric]) => ({
+          customMetricLabels: customMetricLabels.map(([key, metric]) => ({
             key,
             label: metric.label
           }))
@@ -798,7 +798,7 @@ async function cardFromYaml(config: AppConfig, name: string, service: ServiceOve
     })
   ])
   const resolved = resolveYamlMetrics(service, service.url)
-  const customMetrics = selectedCustomMetrics(resolved)
+  const customMetricLabels = selectedMetricLabels(resolved)
   const metricErrors = selectedCustomMetricErrors(resolved)
 
   return {
@@ -816,9 +816,9 @@ async function cardFromYaml(config: AppConfig, name: string, service: ServiceOve
     host: service.host,
     hostColor: service.host === undefined ? undefined : hostColor,
     metrics: resolved.labels.metrics,
-    ...(customMetrics.length > 0
+    ...(customMetricLabels.length > 0
       ? {
-          customMetricLabels: customMetrics.map(([key, metric]) => ({
+          customMetricLabels: customMetricLabels.map(([key, metric]) => ({
             key,
             label: metric.label
           }))
@@ -928,6 +928,7 @@ export type ContainerMetricUsage = {
 type SelectedCustomMetric = [key: string, metric: MetricOverride]
 type ResolvedMetricCard = {
   labels: Pick<ParsedLabels, 'resourceStats' | 'metrics' | 'metricsPollIntervalMs' | 'metricsHistoryPeriodMs' | 'metricsAccess'>
+  metricDefinitions: ServiceMetricOverrides
   customMetrics?: ServiceMetricOverrides
   customMetricErrors?: Record<string, string>
 }
@@ -950,9 +951,17 @@ type ContainerMetricSample = {
 }
 
 function selectedCustomMetrics(resolved: ResolvedMetricCard): SelectedCustomMetric[] {
-  if (!resolved.customMetrics || !resolved.labels.metrics) return []
-  return resolved.labels.metrics.flatMap((key) => {
+  if (!resolved.customMetrics) return []
+  return selectedMetricLabels(resolved).flatMap(([key]) => {
     const metric = resolved.customMetrics?.[key]
+    return metric ? [[key, metric]] : []
+  })
+}
+
+function selectedMetricLabels(resolved: ResolvedMetricCard): SelectedCustomMetric[] {
+  if (!resolved.labels.metrics) return []
+  return resolved.labels.metrics.flatMap((key) => {
+    const metric = resolved.metricDefinitions[key]
     return metric ? [[key, metric]] : []
   })
 }

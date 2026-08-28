@@ -4,6 +4,8 @@ import { DEFAULT_METRICS_POLL_INTERVAL_MS } from '@/lib/constants'
 import { demoResourceUsage } from '@/demo/resources'
 import { demoUptimeMetrics } from '@/demo/uptime'
 
+const PENDING_METRICS_RETRY_MS = 1_000
+
 type MetricUsage = {
   resources: ContainerResources | null
   history: ResourceMetricSample[]
@@ -93,7 +95,7 @@ export function useMetrics(cardId: string, enabled: boolean, active: boolean, in
         controller = undefined
         if (!stopped) {
           setLoading(pending)
-          timeout = setTimeout(poll, pollIntervalMs)
+          timeout = setTimeout(poll, pending ? PENDING_METRICS_RETRY_MS : pollIntervalMs)
         }
       }
     }

@@ -25,6 +25,7 @@ const lastMetricCollection = new Map<string, number>()
 const latestMetricUsage = new Map<string, ContainerMetricUsage>()
 const customMetricCounterCache = new Map<string, { value: number; timestamp: number }>()
 const uptimeMetricCache = new Map<string, UptimeObservation[]>()
+const NETWORK_RATE_PRIME_DELAY_MS = 1_000
 
 export function counterRates(cardId: string, metrics: ContainerMetricUsage['customMetrics'], timestamp: number): ContainerMetricUsage['customMetrics'] {
   return metrics.flatMap((metric) => {
@@ -164,10 +165,10 @@ function pruneMetricHistory(config: AppConfig, timestamp: number): void {
   db.prepare('DELETE FROM metric_samples WHERE timestamp < ?').run(cutoff)
 }
 
-async function collectAndSave(config: AppConfig): Promise<void> {
+async function collectAndSave(config: AppConfig, force = false): Promise<void> {
   const samples = await collectContainerResourceUsage(config, (cardId, pollIntervalMs) => {
     const previous = lastMetricCollection.get(cardId)
-    return previous === undefined || Date.now() - previous >= pollIntervalMs
+    return force || previous === undefined || Date.now() - previous >= pollIntervalMs
   })
   const timestamp = Date.now()
   const db = database(config.metricsDatabasePath)
@@ -203,10 +204,10 @@ async function collectAndSave(config: AppConfig): Promise<void> {
   }
 }
 
-function collectInBackground(config: AppConfig): void {
-  if (collectionInProgress) return
+function collectInBackground(config: AppConfig, force = false): Promise<void> | undefined {
+  if (collectionInProgress) return undefined
   collectionInProgress = true
-  void collectAndSave(config)
+  return collectAndSave(config, force)
     .catch(() => undefined)
     .finally(() => {
       collectionInProgress = false
@@ -220,7 +221,13 @@ export function getLatestMetricUsage(cardId: string): ContainerMetricUsage | und
 export function startMetricsCollection(config: AppConfig): void {
   if (collectionStarted || !config.showMetrics) return
   collectionStarted = true
-  collectInBackground(config)
+  const initialCollection = collectInBackground(config)
+  if (initialCollection) {
+    void initialCollection.then(() => {
+      const timer = setTimeout(() => collectInBackground(config, true), NETWORK_RATE_PRIME_DELAY_MS)
+      timer.unref()
+    })
+  }
   const timer = setInterval(() => collectInBackground(config), config.metricsPollIntervalMs)
   timer.unref()
 }
