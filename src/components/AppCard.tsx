@@ -72,8 +72,9 @@ function AppIcon({ icon, title, asCard }: { icon: CardType['icon']; title: strin
   const [error, setError] = useState(false)
   const src = useContrastAwareSrc(icon)
   return icon.type === 'image' && src && !error ? (
-    <div className={cn('dashmark-app-icon flex aspect-square shrink-0 self-stretch items-center justify-center rounded-[45%]', asCard ? 'bg-surface dark:bg-background' : 'bg-card')}>
-      <img src={src} alt={icon.alt} className="h-full w-full rounded-[inherit] object-contain p-3.5" loading="lazy" onError={() => setError(true)} />
+    <div className={cn('dashmark-app-icon flex aspect-square shrink-0 self-stretch items-center justify-center rounded-[45%] p-4', asCard ? 'bg-surface dark:bg-background' : 'bg-card')}>
+      <img src={src} alt={icon.alt} className="h-full w-full object-contain" loading="lazy" onError={() => setError(true)} />
+      <span aria-hidden="true" className="dashmark-app-icon-glimmer" />
     </div>
   ) : (
     <InitialsPlaceholder title={title} asCard={asCard} />
