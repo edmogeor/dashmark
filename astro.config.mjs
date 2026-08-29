@@ -18,6 +18,7 @@ const parsedPort = Number(yamlPort() ?? process.env.PORT)
 const port = Number.isInteger(parsedPort) && parsedPort > 0 && parsedPort <= 65_535 ? parsedPort : 4321
 const demoEnabled = process.env.DASHMARK_DEMO === 'true'
 const demoVersion = process.env.DASHMARK_DEMO_VERSION?.replace(/^v/, '') ?? ''
+const bundleServerDependencies = process.argv.includes('build')
 
 export default defineConfig({
   output: 'server',
@@ -40,7 +41,7 @@ export default defineConfig({
       }
     },
     ssr: {
-      noExternal: true
+      noExternal: bundleServerDependencies ? true : []
     }
   },
   server: {

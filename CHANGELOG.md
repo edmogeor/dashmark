@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Prevent service icons from being clipped by the squircle mask.
+- Avoid bundling all server dependencies during development.
 
 ### Changed
 
