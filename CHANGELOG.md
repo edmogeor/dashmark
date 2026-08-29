@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.9] - 2026-08-29
+
+### Fixed
+
+- Restore hover and keyboard tooltips for uptime history buckets.
+
 ## [0.4.8] - 2026-08-29
 
 ### Performance
