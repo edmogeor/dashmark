@@ -3,6 +3,7 @@ type ChartViewBox = { y?: number; height?: number }
 
 const LABEL_HEIGHT = 24
 const LABEL_GAP = 4
+const X_AXIS_CLEARANCE = 8
 
 export function chartDomain(values: number[]): [number, number] {
   const finiteValues = values.filter(Number.isFinite)
@@ -36,7 +37,7 @@ export function endLabelOffset(key: string, y: number, labels: ChartEndLabel[], 
   }
 
   const minimumTop = top
-  const maximumTop = top + height - LABEL_HEIGHT
+  const maximumTop = top + height - LABEL_HEIGHT - X_AXIS_CLEARANCE
   let shift = -Math.max(0, positions.at(-1)!.top - maximumTop)
   shift += Math.max(0, minimumTop - (positions[0]!.top + shift))
   const position = positions.find((label) => label.key === key)

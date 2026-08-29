@@ -175,7 +175,7 @@ function UptimeCell({
             onBlur={onBlur}
           />
         </TooltipTrigger>
-        <TooltipContent side="top" collisionBoundary={collisionBoundary} collisionPadding={8} className="w-48 p-3 text-xs">
+        <TooltipContent side="top" sideOffset={8} collisionBoundary={collisionBoundary} collisionPadding={8} className="w-48 p-3 text-xs">
           <UptimeBucketTooltip bucket={bucket} />
         </TooltipContent>
       </Tooltip>

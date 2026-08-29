@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.10] - 2026-08-29
+
+### Changed
+
+- Remove gradients from modal dialogs.
+- Add space between uptime graph buckets and their tooltips.
+
+### Fixed
+
+- Keep live chart value labels clear of x-axis labels.
+
 ## [0.4.9] - 2026-08-29
 
 ### Fixed

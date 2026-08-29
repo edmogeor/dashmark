@@ -38,4 +38,10 @@ describe('endLabelOffset', () => {
     expect(0 - 12 + first).toBeGreaterThanOrEqual(0)
     expect(2 - 12 + second).toBeGreaterThanOrEqual(0)
   })
+
+  it('reserves space for x-axis labels below the plot', () => {
+    const offset = endLabelOffset('last', 200, [{ key: 'last', value: 0 }], [0, 100], { y: 0, height: 200 })
+
+    expect(200 - 12 + offset + 24).toBeLessThanOrEqual(192)
+  })
 })
