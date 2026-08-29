@@ -123,9 +123,10 @@ type AnimatedGridItemProps = {
   isReentry?: boolean
   delay?: number
   animate?: boolean
+  enableLayout?: boolean
 }
 
-function AnimatedGridItem({ children, className, style, layoutId, dataIndex, measureElement, isReentry = false, delay = 0, animate = true }: AnimatedGridItemProps) {
+function AnimatedGridItem({ children, className, style, layoutId, dataIndex, measureElement, isReentry = false, delay = 0, animate = true, enableLayout = true }: AnimatedGridItemProps) {
   const hidden = isReentry ? { opacity: 0 } : { opacity: 0, y: 12 }
   const shown = isReentry ? { opacity: 1 } : { opacity: 1, y: 0 }
 
@@ -136,7 +137,7 @@ function AnimatedGridItem({ children, className, style, layoutId, dataIndex, mea
       data-index={dataIndex}
       className={className}
       style={style}
-      layout="position"
+      layout={enableLayout ? 'position' : false}
       initial={hidden}
       animate={animate ? shown : hidden}
       exit={{ opacity: 0, transition: { duration: 0.15, ease: 'easeOut' } }}
@@ -215,7 +216,8 @@ function MasonryGrid({ items, entries, onReady, animate, showStatus, showMetrics
     if (!el) return
 
     const measure = () => {
-      setWidth(el.getBoundingClientRect().width)
+      const width = el.getBoundingClientRect().width
+      setWidth((current) => (current === width ? current : width))
     }
     measure()
 
@@ -241,7 +243,8 @@ function MasonryGrid({ items, entries, onReady, animate, showStatus, showMetrics
     overscan: MASONRY_OVERSCAN,
     estimateSize: (index) => estimateCategoryHeight(index, items),
     getItemKey: (index) => items[index]?.key ?? index,
-    measureElement
+    measureElement,
+    useAnimationFrameWithResizeObserver: true
   })
 
   const itemsKey = itemsSignature(items)
@@ -279,6 +282,7 @@ function MasonryGrid({ items, entries, onReady, animate, showStatus, showMetrics
                   isReentry={entry?.isReentry}
                   delay={delay}
                   animate={animate}
+                  enableLayout={enableCardLayout}
                   style={{
                     top: virtualItem.start,
                     left: virtualItem.lane * (columnWidth + COLUMN_GUTTER),
