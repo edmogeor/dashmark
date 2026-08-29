@@ -25,7 +25,7 @@ const DialogContent = React.forwardRef<React.ComponentRef<typeof DialogPrimitive
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'dashmark-dialog-content fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border bg-background p-6 shadow-lg sm:w-full',
+        'dashmark-dialog-content dashmark-card-gradient fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border bg-background p-6 shadow-lg sm:w-full',
         className
       )}
       {...props}
@@ -45,7 +45,7 @@ DialogContent.displayName = DialogPrimitive.Content.displayName
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => <div className={cn('flex flex-col space-y-1.5 text-center sm:text-left', className)} {...props} />
 
 const DialogTitle = React.forwardRef<React.ComponentRef<typeof DialogPrimitive.Title>, React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>>(({ className, ...props }, ref) => (
-  <DialogPrimitive.Title ref={ref} className={cn('text-lg font-semibold leading-none tracking-tight', className)} {...props} />
+  <DialogPrimitive.Title ref={ref} className={cn('text-lg font-[550] leading-none', className)} {...props} />
 ))
 DialogTitle.displayName = DialogPrimitive.Title.displayName
 

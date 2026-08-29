@@ -50,7 +50,7 @@ function InitialsPlaceholder({ title, asCard }: { title: string; asCard: boolean
   return (
     <div
       className={cn(
-        'dashmark-app-icon dashmark-app-icon-placeholder flex h-12 w-12 items-center justify-center rounded-lg pl-1 text-sm font-semibold text-foreground/50',
+        'dashmark-app-icon dashmark-app-icon-placeholder flex aspect-square shrink-0 self-stretch items-center justify-center rounded-[45%] pl-1 text-xl font-[550] text-foreground/50',
         asCard ? 'bg-surface dark:bg-background' : 'bg-card'
       )}
     >
@@ -72,7 +72,9 @@ function AppIcon({ icon, title, asCard }: { icon: CardType['icon']; title: strin
   const [error, setError] = useState(false)
   const src = useContrastAwareSrc(icon)
   return icon.type === 'image' && src && !error ? (
-    <img src={src} alt={icon.alt} className="dashmark-app-icon h-12 w-12 object-contain pl-1" loading="lazy" onError={() => setError(true)} />
+    <div className={cn('dashmark-app-icon flex aspect-square shrink-0 self-stretch items-center justify-center rounded-[45%]', asCard ? 'bg-surface dark:bg-background' : 'bg-card')}>
+      <img src={src} alt={icon.alt} className="h-full w-full rounded-[inherit] object-contain p-3.5" loading="lazy" onError={() => setError(true)} />
+    </div>
   ) : (
     <InitialsPlaceholder title={title} asCard={asCard} />
   )
@@ -162,7 +164,7 @@ function AppCardActions({
             <TooltipTrigger asChild>
               <button
                 type="button"
-                className="dashmark-app-description-trigger card-action-button cursor-pointer rounded-full p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
+                className="dashmark-app-description-trigger card-action-button cursor-pointer rounded-full p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0 dark:hover:text-muted-foreground/70"
                 onClick={(event) => event.preventDefault()}
                 onPointerDown={(event) => onPointerDown(event, descriptionId)}
               >
@@ -212,7 +214,7 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showMetr
   const className = cn(
     'dashmark-app-card group/card h-full overflow-hidden transition-[background-color,translate] not-has-[.card-action-button:hover]:hover:-translate-y-0.5',
     asCard
-      ? 'min-w-0 bg-card not-has-[.card-action-button:hover]:hover:bg-surface-hover not-has-[.card-action-button:active]:active:bg-surface-hover dark:not-has-[.card-action-button:hover]:hover:bg-accent dark:not-has-[.card-action-button:active]:active:bg-accent'
+      ? 'dashmark-card-gradient min-w-0 bg-card not-has-[.card-action-button:hover]:hover:bg-surface-hover not-has-[.card-action-button:active]:active:bg-surface-hover dark:not-has-[.card-action-button:hover]:hover:bg-accent dark:not-has-[.card-action-button:active]:active:bg-accent'
       : 'min-w-0 border-0 bg-surface shadow-none not-has-[.card-action-button:hover]:hover:bg-surface-hover not-has-[.card-action-button:active]:active:bg-surface-hover'
   )
   return (
@@ -240,11 +242,11 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showMetr
         }}
       >
         <Card className={className}>
-          <CardContent className="dashmark-app-content relative flex min-h-24 items-center gap-5 p-3">
+          <CardContent className="dashmark-app-content relative flex h-24 items-center gap-3 p-3">
             <AppIcon icon={card.icon} title={card.title} asCard={asCard} />
             <div className="dashmark-app-details flex min-w-0 flex-1 flex-col gap-2">
               <div className="dashmark-app-header flex min-w-0">
-                <MarqueeText className={cn('dashmark-app-title min-w-0 flex-1 text-sm font-semibold sm:text-[0.9375rem] lg:text-base', hasActions && 'mr-[65px]')}>{card.title}</MarqueeText>
+                <MarqueeText className={cn('dashmark-app-title min-w-0 flex-1 text-sm font-[550] sm:text-[0.9375rem] lg:text-base', hasActions && 'mr-[65px]')}>{card.title}</MarqueeText>
               </div>
               <MarqueeText className="dashmark-app-url text-xs text-muted-foreground">{card.url}</MarqueeText>
               {showBadge && (

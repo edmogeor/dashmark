@@ -223,7 +223,7 @@ export const MetricDetailDialog = memo(function MetricDetailDialog({ detail, onO
         {currentDetail && (
           <>
             <DialogHeader className="dashmark-metric-dialog-header !flex-row !items-center !justify-between !space-y-0">
-              <DialogTitle className="dashmark-metric-dialog-title flex h-4 items-center gap-2 text-sm leading-none font-medium tracking-[0.16em] text-muted-foreground uppercase">
+              <DialogTitle className="dashmark-metric-dialog-title flex h-4 items-center gap-2 text-sm leading-none font-medium tracking-[0.18em] text-muted-foreground uppercase">
                 <Gauge className="h-4 w-4 shrink-0" aria-hidden="true" />
                 {currentDetail.label}
               </DialogTitle>

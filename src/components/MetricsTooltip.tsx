@@ -401,9 +401,9 @@ export function MetricsTooltip(props: Props) {
   return (
     <TooltipContent side="top" align="center" collisionPadding={16} className="dashmark-app-resources w-60 p-3" data-card-id={card.id}>
       <div className="dashmark-app-resources-header mb-3 flex items-baseline justify-between gap-3 border-b pb-2">
-        <span className="dashmark-app-resources-title text-[0.6875rem] leading-none font-medium tracking-[0.16em] text-muted-foreground uppercase">Metrics</span>
+        <span className="dashmark-app-resources-title text-[0.6875rem] leading-none font-medium tracking-[0.18em] text-muted-foreground uppercase">Metrics</span>
         {card.host && (
-          <span className={cn('dashmark-app-resource-host inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', badgeColor(card.hostColor ?? 0))}>
+          <span className={cn('dashmark-app-resource-host inline-flex select-none items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium', badgeColor(card.hostColor ?? 0))}>
             <Server className="h-3 w-3" aria-hidden="true" />
             {card.host}
           </span>

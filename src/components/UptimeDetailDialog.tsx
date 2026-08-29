@@ -38,7 +38,7 @@ export function UptimeDetailDialog({ metric, onOpenChange }: { metric: UptimeMet
         {currentMetric && (
           <>
             <DialogHeader className="dashmark-metric-dialog-header !flex-row !items-center !justify-between !space-y-0">
-              <DialogTitle className="flex items-center gap-2 text-sm font-medium tracking-[0.16em] text-muted-foreground uppercase">
+              <DialogTitle className="flex items-center gap-2 text-sm font-medium tracking-[0.18em] text-muted-foreground uppercase">
                 <Gauge className="h-4 w-4 shrink-0" aria-hidden="true" />
                 {currentMetric.label}
               </DialogTitle>
@@ -73,7 +73,7 @@ export function UptimeDetailDialog({ metric, onOpenChange }: { metric: UptimeMet
             </DialogHeader>
             <div className="space-y-6 pt-2">
               <div>
-                <p className="text-3xl font-semibold tabular-nums">{formatPercent(percent)}</p>
+                <p className="text-3xl font-[550] tabular-nums">{formatPercent(percent)}</p>
                 <p className="text-xs text-muted-foreground">availability for the selected period</p>
               </div>
               <UptimeHeartbeat

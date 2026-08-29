@@ -64,7 +64,7 @@ export function formatUptimeBucketTime(timestamp: number): string {
   }).format(timestamp)
   const relativeDay = timestamp >= startOfDay ? 'Today' : timestamp >= yesterday ? 'Yesterday' : timestamp >= startOfWeek ? day : calendarDate
   const time = new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
+    hour: '2-digit',
     minute: '2-digit'
   }).format(date)
   return `${relativeDay}, ${time}`

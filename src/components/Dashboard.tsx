@@ -21,12 +21,14 @@ import { badgeColor } from '@/lib/badge-color'
 import { STATUS_POLL_INTERVAL_MS, TOOLTIP_DELAY_MS } from '@/lib/constants'
 import { TooltipControllerProvider, useTooltipController } from './tooltip-controller'
 import { AboutDialog } from './AboutDialog'
+import { useIsDark } from '@/lib/use-is-dark'
 
 const COLUMN_WIDTH = 300
 const COLUMN_GUTTER = 20
 const MASONRY_OVERSCAN = 3
 const POSITION_TRANSITION: Transition = { duration: 0.25, ease: 'easeOut' }
-const brandMarkPath = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/brand/logo-mark.svg`
+const brandMarkDarkPath = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/brand/logo-mark-dark.svg`
+const brandMarkLightPath = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/brand/logo-mark-light.svg`
 
 function measureElement<T extends Element>(element: T, entry: ResizeObserverEntry | undefined, instance: Virtualizer<Window, T>): number {
   const borderBox = entry?.borderBoxSize
@@ -49,7 +51,7 @@ function estimateCategoryHeight(index: number, items: CategoryItem[]): number {
 
 function GroupBadge({ group, colorIndex }: { group: string; colorIndex: number }) {
   return (
-    <span className={cn('dashmark-group-badge inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium', badgeColor(colorIndex))}>
+    <span className={cn('dashmark-group-badge inline-flex select-none items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium', badgeColor(colorIndex))}>
       <User className="h-3.5 w-3.5" />
       {group}
     </span>
@@ -77,14 +79,14 @@ function UserGroupsBadge({ groups, colorOffset }: { groups: string[]; colorOffse
               <button
                 type="button"
                 aria-label={`Show ${groups.length - 1} more groups`}
-                className="dashmark-group-badge dashmark-group-badge-overflow inline-flex cursor-help items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="dashmark-group-badge dashmark-group-badge-overflow inline-flex cursor-help select-none items-center rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 onClick={(event) => event.preventDefault()}
                 onPointerDown={handleMoreGroupsPointerDown}
               >
                 +{groups.length - 1}
               </button>
             </TooltipTrigger>
-            <TooltipContent side="bottom" align="end" collisionPadding={16} className="flex flex-col items-start gap-1.5">
+            <TooltipContent side="bottom" sideOffset={6} align="end" collisionPadding={16} className="flex flex-col items-start gap-1.5 py-2.5">
               {groups.slice(1).map((group, index) => (
                 <GroupBadge key={group} group={group} colorIndex={colorOffset + index + 1} />
               ))}
@@ -102,7 +104,7 @@ function ErrorPanel({ error }: { error: DashmarkError }) {
       <div className="dashmark-error-panel mx-auto flex w-full max-w-xl gap-4 rounded-lg border border-error-border bg-error-bg p-6 text-error-text">
         <CircleAlert className="mt-0.5 h-5 w-5 shrink-0" />
         <div className="min-w-0">
-          <p className="font-semibold">{strings.errors.unableToLoadServices}</p>
+          <p className="font-[550]">{strings.errors.unableToLoadServices}</p>
           <p className="mt-1 text-sm">{error.message}</p>
           {error.detail && <p className="mt-2 whitespace-pre-wrap text-xs opacity-80">{error.detail}</p>}
         </div>
@@ -158,9 +160,9 @@ type CategoryColumnProps = {
 function CategoryColumn({ data, twoColumn, showStatus, showMetrics, isLoading, openInNewTab, enableCardLayout }: CategoryColumnProps) {
   const { category, cards } = data
   return (
-    <Card className="dashmark-category @container overflow-hidden">
+    <Card className="dashmark-category dashmark-card-gradient @container overflow-hidden">
       <CardHeader className="dashmark-category-header p-5 pb-3">
-        <CardTitle className="dashmark-category-title text-xs uppercase tracking-widest text-muted-foreground">{category}</CardTitle>
+        <CardTitle className="dashmark-category-title text-xs uppercase tracking-[0.18em] text-muted-foreground">{category}</CardTitle>
       </CardHeader>
       <CardContent className="p-5 pt-0">
         <div className={cn('dashmark-category-apps grid grid-cols-1 gap-4', twoColumn && '@[520px]:grid-cols-2')}>
@@ -331,7 +333,7 @@ type DashboardGreetingProps = {
 function DashboardGreeting({ greeting, showGroups, userGroups, groupColorOffset, hasSearch }: DashboardGreetingProps) {
   return (
     <div className={`dashmark-greeting-container flex items-end justify-between ${hasSearch ? 'mb-4' : ''}`}>
-      <h1 className="dashmark-greeting text-xl leading-[1.2] font-semibold tracking-tight sm:text-[1.375rem] lg:text-2xl">{greeting}</h1>
+      <h1 className="dashmark-greeting text-xl leading-[1.2] font-[550] tracking-[-0.02em] sm:text-[1.375rem] lg:text-2xl">{greeting}</h1>
       <div className="flex shrink-0 items-center gap-3">
         {showGroups && userGroups.length > 0 && <UserGroupsBadge groups={userGroups} colorOffset={groupColorOffset} />}
         <AboutDialog />
@@ -353,8 +355,10 @@ type DashboardSearchPanelProps = {
 }
 
 function DashboardSearchPanel({ showBranding, search, setSearch, error, categories, hasCategories, totalCards, selectedCategory, setSelectedCategory }: DashboardSearchPanelProps) {
+  const brandMarkPath = useIsDark() ? brandMarkLightPath : brandMarkDarkPath
+
   return (
-    <Card className="dashmark-search-panel overflow-hidden bg-surface shadow-none">
+    <Card className="dashmark-search-panel dashmark-card-gradient overflow-hidden bg-background shadow-none dark:bg-surface">
       <CardContent className="dashmark-search-panel-content flex flex-row items-center gap-4 p-5">
         {showBranding && <img src={brandMarkPath} alt="Dashmark" className="dashmark-brand h-8 w-8 shrink-0" />}
         <div className="min-w-0 flex-1">

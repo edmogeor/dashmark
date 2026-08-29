@@ -4,6 +4,17 @@
  */
 
 :root {
+  /* Light surface variables:
+   * --background
+   * --card
+   * --surface
+   * --surface-hover
+   * --surface-active
+   * --popover
+   * --secondary
+   * --muted
+   * --accent
+   */
   /* Badge variables:
    * --dashmark-badge-color-0
    * --dashmark-badge-color-1
@@ -34,6 +45,20 @@
    * --dashmark-status-warning
    * --dashmark-status-error
    * --dashmark-status-disabled
+  */
+}
+
+.dark {
+  /* Dark surface variables:
+   * --background
+   * --card
+   * --surface
+   * --surface-hover
+   * --surface-active
+   * --popover
+   * --secondary
+   * --muted
+   * --accent
    */
 }
 
@@ -47,6 +72,10 @@
 
 .dashmark-content {
   /* The centered content container. */
+}
+
+.dashmark-card-gradient {
+  /* The shared subtle gradient on cards and tooltips. */
 }
 
 .dashmark-results {
@@ -138,7 +167,11 @@
 }
 
 .dashmark-app-icon {
-  /* An app image icon or initials placeholder. */
+  /* An app image icon or initials placeholder, including its static gradient and outline. */
+}
+
+.dashmark-app-icon::after {
+  /* The app-icon glimmer shown when its card is hovered. */
 }
 
 .dashmark-app-title {

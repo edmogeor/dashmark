@@ -20,7 +20,7 @@
 
 Dashmark finds Docker containers with `dashmark.*` labels and displays them as cards. It is a self-hosted Node.js service built with Astro.
 
-![Dashmark dashboard](assets/screenshot.jpg)
+![Dashmark dashboard](assets/screenshot.jpeg)
 
 <p align="center"><a href="https://edmogeor.github.io/dashmark/demo/" target="_blank" rel="noreferrer">View the live demo</a> | <a href="https://edmogeor.github.io/dashmark/docs/">Read the documentation</a></p>
 

@@ -45,5 +45,5 @@ export function StatusBadge({ state, health, loading, asCard = false }: StatusBa
 
   const colorClass = getColorClass(display.toLowerCase())
 
-  return <span className={cn('dashmark-app-status dashmark-state-badge inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium', colorClass)}>{statusLabel(display)}</span>
+  return <span className={cn('dashmark-app-status dashmark-state-badge inline-flex select-none items-center rounded-full px-2.5 py-1 text-xs font-medium', colorClass)}>{statusLabel(display)}</span>
 }

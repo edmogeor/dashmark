@@ -6,7 +6,7 @@ import { APP_VERSION, BUY_ME_A_COFFEE_URL, GITHUB_URL } from '@/lib/version'
 
 type VersionResponse = { version: string; update?: { tagName: string; url: string } }
 
-const brandMarkPath = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/brand/logo-mark.svg`
+const brandIconPath = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/brand/icon.svg`
 const versionApiPath = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/api/version`
 const isDemo = __DASHMARK_DEMO__
 const displayedVersion = isDemo && __DASHMARK_DEMO_VERSION__ ? __DASHMARK_DEMO_VERSION__ : undefined
@@ -40,14 +40,14 @@ export function AboutDialog() {
         <button
           type="button"
           aria-label="About Dashmark"
-          className="dashmark-about-button inline-flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+          className="dashmark-about-button inline-flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none dark:hover:text-muted-foreground/70"
         >
           <Info className="h-4 w-4" />
         </button>
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader className="items-center text-center">
-          <img src={brandMarkPath} alt="" className="mb-2 h-10 w-10" />
+          <img src={brandIconPath} alt="" className="mb-2 h-12 w-12" />
           <DialogTitle>Dashmark</DialogTitle>
           <DialogDescription>A lightweight dashboard of links to your Docker services.</DialogDescription>
           <p className="text-sm text-muted-foreground">
