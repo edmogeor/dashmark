@@ -1227,6 +1227,36 @@ backup:
     expect(String(got.mock.calls[0]?.[0])).toBe('http://metrics.example.test/api/endpoints/media-servers_plex---main/statuses')
   })
 
+  it('uses persisted uptime history before choosing an incremental query', async () => {
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.dockerHosts = undefined
+    config.configFile = writeTempConfig(`
+service:
+  url: https://service.example.test
+  metrics:
+    entries:
+      uptime:
+        display: { label: Uptime }
+        value: { kind: uptime }
+        source:
+          url: https://metrics.example.test/history
+          query: { limit: 100 }
+          initial: { query: { limit: 10000 } }
+        extract:
+          jq: '[.results[] | { timestamp, status: (if .success then "up" else "down" end) }]'
+`)
+    config.metricsDatabasePath = path.join(path.dirname(config.configFile), 'metrics.db')
+    mockGotResponse(`{"results":[{"timestamp":"${new Date().toISOString()}","success":true}]}`)
+
+    await getContainerMetricUsage(config, new Headers(), 'yaml-service')
+    mockGotResponse(`{"results":[{"timestamp":"${new Date().toISOString()}","success":true}]}`)
+    await getContainerMetricUsage(config, new Headers(), 'yaml-service')
+
+    expect(String(got.mock.calls[0]?.[0])).toBe('https://metrics.example.test/history?limit=10000')
+    expect(String(got.mock.calls[1]?.[0])).toBe('https://metrics.example.test/history?limit=100')
+  })
+
   it('falls back to the card URL for {metric_source} custom metric sources', async () => {
     server.containers = [
       {

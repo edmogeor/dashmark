@@ -43,7 +43,6 @@ export const FUZZY_REFERENCE_WEIGHT = 0.7
 export const FUZZY_NAME_WEIGHT = 0.3
 
 export const ICON_CACHE_MAX_AGE = 3600
-export const ICON_LUMINANCE_CACHE_MAX_ENTRIES = 500
 export const ICON_MIME_TYPES: Record<string, string> = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',

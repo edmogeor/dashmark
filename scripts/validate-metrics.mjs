@@ -139,10 +139,16 @@ function validatePagination(pagination) {
 function validateSource(source) {
   const value = record(source, 'source must be a mapping')
   if (value.transport === 'socketio') return validateSocketIoSource(value)
-  allowed(value, new Set(['url', 'method', 'form', 'json', 'headers', 'query', 'authentication']), 'source')
+  allowed(value, new Set(['url', 'method', 'form', 'json', 'headers', 'query', 'initial', 'authentication']), 'source')
   const request = { ...value }
   delete request.authentication
+  delete request.initial
   validateRequest(request, 'source', value.authentication?.kind === 'cookie_session')
+  if (value.initial !== undefined) {
+    const initial = record(value.initial, 'source.initial must be a mapping')
+    allowed(initial, new Set(['query']), 'source.initial')
+    validateSecretMappings({ query: initial.query }, 'source.initial.query')
+  }
   if (value.authentication !== undefined) validateHttpAuth(value.authentication)
 }
 

@@ -14,6 +14,27 @@ const MAX_FOR_EACH_ITEMS = 32
 const FOR_EACH_CONCURRENCY = 4
 const MAX_PAGINATION_PAGES = 32
 const cookieJars = new Map<string, CookieJar>()
+const requestQueues = new Map<string, Promise<void>>()
+
+async function queueRequest<T>(origin: string, request: () => Promise<T>): Promise<T> {
+  const previous = requestQueues.get(origin) ?? Promise.resolve()
+  let release: () => void
+  const next = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  requestQueues.set(
+    origin,
+    previous.then(() => next)
+  )
+
+  await previous
+  try {
+    return await request()
+  } finally {
+    release!()
+    if (requestQueues.get(origin) === next) requestQueues.delete(origin)
+  }
+}
 
 export type MetricResult = { value: number | string } | { observations: UptimeObservation[] } | { error: string }
 
@@ -339,35 +360,37 @@ async function requestText(
   method: 'GET' | 'POST',
   body?: { form?: Record<string, string>; json?: Record<string, JsonValue> }
 ): Promise<{ status: number; text: string }> {
-  const controller = new AbortController()
-  let responseTooLarge = false
-  const request = got(url, {
-    headers: Object.fromEntries(headers),
-    cookieJar,
-    followRedirect: false,
-    retry: { limit: 0 },
-    throwHttpErrors: false,
-    timeout: { request: REQUEST_TIMEOUT_MS },
-    signal: controller.signal,
-    resolveBodyOnly: false,
-    responseType: 'buffer',
-    method,
-    ...(body?.form ? { form: body.form } : {}),
-    ...(body?.json ? { json: body.json } : {})
-  })
-  request.on('downloadProgress', ({ total, transferred }) => {
-    if ((total !== undefined && total > MAX_RESPONSE_BYTES) || transferred > MAX_RESPONSE_BYTES) {
-      responseTooLarge = true
-      controller.abort()
+  return queueRequest(url.origin, async () => {
+    const controller = new AbortController()
+    let responseTooLarge = false
+    const request = got(url, {
+      headers: Object.fromEntries(headers),
+      cookieJar,
+      followRedirect: false,
+      retry: { limit: 0 },
+      throwHttpErrors: false,
+      timeout: { request: REQUEST_TIMEOUT_MS },
+      signal: controller.signal,
+      resolveBodyOnly: false,
+      responseType: 'buffer',
+      method,
+      ...(body?.form ? { form: body.form } : {}),
+      ...(body?.json ? { json: body.json } : {})
+    })
+    request.on('downloadProgress', ({ total, transferred }) => {
+      if ((total !== undefined && total > MAX_RESPONSE_BYTES) || transferred > MAX_RESPONSE_BYTES) {
+        responseTooLarge = true
+        controller.abort()
+      }
+    })
+    try {
+      const response = await request
+      return { status: response.statusCode, text: Buffer.from(response.body).toString() }
+    } catch (error) {
+      if (responseTooLarge) throw new Error(`response exceeds ${MAX_RESPONSE_BYTES} bytes`)
+      throw error
     }
   })
-  try {
-    const response = await request
-    return { status: response.statusCode, text: Buffer.from(response.body).toString() }
-  } catch (error) {
-    if (responseTooLarge) throw new Error(`response exceeds ${MAX_RESPONSE_BYTES} bytes`)
-    throw error
-  }
 }
 
 type PreparedMetricRequest = {
@@ -381,7 +404,8 @@ async function prepareMetricRequest(
   cookieJar: CookieJar,
   targetUrl: URL,
   authenticated: boolean,
-  includeSourceValues: boolean
+  includeSourceValues: boolean,
+  query = metric.source.query
 ): Promise<{ request?: PreparedMetricRequest; error?: string }> {
   const authResult = authenticated ? await login(metric, cookieJar) : { tokens: {} }
   if (authResult.error) return { error: authResult.error }
@@ -395,7 +419,7 @@ async function prepareMetricRequest(
     if (tokenAuthError) return { error: tokenAuthError }
   }
   if (includeSourceValues) {
-    const queryError = resolveQuery(metric, url, metric.source.query ?? {}, authResult.tokens)
+    const queryError = resolveQuery(metric, url, query ?? {}, authResult.tokens)
     if (queryError) return { error: queryError }
     const body = resolveBody(metric, metric.source.form, metric.source.json, authResult.tokens ?? {})
     if (body.error || !body.value) return { error: body.error ?? 'Could not resolve a metric value' }
@@ -404,14 +428,20 @@ async function prepareMetricRequest(
   return { request: { url, headers } }
 }
 
-async function requestMetric(metric: MetricOverride, cookieJar: CookieJar, targetUrl: URL, includeSourceValues: boolean): Promise<{ response?: { status: number; text: string }; error?: string }> {
+async function requestMetric(
+  metric: MetricOverride,
+  cookieJar: CookieJar,
+  targetUrl: URL,
+  includeSourceValues: boolean,
+  query = metric.source.query
+): Promise<{ response?: { status: number; text: string }; error?: string }> {
   const optional = metric.source.auth?.optional === true
-  let prepared = await prepareMetricRequest(metric, cookieJar, targetUrl, !optional, includeSourceValues)
+  let prepared = await prepareMetricRequest(metric, cookieJar, targetUrl, !optional, includeSourceValues, query)
   if (prepared.error || !prepared.request) return { error: prepared.error ?? 'Could not prepare metric request' }
   let response = await requestText(prepared.request.url, prepared.request.headers, cookieJar, includeSourceValues ? (metric.source.method ?? 'GET') : 'GET', prepared.request.body)
   if (!optional || (response.status !== 401 && response.status !== 403)) return { response }
 
-  prepared = await prepareMetricRequest(metric, cookieJar, targetUrl, true, includeSourceValues)
+  prepared = await prepareMetricRequest(metric, cookieJar, targetUrl, true, includeSourceValues, query)
   if (prepared.error || !prepared.request) return { error: `Authentication is required, but ${prepared.error ?? 'credentials are unavailable'}` }
   response = await requestText(prepared.request.url, prepared.request.headers, cookieJar, includeSourceValues ? (metric.source.method ?? 'GET') : 'GET', prepared.request.body)
   return { response }
@@ -563,7 +593,7 @@ async function collectSocketIoMetric(key: string, metric: MetricOverride, url: U
   }
 }
 
-export async function collectCustomMetric(key: string, metric: MetricOverride): Promise<MetricResult> {
+export async function collectCustomMetric(key: string, metric: MetricOverride, bootstrap = false): Promise<MetricResult> {
   let url: URL
   try {
     url = new URL(metric.source.url)
@@ -581,7 +611,7 @@ export async function collectCustomMetric(key: string, metric: MetricOverride): 
       if (prepared.error || !prepared.request) return unavailable(key, prepared.error ?? 'Could not prepare metric request')
       return collectSocketIoMetric(key, metric, prepared.request.url, prepared.request.headers, cookieJar)
     }
-    const result = await requestMetric(metric, cookieJar, url, true)
+    const result = await requestMetric(metric, cookieJar, url, true, bootstrap ? { ...metric.source.query, ...metric.source.initialQuery } : undefined)
     if (result.error || !result.response) return unavailable(key, result.error ?? 'Could not reach metric source')
     const response = result.response
     if (response.status >= 300 && response.status < 400) throw new Error('source redirected')

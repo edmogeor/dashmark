@@ -78,6 +78,7 @@ type MetricSourceOverride = {
   transport?: 'socketio'
   headers?: Record<string, MetricRequestValue>
   query?: Record<string, MetricRequestValue>
+  initialQuery?: Record<string, MetricRequestValue>
   form?: Record<string, MetricRequestValue>
   json?: Record<string, MetricJsonValue>
   auth?: MetricHttpAuth
@@ -1013,7 +1014,7 @@ function normalizeMetricSource(value: unknown, sharedSources?: Record<string, Re
   if (!isRecord(value)) return { source: value }
   const sourceProfile = string(value.use)
   if (sourceProfile) {
-    if (Object.keys(value).some((key) => !['use', 'path', 'method', 'headers', 'query', 'form', 'json'].includes(key)))
+    if (Object.keys(value).some((key) => !['use', 'path', 'method', 'headers', 'query', 'initial', 'form', 'json'].includes(key)))
       return {
         error: 'a shared source only supports path and request-specific values'
       }
@@ -1047,7 +1048,7 @@ function normalizeMetricSource(value: unknown, sharedSources?: Record<string, Re
       }
     }
   }
-  if (Object.keys(value).some((key) => !['url', 'method', 'headers', 'query', 'form', 'json', 'authentication', 'type', 'socket'].includes(key))) {
+  if (Object.keys(value).some((key) => !['url', 'method', 'headers', 'query', 'initial', 'form', 'json', 'authentication', 'type', 'socket'].includes(key))) {
     return { error: 'source contains an unknown configuration key' }
   }
   const authentication = value.authentication
@@ -1256,7 +1257,11 @@ function parseCustomMetricRequestSource(
   transport: string | undefined,
   socketio: { socketio?: SocketIoMetricSource }
 ): { source?: MetricSourceOverride; error?: string } {
-  const sourceRequest = transport === 'socketio' ? {} : parseMetricRequest(withoutAuth(source), 'source')
+  const { initial, ...requestSource } = source
+  if (initial !== undefined && (!isRecord(initial) || Object.keys(initial).some((key) => key !== 'query'))) return { error: 'source.initial only supports query' }
+  const parsedInitialQuery = initial === undefined ? {} : parseMetricHeaders({ query: initial.query })
+  if (parsedInitialQuery.error) return { error: `source.initial.query ${parsedInitialQuery.error}` }
+  const sourceRequest = transport === 'socketio' ? {} : parseMetricRequest(withoutAuth(requestSource), 'source')
   if (sourceRequest.error || (transport !== 'socketio' && !sourceRequest.request)) return { error: sourceRequest.error ?? 'source is invalid' }
   const socketHeaders = transport === 'socketio' ? parseMetricHeaders(source) : {}
   if (socketHeaders.error) return { error: socketHeaders.error }
@@ -1276,7 +1281,7 @@ function parseCustomMetricRequestSource(
             ...(auth ? { auth } : {}),
             socketio: socketio.socketio!
           }
-        : { ...sourceRequest.request!, ...(auth ? { auth } : {}) }
+        : { ...sourceRequest.request!, ...(parsedInitialQuery.query ? { initialQuery: parsedInitialQuery.query } : {}), ...(auth ? { auth } : {}) }
   }
 }
 

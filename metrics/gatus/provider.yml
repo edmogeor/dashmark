@@ -14,4 +14,4 @@ transforms:
       '#': '-'
       '+': '-'
       '&': '-'
-notes: Use persistent SQLite or Postgres storage and increase storage.maximum-number-of-results to retain the uptime history you want Dashmark to display.
+notes: Dashmark retrieves the configured Gatus history once, then polls the newest 100 results. Use persistent SQLite or Postgres storage and increase storage.maximum-number-of-results to retain the uptime history you want Dashmark to display.

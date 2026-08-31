@@ -13,6 +13,9 @@ let socketServer: SocketIoServer
 let socketEvents: { event: string; args: unknown[] }[] = []
 let socketHeaders: Record<string, string | string[] | undefined>[] = []
 let forEachRequests: string[] = []
+let queuedRequests = 0
+let maxQueuedRequests = 0
+let bootstrapRequests: string[] = []
 
 beforeAll(async () => {
   server = createServer((request, response) => {
@@ -36,6 +39,20 @@ beforeAll(async () => {
           ]
         })
       )
+      return
+    }
+    if (path === '/queued') {
+      queuedRequests++
+      maxQueuedRequests = Math.max(maxQueuedRequests, queuedRequests)
+      setTimeout(() => {
+        queuedRequests--
+        response.end(JSON.stringify({ value: 1 }))
+      }, 25)
+      return
+    }
+    if (path.startsWith('/bootstrap')) {
+      bootstrapRequests.push(path)
+      response.end(JSON.stringify({ results: [{ timestamp: '2026-08-26T12:00:00Z', success: true }] }))
       return
     }
     if (path === '/login') {
@@ -190,6 +207,31 @@ describe('collectCustomMetric', () => {
   it('extracts scalar and aggregated JSON values with jq', async () => {
     await expect(collectCustomMetric('scalar', metric({ jq: { expression: '.stats.value' } }))).resolves.toEqual({ value: 12.5 })
     await expect(collectCustomMetric('sum', { ...metric({ jq: { expression: '[.items[].value] | add' } }), source: { url: `${baseUrl}/sum` } })).resolves.toEqual({ value: 5 })
+  })
+
+  it('serializes HTTP metric requests to the same source origin', async () => {
+    queuedRequests = 0
+    maxQueuedRequests = 0
+    const queuedMetric = { ...metric({ jq: { expression: '.value' } }), source: { url: `${baseUrl}/queued` } }
+
+    await Promise.all([collectCustomMetric('queued-one', queuedMetric), collectCustomMetric('queued-two', queuedMetric)])
+
+    expect(maxQueuedRequests).toBe(1)
+  })
+
+  it('uses a bootstrap query once before collecting incremental history', async () => {
+    bootstrapRequests = []
+    const bootstrapMetric: MetricOverride = {
+      label: 'Uptime',
+      valueType: 'uptime',
+      source: { url: `${baseUrl}/bootstrap`, query: { pageSize: 100 }, initialQuery: { pageSize: 10_000 } },
+      jq: { expression: '[.results[] | { timestamp, status: (if .success then "up" else "down" end) }]' }
+    }
+
+    await collectCustomMetric('bootstrap', bootstrapMetric, true)
+    await collectCustomMetric('bootstrap', bootstrapMetric)
+
+    expect(bootstrapRequests).toEqual(['/bootstrap?pageSize=10000', '/bootstrap?pageSize=100'])
   })
 
   it('extracts normalized uptime observations with jq', async () => {

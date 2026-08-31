@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Serialize custom metric requests to each metric-source origin to prevent cards from overloading a shared provider.
+- Persist uptime history, using bootstrap queries only when no retained card and metric history exists.
+
 ## [0.4.10] - 2026-08-29
 
 ### Changed

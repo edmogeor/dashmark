@@ -131,6 +131,28 @@ service:
     })
   })
 
+  it('accepts a bootstrap query for incremental metric collection', () => {
+    const config = getConfig()
+    config.configFile = writeConfig(`
+service:
+  metrics:
+    entries:
+      uptime:
+        display: { label: Uptime }
+        value: { kind: uptime }
+        source:
+          url: http://metrics.example.internal/history
+          query: { limit: 100 }
+          initial: { query: { limit: 10000 } }
+        extract:
+          jq: '[.results[] | { timestamp, status }]'
+`)
+
+    const metric = loadYamlConfig(config).config.services.service?.metrics?.entryOverrides?.uptime
+
+    expect(metric?.source).toMatchObject({ query: { limit: 100 }, initialQuery: { limit: 10_000 } })
+  })
+
   it('reports unknown and invalid settings with their paths', () => {
     const config = getConfig()
     config.configFile = writeConfig(`

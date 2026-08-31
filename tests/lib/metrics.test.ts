@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getConfig } from '@/lib/config'
 import { clearMetricsDatabase, counterRates, getMetricHistory, getResourceMetricHistory, saveMetricSample, saveResourceMetric } from '@/lib/metrics'
+import { getUptimeObservationHistory, mergeUptimeObservationHistory } from '@/lib/metrics-storage'
 
 const directories: string[] = []
 
@@ -39,6 +40,21 @@ describe('resource metric history', () => {
     saveMetricSample(config, 'default:radarr', 'active_downloads', 3, 60_000, 62_000)
 
     expect(getMetricHistory(config, 'default:radarr', 'active_downloads', 60_000, 62_000)).toEqual([{ timestamp: 62_000, value: 3 }])
+  })
+
+  it('merges and persists uptime observations by card and metric', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'dashmark-metrics-'))
+    directories.push(directory)
+    const config = getConfig()
+    config.metricsDatabasePath = join(directory, 'metrics.db')
+
+    expect(mergeUptimeObservationHistory(config, 'default:gatus', 'gatus/uptime', [{ timestamp: 1_000, status: 'up' }], 5_000, 2_000)).toEqual([{ timestamp: 1_000, status: 'up' }])
+    expect(mergeUptimeObservationHistory(config, 'default:gatus', 'gatus/uptime', [{ timestamp: 4_000, status: 'down', responseTimeMs: 12 }], 5_000, 5_000)).toEqual([
+      { timestamp: 1_000, status: 'up' },
+      { timestamp: 4_000, status: 'down', responseTimeMs: 12 }
+    ])
+    expect(getUptimeObservationHistory(config, 'default:gatus', 'gatus/uptime', 5_000, 7_000)).toEqual([{ timestamp: 4_000, status: 'down', responseTimeMs: 12 }])
+    expect(getUptimeObservationHistory(config, 'default:other', 'gatus/uptime', 5_000, 7_000)).toEqual([])
   })
 })
 

@@ -70,6 +70,7 @@ value:
 | `source.method`         | `GET` (default) or `POST`.                                                                                                    |
 | `source.headers`        | Request headers. Values can be strings, numbers, booleans, or `{ env: VARIABLE }` and `{ file: /path/to/secret }` references. |
 | `source.query`          | Query-string parameters, using the same values as `headers`.                                                                  |
+| `source.initial.query`  | Query-string parameters used only for the initial collection, before subsequent polls use `source.query`.                     |
 | `source.form`           | Form body for a `POST` request.                                                                                               |
 | `source.json`           | JSON body for a `POST` request. Values can be nested objects, arrays, scalars, or secret references.                          |
 | `source.authentication` | A `basic`, `token`, or `cookie_session` login flow.                                                                           |
@@ -79,6 +80,8 @@ value:
 | `source.path`           | Required path beginning with `/` when using `source.use`.                                                                     |
 
 Use one body type per request: `form` or `json`. `GET` requests cannot have a body.
+
+Use `source.initial.query` for history sources that need an initial backfill followed by lightweight incremental requests. Dashmark stores uptime observations per card and metric in its metrics SQLite database, so the initial request runs only when no retained history exists.
 
 For token authentication, use a header or query parameter and a secret reference:
 
