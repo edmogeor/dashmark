@@ -1,6 +1,5 @@
 display:
   label: LAPI status
-  chart: security
 value:
   kind: state
   default_color: disabled

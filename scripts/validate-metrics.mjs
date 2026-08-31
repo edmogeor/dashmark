@@ -368,11 +368,19 @@ function validate(file, provider) {
     if (value.default_color !== undefined || value.colors !== undefined || value.labels !== undefined) throw new Error('value colors require kind state')
   } else if (valueType === 'uptime') {
     if (!hasJq) throw new Error('uptime metrics require a jq extractor')
-    if (value.unit !== undefined || value.rate !== undefined || value.transform !== undefined || value.default_color !== undefined || value.colors !== undefined || value.labels !== undefined) {
+    if (
+      display.chart !== undefined ||
+      value.unit !== undefined ||
+      value.rate !== undefined ||
+      value.transform !== undefined ||
+      value.default_color !== undefined ||
+      value.colors !== undefined ||
+      value.labels !== undefined
+    ) {
       throw new Error('uptime metrics cannot define units, rates, transforms, or state colors')
     }
-  } else if (value.unit !== undefined || value.rate !== undefined || value.transform !== undefined) {
-    throw new Error('string and state metrics cannot define a unit, rate, or transform')
+  } else if (display.chart !== undefined || value.unit !== undefined || value.rate !== undefined || value.transform !== undefined) {
+    throw new Error('string and state metrics cannot define charts, units, rates, or transforms')
   }
   if (valueType === 'string' && (value.default_color !== undefined || value.colors !== undefined || value.labels !== undefined)) throw new Error('value colors require kind state')
   if (valueType === 'state') {

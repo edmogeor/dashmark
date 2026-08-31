@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Serialize custom metric requests to each metric-source origin to prevent cards from overloading a shared provider.
 - Persist uptime history, using bootstrap queries only when no retained card and metric history exists.
+- Include the CrowdSec Web UI LAPI status metric in the bundled catalog.
 
 ## [0.4.10] - 2026-08-29
 
