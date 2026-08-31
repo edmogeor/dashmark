@@ -57,7 +57,7 @@
     "radix-ui": "^1.6.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "recharts": "^3.8.0",
+    "recharts": "^3.10.1",
     "shadcn": "^4.16.2",
     "sharp": "^0.35.3",
     "simple-git-hooks": "^2.13.1",
