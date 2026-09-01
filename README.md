@@ -90,7 +90,7 @@ npm run typecheck
 npm run build
 ```
 
-`npm run dev` uses a mock Docker API, sample cards, and sample authentication headers. It does not need Docker and supports hot reload. It simulates the `admins`, `media`, and `family` groups. For example, run `MOCK_USER_GROUPS=media STATUS_BADGE_ACCESS=admins npm run dev` to test a different user.
+`npm run dev` uses two mock Docker APIs, a deterministic local metric API, and a local reverse proxy that injects sample authentication headers for both HTTP requests and WebSocket upgrades. It does not need Docker and supports hot reload. The fixtures exercise resource and custom metrics, uptime observations with periodic transient failures, access-controlled cards, and changing container states. It simulates the `admins`, `media`, and `family` groups. For example, run `MOCK_USER_GROUPS=media STATUS_BADGE_ACCESS=admins npm run dev` to test a different user. Set `DASHMARK_DEV_PORT` to expose the local proxy on a different port.
 
 Contributions are welcome. Open an issue or pull request with a clear description of the change.
 

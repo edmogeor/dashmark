@@ -24,7 +24,8 @@ export default defineConfig({
   output: 'server',
   base: process.env.ASTRO_BASE,
   site: process.env.ASTRO_SITE,
-  adapter: node({ mode: 'standalone' }),
+  // The runtime entry owns the HTTP server so it can handle WebSocket upgrades.
+  adapter: node({ mode: 'middleware' }),
   image: {
     service: passthroughImageService()
   },

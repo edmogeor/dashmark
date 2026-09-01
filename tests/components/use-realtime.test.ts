@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Card } from '@/lib/docker'
-import { mergeStatuses } from '@/lib/use-status-polling'
+import { mergeStatuses } from '@/components/use-realtime'
 
 function containerCard(id: string, state?: string): Card {
   return {
@@ -15,7 +15,7 @@ function containerCard(id: string, state?: string): Card {
   }
 }
 
-describe('mergeStatuses', () => {
+describe('realtime status updates', () => {
   it('updates same-ID containers from different Docker hosts independently', () => {
     const cards = [containerCard('home:shared-id', 'exited'), containerCard('vps:shared-id', 'exited')]
 

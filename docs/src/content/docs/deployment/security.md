@@ -22,6 +22,16 @@ Use a reverse proxy when publishing Dashmark beyond a trusted network, terminati
 
 When using access control, the proxy must remove or overwrite client-supplied identity headers. Otherwise, users could forge a group, username, or email header to see restricted cards or metrics.
 
+### WebSocket upgrades
+
+Live status and metric updates use a same-origin WebSocket at `/api/realtime`. Configure the proxy to forward WebSocket upgrades on that path, including `Upgrade` and `Connection` headers, while preserving the original `Host` and forwarding the browser's `Origin`. Do not route this endpoint as ordinary buffered HTTP.
+
+The WebSocket upgrade must receive the same trusted identity headers as normal Dashmark requests. If `AUTH_TOKEN` is enabled, the proxy must also inject `X-Dashmark-Token` during the upgrade. Browsers cannot attach that custom header to a native WebSocket, so never put the token in browser JavaScript or a query string. Dashmark accepts same-origin upgrades only.
+
+## Process model
+
+Run one long-lived Dashmark process per deployment. Docker discovery, realtime subscriptions, collection state, and SQLite history are local to that process. Multiple replicas are unsupported until shared storage, collector leadership, and realtime pub-sub are available. Scale the host running Dashmark rather than adding application replicas.
+
 ## Direct-access token
 
 For an additional shared-secret check, set `AUTH_TOKEN`. Every request must include `X-Dashmark-Token: <token>`.

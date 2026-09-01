@@ -28,7 +28,8 @@ import { StatusBadge } from './StatusBadge'
 import { customMetricsHistory, resourceMetricHistory, type MetricDetail } from './app-card-metrics'
 import { useMetrics } from './use-metrics'
 import { useTooltipController } from './tooltip-controller'
-import type { CustomMetric, ResourceMetricSample, UptimeMetric } from '@/lib/status'
+import type { CustomMetric, ResourceMetricSample } from '@/lib/status'
+import type { UptimeMetricSummary } from '@/lib/realtime-client'
 import { UptimeDetailDialog } from './UptimeDetailDialog'
 
 const loadMetricDetailDialog = () =>
@@ -188,14 +189,14 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showMetr
   const dismissesTooltip = useRef(false)
   const [hovered, setHovered] = useState(false)
   const [detail, setDetail] = useState<MetricDetail | null>(null)
-  const [uptimeDetail, setUptimeDetail] = useState<UptimeMetric | null>(null)
+  const [uptimeDetail, setUptimeDetail] = useState<UptimeMetricSummary | null>(null)
   const hasSelectedCustomMetric = card.metrics?.some((metric) => !['cpu', 'memory', 'network', 'none'].includes(metric)) ?? false
   const hasCustomMetrics = (card.customMetricLabels?.length ?? 0) > 0 || (card.metricErrors?.length ?? 0) > 0 || hasSelectedCustomMetric
   const showResources = showMetrics && card.showStatus !== false && ((card.hasContainer && ((card.resourceStats?.length ?? 0) > 0 || hasCustomMetrics)) || (!card.hasContainer && hasCustomMetrics))
   const resourceId = `resource-${card.id}`
   const descriptionId = `description-${card.id}`
   const resourceOpen = activeTooltip === resourceId
-  const usage = useMetrics(card.id, showResources, resourceOpen || hovered || detail !== null, card.resourceUsage, card.metricsPollIntervalMs, card.isDemo)
+  const usage = useMetrics(card.id, showResources, resourceOpen || hovered || detail !== null || uptimeDetail !== null, card.resourceUsage)
   useMetricErrorToasts(card, usage.metricErrors)
   useLiveMetricDetail(setDetail, usage.history, usage.customMetrics)
   const setTooltip = (id: string, open: boolean) => (open ? setActiveTooltip(id) : activeTooltip === id ? setActiveTooltip(null) : undefined)

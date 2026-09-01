@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Replace dashboard HTTP polling with server-owned realtime collection over authenticated WebSockets.
+- Remove the HTTP status and metrics snapshot routes.
+
 ### Fixed
 
 - Serialize custom metric requests to each metric-source origin to prevent cards from overloading a shared provider.

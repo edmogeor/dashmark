@@ -7,7 +7,8 @@ import { cn } from '@/lib/utils'
 import { badgeColor, chartColorVariable } from '@/lib/badge-color'
 import type { Card as CardType } from '@/lib/docker'
 import { strings } from '@/lib/strings'
-import type { ContainerResources, CustomMetric, CustomMetricStateColor, NumericCustomMetric, ResourceMetricSample, UptimeMetric } from '@/lib/status'
+import type { ContainerResources, CustomMetric, CustomMetricStateColor, NumericCustomMetric, ResourceMetricSample } from '@/lib/status'
+import type { UptimeMetricSummary } from '@/lib/realtime-client'
 import {
   customMetricsHistory,
   formatAxisBytes,
@@ -23,7 +24,7 @@ import {
   tickerConfig,
   type MetricDetail
 } from './app-card-metrics'
-import { formatUptimeBucketTime, UptimeHeartbeat, uptimeBucketStatusLabel, uptimeBuckets, uptimePercent, type UptimeBucket } from './UptimeHeartbeat'
+import { formatUptimeBucketTime, UptimeHeartbeat, uptimeBucketStatusLabel, uptimeBucketsForDuration, uptimePercent, type UptimeBucket } from './UptimeHeartbeat'
 
 type Props = {
   card: CardType
@@ -31,10 +32,10 @@ type Props = {
   history: ResourceMetricSample[]
   historyPeriodMs: number
   customMetrics: CustomMetric[]
-  uptimeMetrics: UptimeMetric[]
+  uptimeMetrics: UptimeMetricSummary[]
   loading: boolean
   onDetailSelect: (detail: MetricDetail) => void
-  onUptimeDetailSelect: (metric: UptimeMetric) => void
+  onUptimeDetailSelect: (metric: UptimeMetricSummary) => void
 }
 
 function ResourceMetric({ label, value, metricKey, pending = false, onSelect }: { label: string; value: ReactNode; metricKey?: string; pending?: boolean; onSelect?: () => void }) {
@@ -304,9 +305,9 @@ function uptimeBucketSummary(bucket: UptimeBucket): {
   return { label, value }
 }
 
-function UptimeMetricRow({ metric, onSelect }: { metric: UptimeMetric; onSelect: (metric: UptimeMetric) => void }) {
+function UptimeMetricRow({ metric, onSelect }: { metric: UptimeMetricSummary; onSelect: (metric: UptimeMetricSummary) => void }) {
   const [hoveredBucket, setHoveredBucket] = useState<UptimeBucket>()
-  const buckets = uptimeBuckets(metric.observations, 24 * 60 * 60 * 1_000, 24)
+  const buckets = uptimeBucketsForDuration(metric.buckets, 24 * 60 * 60 * 1_000)
   const summary = hoveredBucket
     ? uptimeBucketSummary(hoveredBucket)
     : {
@@ -330,7 +331,7 @@ function UptimeMetricRow({ metric, onSelect }: { metric: UptimeMetric; onSelect:
           <span className="font-medium tabular-nums">{summary.value}</span>
         </div>
       </div>
-      <UptimeHeartbeat observations={metric.observations} durationMs={24 * 60 * 60 * 1_000} bucketCount={24} className="h-3" onBucketHover={setHoveredBucket} />
+      <UptimeHeartbeat buckets={buckets} className="h-3" onBucketHover={setHoveredBucket} />
     </button>
   )
 }
@@ -344,9 +345,9 @@ function SelectedMetrics({
 }: {
   selected: { key: string; label: string }[]
   customMetrics: CustomMetric[]
-  uptimeMetrics: UptimeMetric[]
+  uptimeMetrics: UptimeMetricSummary[]
   onDetailSelect: (detail: MetricDetail) => void
-  onUptimeDetailSelect: (metric: UptimeMetric) => void
+  onUptimeDetailSelect: (metric: UptimeMetricSummary) => void
 }) {
   return selected.map((selectedMetric) => {
     const metric = uptimeMetrics.find((candidate) => candidate.key === selectedMetric.key)

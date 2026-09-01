@@ -14,25 +14,21 @@ const MAX_FOR_EACH_ITEMS = 32
 const FOR_EACH_CONCURRENCY = 4
 const MAX_PAGINATION_PAGES = 32
 const cookieJars = new Map<string, CookieJar>()
-const requestQueues = new Map<string, Promise<void>>()
+const requestSemaphores = new Map<string, { active: number; waiting: (() => void)[] }>()
+const REQUESTS_PER_ORIGIN = 2
 
 async function queueRequest<T>(origin: string, request: () => Promise<T>): Promise<T> {
-  const previous = requestQueues.get(origin) ?? Promise.resolve()
-  let release: () => void
-  const next = new Promise<void>((resolve) => {
-    release = resolve
-  })
-  requestQueues.set(
-    origin,
-    previous.then(() => next)
-  )
-
-  await previous
+  const semaphore = requestSemaphores.get(origin) ?? { active: 0, waiting: [] }
+  requestSemaphores.set(origin, semaphore)
+  if (semaphore.active >= REQUESTS_PER_ORIGIN) await new Promise<void>((resolve) => semaphore.waiting.push(resolve))
+  semaphore.active++
   try {
     return await request()
   } finally {
-    release!()
-    if (requestQueues.get(origin) === next) requestQueues.delete(origin)
+    semaphore.active--
+    const next = semaphore.waiting.shift()
+    if (next) next()
+    else if (semaphore.active === 0) requestSemaphores.delete(origin)
   }
 }
 

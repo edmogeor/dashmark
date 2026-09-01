@@ -2,6 +2,8 @@ import { defineMiddleware } from 'astro:middleware'
 import { isAuthorized } from '@/lib/auth'
 import { getConfig } from '@/lib/config'
 import { startMetricsCollection } from '@/lib/metrics'
+import { getRealtimeServer } from '@/lib/realtime-server'
+import { getDiscoveryCoordinator } from '@/lib/discovery-coordinator'
 
 const MOCK_AUTH = process.env.MOCK_AUTH === 'true'
 const MOCK_USER_NAME = process.env.MOCK_USER_NAME
@@ -10,7 +12,10 @@ const MOCK_USER_EMAIL = process.env.MOCK_USER_EMAIL
 const MOCK_USER_GROUPS = process.env.MOCK_USER_GROUPS
 const DEMO_ENABLED = process.env.DASHMARK_DEMO === 'true'
 
-if (!MOCK_AUTH) startMetricsCollection(getConfig())
+const config = getConfig()
+getDiscoveryCoordinator(config).start()
+startMetricsCollection(config)
+getRealtimeServer(config)
 
 export const onRequest = defineMiddleware(async (context, next) => {
   if (!DEMO_ENABLED && context.url.pathname.replace(/\/$/, '').endsWith('/demo')) {

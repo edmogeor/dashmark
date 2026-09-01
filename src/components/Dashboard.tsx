@@ -13,15 +13,16 @@ import { Toaster } from '@/components/ui/sonner'
 import type { Card as CardType } from '@/lib/docker'
 import type { DashmarkError } from '@/lib/errors'
 import { useStableLoading } from '@/lib/use-stable-loading'
-import { useStatusPolling } from '@/lib/use-status-polling'
+import { useRealtimeStatus } from './use-realtime'
 import { usePageOverflow } from '@/lib/use-page-overflow'
 import { strings } from '@/lib/strings'
 import { cn } from '@/lib/utils'
 import { badgeColor } from '@/lib/badge-color'
-import { STATUS_POLL_INTERVAL_MS, TOOLTIP_DELAY_MS } from '@/lib/constants'
+import { STATUS_TOAST_ID, TOOLTIP_DELAY_MS } from '@/lib/constants'
 import { TooltipControllerProvider, useTooltipController } from './tooltip-controller'
 import { AboutDialog } from './AboutDialog'
 import { useIsDark } from '@/lib/use-is-dark'
+import { clearErrorToast, showErrorToast } from '@/lib/error-toasts'
 
 const COLUMN_WIDTH = 300
 const COLUMN_GUTTER = 20
@@ -316,10 +317,7 @@ type DashboardProps = {
   initialShowMetrics?: boolean
   initialShowBranding?: boolean
   initialOpenInNewTab?: boolean
-  enableStatusPolling?: boolean
-  statusPollIntervalMs?: number
   categoryOrder?: string[]
-  mockStatusPolling?: boolean
   showHeader?: boolean
   showGroups?: boolean
   greeting?: string
@@ -551,10 +549,7 @@ function DashboardContent({
   initialShowMetrics = true,
   initialShowBranding = true,
   initialOpenInNewTab = false,
-  enableStatusPolling = true,
-  statusPollIntervalMs = STATUS_POLL_INTERVAL_MS,
   categoryOrder = [],
-  mockStatusPolling = false,
   showHeader = false,
   showGroups = false,
   greeting,
@@ -565,33 +560,22 @@ function DashboardContent({
   const [search, setSearch] = useState('')
   const deferredSearch = useDeferredValue(search)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(!initialError && enableStatusPolling)
+  const [isLoading, setIsLoading] = useState(!initialError)
   const showLoading = useStableLoading(isLoading)
   const [statusUnavailable, setStatusUnavailable] = useState(false)
   const hasPageOverflow = usePageOverflow()
 
-  useStatusPolling({
-    enabled: !error && enableStatusPolling,
-    interval: statusPollIntervalMs,
+  useRealtimeStatus({
+    enabled: !error,
     setCards,
     setUnavailable: setStatusUnavailable,
     setLoading: setIsLoading
   })
 
   useEffect(() => {
-    if (!mockStatusPolling) return
-
-    let timeout = setTimeout(refreshStatus, STATUS_POLL_INTERVAL_MS)
-    function refreshStatus() {
-      setIsLoading(true)
-      timeout = setTimeout(() => {
-        setIsLoading(false)
-        timeout = setTimeout(refreshStatus, STATUS_POLL_INTERVAL_MS)
-      }, 1_000)
-    }
-
-    return () => clearTimeout(timeout)
-  }, [mockStatusPolling])
+    if (statusUnavailable) showErrorToast(STATUS_TOAST_ID, strings.errors.liveUpdatesUnavailable)
+    else clearErrorToast(STATUS_TOAST_ID, { immediate: true })
+  }, [statusUnavailable])
 
   const { hasResults, hasCategories, isSearching, shouldUseCategoryContainers, flatCards, willRenderMasonry, categoryItems, categories } = useDashboardViewModel(
     cards,

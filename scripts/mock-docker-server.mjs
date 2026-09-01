@@ -100,7 +100,8 @@ export const demoContainers = [
     Labels: {
       'dashmark.title': 'NZBGet',
       'dashmark.url': 'http://localhost:8087',
-      'dashmark.category': 'Media'
+      'dashmark.category': 'Media',
+      'dashmark.metrics': 'nzbget/download-rate'
     }
   }
 ]
@@ -108,6 +109,21 @@ export const demoContainers = [
 export function startMockDocker(containers = demoContainers) {
   return new Promise((resolve) => {
     const startedAt = Date.now()
+    const mockContainers = containers.map((container) => ({ ...container, Labels: { ...container.Labels } }))
+    const changingContainer = mockContainers.find((container) => container.Id === 'jellyfin123')
+    const states = [
+      { State: 'running', Status: 'Up 1 hour (healthy)' },
+      { State: 'restarting', Status: 'Restarting (1) 3 seconds ago' },
+      { State: 'exited', Status: 'Exited (1) 8 seconds ago' },
+      { State: 'running', Status: 'Up 5 seconds (healthy)' }
+    ]
+    let statusIndex = 0
+    const statusTimer = setInterval(() => {
+      if (!changingContainer) return
+      statusIndex = (statusIndex + 1) % states.length
+      Object.assign(changingContainer, states[statusIndex])
+    }, 12_000)
+    statusTimer.unref()
     const server = http.createServer((req, res) => {
       res.setHeader('Content-Type', 'application/json')
 
@@ -122,13 +138,13 @@ export function startMockDocker(containers = demoContainers) {
       }
 
       if (req.url?.startsWith('/v') && new URL(req.url, 'http://localhost').pathname.endsWith('/containers/json')) {
-        send(200, JSON.stringify(containers))
+        send(200, JSON.stringify(mockContainers))
         return
       }
 
       const statsMatch = req.url?.match(/^\/v[^/]+\/containers\/([^/]+)\/stats\?stream=false$/)
       if (statsMatch) {
-        const container = containers.find((item) => item.Id === decodeURIComponent(statsMatch[1]))
+        const container = mockContainers.find((item) => item.Id === decodeURIComponent(statsMatch[1]))
         if (!container) {
           send(404, JSON.stringify({ message: 'Not found' }))
           return
@@ -171,6 +187,7 @@ export function startMockDocker(containers = demoContainers) {
       const { port } = server.address()
       const url = `tcp://127.0.0.1:${port}`
       console.log(`Mock Docker API listening on ${url}`)
+      server.on('close', () => clearInterval(statusTimer))
       resolve({ server, url })
     })
   })

@@ -55,6 +55,7 @@ export const strings = {
     unableToLoadServices: 'Unable to load services',
     statusUpdateFailed: 'Status update failed:',
     serverUnreachable: 'Could not reach the server.',
+    liveUpdatesUnavailable: 'Live updates are unavailable. Data may be out of date.',
     dockerUnreachable: 'Docker is unreachable. Check DOCKER_HOSTS and the Docker socket mount.',
     configInvalid: 'The config file is invalid.',
     missingGroupsHeader: 'Access groups are enabled but the groups header was not received from the reverse proxy.',

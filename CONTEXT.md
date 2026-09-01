@@ -42,15 +42,16 @@ A manually defined Card entry in the YAML config, keyed by container name or com
 
 Data flows through `src/pages/index.astro`, which is rendered on demand. It calls `getConfig()` and `getCards(config, request.headers)` server-side and passes `initialCards`/`initialError` into the `<Dashboard client:load />` island. It also calls `getUser()` and `resolveGreeting()` to compute the header greeting and group tags, which are passed to `Dashboard` when `SHOW_HEADER` is enabled.
 
-The `Dashboard` island renders the cards and polls `GET /api/status` every 30 seconds to refresh Container State/Health badges in place. A metrics tooltip polls `GET /api/metrics?id=<card-id>` at the card's metric collection interval only while open. The endpoint returns the latest server-collected sample, so Docker stats are never fetched for inactive cards. `GET /api/resources` remains an alias for existing API clients.
+The `Dashboard` island keeps one same-origin WebSocket while the tab is visible. It automatically receives an authorized status snapshot and deltas, and subscribes to card metrics only while their tooltip or detail view is active. Dashmark has no HTTP status or metrics API.
 
 `src/pages/icons/[...path].ts` serves custom icon files from `ICONS_DIR`, guarded against path traversal.
 
-`src/middleware.ts` injects mock auth headers (name, username, email, groups) when `MOCK_AUTH=true`, which the `dev-with-demo` script sets.
+`scripts/dev-with-demo.mjs` starts a local reverse proxy that injects mock auth headers (name, username, email, and groups) into both HTTP requests and WebSocket upgrades.
 
 ### Caching
 
 - `src/lib/docker.ts` keeps two caches, both cleared by `clearDockerCache()`: the negotiated Docker API version (per host) and the container list (per host, 30s TTL). Docker hosts are fetched independently, so an unavailable host does not hide cards from healthy hosts.
+- `src/lib/discovery-coordinator.ts` holds the current discovered cards and status snapshot. `src/lib/metrics.ts` holds latest metric values, while SQLite retains metric history. The dashboard accepts fresh WebSocket snapshots as authoritative after reconnecting.
 - `src/lib/config-file.ts` caches parsed YAML keyed by file path, invalidated when `mtime` or `size` change.
 
 ### Icon resolution

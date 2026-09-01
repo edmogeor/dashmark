@@ -1,5 +1,6 @@
 import { useState, type PointerEvent } from 'react'
-import type { UptimeObservation, UptimeStatus } from '@/lib/status'
+import type { UptimeObservation } from '@/lib/status'
+import type { UptimeBucket } from '@/lib/realtime-client'
 import { Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -10,15 +11,8 @@ function formatResponseTime(value: number): string {
   return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value)}ms`
 }
 
-export type UptimeBucketStatus = UptimeStatus | 'mixed'
-export type UptimeBucket = {
-  start: number
-  end: number
-  status: UptimeBucketStatus
-  successes: number
-  failures: number
-  slowestResponseTimeMs?: number
-}
+export type { UptimeBucket } from '@/lib/realtime-client'
+export type UptimeBucketStatus = UptimeBucket['status']
 
 export function uptimeBuckets(observations: UptimeObservation[], durationMs: number, bucketCount: number, now = Date.now()): UptimeBucket[] {
   const bucketMs = durationMs / bucketCount
@@ -48,6 +42,10 @@ export function uptimePercent(buckets: UptimeBucket[]): number | undefined {
   const successes = buckets.reduce((total, bucket) => total + bucket.successes, 0)
   const failures = buckets.reduce((total, bucket) => total + bucket.failures, 0)
   return successes + failures > 0 ? (successes / (successes + failures)) * 100 : undefined
+}
+
+export function uptimeBucketsForDuration(buckets: UptimeBucket[], durationMs: number, now = Date.now()): UptimeBucket[] {
+  return buckets.filter((bucket) => bucket.end > now - durationMs && bucket.start <= now)
 }
 
 export function formatUptimeBucketTime(timestamp: number): string {
@@ -184,34 +182,25 @@ function UptimeCell({
 }
 
 export function UptimeHeartbeat({
-  observations,
-  durationMs,
-  bucketCount,
+  buckets,
   className,
   onBucketHover,
   showTooltips = false,
   collisionBoundary
 }: {
-  observations: UptimeObservation[]
-  durationMs: number
-  bucketCount: number
+  buckets: UptimeBucket[]
   className?: string
   onBucketHover?: (bucket: UptimeBucket | undefined) => void
   showTooltips?: boolean
   collisionBoundary?: Element | null
 }) {
   const [selectedBucketStart, setSelectedBucketStart] = useState<number | null | undefined>(undefined)
-  const buckets = uptimeBuckets(observations, durationMs, bucketCount)
   function toggleTouchTooltip(bucketStart: number) {
     setSelectedBucketStart((current) => (current === bucketStart ? null : bucketStart))
   }
 
   const cells = (
-    <div
-      className={cn('dashmark-uptime-heartbeat grid grid-flow-col auto-cols-fr gap-0.5', className)}
-      aria-label={`Uptime history for the last ${Math.round(durationMs / HOUR_MS)} hours`}
-      onPointerLeave={() => onBucketHover?.(undefined)}
-    >
+    <div className={cn('dashmark-uptime-heartbeat grid grid-flow-col auto-cols-fr gap-0.5', className)} aria-label="Uptime history" onPointerLeave={() => onBucketHover?.(undefined)}>
       {buckets.map((bucket) => (
         <UptimeCell
           key={bucket.start}

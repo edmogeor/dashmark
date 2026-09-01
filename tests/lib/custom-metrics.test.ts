@@ -209,14 +209,14 @@ describe('collectCustomMetric', () => {
     await expect(collectCustomMetric('sum', { ...metric({ jq: { expression: '[.items[].value] | add' } }), source: { url: `${baseUrl}/sum` } })).resolves.toEqual({ value: 5 })
   })
 
-  it('serializes HTTP metric requests to the same source origin', async () => {
+  it('limits HTTP metric requests to two concurrent requests per source origin', async () => {
     queuedRequests = 0
     maxQueuedRequests = 0
     const queuedMetric = { ...metric({ jq: { expression: '.value' } }), source: { url: `${baseUrl}/queued` } }
 
-    await Promise.all([collectCustomMetric('queued-one', queuedMetric), collectCustomMetric('queued-two', queuedMetric)])
+    await Promise.all([collectCustomMetric('queued-one', queuedMetric), collectCustomMetric('queued-two', queuedMetric), collectCustomMetric('queued-three', queuedMetric)])
 
-    expect(maxQueuedRequests).toBe(1)
+    expect(maxQueuedRequests).toBe(2)
   })
 
   it('uses a bootstrap query once before collecting incremental history', async () => {

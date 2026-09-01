@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import http from 'node:http'
 import yaml from 'js-yaml'
 
 function yamlPort() {
@@ -13,4 +14,18 @@ function yamlPort() {
 }
 
 process.env.PORT = yamlPort() ?? process.env.PORT ?? '4321'
-await import('../dist/server/entry.mjs')
+const { handler } = await import('../dist/server/entry.mjs')
+const realtime = globalThis.__dashmarkRealtime
+const server = http.createServer(handler)
+
+realtime?.attach(server)
+
+function shutdown() {
+  realtime?.close()
+  server.close(() => process.exit(0))
+  setTimeout(() => process.exit(0), 10_000).unref()
+}
+
+process.once('SIGINT', shutdown)
+process.once('SIGTERM', shutdown)
+server.listen(Number(process.env.PORT), process.env.HOST || '0.0.0.0')

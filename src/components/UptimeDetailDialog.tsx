@@ -2,20 +2,20 @@ import { useEffect, useState } from 'react'
 import { Gauge, X } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import type { UptimeMetric } from '@/lib/status'
-import { UptimeHeartbeat, uptimeBuckets, uptimePercent } from './UptimeHeartbeat'
+import type { UptimeMetricSummary } from '@/lib/realtime-client'
+import { UptimeHeartbeat, uptimeBucketsForDuration, uptimePercent } from './UptimeHeartbeat'
 
 const ranges = [
-  { label: '24h', durationMs: 24 * 60 * 60 * 1_000, bucketCount: 24 },
-  { label: '7d', durationMs: 7 * 24 * 60 * 60 * 1_000, bucketCount: 21 },
-  { label: '30d', durationMs: 30 * 24 * 60 * 60 * 1_000, bucketCount: 30 }
+  { label: '24h', durationMs: 24 * 60 * 60 * 1_000 },
+  { label: '7d', durationMs: 7 * 24 * 60 * 60 * 1_000 },
+  { label: '30d', durationMs: 30 * 24 * 60 * 60 * 1_000 }
 ]
 
 function formatPercent(value: number | undefined): string {
   return value === undefined ? 'No data' : `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}%`
 }
 
-export function UptimeDetailDialog({ metric, onOpenChange }: { metric: UptimeMetric | null; onOpenChange: (open: boolean) => void }) {
+export function UptimeDetailDialog({ metric, onOpenChange }: { metric: UptimeMetricSummary | null; onOpenChange: (open: boolean) => void }) {
   const [rangeIndex, setRangeIndex] = useState(2)
   const [dialogContent, setDialogContent] = useState<HTMLDivElement | null>(null)
   const [displayedMetric, setDisplayedMetric] = useState(metric)
@@ -24,7 +24,8 @@ export function UptimeDetailDialog({ metric, onOpenChange }: { metric: UptimeMet
   }, [metric])
   const currentMetric = metric ?? displayedMetric
   const range = ranges[rangeIndex]!
-  const percent = uptimePercent(uptimeBuckets(currentMetric?.observations ?? [], range.durationMs, range.bucketCount))
+  const buckets = uptimeBucketsForDuration(currentMetric?.buckets ?? [], range.durationMs)
+  const percent = uptimePercent(buckets)
   return (
     <Dialog open={metric !== null} onOpenChange={onOpenChange}>
       <DialogContent
@@ -76,14 +77,7 @@ export function UptimeDetailDialog({ metric, onOpenChange }: { metric: UptimeMet
                 <p className="text-3xl font-[550] tabular-nums">{formatPercent(percent)}</p>
                 <p className="text-xs text-muted-foreground">availability for the selected period</p>
               </div>
-              <UptimeHeartbeat
-                observations={currentMetric.observations}
-                durationMs={range.durationMs}
-                bucketCount={range.bucketCount}
-                className="h-20 gap-1"
-                showTooltips
-                collisionBoundary={dialogContent}
-              />
+              <UptimeHeartbeat buckets={buckets} className="h-20 gap-1" showTooltips collisionBoundary={dialogContent} />
               <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1.5">
                   <i className="h-2 w-2 rounded-sm bg-success" />

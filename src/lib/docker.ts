@@ -42,6 +42,8 @@ export type Card = {
   resourceStats?: ResourceStat[]
   metrics?: string[]
   customMetricLabels?: { key: string; label: string }[]
+  customMetricKeys?: string[]
+  uptimeMetricKeys?: string[]
   metricsPollIntervalMs?: number
   metricsHistoryPeriodMs?: number
   metricsAccess?: Record<string, string[]>
@@ -390,6 +392,7 @@ export function clearDockerCache() {
   apiVersionCache.clear()
   containerListCache.clear()
   networkUsageCache.clear()
+  discoveredMetricTargets.clear()
 }
 
 function parseHealth(status: string): string | undefined {
@@ -463,7 +466,7 @@ function resolveCardDescription(config: AppConfig, description: string | undefin
   return description ?? resolveDescription(config, options)
 }
 
-function filterCardsByAccess(cards: Card[], config: AppConfig, headers: Headers): Card[] {
+export function filterCardsByAccess(cards: readonly Card[], config: AppConfig, headers: Headers): Card[] {
   return cards
     .filter((card) => canAccess(config, headers, card.access))
     .map((card) => {
@@ -477,7 +480,7 @@ function filterCardsByAccess(cards: Card[], config: AppConfig, headers: Headers)
     })
 }
 
-function missingAccessIdentity(config: AppConfig, headers: Headers, cards: { access: string[] }[]): DashmarkError | undefined {
+export function missingAccessIdentity(config: AppConfig, headers: Headers, cards: readonly { access: string[] }[]): DashmarkError | undefined {
   if (!config.enableAccessControl || !cards.some((card) => card.access.length > 0)) return undefined
 
   const user = getUser(config, headers)
@@ -748,6 +751,8 @@ async function cardFromContainer(config: AppConfig, resolved: ResolvedContainer,
     })
   ])
   const customMetricLabels = selectedMetricLabels(resolved)
+  const customMetricKeys = selectedCustomMetrics(resolved).flatMap(([key, metric]) => (metric.valueType === 'number' ? [key] : []))
+  const uptimeMetricKeys = selectedCustomMetrics(resolved).flatMap(([key, metric]) => (metric.valueType === 'uptime' ? [key] : []))
   const metricErrors = selectedCustomMetricErrors(resolved)
 
   return {
@@ -777,6 +782,8 @@ async function cardFromContainer(config: AppConfig, resolved: ResolvedContainer,
           }))
         }
       : {}),
+    ...(customMetricKeys.length > 0 ? { customMetricKeys } : {}),
+    ...(uptimeMetricKeys.length > 0 ? { uptimeMetricKeys } : {}),
     metricsPollIntervalMs: labels.metricsPollIntervalMs ?? config.metricsPollIntervalMs,
     metricsHistoryPeriodMs: labels.metricsHistoryPeriodMs,
     metricsAccess: labels.metricsAccess,
@@ -803,6 +810,8 @@ async function cardFromYaml(config: AppConfig, name: string, service: ServiceOve
   ])
   const resolved = resolveYamlMetrics(service, service.url)
   const customMetricLabels = selectedMetricLabels(resolved)
+  const customMetricKeys = selectedCustomMetrics(resolved).flatMap(([key, metric]) => (metric.valueType === 'number' ? [key] : []))
+  const uptimeMetricKeys = selectedCustomMetrics(resolved).flatMap(([key, metric]) => (metric.valueType === 'uptime' ? [key] : []))
   const metricErrors = selectedCustomMetricErrors(resolved)
 
   return {
@@ -828,6 +837,8 @@ async function cardFromYaml(config: AppConfig, name: string, service: ServiceOve
           }))
         }
       : {}),
+    ...(customMetricKeys.length > 0 ? { customMetricKeys } : {}),
+    ...(uptimeMetricKeys.length > 0 ? { uptimeMetricKeys } : {}),
     metricsPollIntervalMs: resolved.labels.metricsPollIntervalMs ?? config.metricsPollIntervalMs,
     metricsHistoryPeriodMs: resolved.labels.metricsHistoryPeriodMs,
     metricsAccess: resolved.labels.metricsAccess,
@@ -953,6 +964,15 @@ type ContainerMetricSample = {
   metricsPollIntervalMs: number
   metricsHistoryPeriodMs: number
 }
+
+type MetricCollectionTarget = {
+  cardId: string
+  metricsPollIntervalMs: number
+  collect: () => Promise<ContainerMetricSample | undefined>
+}
+
+const discoveredMetricTargets = new Map<string, MetricCollectionTarget>()
+const MAX_DUE_CARD_COLLECTIONS = 8
 
 function selectedCustomMetrics(resolved: ResolvedMetricCard): SelectedCustomMetric[] {
   if (!resolved.customMetrics) return []
@@ -1209,11 +1229,85 @@ export async function collectContainerResourceUsage(config: AppConfig, isDue: (c
   return samples
 }
 
+export function discoveredMetricSchedules(): readonly { cardId: string; metricsPollIntervalMs: number }[] {
+  return [...discoveredMetricTargets.values()].map(({ cardId, metricsPollIntervalMs }) => ({ cardId, metricsPollIntervalMs }))
+}
+
+export async function collectDiscoveredMetricUsage(cardIds: ReadonlySet<string>): Promise<ContainerMetricSample[]> {
+  const targets = [...cardIds].flatMap((cardId) => {
+    const target = discoveredMetricTargets.get(cardId)
+    return target ? [target] : []
+  })
+  const samples: ContainerMetricSample[] = []
+  let next = 0
+  const worker = async () => {
+    while (next < targets.length) {
+      const target = targets[next++]
+      const sample = await target.collect()
+      if (sample) samples.push(sample)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(MAX_DUE_CARD_COLLECTIONS, targets.length) }, worker))
+  return samples
+}
+
+function containerMetricTarget(config: AppConfig, cardId: string, dockerHost: string, container: DockerContainer, resolved: ResolvedContainer): MetricCollectionTarget | undefined {
+  if (container.State !== 'running' || resolved.labels.hidden || !resolved.url || resolved.labels.showStatus === false) return undefined
+  const { resourceStats, selectedMetrics, historyPeriodMs, metricErrors, metricsPollIntervalMs } = metricDetails(resolved, config)
+  if (resourceStats.length === 0 && selectedMetrics.length === 0 && metricErrors.length === 0) return undefined
+  return {
+    cardId,
+    metricsPollIntervalMs,
+    collect: async () => {
+      const [resource, collected] = await Promise.all([
+        resourceStats.length > 0 ? getContainerResources(dockerHost, container.Id, resourceStats) : undefined,
+        collectSelectedCustomMetrics(config, cardId, historyPeriodMs, selectedMetrics, metricErrors)
+      ])
+      if (!resource && collected.customMetrics.length === 0 && !collected.uptimeMetrics?.length && collected.metricErrors.length === 0) return undefined
+      return {
+        cardId,
+        resource,
+        customMetrics: collected.customMetrics,
+        ...(collected.uptimeMetrics ? { uptimeMetrics: collected.uptimeMetrics } : {}),
+        metricErrors: collected.metricErrors,
+        metricsPollIntervalMs,
+        metricsHistoryPeriodMs: historyPeriodMs
+      }
+    }
+  }
+}
+
+function yamlMetricTarget(config: AppConfig, name: string, service: ServiceOverrides): MetricCollectionTarget | undefined {
+  if (service.hidden || !service.url || !isValidUrl(service.url) || service.showStatus === false) return undefined
+  const resolved = resolveYamlMetrics(service, service.url)
+  const { selectedMetrics, historyPeriodMs, metricErrors, metricsPollIntervalMs } = metricDetails(resolved, config, false)
+  if (selectedMetrics.length === 0 && metricErrors.length === 0) return undefined
+  const cardId = `yaml-${name}`
+  return {
+    cardId,
+    metricsPollIntervalMs,
+    collect: async () => {
+      const collected = await collectSelectedCustomMetrics(config, cardId, historyPeriodMs, selectedMetrics, metricErrors)
+      if (collected.customMetrics.length === 0 && !collected.uptimeMetrics?.length && collected.metricErrors.length === 0) return undefined
+      return {
+        cardId,
+        resource: undefined,
+        customMetrics: collected.customMetrics,
+        ...(collected.uptimeMetrics ? { uptimeMetrics: collected.uptimeMetrics } : {}),
+        metricErrors: collected.metricErrors,
+        metricsPollIntervalMs,
+        metricsHistoryPeriodMs: historyPeriodMs
+      }
+    }
+  }
+}
+
 async function buildAllCards(config: AppConfig): Promise<{ cards: Card[]; error?: DashmarkError }> {
   const { yamlServices, containers, error } = await loadServicesAndContainers(config)
   if (error) return { cards: [], error }
 
   const cards: Card[] = []
+  const metricTargets = new Map<string, MetricCollectionTarget>()
   const matchedKeys = new Set(
     containers.flatMap(({ hostId, container }) => {
       const key = lookupYamlService(yamlServices, hostId, container).key
@@ -1231,6 +1325,14 @@ async function buildAllCards(config: AppConfig): Promise<{ cards: Card[]; error?
     const host = showHost ? dockerHostName(hostId) : undefined
     const card = await cardFromContainer(config, resolved, hostId, host, hostColors.get(host ?? '') ?? 0)
     if (card) cards.push(card)
+    const target = containerMetricTarget(
+      config,
+      `${hostId}:${container.Id}`,
+      configuredDockerHosts(config).find((candidate) => candidate.id === hostId)?.dockerHost ?? config.dockerHost,
+      container,
+      resolved
+    )
+    if (target) metricTargets.set(target.cardId, target)
 
     if (resolved.yamlKey) matchedKeys.add(resolved.yamlKey)
   }
@@ -1239,9 +1341,19 @@ async function buildAllCards(config: AppConfig): Promise<{ cards: Card[]; error?
     if (matchedKeys.has(name)) continue
     const card = await cardFromYaml(config, name, yamlService, hostColors.get(yamlService.host ?? '') ?? 0)
     if (card) cards.push(card)
+    const target = yamlMetricTarget(config, name, yamlService)
+    if (target) metricTargets.set(target.cardId, target)
   }
 
+  discoveredMetricTargets.clear()
+  for (const [cardId, target] of metricTargets) discoveredMetricTargets.set(cardId, target)
   return { cards: sortCards(cards) }
+}
+
+// Discovery is intentionally unauthenticated. Consumers must filter its cards using
+// filterCardsByAccess before returning a snapshot to a request or socket.
+export async function getDiscoveredCards(config: AppConfig): Promise<{ cards: Card[]; error?: DashmarkError }> {
+  return buildAllCards(config)
 }
 
 export async function getCards(
@@ -1252,7 +1364,7 @@ export async function getCards(
   usesAccessControl: boolean
   error?: DashmarkError
 }> {
-  const { cards: allCards, error } = await buildAllCards(config)
+  const { cards: allCards, error } = await getDiscoveredCards(config)
   if (error) return { cards: [], usesAccessControl: false, error }
 
   const usesAccessControl = allCards.some((card) => card.access.length > 0)
