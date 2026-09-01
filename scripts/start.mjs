@@ -1,5 +1,8 @@
 import fs from 'node:fs'
-import http from 'node:http'
+import { fileURLToPath } from 'node:url'
+import Fastify from 'fastify'
+import staticPlugin from '@fastify/static'
+import websocket from '@fastify/websocket'
 import yaml from 'js-yaml'
 
 function yamlPort() {
@@ -15,17 +18,37 @@ function yamlPort() {
 
 process.env.PORT = yamlPort() ?? process.env.PORT ?? '4321'
 const { handler } = await import('../dist/server/entry.mjs')
-const realtime = globalThis.__dashmarkRealtime
-const server = http.createServer(handler)
+const { initializeRuntime } = await import('../dist/server/runtime.cjs')
+const { realtime } = initializeRuntime()
 
-realtime?.attach(server)
+const app = Fastify()
+await app.register(staticPlugin, { root: fileURLToPath(new URL('../dist/client/', import.meta.url)) })
+await app.register(websocket, { options: { maxPayload: 16 * 1024 } })
 
-function shutdown() {
-  realtime?.close()
-  server.close(() => process.exit(0))
-  setTimeout(() => process.exit(0), 10_000).unref()
+app.get(
+  '/api/realtime',
+  {
+    websocket: true,
+    preValidation: async (request, reply) => {
+      if (!realtime) return reply.code(503).send()
+      const status = realtime.authorize(request.raw)
+      return status ? reply.code(status).send() : undefined
+    }
+  },
+  (socket, request) => realtime.connect(socket, request.raw)
+)
+
+app.setNotFoundHandler(async (request, reply) => {
+  reply.hijack()
+  await handler(request.raw, reply.raw)
+})
+await app.listen({ port: Number(process.env.PORT), host: process.env.HOST || '0.0.0.0' })
+
+async function shutdown() {
+  realtime.close()
+  await app.close()
+  process.exit(0)
 }
 
-process.once('SIGINT', shutdown)
-process.once('SIGTERM', shutdown)
-server.listen(Number(process.env.PORT), process.env.HOST || '0.0.0.0')
+process.once('SIGINT', () => void shutdown())
+process.once('SIGTERM', () => void shutdown())

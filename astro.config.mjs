@@ -14,6 +14,18 @@ function yamlPort() {
   }
 }
 
+function realtimeDevServer() {
+  return {
+    name: 'dashmark-realtime',
+    hooks: {
+      'astro:server:setup': async ({ server }) => {
+        globalThis.__dashmarkDevServer = server.httpServer
+        globalThis.__dashmarkDevRealtimeAttached = false
+      }
+    }
+  }
+}
+
 const parsedPort = Number(yamlPort() ?? process.env.PORT)
 const port = Number.isInteger(parsedPort) && parsedPort > 0 && parsedPort <= 65_535 ? parsedPort : 4321
 const demoEnabled = process.env.DASHMARK_DEMO === 'true'
@@ -24,12 +36,11 @@ export default defineConfig({
   output: 'server',
   base: process.env.ASTRO_BASE,
   site: process.env.ASTRO_SITE,
-  // The runtime entry owns the HTTP server so it can handle WebSocket upgrades.
   adapter: node({ mode: 'middleware' }),
   image: {
     service: passthroughImageService()
   },
-  integrations: [react()],
+  integrations: [realtimeDevServer(), react()],
   vite: {
     define: {
       __DASHMARK_DEMO__: JSON.stringify(demoEnabled),

@@ -1,6 +1,6 @@
-import { createHash } from 'node:crypto'
 import type { IncomingMessage, Server } from 'node:http'
 import type { Duplex } from 'node:stream'
+import WebSocket, { WebSocketServer } from 'ws'
 import { isAuthorized } from './auth'
 import type { AppConfig } from './config'
 import { canViewMetric } from './docker'
@@ -20,14 +20,13 @@ const UPTIME_BUCKET_COUNT = 120
 type ClientMessage = { type: 'subscribe_status' } | { type: 'subscribe_metrics'; cardId: string } | { type: 'unsubscribe_metrics'; cardId: string }
 
 type RealtimeSocket = {
-  socket: Duplex
+  socket: WebSocket
   headers: Headers
   metrics: Set<string>
   statusSubscribed: boolean
   pendingEvents: number
   pendingBytes: number
   closed: boolean
-  buffer: Buffer
   lifetime: ReturnType<typeof setTimeout>
 }
 
@@ -50,12 +49,14 @@ type RealtimeUptimeMetric = Omit<UptimeMetric, 'observations'> & { buckets: Upti
 type RealtimeMetricsResponse = Omit<MetricsResponse, 'uptimeMetrics'> & { uptimeMetrics?: RealtimeUptimeMetric[] }
 
 export type RealtimeServer = RealtimePublisher & {
-  attach(server: Server): void
+  authorize(request: IncomingMessage): number | undefined
+  connect(socket: WebSocket, request: IncomingMessage): void
+  attachDevServer(server: Server): void
   close(): void
 }
 
 declare global {
-  // The Node runtime entry attaches this instance to its HTTP server after loading Astro.
+  // The explicit runtime initializer exposes this shared instance to Fastify and Astro.
   var __dashmarkRealtime: RealtimeServer | undefined
 }
 
@@ -87,26 +88,6 @@ function reject(socket: Duplex, status: number, reason: string): void {
   socket.destroy()
 }
 
-function websocketAccept(key: string): string {
-  return createHash('sha1').update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest('base64')
-}
-
-function isUpgradeRequest(request: IncomingMessage): boolean {
-  const key = request.headers['sec-websocket-key']
-  return Boolean(
-    request.method === 'GET' &&
-    request.headers.upgrade?.toLowerCase() === 'websocket' &&
-    request.headers.connection
-      ?.toLowerCase()
-      .split(',')
-      .map((part) => part.trim())
-      .includes('upgrade') &&
-    request.headers['sec-websocket-version'] === '13' &&
-    typeof key === 'string' &&
-    Buffer.from(key, 'base64').length === 16
-  )
-}
-
 function parseMessage(value: unknown): ClientMessage | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
   const message = value as Record<string, unknown>
@@ -121,23 +102,6 @@ function parseMessage(value: unknown): ClientMessage | undefined {
     return { type: message.type, cardId: message.cardId }
   }
   return undefined
-}
-
-function frame(opcode: number, payload: string): Buffer {
-  const body = Buffer.from(payload)
-  if (body.length < 126) return Buffer.concat([Buffer.from([0x80 | opcode, body.length]), body])
-  if (body.length <= 65_535) {
-    const header = Buffer.alloc(4)
-    header[0] = 0x80 | opcode
-    header[1] = 126
-    header.writeUInt16BE(body.length, 2)
-    return Buffer.concat([header, body])
-  }
-  const header = Buffer.alloc(10)
-  header[0] = 0x80 | opcode
-  header[1] = 127
-  header.writeBigUInt64BE(BigInt(body.length), 2)
-  return Buffer.concat([header, body])
 }
 
 function visibleResource<T extends ContainerResources>(resource: T, visible: (metric: string) => boolean): T {
@@ -203,6 +167,7 @@ async function metricsSnapshot(config: AppConfig, headers: Headers, cardId: stri
 
 function createRealtimeServer(config: AppConfig): RealtimeServer {
   const clients = new Set<RealtimeSocket>()
+  const devWebSockets = new WebSocketServer({ noServer: true, maxPayload: MAX_CLIENT_MESSAGE_BYTES })
   const coordinator = getDiscoveryCoordinator(config)
   coordinator.start()
   const publishedUptimeBuckets = new Map<string, UptimeBucket[]>()
@@ -214,21 +179,21 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
     client.closed = true
     clearTimeout(client.lifetime)
     clients.delete(client)
-    client.socket.write(frame(8, String.fromCharCode(code)))
-    client.socket.end()
+    client.socket.close(code)
   }
   const send = (client: RealtimeSocket, message: object): boolean => {
-    if (client.closed) return false
-    const data = frame(1, JSON.stringify(message))
-    if (client.pendingEvents >= MAX_OUTBOUND_EVENTS || client.pendingBytes + data.length > MAX_OUTBOUND_BYTES) {
+    if (client.closed || client.socket.readyState !== WebSocket.OPEN) return false
+    const data = JSON.stringify(message)
+    const bytes = Buffer.byteLength(data)
+    if (client.pendingEvents >= MAX_OUTBOUND_EVENTS || client.pendingBytes + bytes > MAX_OUTBOUND_BYTES) {
       closeClient(client, 1008)
       return false
     }
     client.pendingEvents++
-    client.pendingBytes += data.length
-    client.socket.write(data, () => {
+    client.pendingBytes += bytes
+    client.socket.send(data, () => {
       client.pendingEvents--
-      client.pendingBytes -= data.length
+      client.pendingBytes -= bytes
     })
     return true
   }
@@ -302,78 +267,46 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
         })
     )
   }
-  const processFrames = (client: RealtimeSocket): void => {
-    while (client.buffer.length >= 2) {
-      const first = client.buffer[0]
-      const second = client.buffer[1]
-      const final = (first & 0x80) !== 0
-      const opcode = first & 0x0f
-      const masked = (second & 0x80) !== 0
-      let length = second & 0x7f
-      let offset = 2
-      if (!final || !masked || opcode === 0 || opcode > 2) return closeClient(client, 1002)
-      if (length === 126) {
-        if (client.buffer.length < 4) return
-        length = client.buffer.readUInt16BE(2)
-        offset = 4
-      } else if (length === 127) return closeClient(client, 1009)
-      if (length > MAX_CLIENT_MESSAGE_BYTES) return closeClient(client, 1009)
-      if (client.buffer.length < offset + 4 + length) return
-      const mask = client.buffer.subarray(offset, offset + 4)
-      const payload = Buffer.from(client.buffer.subarray(offset + 4, offset + 4 + length))
-      client.buffer = client.buffer.subarray(offset + 4 + length)
-      for (let index = 0; index < payload.length; index++) payload[index] ^= mask[index % 4]
-      if (opcode === 8) return closeClient(client)
-      if (opcode === 9) {
-        client.socket.write(frame(10, payload.toString()))
-        continue
-      }
-      if (opcode !== 1) return closeClient(client, 1003)
-      try {
-        void handleMessage(client, new TextDecoder('utf-8', { fatal: true }).decode(payload))
-      } catch {
-        return closeClient(client, 1007)
-      }
-    }
+  const authorize = (request: IncomingMessage): number | undefined => {
+    if (!sameOrigin(request)) return 403
+    const headers = requestHeaders(request)
+    const authRequest = new Request(`http://${request.headers.host ?? 'localhost'}${request.url ?? '/'}`, { headers })
+    return isAuthorized(authRequest, config.authToken) ? undefined : 401
   }
-  const attach = (server: Server): void => {
-    server.on('upgrade', (request, socket, head) => {
-      if (new URL(request.url ?? '/', 'http://localhost').pathname !== PATHNAME) return reject(socket, 404, 'Not Found')
-      if (!isUpgradeRequest(request) || !sameOrigin(request)) return reject(socket, 403, 'Forbidden')
-      const headers = requestHeaders(request)
-      const authRequest = new Request(`http://${request.headers.host ?? 'localhost'}${request.url ?? '/'}`, { headers })
-      if (!isAuthorized(authRequest, config.authToken)) return reject(socket, 401, 'Unauthorized')
-      const key = request.headers['sec-websocket-key'] as string
-      socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${websocketAccept(key)}\r\n\r\n`)
-      const client: RealtimeSocket = {
-        socket,
-        headers,
-        metrics: new Set(),
-        statusSubscribed: true,
-        pendingEvents: 0,
-        pendingBytes: 0,
-        closed: false,
-        buffer: Buffer.alloc(0),
-        lifetime: setTimeout(() => closeClient(client, 1001), SOCKET_LIFETIME_MS)
-      }
-      client.lifetime.unref()
-      clients.add(client)
-      socket.on('data', (chunk: Buffer) => {
-        client.buffer = Buffer.concat([client.buffer, chunk])
-        if (client.buffer.length > MAX_CLIENT_MESSAGE_BYTES + 14) closeClient(client, 1009)
-        else processFrames(client)
-      })
-      socket.on('close', () => closeClient(client))
-      socket.on('error', () => closeClient(client))
-      if (head.length > 0) {
-        client.buffer = head
-        processFrames(client)
-      }
-      void sendStatusSnapshot(client)
+  const connect = (socket: WebSocket, request: IncomingMessage): void => {
+    const client: RealtimeSocket = {
+      socket,
+      headers: requestHeaders(request),
+      metrics: new Set(),
+      statusSubscribed: true,
+      pendingEvents: 0,
+      pendingBytes: 0,
+      closed: false,
+      lifetime: setTimeout(() => closeClient(client, 1001), SOCKET_LIFETIME_MS)
+    }
+    client.lifetime.unref()
+    clients.add(client)
+    socket.on('message', (data, isBinary) => {
+      if (isBinary) return closeClient(client, 1003)
+      void handleMessage(client, data.toString())
     })
+    socket.on('close', () => closeClient(client))
+    socket.on('error', () => closeClient(client))
+    void sendStatusSnapshot(client)
+  }
+  const attachDevServer = (server: Server): void => {
+    const handleUpgrade = (request: IncomingMessage, socket: Duplex, head: Buffer) => {
+      if (new URL(request.url ?? '/', 'http://localhost').pathname !== PATHNAME) return
+      const status = authorize(request)
+      if (status) return reject(socket, status, status === 401 ? 'Unauthorized' : 'Forbidden')
+      devWebSockets.handleUpgrade(request, socket, head, (webSocket) => connect(webSocket, request))
+    }
+    server.prependListener('upgrade', handleUpgrade)
   }
   return {
-    attach,
+    authorize,
+    connect,
+    attachDevServer,
     close: () => {
       for (const client of clients) closeClient(client, 1001)
     },

@@ -85,6 +85,8 @@ function startMockProxy(targetPort, publicPort, identity) {
         .join('\r\n')
       socket.write(`HTTP/1.1 ${upstreamResponse.statusCode} ${upstreamResponse.statusMessage}\r\n${headers}\r\n\r\n`)
       if (upstreamHead.length > 0) socket.write(upstreamHead)
+      socket.on('error', () => upstreamSocket.destroy())
+      upstreamSocket.on('error', () => socket.destroy())
       upstreamSocket.pipe(socket).pipe(upstreamSocket)
     })
     upstream.on('error', () => socket.destroy())
@@ -104,7 +106,7 @@ function close(server) {
 }
 
 function startAstroDev(dockerHosts, backendPort) {
-  return spawn(process.execPath, [astroEntry, 'dev'], {
+  return spawn(process.execPath, [astroEntry, 'dev', '--host', '127.0.0.1'], {
     env: {
       ...process.env,
       PORT: String(backendPort),

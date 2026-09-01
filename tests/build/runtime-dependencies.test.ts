@@ -11,10 +11,16 @@ function readPackageLock(): PackageLock {
 }
 
 describe('runtime dependencies', () => {
-  it('keeps only the startup YAML parser outside the bundled server', () => {
+  it('keeps the runtime server dependencies outside the bundled app', () => {
     const packageLock = readPackageLock()
 
-    expect(packageLock.packages['']?.dependencies).toEqual({ 'js-yaml': '^4.1.0' })
+    expect(packageLock.packages['']?.dependencies).toEqual({
+      '@fastify/static': '^10.1.3',
+      '@fastify/websocket': '^11.3.0',
+      fastify: '^5.12.1',
+      'js-yaml': '^4.1.0',
+      ws: '^8.21.3'
+    })
     expect(packageLock.packages['']?.devDependencies?.['@astrojs/node']).toBeDefined()
     expect(packageLock.packages['node_modules/server-destroy']?.dev).toBe(true)
   })
