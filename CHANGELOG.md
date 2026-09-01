@@ -5,19 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.0] - 2026-09-01
 
 ### Changed
 
 - Replace dashboard HTTP polling with server-owned realtime collection over authenticated WebSockets.
 - Host the Astro application and realtime WebSocket endpoint with Fastify.
 - Reuse per-card realtime snapshots across subscribers and discard stale in-memory metric state when cards disappear.
+- Cache selfh.st icons locally on demand for the lifetime of a running container, clearing the cache at startup and removing icons when their services disappear.
+- Publish Docker images for both Linux amd64 and arm64 hosts.
 - Remove the HTTP status and metrics snapshot routes.
 
 ### Fixed
 
 - Accept same-origin realtime WebSocket upgrades through standards-compliant TLS-terminating reverse proxies.
 - Restore range-appropriate uptime graph density for 24-hour, 7-day, and 30-day views.
+- Show metrics as unavailable, rather than stale or indefinitely loading, after realtime reconnect retries are exhausted.
+- Provide higher-resolution standard and maskable PWA icons for Android launch screens.
 - Serialize custom metric requests to each metric-source origin to prevent cards from overloading a shared provider.
 - Persist uptime history, using bootstrap queries only when no retained card and metric history exists.
 - Include the CrowdSec Web UI LAPI status metric in the bundled catalog.
