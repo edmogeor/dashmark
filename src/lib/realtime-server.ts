@@ -89,13 +89,17 @@ function forwardedParameters(value: string | undefined): { host?: string; proto?
   )
 }
 
+function originProtocol(value: string | undefined): 'http:' | 'https:' {
+  return value?.toLowerCase() === 'https' || value?.toLowerCase() === 'wss' ? 'https:' : 'http:'
+}
+
 export function sameOrigin(request: IncomingMessage): boolean {
   const origin = request.headers.origin
   if (!origin) return true
   const forwarded = forwardedParameters(firstForwardedValue(request.headers.forwarded))
   const host = forwarded.host ?? firstForwardedValue(request.headers['x-forwarded-host']) ?? request.headers.host
   if (!host) return false
-  const protocol = (forwarded.proto ?? firstForwardedValue(request.headers['x-forwarded-proto']))?.toLowerCase() === 'https' ? 'https:' : 'http:'
+  const protocol = originProtocol(forwarded.proto ?? firstForwardedValue(request.headers['x-forwarded-proto']))
   try {
     return new URL(origin).origin === new URL(`${protocol}//${host}`).origin
   } catch {
