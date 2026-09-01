@@ -19,7 +19,7 @@ function yamlPort() {
 process.env.PORT = yamlPort() ?? process.env.PORT ?? '4321'
 const { handler } = await import('../dist/server/entry.mjs')
 const { initializeRuntime } = await import('../dist/server/runtime.cjs')
-const { realtime } = initializeRuntime()
+const { realtime, iconCache } = initializeRuntime()
 
 const app = Fastify()
 await app.register(staticPlugin, { root: fileURLToPath(new URL('../dist/client/', import.meta.url)) })
@@ -36,6 +36,12 @@ app.get(
   },
   (socket, request) => realtime.connect(socket, request.raw)
 )
+
+app.get('/api/selfhst-icons/:key', async (request, reply) => {
+  const icon = await iconCache.get(request.params.key)
+  if (!icon) return reply.code(404).send()
+  return reply.header('Cache-Control', 'public, max-age=3600').header('X-Content-Type-Options', 'nosniff').type(icon.mimeType).send(icon.content)
+})
 
 app.setNotFoundHandler(async (request, reply) => {
   reply.hijack()

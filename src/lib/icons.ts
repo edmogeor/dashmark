@@ -10,6 +10,7 @@ import { logMessages } from './log-messages'
 import { SELFHST_CDN, SELFHST_PREFIX } from './constants'
 import { getIconContrast, type IconContrast } from './icon-contrast'
 import { getServiceCandidates, normalizeServiceCandidate } from './service-candidates'
+import { getSelfhstIconCache } from './selfhst-icon-cache'
 
 function looksLikeUrl(value: string): boolean {
   return /^https?:\/\//i.test(value)
@@ -40,11 +41,27 @@ function resolveFileIcon(config: AppConfig, value: string): string | null {
   return null
 }
 
-export type IconResult = { type: 'image'; src: string; alt: string; contrast?: IconContrast } | { type: 'placeholder'; initials: string }
+export type IconResult = { type: 'image'; src: string; alt: string; contrast?: IconContrast; darkSrc?: string; lightSrc?: string } | { type: 'placeholder'; initials: string }
 
 function imageIcon(src: string, alt: string): IconResult {
   const contrast = src.startsWith(SELFHST_CDN) ? getIconContrast(src) : undefined
   return { type: 'image', src, alt, contrast }
+}
+
+function cachedSelfhstIcon(url: string, title: string): IconResult | null {
+  const cache = getSelfhstIconCache()
+  const src = cache.source(url)
+  if (!src) return null
+  const contrast = getIconContrast(url)
+  if (!contrast || !url.endsWith('.svg')) return { type: 'image', src, alt: title, contrast }
+
+  const variantUrl = url.replace(/\.svg$/, contrast === 'dark' ? '-light.svg' : '-dark.svg')
+  const variantSrc = cache.source(variantUrl)
+  return contrast === 'dark' ? { type: 'image', src, alt: title, contrast, lightSrc: variantSrc ?? undefined } : { type: 'image', src, alt: title, contrast, darkSrc: variantSrc ?? undefined }
+}
+
+function selfhstIcon(url: string, title: string, cacheSelfhst: boolean): IconResult | null {
+  return cacheSelfhst ? cachedSelfhstIcon(url, title) : imageIcon(url, title)
 }
 
 export async function resolveIcon(
@@ -54,9 +71,10 @@ export async function resolveIcon(
     imageName?: string
     title: string
     containerName: string
+    cacheSelfhst?: boolean
   }
 ): Promise<IconResult> {
-  const { iconLabel, imageName, title, containerName } = options
+  const { iconLabel, imageName, title, containerName, cacheSelfhst = true } = options
   const normalizedLabel = iconLabel?.toLowerCase()
 
   if (normalizedLabel === 'placeholder') {
@@ -72,7 +90,10 @@ export async function resolveIcon(
       const reference = iconLabel.slice(SELFHST_PREFIX.length)
       const icons = await fetchSelfhstIcons()
       const selfhstUrl = resolveSelfhstReference(reference, icons)
-      if (selfhstUrl) return imageIcon(selfhstUrl, title)
+      if (selfhstUrl) {
+        const icon = selfhstIcon(selfhstUrl, title, cacheSelfhst)
+        if (icon) return icon
+      }
 
       logger.warn('icons', logMessages.icons.selfhstReferenceNotFound, { iconLabel })
       return makePlaceholder(title)
@@ -93,7 +114,8 @@ export async function resolveIcon(
   const candidates = getServiceCandidates(imageName, containerName, title)
   const match = fuzzyMatchIcon(candidates, icons)
   if (match) {
-    return imageIcon(match.url, title)
+    const icon = selfhstIcon(match.url, title, cacheSelfhst)
+    if (icon) return icon
   }
 
   return makePlaceholder(title)

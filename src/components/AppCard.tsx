@@ -64,8 +64,8 @@ function useContrastAwareSrc(icon: CardType['icon']): string | undefined {
   const isDark = useIsDark()
   if (icon.type !== 'image') return undefined
   if (!icon.contrast) return icon.src
-  if (icon.contrast === 'dark' && isDark) return icon.src.replace(/\.svg$/, '-light.svg')
-  if (icon.contrast === 'light' && !isDark) return icon.src.replace(/\.svg$/, '-dark.svg')
+  if (icon.contrast === 'dark' && isDark) return icon.lightSrc ?? icon.src
+  if (icon.contrast === 'light' && !isDark) return icon.darkSrc ?? icon.src
   return icon.src
 }
 

@@ -16,7 +16,7 @@ export async function getDemoCards(config: AppConfig): Promise<Card[]> {
       access: card.access ?? [],
       state: card.state ?? 'running',
       health: card.health ?? 'healthy',
-      icon: await resolveIcon(config, { imageName, title: card.title, containerName: card.id })
+      icon: await resolveIcon(config, { imageName, title: card.title, containerName: card.id, cacheSelfhst: false })
     }))
   )
 }

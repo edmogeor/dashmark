@@ -3,11 +3,17 @@ import fs from 'node:fs'
 import { getConfig } from '@/lib/config'
 import { resolveIcon } from '@/lib/icons'
 
+const { source } = vi.hoisted(() => ({ source: vi.fn() }))
+
 vi.mock('node:fs', () => ({
   default: {
     existsSync: vi.fn(),
     readFileSync: vi.fn()
   }
+}))
+
+vi.mock('@/lib/selfhst-icon-cache', () => ({
+  getSelfhstIconCache: () => ({ source })
 }))
 
 describe('resolveIcon', () => {
@@ -16,6 +22,7 @@ describe('resolveIcon', () => {
 
   beforeEach(() => {
     global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify([{ name: 'plex.svg' }, { name: 'grafana.svg' }]), { status: 200 }))
+    source.mockImplementation((url: string) => (url.endsWith('-light.svg') || url.endsWith('-dark.svg') ? null : '/api/selfhst-icons/cached.svg'))
     vi.mocked(fs.readFileSync).mockImplementation(
       (filePath) => (String(filePath).endsWith('icon-contrast.json') ? JSON.stringify({ 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/plex.svg': 'dark' }) : undefined) as never
     )
@@ -58,7 +65,7 @@ describe('resolveIcon', () => {
     })
   })
 
-  it('resolves a selfhst reference to a CDN URL', async () => {
+  it('resolves a selfhst reference to the local cache', async () => {
     const result = await resolveIcon(config, {
       iconLabel: 'selfhst:PlEx',
       title: 'Plex',
@@ -66,10 +73,27 @@ describe('resolveIcon', () => {
     })
     expect(result).toEqual({
       type: 'image',
+      src: '/api/selfhst-icons/cached.svg',
+      alt: 'Plex',
+      contrast: 'dark'
+    })
+  })
+
+  it('keeps selfhst URLs remote when building the static demo', async () => {
+    const result = await resolveIcon(config, {
+      iconLabel: 'selfhst:plex',
+      title: 'Plex',
+      containerName: 'plex',
+      cacheSelfhst: false
+    })
+
+    expect(result).toEqual({
+      type: 'image',
       src: 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/plex.svg',
       alt: 'Plex',
       contrast: 'dark'
     })
+    expect(source).not.toHaveBeenCalled()
   })
 
   it('returns a placeholder for an unknown selfhst reference', async () => {
@@ -146,7 +170,7 @@ describe('resolveIcon', () => {
     })
     expect(result).toEqual({
       type: 'image',
-      src: 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/plex.svg',
+      src: '/api/selfhst-icons/cached.svg',
       alt: 'Plex',
       contrast: 'dark'
     })
