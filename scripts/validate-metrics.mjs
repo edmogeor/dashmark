@@ -335,17 +335,17 @@ function validateRequest(request, context, allowToken) {
   }
 }
 
-function validate(file, provider) {
-  validatePath(file)
-  const definition = record(yaml.load(fs.readFileSync(file, 'utf8')), 'must contain a YAML mapping')
-  allowed(definition, new Set(['display', 'value', 'source', 'extract', 'parameters', 'notes']), 'metric definition')
-  if (definition.notes !== undefined && (typeof definition.notes !== 'string' || !definition.notes.trim())) throw new Error('metric notes must be a non-empty string')
+function validateMetricDisplay(definition, provider) {
   const display = record(definition.display, 'display must be a mapping')
   allowed(display, new Set(['label', 'chart']), 'display')
   if (typeof display.label !== 'string' || !display.label.trim()) throw new Error('display.label must be a non-empty string')
   if (display.chart !== undefined && (typeof display.chart !== 'string' || (!charts.has(display.chart) && provider.charts?.[display.chart] === undefined))) {
     throw new Error('display.chart must be a chart style or provider chart group')
   }
+  return display
+}
+
+function validateMetricValueAndExtract(definition) {
   const value = record(definition.value ?? {}, 'value must be a mapping')
   allowed(value, new Set(['kind', 'unit', 'rate', 'transform', 'default_color', 'colors', 'labels']), 'value')
   const valueType = value.kind ?? 'number'
@@ -360,7 +360,10 @@ function validate(file, provider) {
   if (Number(hasJq) + Number(hasPrometheus) + Number(hasText) + Number(hasForEach) !== 1) throw new Error('extract must define exactly one jq, prometheus, text, or for_each extractor')
   if (extract.pagination !== undefined && !hasJq) throw new Error('pagination requires a jq extractor')
   if (extract.pagination !== undefined && definition.source?.transport === 'socketio') throw new Error('pagination requires an HTTP metric')
+  return { value, valueType, extract, hasJq, hasPrometheus, hasForEach }
+}
 
+function validateMetricValueRules(value, valueType, display, hasJq) {
   if (valueType === 'number') {
     validateUnit(value.unit ?? 'number')
     if (value.rate !== undefined && value.rate !== true) throw new Error('value.rate must be true when specified')
@@ -389,7 +392,9 @@ function validate(file, provider) {
     if (value.colors !== undefined) validateStateColors(value.colors)
     if (value.labels !== undefined) validateStateLabels(value.labels)
   }
+}
 
+function validateMetricExtract(extract, valueType, hasJq, hasPrometheus, hasForEach, definition) {
   if (hasJq && (typeof extract.jq !== 'string' || !extract.jq.trim())) throw new Error('extract.jq must be a non-empty expression')
   if (extract.pagination !== undefined) validatePagination(extract.pagination)
   if (hasPrometheus) {
@@ -400,9 +405,24 @@ function validate(file, provider) {
     if (valueType !== 'number' || definition.source?.transport === 'socketio') throw new Error('for_each requires a numeric HTTP metric')
     validateForEach(extract.for_each)
   }
+}
+
+function validateMetricDefinition(definition, provider) {
+  allowed(definition, new Set(['display', 'value', 'source', 'extract', 'parameters', 'notes']), 'metric definition')
+  if (definition.notes !== undefined && (typeof definition.notes !== 'string' || !definition.notes.trim())) throw new Error('metric notes must be a non-empty string')
+  const display = validateMetricDisplay(definition, provider)
+  const { value, valueType, extract, hasJq, hasPrometheus, hasForEach } = validateMetricValueAndExtract(definition)
+  validateMetricValueRules(value, valueType, display, hasJq)
+  validateMetricExtract(extract, valueType, hasJq, hasPrometheus, hasForEach, definition)
   if (definition.parameters !== undefined) validateParameters(definition.parameters, provider.transforms)
   if (definition.source === undefined) throw new Error('source must be defined')
   validateSource(sourceWithDefaults(provider, definition))
+}
+
+function validate(file, provider) {
+  validatePath(file)
+  const definition = record(yaml.load(fs.readFileSync(file, 'utf8')), 'must contain a YAML mapping')
+  validateMetricDefinition(definition, provider)
 }
 
 const errors = []

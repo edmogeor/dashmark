@@ -16,14 +16,9 @@ const exactTimestampFormatter = new Intl.DateTimeFormat(undefined, {
   second: '2-digit'
 })
 
-function formatTimestamp(timestamp: unknown): string {
+function formatTimestamp(timestamp: unknown, formatter = timestampFormatter): string {
   const value = Number(timestamp)
-  return Number.isFinite(value) ? timestampFormatter.format(value) : ''
-}
-
-function formatExactTimestamp(timestamp: unknown): string {
-  const value = Number(timestamp)
-  return Number.isFinite(value) ? exactTimestampFormatter.format(value) : ''
+  return Number.isFinite(value) ? formatter.format(value) : ''
 }
 
 function chartData(detail: MetricDetail): ChartPoint[] {
@@ -63,7 +58,7 @@ function MetricTooltip({ detail }: { detail: MetricDetail }) {
         if (!active || values.length === 0) return null
         return (
           <div className="dashmark-metric-chart-tooltip grid gap-1 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
-            <span className="dashmark-metric-chart-tooltip-time text-muted-foreground">{formatExactTimestamp(label)}</span>
+            <span className="dashmark-metric-chart-tooltip-time text-muted-foreground">{formatTimestamp(label, exactTimestampFormatter)}</span>
             {values.map(([series, value]) => (
               <div key={series.key} className="dashmark-metric-chart-tooltip-value flex items-center justify-between gap-4 font-mono font-medium tabular-nums" data-series-key={series.key}>
                 {detail.series.length > 1 && <span className="dashmark-metric-chart-tooltip-label text-muted-foreground">{series.label}</span>}
@@ -177,7 +172,7 @@ function MetricChart({ detail }: { detail: MetricDetail }) {
               domain={[start, end]}
               allowDataOverflow
               className="dashmark-metric-chart-x-axis"
-              tickFormatter={formatTimestamp}
+              tickFormatter={(value) => formatTimestamp(value)}
               tickLine={false}
               axisLine={false}
               ticks={Array.from({ length: 4 }, (_, index) => start + ((end - start) * index) / 3)}

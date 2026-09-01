@@ -7,7 +7,7 @@ import { loadMetricCatalog, loadYamlConfig } from './config-file'
 import { parseLabels, parseResourceStats, isValidUrl, traefikUrl, hasDashmarkLabels, RESOURCE_STATS, type ParsedLabels, type ResourceStat } from './labels'
 import { resolveIcon, type IconResult } from './icons'
 import { resolveDescription } from './descriptions'
-import { accessHeaderNames, getUser, hasAllowedAccess } from './auth'
+import { getUser, hasAllowedAccess } from './auth'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
 import { dashmarkError, errorMessage, isRecord, type DashmarkError } from './errors'
@@ -23,7 +23,6 @@ import {
   DOCKER_PLAIN_PORT,
   DOCKER_API_FALLBACK_VERSION,
   COMPOSE_SERVICE_LABEL,
-  AUTH_TOKEN_HEADER,
   LABEL_PREFIX,
   UPTIME_HISTORY_PERIOD_MS
 } from './constants'
@@ -715,16 +714,6 @@ function isVisibleContainer(config: AppConfig, headers: Headers, { labels, url }
   return !labels.hidden && url !== undefined && canAccess(config, headers, labels.access)
 }
 
-export function addAccessVaryHeader(headers: Headers, config: AppConfig): void {
-  const names = [...(config.authToken ? [AUTH_TOKEN_HEADER] : []), ...(config.enableAccessControl ? accessHeaderNames(config) : [])]
-  if (names.length > 0) headers.set('Vary', names.join(', '))
-}
-
-export function addResourceUsageVaryHeader(headers: Headers, config: AppConfig): void {
-  const names = [...(config.authToken ? [AUTH_TOKEN_HEADER] : []), ...accessHeaderNames(config)]
-  headers.set('Vary', names.join(', '))
-}
-
 export function canViewMetric(config: AppConfig, headers: Headers, access: Record<string, string[]> | undefined, metric: string): boolean {
   if (!config.showMetrics) return false
   const user = getUser(config, headers)
@@ -750,11 +739,6 @@ async function cardFromContainer(config: AppConfig, resolved: ResolvedContainer,
       containerName: name
     })
   ])
-  const customMetricLabels = selectedMetricLabels(resolved)
-  const customMetricKeys = selectedCustomMetrics(resolved).flatMap(([key, metric]) => (metric.valueType === 'number' ? [key] : []))
-  const uptimeMetricKeys = selectedCustomMetrics(resolved).flatMap(([key, metric]) => (metric.valueType === 'uptime' ? [key] : []))
-  const metricErrors = selectedCustomMetricErrors(resolved)
-
   return {
     id: `${hostId}:${container.Id}`,
     title,
@@ -774,20 +758,7 @@ async function cardFromContainer(config: AppConfig, resolved: ResolvedContainer,
     usesHostNetwork: container.HostConfig?.NetworkMode === 'host',
     resourceStats: labels.resourceStats ?? [...RESOURCE_STATS],
     metrics: labels.metrics,
-    ...(customMetricLabels.length > 0
-      ? {
-          customMetricLabels: customMetricLabels.map(([key, metric]) => ({
-            key,
-            label: metric.label
-          }))
-        }
-      : {}),
-    ...(customMetricKeys.length > 0 ? { customMetricKeys } : {}),
-    ...(uptimeMetricKeys.length > 0 ? { uptimeMetricKeys } : {}),
-    metricsPollIntervalMs: labels.metricsPollIntervalMs ?? config.metricsPollIntervalMs,
-    metricsHistoryPeriodMs: labels.metricsHistoryPeriodMs,
-    metricsAccess: labels.metricsAccess,
-    ...(metricErrors.length > 0 ? { metricErrors } : {})
+    ...metricCardFields(resolved, config)
   }
 }
 
@@ -809,11 +780,6 @@ async function cardFromYaml(config: AppConfig, name: string, service: ServiceOve
     })
   ])
   const resolved = resolveYamlMetrics(service, service.url)
-  const customMetricLabels = selectedMetricLabels(resolved)
-  const customMetricKeys = selectedCustomMetrics(resolved).flatMap(([key, metric]) => (metric.valueType === 'number' ? [key] : []))
-  const uptimeMetricKeys = selectedCustomMetrics(resolved).flatMap(([key, metric]) => (metric.valueType === 'uptime' ? [key] : []))
-  const metricErrors = selectedCustomMetricErrors(resolved)
-
   return {
     id: `yaml-${name}`,
     title,
@@ -829,20 +795,7 @@ async function cardFromYaml(config: AppConfig, name: string, service: ServiceOve
     host: service.host,
     hostColor: service.host === undefined ? undefined : hostColor,
     metrics: resolved.labels.metrics,
-    ...(customMetricLabels.length > 0
-      ? {
-          customMetricLabels: customMetricLabels.map(([key, metric]) => ({
-            key,
-            label: metric.label
-          }))
-        }
-      : {}),
-    ...(customMetricKeys.length > 0 ? { customMetricKeys } : {}),
-    ...(uptimeMetricKeys.length > 0 ? { uptimeMetricKeys } : {}),
-    metricsPollIntervalMs: resolved.labels.metricsPollIntervalMs ?? config.metricsPollIntervalMs,
-    metricsHistoryPeriodMs: resolved.labels.metricsHistoryPeriodMs,
-    metricsAccess: resolved.labels.metricsAccess,
-    ...(metricErrors.length > 0 ? { metricErrors } : {})
+    ...metricCardFields(resolved, config)
   }
 }
 
@@ -1009,6 +962,23 @@ function metricDetails(resolved: ResolvedMetricCard, config: AppConfig, hasConta
   }
 }
 
+function metricCardFields(resolved: ResolvedMetricCard, config: AppConfig) {
+  const customMetricLabels = selectedMetricLabels(resolved).map(([key, metric]) => ({ key, label: metric.label }))
+  const selectedMetrics = selectedCustomMetrics(resolved)
+  const customMetricKeys = selectedMetrics.flatMap(([key, metric]) => (metric.valueType === 'number' ? [key] : []))
+  const uptimeMetricKeys = selectedMetrics.flatMap(([key, metric]) => (metric.valueType === 'uptime' ? [key] : []))
+  const metricErrors = selectedCustomMetricErrors(resolved)
+  return {
+    ...(customMetricLabels.length > 0 ? { customMetricLabels } : {}),
+    ...(customMetricKeys.length > 0 ? { customMetricKeys } : {}),
+    ...(uptimeMetricKeys.length > 0 ? { uptimeMetricKeys } : {}),
+    metricsPollIntervalMs: resolved.labels.metricsPollIntervalMs ?? config.metricsPollIntervalMs,
+    metricsHistoryPeriodMs: resolved.labels.metricsHistoryPeriodMs,
+    metricsAccess: resolved.labels.metricsAccess,
+    ...(metricErrors.length > 0 ? { metricErrors } : {})
+  }
+}
+
 function collectedCustomMetric(key: string, metric: MetricOverride, value: number | string): CollectedCustomMetric | undefined {
   if (metric.valueType === 'string' && typeof value === 'string') return { key, label: metric.label, value }
   if (metric.valueType === 'state' && typeof value === 'string') {
@@ -1077,38 +1047,60 @@ async function collectSelectedCustomMetrics(
   }
 }
 
+function metricSample(
+  cardId: string,
+  resource: ContainerResources | undefined,
+  collected: Pick<ContainerMetricUsage, 'customMetrics' | 'uptimeMetrics' | 'metricErrors'>,
+  metricsPollIntervalMs: number,
+  metricsHistoryPeriodMs: number
+): ContainerMetricSample | undefined {
+  if (!resource && collected.customMetrics.length === 0 && !collected.uptimeMetrics?.length && collected.metricErrors.length === 0) return undefined
+  return {
+    cardId,
+    resource,
+    customMetrics: collected.customMetrics,
+    ...(collected.uptimeMetrics ? { uptimeMetrics: collected.uptimeMetrics } : {}),
+    metricErrors: collected.metricErrors,
+    metricsPollIntervalMs,
+    metricsHistoryPeriodMs
+  }
+}
+
 export async function getContainerMetricUsage(config: AppConfig, headers: Headers, cardId: string, collect = true): Promise<ContainerMetricUsage | undefined> {
   if (!config.showMetrics || !hasAllowedAccess(getUser(config, headers), config.metricsAccess)) return undefined
+  return cardId.startsWith('yaml-') ? getYamlMetricUsage(config, headers, cardId, collect) : getDockerMetricUsage(config, headers, cardId, collect)
+}
 
-  if (cardId.startsWith('yaml-')) {
-    const name = cardId.slice('yaml-'.length)
-    const { yamlServices, containers, error } = await loadServicesAndContainers(config)
-    if (error) return undefined
-    const service = yamlServices[name]
-    if (!service || service.hidden || !service.url || !isValidUrl(service.url) || service.showStatus === false || !canAccess(config, headers, service.access ?? [])) return undefined
-    if (containers.some(({ hostId, container }) => lookupYamlService(yamlServices, hostId, container).key === name)) return undefined
+async function getYamlMetricUsage(config: AppConfig, headers: Headers, cardId: string, collect: boolean): Promise<ContainerMetricUsage | undefined> {
+  const name = cardId.slice('yaml-'.length)
+  const { yamlServices, containers, error } = await loadServicesAndContainers(config)
+  if (error) return undefined
+  const service = yamlServices[name]
+  if (!service || service.hidden || !service.url || !isValidUrl(service.url) || service.showStatus === false || !canAccess(config, headers, service.access ?? [])) return undefined
+  if (containers.some(({ hostId, container }) => lookupYamlService(yamlServices, hostId, container).key === name)) return undefined
 
-    const details = metricDetails(resolveYamlMetrics(service, service.url), config, false)
-    const { selectedMetrics, metricErrors, historyPeriodMs, metricsAccess, metricsPollIntervalMs } = details
-    if (selectedMetrics.length === 0 && metricErrors.length === 0) return undefined
-    if (!collect)
-      return {
-        historyPeriodMs,
-        customMetrics: [],
-        metricErrors,
-        ...(metricsAccess ? { metricsAccess } : {}),
-        metricsPollIntervalMs
-      }
-
-    const collected = await collectSelectedCustomMetrics(config, cardId, historyPeriodMs, selectedMetrics, metricErrors)
-    if (collected.customMetrics.length === 0 && !collected.uptimeMetrics?.length && collected.metricErrors.length === 0) return undefined
+  const details = metricDetails(resolveYamlMetrics(service, service.url), config, false)
+  const { selectedMetrics, metricErrors, historyPeriodMs, metricsAccess, metricsPollIntervalMs } = details
+  if (selectedMetrics.length === 0 && metricErrors.length === 0) return undefined
+  if (!collect)
     return {
-      ...collected,
       historyPeriodMs,
-      ...(metricsAccess ? { metricsAccess } : {})
+      customMetrics: [],
+      metricErrors,
+      ...(metricsAccess ? { metricsAccess } : {}),
+      metricsPollIntervalMs
     }
-  }
 
+  const collected = await collectSelectedCustomMetrics(config, cardId, historyPeriodMs, selectedMetrics, metricErrors)
+  if (collected.customMetrics.length === 0 && !collected.uptimeMetrics?.length && collected.metricErrors.length === 0) return undefined
+  return {
+    ...collected,
+    historyPeriodMs,
+    ...(metricsAccess ? { metricsAccess } : {})
+  }
+}
+
+async function getDockerMetricUsage(config: AppConfig, headers: Headers, cardId: string, collect: boolean): Promise<ContainerMetricUsage | undefined> {
   const host = configuredDockerHosts(config).find((candidate) => cardId.startsWith(`${candidate.id}:`))
   if (!host) return undefined
   const containerId = cardId.slice(host.id.length + 1)
@@ -1183,16 +1175,7 @@ export async function collectContainerResourceUsage(config: AppConfig, isDue: (c
               resourceStats.length > 0 ? getContainerResources(host.dockerHost, container.Id, resourceStats) : undefined,
               collectSelectedCustomMetrics(config, cardId, historyPeriodMs, selectedMetrics, [])
             ])
-            if (!resource && collected.customMetrics.length === 0 && !collected.uptimeMetrics?.length && collected.metricErrors.length === 0) return undefined
-            return {
-              cardId,
-              resource,
-              customMetrics: collected.customMetrics,
-              ...(collected.uptimeMetrics ? { uptimeMetrics: collected.uptimeMetrics } : {}),
-              metricErrors: collected.metricErrors,
-              metricsPollIntervalMs,
-              metricsHistoryPeriodMs: historyPeriodMs
-            }
+            return metricSample(cardId, resource, collected, metricsPollIntervalMs, historyPeriodMs)
           })
         )
         samples.push(...results.filter((sample): sample is ContainerMetricSample => sample !== undefined))
@@ -1212,16 +1195,7 @@ export async function collectContainerResourceUsage(config: AppConfig, isDue: (c
       const metricsPollIntervalMs = service.metrics?.collection?.intervalMs ?? config.metricsPollIntervalMs
       if (!isDue(cardId, metricsPollIntervalMs)) return undefined
       const collected = await collectSelectedCustomMetrics(config, cardId, historyPeriodMs, selectedMetrics, [])
-      if (collected.customMetrics.length === 0 && !collected.uptimeMetrics?.length && collected.metricErrors.length === 0) return undefined
-      return {
-        cardId,
-        resource: undefined,
-        customMetrics: collected.customMetrics,
-        ...(collected.uptimeMetrics ? { uptimeMetrics: collected.uptimeMetrics } : {}),
-        metricErrors: collected.metricErrors,
-        metricsPollIntervalMs,
-        metricsHistoryPeriodMs: historyPeriodMs
-      }
+      return metricSample(cardId, undefined, collected, metricsPollIntervalMs, historyPeriodMs)
     })
   )
   samples.push(...standaloneSamples.filter((sample): sample is ContainerMetricSample => sample !== undefined))
@@ -1263,16 +1237,7 @@ function containerMetricTarget(config: AppConfig, cardId: string, dockerHost: st
         resourceStats.length > 0 ? getContainerResources(dockerHost, container.Id, resourceStats) : undefined,
         collectSelectedCustomMetrics(config, cardId, historyPeriodMs, selectedMetrics, metricErrors)
       ])
-      if (!resource && collected.customMetrics.length === 0 && !collected.uptimeMetrics?.length && collected.metricErrors.length === 0) return undefined
-      return {
-        cardId,
-        resource,
-        customMetrics: collected.customMetrics,
-        ...(collected.uptimeMetrics ? { uptimeMetrics: collected.uptimeMetrics } : {}),
-        metricErrors: collected.metricErrors,
-        metricsPollIntervalMs,
-        metricsHistoryPeriodMs: historyPeriodMs
-      }
+      return metricSample(cardId, resource, collected, metricsPollIntervalMs, historyPeriodMs)
     }
   }
 }
@@ -1288,16 +1253,7 @@ function yamlMetricTarget(config: AppConfig, name: string, service: ServiceOverr
     metricsPollIntervalMs,
     collect: async () => {
       const collected = await collectSelectedCustomMetrics(config, cardId, historyPeriodMs, selectedMetrics, metricErrors)
-      if (collected.customMetrics.length === 0 && !collected.uptimeMetrics?.length && collected.metricErrors.length === 0) return undefined
-      return {
-        cardId,
-        resource: undefined,
-        customMetrics: collected.customMetrics,
-        ...(collected.uptimeMetrics ? { uptimeMetrics: collected.uptimeMetrics } : {}),
-        metricErrors: collected.metricErrors,
-        metricsPollIntervalMs,
-        metricsHistoryPeriodMs: historyPeriodMs
-      }
+      return metricSample(cardId, undefined, collected, metricsPollIntervalMs, historyPeriodMs)
     }
   }
 }

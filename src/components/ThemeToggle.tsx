@@ -125,7 +125,6 @@ export function ThemeToggle() {
     if (override) {
       localStorage.removeItem(THEME_STORAGE_KEY)
       transitionTheme(null, () => {
-        setRevealed(revealed)
         setOverride(null)
         setResolved(getSystemTheme())
       })
@@ -133,7 +132,6 @@ export function ThemeToggle() {
       const nextOverride = resolved === 'dark' ? 'light' : 'dark'
       localStorage.setItem(THEME_STORAGE_KEY, nextOverride)
       transitionTheme(nextOverride, () => {
-        setRevealed(revealed)
         setOverride(nextOverride)
         setResolved(nextOverride)
       })

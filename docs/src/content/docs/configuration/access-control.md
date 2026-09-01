@@ -66,17 +66,4 @@ An unset value makes the feature visible to all users who can see the card.
 
 ## Optional direct-access token
 
-For an additional shared-secret check, set `AUTH_TOKEN`. Every request must then carry `X-Dashmark-Token: <token>`. Your trusted reverse proxy must inject this header for both regular requests and `/api/realtime` WebSocket upgrades. Native browser WebSockets cannot add custom headers, so do not expose this token to browser code or URL query parameters.
-
-```yaml
-environment:
-  - AUTH_TOKEN=${DASHMARK_AUTH_TOKEN}
-```
-
-Generate a token with:
-
-```bash
-openssl rand -hex 32
-```
-
-Keep the secret in your deployment environment, not in Compose or YAML committed to source control.
+For `AUTH_TOKEN` setup and reverse-proxy configuration, see [Deployment and security](/dashmark/docs/deployment/security/#direct-access-token).

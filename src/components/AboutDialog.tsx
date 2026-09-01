@@ -28,7 +28,7 @@ export function AboutDialog() {
     if (isDemo || !open || version || loading) return
     setLoading(true)
     void fetch(versionApiPath)
-      .then(async (response) => (response.ok ? (response.json() as Promise<VersionResponse>) : undefined))
+      .then((response) => (response.ok ? (response.json() as Promise<VersionResponse>) : undefined))
       .then(setVersion)
       .catch(() => undefined)
       .finally(() => setLoading(false))

@@ -201,7 +201,7 @@ async function metricsSnapshot(config: AppConfig, headers: Headers, cardId: stri
   }
 }
 
-export function createRealtimeServer(config: AppConfig): RealtimeServer {
+function createRealtimeServer(config: AppConfig): RealtimeServer {
   const clients = new Set<RealtimeSocket>()
   const coordinator = getDiscoveryCoordinator(config)
   coordinator.start()

@@ -22,7 +22,7 @@ function statusesFor(cards: readonly Card[], showStatus: boolean): Record<string
   return Object.fromEntries(cards.flatMap((card) => (card.hasContainer ? [[card.id, { state: card.state, health: card.health }]] : [])))
 }
 
-export function createDiscoveryCoordinator(config: AppConfig): DiscoveryCoordinator {
+function createDiscoveryCoordinator(config: AppConfig): DiscoveryCoordinator {
   let cards: Card[] = []
   let statuses: Record<string, ContainerStatus> = {}
   let error: DashmarkError | undefined

@@ -57,7 +57,7 @@ services:
 docker compose up -d
 ```
 
-Open Dashmark at `http://<server-address>:4321`, or at the domain configured by your reverse proxy. Recreate a service after changing its labels:
+Open Dashmark at the domain configured by your reverse proxy. For host-local access, use `http://localhost:4321`. Recreate a service after changing its labels:
 
 ![Dashmark dashboard with service cards, categories, status badges, search, and group tags.](../../../assets/dashboard-overview.png)
 

@@ -71,10 +71,6 @@ export function clearErrorToast(id: string, options?: { immediate?: boolean }): 
   else episode.resolveTimer = setTimeout(finalize, ERROR_TOAST_RESOLVE_GRACE_MS)
 }
 
-export function rearmErrorToast(id: string): void {
-  rememberedDismissals.delete(id)
-}
-
 export function clearStaleErrorToasts(prefix: string, activeIds: Set<string>): void {
   for (const id of episodes.keys()) {
     if (id.startsWith(prefix) && !activeIds.has(id)) clearErrorToast(id)

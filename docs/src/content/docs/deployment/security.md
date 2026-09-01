@@ -26,7 +26,7 @@ When using access control, the proxy must remove or overwrite client-supplied id
 
 Live status and metric updates use a same-origin WebSocket at `/api/realtime`. Configure the proxy to forward WebSocket upgrades on that path, including `Upgrade` and `Connection` headers, while preserving the original `Host` and forwarding the browser's `Origin`. Do not route this endpoint as ordinary buffered HTTP.
 
-The WebSocket upgrade must receive the same trusted identity headers as normal Dashmark requests. If `AUTH_TOKEN` is enabled, the proxy must also inject `X-Dashmark-Token` during the upgrade. Browsers cannot attach that custom header to a native WebSocket, so never put the token in browser JavaScript or a query string. Dashmark accepts same-origin upgrades only.
+The WebSocket upgrade must receive the same trusted identity headers as normal Dashmark requests. If `AUTH_TOKEN` is enabled, the proxy must also inject `X-Dashmark-Token` during the upgrade. Dashmark accepts same-origin upgrades only.
 
 ## Process model
 
@@ -41,6 +41,14 @@ openssl rand -hex 32
 ```
 
 Keep the generated token in your deployment environment or secret store. Do not commit it to Compose files or `config.yml`.
+
+For Traefik's Docker provider, inject the token with a middleware and attach it to the Dashmark router:
+
+```yaml
+labels:
+  traefik.http.middlewares.dashmark-auth-token.headers.customrequestheaders.X-Dashmark-Token: ${DASHMARK_AUTH_TOKEN}
+  traefik.http.routers.dashmark.middlewares: dashmark-auth-token@docker
+```
 
 ## Next steps
 

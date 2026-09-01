@@ -1251,6 +1251,96 @@ function parseCustomMetricFields(metric: Record<string, unknown>) {
   }
 }
 
+type ParsedCustomMetricFields = ReturnType<typeof parseCustomMetricFields>
+
+function validateCustomMetricFields(metric: Record<string, unknown>, fields: ParsedCustomMetricFields): string | undefined {
+  const { label, valueType, unit, rate, chart, chartGroup, transform, color, stateColors, stateLabels, parameters, text, forEach, pagination, source, url, transport, jq, prometheus } = fields
+  if (!label) return 'label must be a non-empty string'
+  if (!source || !url) return 'source.url is required'
+  if (!isMetricUrl(url)) return 'source.url must use HTTP or HTTPS, or begin with {url} or {metric_source}'
+  if (transport !== undefined && transport !== 'socketio') return 'source.transport must be socketio when specified'
+  if (metric.prometheus !== undefined && !prometheus) return 'prometheus.name, labels, reduction, or value_label is invalid'
+  if (metric.for_each !== undefined && !forEach) return 'for_each requires item and value jq expressions, a child URL containing {item}, and a reduction'
+  if (metric.pagination !== undefined && (!pagination || !jq)) return 'pagination requires a jq extractor with items and next expressions'
+  if (Number(jq !== undefined) + Number(prometheus !== undefined) + Number(text) + Number(forEach !== undefined) !== 1) return 'define exactly one valid jq, prometheus, text, or for_each extractor'
+  if (valueType !== 'number' && valueType !== 'string' && valueType !== 'state' && valueType !== 'uptime') return 'value_type must be number, string, state, or uptime'
+  if (metric.rate !== undefined && metric.rate !== true) return 'rate must be true when specified'
+  if (!chart) return 'chart must be step, line, area, or none'
+  if (metric.transform !== undefined && !transform) return 'transform must define finite multiply and/or add values'
+  if (metric.color !== undefined && !color) return 'color must be success, info, warning, error, or disabled'
+  if (metric.state_colors !== undefined && !stateColors) return 'state_colors must map non-empty values to success, info, warning, error, or disabled'
+  if (metric.state_labels !== undefined && !stateLabels) return 'state_labels must map non-empty values to display labels of at most 32 characters'
+  if (metric.parameters !== undefined && !parameters) return 'parameters must define named URL-component parameters'
+  if (metric.chart_group !== undefined && (!chartGroup || !/^[a-z][a-z0-9_-]*$/.test(chartGroup))) return 'chart_group must be a lowercase identifier'
+  if (
+    (valueType === 'string' || valueType === 'state') &&
+    (metric.unit !== undefined ||
+      metric.chart !== undefined ||
+      metric.chart_group !== undefined ||
+      metric.transform !== undefined ||
+      prometheus?.reduce !== undefined ||
+      (prometheus && !prometheus.valueLabel))
+  ) {
+    return 'string metrics cannot use units, reductions, or charts'
+  }
+  if ((valueType === 'number' || valueType === 'string') && color !== undefined) return 'color requires value_type state'
+  if ((valueType === 'number' || valueType === 'string') && stateColors !== undefined) return 'state_colors requires value_type state'
+  if ((valueType === 'number' || valueType === 'string') && stateLabels !== undefined) return 'state_labels requires value_type state'
+  if (valueType === 'state' && color === undefined) return 'state metrics require a color'
+  if (valueType === 'number' && (!unit || prometheus?.valueLabel !== undefined || (chartGroup !== undefined && chart === 'none'))) {
+    return chartGroup !== undefined && chart === 'none' ? 'chart_group requires a visible chart' : 'numeric metrics require a valid unit and cannot use value_label'
+  }
+  if (rate && valueType !== 'number') return 'rate requires value_type number'
+  if (forEach && (valueType !== 'number' || transport === 'socketio')) return 'for_each requires a numeric HTTP metric'
+  if (pagination && transport === 'socketio') return 'pagination requires an HTTP metric'
+}
+
+function parseCustomMetricSource(fields: ParsedCustomMetricFields): { source?: MetricSourceOverride; error?: string } {
+  const { source, url, transport, prometheus } = fields
+  if (!source || !url) return { error: 'source is invalid' }
+  const socketio = transport === 'socketio' ? parseSocketIoSource(source) : {}
+  if (socketio.error) return { error: socketio.error }
+  if (transport === 'socketio' && prometheus) return { error: 'Socket.IO sources require a jq extractor' }
+  return parseCustomMetricRequestSource(source, url, transport, socketio)
+}
+
+function buildCustomMetric(metric: Record<string, unknown>, fields: ParsedCustomMetricFields, source: MetricSourceOverride): { metric?: MetricOverride; error?: string } {
+  const { label, valueType, unit, rate, chart, chartGroup, transform, color, stateColors, stateLabels, parameters, text, forEach, pagination, transport, jq, prometheus } = fields
+  const common = { label: label!, ...(parameters ? { parameters } : {}), ...(pagination ? { pagination } : {}), source }
+  if (valueType === 'uptime') {
+    if (!jq) return { error: 'uptime metrics require a jq extractor' }
+    if (
+      metric.unit !== undefined ||
+      metric.chart !== undefined ||
+      metric.chart_group !== undefined ||
+      metric.rate !== undefined ||
+      metric.transform !== undefined ||
+      metric.color !== undefined ||
+      metric.state_colors !== undefined ||
+      metric.state_labels !== undefined ||
+      transport !== undefined
+    ) {
+      return { error: 'uptime metrics cannot use units, charts, transforms, state colors, or Socket.IO' }
+    }
+    return { metric: { ...common, valueType, jq } }
+  }
+  if (valueType === 'string') return { metric: text ? { ...common, valueType, text: true } : jq ? { ...common, valueType, jq } : { ...common, valueType, prometheus: prometheus! } }
+  if (valueType === 'state') {
+    const state = { ...common, valueType: 'state' as const, color: color!, ...(stateColors ? { stateColors } : {}), ...(stateLabels ? { stateLabels } : {}) }
+    return { metric: text ? { ...state, text: true } : jq ? { ...state, jq } : { ...state, prometheus: prometheus! } }
+  }
+  const numeric = {
+    ...common,
+    valueType: 'number' as const,
+    unit: unit!,
+    chart: chart!,
+    ...(chartGroup === undefined ? {} : { chartGroup }),
+    ...(rate ? { rate: true as const } : {}),
+    ...(transform === undefined ? {} : { transform })
+  }
+  return { metric: forEach ? { ...numeric, forEach } : text ? { ...numeric, text: true } : jq ? { ...numeric, jq } : { ...numeric, prometheus: prometheus! } }
+}
+
 function parseCustomMetricRequestSource(
   source: Record<string, unknown>,
   url: string,
@@ -1290,146 +1380,12 @@ function parseCustomMetric(key: string, configuredMetric: unknown, catalog: Reco
     return { error: 'metric key or definition is invalid' }
   }
   const metric = mergeCatalogMetric(catalog[key], configuredMetric)
-  const { label, valueType, unit, rate, chart, chartGroup, transform, color, stateColors, stateLabels, parameters, text, forEach, pagination, source, url, transport, jq, prometheus } =
-    parseCustomMetricFields(metric)
-  if (!label) return { error: 'label must be a non-empty string' }
-  if (!source || !url) return { error: 'source.url is required' }
-  if (!isMetricUrl(url))
-    return {
-      error: 'source.url must use HTTP or HTTPS, or begin with {url} or {metric_source}'
-    }
-  if (transport !== undefined && transport !== 'socketio') return { error: 'source.transport must be socketio when specified' }
-  if (metric.prometheus !== undefined && !prometheus)
-    return {
-      error: 'prometheus.name, labels, reduction, or value_label is invalid'
-    }
-  if (metric.for_each !== undefined && !forEach)
-    return {
-      error: 'for_each requires item and value jq expressions, a child URL containing {item}, and a reduction'
-    }
-  if (metric.pagination !== undefined && (!pagination || !jq))
-    return {
-      error: 'pagination requires a jq extractor with items and next expressions'
-    }
-  if (Number(jq !== undefined) + Number(prometheus !== undefined) + Number(text) + Number(forEach !== undefined) !== 1) {
-    return {
-      error: 'define exactly one valid jq, prometheus, text, or for_each extractor'
-    }
-  }
-  if (valueType !== 'number' && valueType !== 'string' && valueType !== 'state' && valueType !== 'uptime') return { error: 'value_type must be number, string, state, or uptime' }
-  if (metric.rate !== undefined && metric.rate !== true) return { error: 'rate must be true when specified' }
-  if (!chart) return { error: 'chart must be step, line, area, or none' }
-  if (metric.transform !== undefined && !transform) return { error: 'transform must define finite multiply and/or add values' }
-  if (metric.color !== undefined && !color)
-    return {
-      error: 'color must be success, info, warning, error, or disabled'
-    }
-  if (metric.state_colors !== undefined && !stateColors)
-    return {
-      error: 'state_colors must map non-empty values to success, info, warning, error, or disabled'
-    }
-  if (metric.state_labels !== undefined && !stateLabels)
-    return {
-      error: 'state_labels must map non-empty values to display labels of at most 32 characters'
-    }
-  if (metric.parameters !== undefined && !parameters) return { error: 'parameters must define named URL-component parameters' }
-  if (metric.chart_group !== undefined && (!chartGroup || !/^[a-z][a-z0-9_-]*$/.test(chartGroup))) return { error: 'chart_group must be a lowercase identifier' }
-  if (
-    (valueType === 'string' || valueType === 'state') &&
-    (metric.unit !== undefined ||
-      metric.chart !== undefined ||
-      metric.chart_group !== undefined ||
-      metric.transform !== undefined ||
-      prometheus?.reduce !== undefined ||
-      (prometheus && !prometheus.valueLabel))
-  ) {
-    return { error: 'string metrics cannot use units, reductions, or charts' }
-  }
-  if ((valueType === 'number' || valueType === 'string') && color !== undefined) return { error: 'color requires value_type state' }
-  if ((valueType === 'number' || valueType === 'string') && stateColors !== undefined) return { error: 'state_colors requires value_type state' }
-  if ((valueType === 'number' || valueType === 'string') && stateLabels !== undefined) return { error: 'state_labels requires value_type state' }
-  if (valueType === 'state' && color === undefined) return { error: 'state metrics require a color' }
-  if (valueType === 'number' && (!unit || prometheus?.valueLabel !== undefined || (chartGroup !== undefined && chart === 'none'))) {
-    return {
-      error: chartGroup !== undefined && chart === 'none' ? 'chart_group requires a visible chart' : 'numeric metrics require a valid unit and cannot use value_label'
-    }
-  }
-  if (rate && valueType !== 'number') return { error: 'rate requires value_type number' }
-  if (forEach && (valueType !== 'number' || transport === 'socketio')) return { error: 'for_each requires a numeric HTTP metric' }
-  if (pagination && transport === 'socketio') return { error: 'pagination requires an HTTP metric' }
-
-  const socketio = transport === 'socketio' ? parseSocketIoSource(source) : {}
-  if (socketio.error) return { error: socketio.error }
-  if (transport === 'socketio' && prometheus) return { error: 'Socket.IO sources require a jq extractor' }
-  const parsedSource = parseCustomMetricRequestSource(source, url, transport, socketio)
+  const fields = parseCustomMetricFields(metric)
+  const validationError = validateCustomMetricFields(metric, fields)
+  if (validationError) return { error: validationError }
+  const parsedSource = parseCustomMetricSource(fields)
   if (parsedSource.error || !parsedSource.source) return { error: parsedSource.error ?? 'source is invalid' }
-
-  const common = {
-    label,
-    ...(parameters ? { parameters } : {}),
-    ...(pagination ? { pagination } : {}),
-    source: parsedSource.source
-  }
-  if (valueType === 'uptime') {
-    if (!jq) return { error: 'uptime metrics require a jq extractor' }
-    if (
-      metric.unit !== undefined ||
-      metric.chart !== undefined ||
-      metric.chart_group !== undefined ||
-      metric.rate !== undefined ||
-      metric.transform !== undefined ||
-      metric.color !== undefined ||
-      metric.state_colors !== undefined ||
-      metric.state_labels !== undefined ||
-      transport !== undefined
-    ) {
-      return {
-        error: 'uptime metrics cannot use units, charts, transforms, state colors, or Socket.IO'
-      }
-    }
-    return { metric: { ...common, valueType, jq } }
-  }
-  if (valueType === 'string')
-    return {
-      metric: text ? { ...common, valueType, text: true } : jq ? { ...common, valueType, jq } : { ...common, valueType, prometheus: prometheus! }
-    }
-  if (valueType === 'state') {
-    const colors = stateColors ? { stateColors } : {}
-    const labels = stateLabels ? { stateLabels } : {}
-    return {
-      metric: text
-        ? {
-            ...common,
-            valueType,
-            color: color!,
-            ...colors,
-            ...labels,
-            text: true
-          }
-        : jq
-          ? { ...common, valueType, color: color!, ...colors, ...labels, jq }
-          : {
-              ...common,
-              valueType,
-              color: color!,
-              ...colors,
-              ...labels,
-              prometheus: prometheus!
-            }
-    }
-  }
-  const numeric = {
-    ...common,
-    valueType: 'number' as const,
-    unit: unit!,
-    chart,
-    ...(chartGroup === undefined ? {} : { chartGroup }),
-    ...(rate ? { rate: true as const } : {}),
-    ...(transform === undefined ? {} : { transform })
-  }
-  return {
-    metric: forEach ? { ...numeric, forEach } : text ? { ...numeric, text: true } : jq ? { ...numeric, jq } : { ...numeric, prometheus: prometheus! }
-  }
+  return buildCustomMetric(metric, fields, parsedSource.source)
 }
 
 function parseMetricOverrides(
