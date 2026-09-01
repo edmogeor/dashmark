@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { MockDockerServer } from '../mocks/docker-server'
 import { getConfig } from '@/lib/config'
-import { getCards, getContainerMetricUsage, getContainerResourceUsage, getContainerStatuses, collectContainerResourceUsage, clearDockerCache } from '@/lib/docker'
+import { getCards, getContainerMetricUsage, getContainerResourceUsage, getContainerStatuses, collectContainerResourceUsage, clearDockerCache, watchContainerEvents } from '@/lib/docker'
 
 const { got } = vi.hoisted(() => ({ got: vi.fn() }))
 
@@ -905,6 +905,31 @@ github:
       description: undefined,
       hasContainer: true
     })
+  })
+})
+
+describe('watchContainerEvents', () => {
+  let server: MockDockerServer
+
+  beforeEach(async () => {
+    server = new MockDockerServer()
+  })
+
+  afterEach(async () => {
+    await server.stop()
+  })
+
+  it('refreshes when a container event arrives', async () => {
+    const config = getConfig()
+    config.dockerHost = await server.start()
+    const onChange = vi.fn()
+    const stop = watchContainerEvents(config, onChange)
+
+    await vi.waitFor(() => expect(server.eventConnections).toBe(1))
+    expect(onChange).not.toHaveBeenCalled()
+    server.emitContainerEvent()
+    await vi.waitFor(() => expect(onChange).toHaveBeenCalledTimes(1))
+    stop()
   })
 })
 

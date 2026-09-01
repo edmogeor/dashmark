@@ -61,7 +61,6 @@ Set `USER_NAME_HEADER`, `USER_FIRST_NAME_HEADER`, `USER_LAST_NAME_HEADER`, `USER
 
 | Environment variable     | Default                    | YAML key                 |
 | ------------------------ | -------------------------- | ------------------------ |
-| `STATUS_POLL_INTERVAL`   | `30` seconds               | `status_poll_interval`   |
 | `METRICS_POLL_INTERVAL`  | `10` seconds               | `metrics_poll_interval`  |
 | `METRICS_HISTORY_PERIOD` | `300` seconds              | `metrics_history_period` |
 | `METRICS_DATABASE_PATH`  | `/tmp/dashmark/metrics.db` | `metrics_database_path`  |

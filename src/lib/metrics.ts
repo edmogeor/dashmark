@@ -92,24 +92,24 @@ function collectInBackground(config: AppConfig, force = false): Promise<void> | 
 
 function scheduleCollection(config: AppConfig): void {
   if (!collectionStarted) return
+  if (collectionTimer) clearTimeout(collectionTimer)
   const now = Date.now()
   const schedules = discoveredMetricSchedules()
-  const nextDue = schedules.reduce(
-    (earliest, { cardId, metricsPollIntervalMs }) => {
-      const lastCollected = lastMetricCollection.get(cardId)
-      return Math.min(earliest, lastCollected === undefined ? now : lastCollected + metricsPollIntervalMs)
-    },
-    schedules.length > 0 ? Number.POSITIVE_INFINITY : now + config.statusPollIntervalMs
-  )
+  const nextDue = schedules.reduce((earliest, { cardId, metricsPollIntervalMs }) => {
+    const lastCollected = lastMetricCollection.get(cardId)
+    return Math.min(earliest, lastCollected === undefined ? now : lastCollected + metricsPollIntervalMs)
+  }, Number.POSITIVE_INFINITY)
+  if (!Number.isFinite(nextDue)) {
+    collectionTimer = undefined
+    return
+  }
   const timer = setTimeout(
     () => {
       const collection = collectInBackground(config)
       if (collection) void collection.finally(() => scheduleCollection(config))
       else scheduleCollection(config)
-      // Discovery replaces the in-memory targets independently. Recheck that cache at
-      // its cadence without collecting any target that is not due.
     },
-    Math.max(0, Math.min(nextDue, now + config.statusPollIntervalMs) - Date.now())
+    Math.max(0, nextDue - Date.now())
   )
   timer.unref()
   collectionTimer = timer
@@ -124,6 +124,7 @@ export function startMetricsCollection(config: AppConfig): void {
   collectionStarted = true
   const coordinator = getDiscoveryCoordinator(config)
   coordinator.onCardsChange(discardRemovedMetricState)
+  coordinator.onCardsChange(() => scheduleCollection(config))
   void coordinator.ready().then(() => {
     const initialCollection = collectInBackground(config)
     if (!initialCollection) return

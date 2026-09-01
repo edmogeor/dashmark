@@ -24,7 +24,6 @@ const trackedVars = [
   'METRICS_DATABASE_PATH',
   'METRICS_POLL_INTERVAL',
   'METRICS_HISTORY_PERIOD',
-  'STATUS_POLL_INTERVAL',
   'CATEGORY_ORDER',
   'ENABLE_AUTOMATIC_DESCRIPTIONS',
   'ENABLE_AUTOMATIC_ICONS',
@@ -213,21 +212,6 @@ describe('getConfig status polling', () => {
   it('reads unique, trimmed status badge groups', () => {
     process.env.STATUS_BADGE_ACCESS = ' Admins, operators, admins '
     expect(getConfig().statusBadgeAccess).toEqual(['Admins', 'operators'])
-  })
-
-  it('defaults to a 30-second interval', () => {
-    delete process.env.STATUS_POLL_INTERVAL
-    expect(getConfig().statusPollIntervalMs).toBe(30_000)
-  })
-
-  it('converts a configured interval from seconds to milliseconds', () => {
-    process.env.STATUS_POLL_INTERVAL = '60'
-    expect(getConfig().statusPollIntervalMs).toBe(60_000)
-  })
-
-  it('falls back to the default for an invalid interval', () => {
-    process.env.STATUS_POLL_INTERVAL = '0'
-    expect(getConfig().statusPollIntervalMs).toBe(30_000)
   })
 })
 

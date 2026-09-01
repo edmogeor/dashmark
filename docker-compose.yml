@@ -31,7 +31,6 @@ services:
       # - METRICS_DATABASE_PATH=/data/metrics.db
       # - METRICS_POLL_INTERVAL=10
       # - METRICS_HISTORY_PERIOD=300
-      # - STATUS_POLL_INTERVAL=30
       # - CATEGORY_ORDER=Media,Productivity,Home
       # - ENABLE_AUTOMATIC_DESCRIPTIONS=true
       # - ENABLE_AUTOMATIC_ICONS=true
@@ -64,5 +63,6 @@ services:
       - '-allowGET=/version'
       - "-allowGET=/v1\\..{1,2}/containers/json"
       - "-allowGET=/v1\\..{1,2}/containers/.*/stats"
+      - "-allowGET=/v1\\..{1,2}/events"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro

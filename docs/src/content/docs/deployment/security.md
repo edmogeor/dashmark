@@ -7,7 +7,7 @@ Dashmark can run standalone and serve a local or trusted private network without
 
 ## Docker access
 
-Use of a read-only, restricted socket proxy is recommended. Dashmark needs access only to `/version`, `/containers/json`, and `/containers/<id>/stats` for cards and resource usage. Dashmark can connect directly to the Docker socket for a local, trusted setup, but do not expose Docker, the raw socket, or a socket proxy to the public internet.
+Use of a read-only, restricted socket proxy is recommended. Dashmark needs access only to `/version`, `/containers/json`, `/containers/<id>/stats`, and `/events` for discovery and resource usage. Dashmark keeps a container event stream open to refresh cards after Docker changes. It can connect directly to the Docker socket for a local, trusted setup, but do not expose Docker, the raw socket, or a socket proxy to the public internet.
 
 For remote Docker hosts, run a restricted proxy on each host and connect to it over a private network:
 

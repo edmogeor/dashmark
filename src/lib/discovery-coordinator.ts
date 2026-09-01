@@ -1,8 +1,9 @@
 import type { AppConfig } from './config'
-import { canViewMetric, filterCardsByAccess, getDiscoveredCards, missingAccessIdentity, type Card, type ContainerMetricUsage } from './docker'
+import { canViewMetric, filterCardsByAccess, getDiscoveredCards, missingAccessIdentity, watchContainerEvents, type Card, type ContainerMetricUsage } from './docker'
 import type { DashmarkError } from './errors'
 import type { ContainerStatus } from './status'
 import { refreshMetricRetention } from './metrics-storage'
+import { DISCOVERY_EVENT_DEBOUNCE_MS } from './constants'
 
 type StatusSnapshot = { statuses: Record<string, ContainerStatus>; error?: DashmarkError }
 
@@ -27,7 +28,8 @@ function createDiscoveryCoordinator(config: AppConfig): DiscoveryCoordinator {
   let cards: Card[] = []
   let statuses: Record<string, ContainerStatus> = {}
   let error: DashmarkError | undefined
-  let timer: ReturnType<typeof setTimeout> | undefined
+  let refreshTimer: ReturnType<typeof setTimeout> | undefined
+  let stopWatching: (() => void) | undefined
   let started = false
   let initialRefresh = Promise.resolve()
   const listeners = new Set<(cardId: string, status: ContainerStatus) => void>()
@@ -64,19 +66,22 @@ function createDiscoveryCoordinator(config: AppConfig): DiscoveryCoordinator {
     }
     statuses = next
   }
-  const schedule = (): void => {
+  const scheduleRefresh = (): void => {
     if (!started) return
-    timer = setTimeout(() => {
-      void refresh().finally(schedule)
-    }, config.statusPollIntervalMs)
-    timer.unref()
+    if (refreshTimer) return
+    refreshTimer = setTimeout(() => {
+      refreshTimer = undefined
+      void refresh()
+    }, DISCOVERY_EVENT_DEBOUNCE_MS)
+    refreshTimer.unref()
   }
 
   return {
     start: () => {
       if (started) return
       started = true
-      initialRefresh = refresh().finally(schedule)
+      stopWatching = watchContainerEvents(config, scheduleRefresh)
+      initialRefresh = refresh()
     },
     ready: () => initialRefresh,
     getStatusSnapshot: (headers) => {
@@ -117,8 +122,10 @@ function createDiscoveryCoordinator(config: AppConfig): DiscoveryCoordinator {
     },
     clear: () => {
       started = false
-      if (timer) clearTimeout(timer)
-      timer = undefined
+      if (refreshTimer) clearTimeout(refreshTimer)
+      refreshTimer = undefined
+      stopWatching?.()
+      stopWatching = undefined
       cards = []
       statuses = {}
       error = undefined

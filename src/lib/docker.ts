@@ -19,6 +19,7 @@ import {
   DOCKER_REQUEST_TIMEOUT_MS,
   DOCKER_MAX_RESPONSE_BYTES,
   DOCKER_STATUS_CACHE_TTL_MS,
+  DOCKER_EVENT_RECONNECT_DELAY_MS,
   DOCKER_TLS_PORT,
   DOCKER_PLAIN_PORT,
   DOCKER_API_FALLBACK_VERSION,
@@ -271,6 +272,92 @@ async function getDockerApiVersion(dockerHost: string): Promise<string> {
 async function dockerRequest(dockerHost: string, path: string): Promise<unknown> {
   const apiVersion = await getDockerApiVersion(dockerHost)
   return rawDockerRequest(dockerHost, path, apiVersion)
+}
+
+export function watchContainerEvents(config: AppConfig, onChange: () => void): () => void {
+  let stopped = false
+  const timers = new Set<ReturnType<typeof setTimeout>>()
+  const requests = new Set<http.ClientRequest>()
+  const connectedHosts = new Set<string>()
+
+  const scheduleReconnect = (host: DockerHostConfig): void => {
+    if (stopped) return
+    const timer = setTimeout(() => {
+      timers.delete(timer)
+      connect(host)
+    }, DOCKER_EVENT_RECONNECT_DELAY_MS)
+    timer.unref()
+    timers.add(timer)
+  }
+
+  const connect = (hostConfig: DockerHostConfig): void => {
+    void getDockerApiVersion(hostConfig.dockerHost)
+      .then((apiVersion) => {
+        if (stopped) return
+        const host = parseDockerHost(hostConfig.dockerHost)
+        const options: http.RequestOptions = {
+          method: 'GET',
+          path: `/v${apiVersion}/events?filters=${encodeURIComponent(JSON.stringify({ type: ['container'] }))}`
+        }
+        if (host.socketPath) options.socketPath = host.socketPath
+        else if (host.hostname && host.port) {
+          options.hostname = host.hostname
+          options.port = host.port
+        }
+
+        let disconnected = false
+        let req: http.ClientRequest
+        const reconnect = (): void => {
+          if (disconnected) return
+          disconnected = true
+          requests.delete(req)
+          scheduleReconnect(hostConfig)
+        }
+        const request = host.secure ? https.request : http.request
+        req = request(options, (res) => {
+          if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
+            res.resume()
+            reconnect()
+            return
+          }
+          let pending = ''
+          res.setEncoding('utf8')
+          res.on('data', (chunk) => {
+            pending += chunk
+            const lines = pending.split('\n')
+            pending = lines.pop() ?? ''
+            for (const line of lines) {
+              try {
+                const event = JSON.parse(line)
+                if (isRecord(event) && event.Type === 'container') {
+                  containerListCache.delete(hostConfig.dockerHost)
+                  onChange()
+                }
+              } catch {
+                // Docker event streams are newline-delimited JSON. Ignore malformed events and keep the stream open.
+              }
+            }
+          })
+          res.on('end', reconnect)
+          res.on('error', reconnect)
+          if (connectedHosts.has(hostConfig.dockerHost)) onChange()
+          else connectedHosts.add(hostConfig.dockerHost)
+        })
+        requests.add(req)
+        req.on('error', reconnect)
+        req.end()
+      })
+      .catch(() => scheduleReconnect(hostConfig))
+  }
+
+  for (const host of configuredDockerHosts(config)) connect(host)
+  return () => {
+    stopped = true
+    for (const timer of timers) clearTimeout(timer)
+    for (const request of requests) request.destroy()
+    timers.clear()
+    requests.clear()
+  }
 }
 
 async function listContainers(dockerHost: string): Promise<DockerContainer[]> {

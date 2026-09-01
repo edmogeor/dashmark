@@ -300,7 +300,6 @@ export type YamlSettings = Partial<DashboardSettings> & {
   metricsDatabasePath?: string
   metricsPollInterval?: number
   metricsHistoryPeriod?: number
-  statusPollInterval?: number
   authToken?: MetricSecretReference
 }
 
@@ -343,7 +342,6 @@ const SETTINGS_FIELDS = new Set([
   'metrics_database_path',
   'metrics_poll_interval',
   'metrics_history_period',
-  'status_poll_interval',
   'category_order',
   'enable_automatic_descriptions',
   'enable_automatic_icons',
@@ -1646,7 +1644,7 @@ function parseSettings(value: unknown): YamlSettings {
     validateBoolean(value[key], `settings.${key}`)
   if (value.port !== undefined && (typeof value.port !== 'number' || !Number.isInteger(value.port) || value.port <= 0 || value.port > 65_535))
     invalid('settings.port', 'an integer between 1 and 65535')
-  for (const key of ['metrics_poll_interval', 'metrics_history_period', 'status_poll_interval'] as const) validatePositiveInteger(value[key], `settings.${key}`)
+  for (const key of ['metrics_poll_interval', 'metrics_history_period'] as const) validatePositiveInteger(value[key], `settings.${key}`)
   for (const key of ['docker_hosts', 'status_badge_access', 'metrics_access', 'category_order'] as const) validateStringList(value[key], `settings.${key}`)
   validateSecretReference(value.auth_token, 'settings.auth_token')
 
@@ -1670,7 +1668,6 @@ function parseSettings(value: unknown): YamlSettings {
     metricsDatabasePath: string(value.metrics_database_path),
     metricsPollInterval: typeof value.metrics_poll_interval === 'number' ? value.metrics_poll_interval : undefined,
     metricsHistoryPeriod: typeof value.metrics_history_period === 'number' ? value.metrics_history_period : undefined,
-    statusPollInterval: typeof value.status_poll_interval === 'number' ? value.status_poll_interval : undefined,
     categoryOrder: stringList(value.category_order),
     enableAutomaticDescriptions: boolean(value.enable_automatic_descriptions),
     enableAutomaticIcons: boolean(value.enable_automatic_icons),

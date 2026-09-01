@@ -31,6 +31,7 @@ services:
       - -allowGET=/version
       - -allowGET=/v1\\..{1,2}/containers/json
       - -allowGET=/v1\\..{1,2}/containers/.*/stats
+      - -allowGET=/v1\\..{1,2}/events
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
 ```
@@ -85,7 +86,8 @@ docker run -d \
   -allowfrom=dashmark \
   -allowGET=/version \
   '-allowGET=/v1\\..{1,2}/containers/json' \
-  '-allowGET=/v1\\..{1,2}/containers/.*/stats'
+  '-allowGET=/v1\\..{1,2}/containers/.*/stats' \
+  '-allowGET=/v1\\..{1,2}/events'
 ```
 
 Start Dashmark on the same network. Replace `<bind-address>` with a host IP such as `127.0.0.1`, or omit the address and publish `4321:4321` to listen on every interface.

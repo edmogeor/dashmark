@@ -27,7 +27,7 @@ The one-process boundary is already implicit in the current implementation: coll
 
 ### Discovery and status
 
-- Refresh Docker discovery, resolved cards, and container status on `STATUS_POLL_INTERVAL`.
+- Refresh Docker discovery, resolved cards, and container status at startup and after relevant Docker container events. Reconnect event streams with backoff and refresh after reconnect.
 - Resolve each eligible metric target during discovery: effective collection interval, retention period, resource requirements, custom metric definitions, and uptime metrics.
 - Keep a current status snapshot in memory.
 - Reuse discovery output for metric scheduling so due metric collection does not reload YAML, parse labels, look up containers, or list all Docker containers again.

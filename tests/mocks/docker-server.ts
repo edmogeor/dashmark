@@ -21,6 +21,8 @@ export class MockDockerServer {
   public apiVersion: string = '1.41'
   public stats: Record<string, unknown> = {}
   public statsRequests: number = 0
+  public eventConnections: number = 0
+  private eventResponses = new Set<http.ServerResponse>()
 
   constructor() {
     this.server = http.createServer((req, res) => {
@@ -35,6 +37,17 @@ export class MockDockerServer {
       if (req.url === '/v1.41/containers/json?all=1') {
         res.writeHead(200)
         res.end(JSON.stringify(this.containers))
+        return
+      }
+
+      if (req.url?.startsWith('/v1.41/events?')) {
+        res.writeHead(200)
+        this.eventResponses.add(res)
+        this.eventConnections += 1
+        req.on('close', () => {
+          this.eventResponses.delete(res)
+          this.eventConnections -= 1
+        })
         return
       }
 
@@ -82,5 +95,9 @@ export class MockDockerServer {
         else resolve()
       })
     })
+  }
+
+  emitContainerEvent(): void {
+    for (const response of this.eventResponses) response.write(`${JSON.stringify({ Type: 'container' })}\n`)
   }
 }

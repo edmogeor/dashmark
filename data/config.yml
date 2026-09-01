@@ -33,7 +33,6 @@ settings:
   # show_metrics: true
   # Set a mounted path to retain metric history across container restarts.
   # metrics_database_path: /data/metrics.db
-  # status_poll_interval: 30
   # category_order: [Media, Productivity, Home]
   # enable_automatic_descriptions: true
   # enable_automatic_icons: true
