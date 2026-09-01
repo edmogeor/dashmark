@@ -25,7 +25,11 @@ describe('realtime metrics', () => {
             key: 'health',
             label: 'Health',
             current: 'up',
-            buckets: [{ start: 100, end: 200, status: 'up', successes: 2, failures: 0 }]
+            buckets: {
+              '24h': [{ start: 100, end: 200, status: 'up', successes: 2, failures: 0 }],
+              '7d': [],
+              '30d': []
+            }
           }
         ]
       }
@@ -41,11 +45,12 @@ describe('realtime metrics', () => {
       version: 3,
       cardId: 'card-1',
       key: 'health',
+      range: '24h',
       bucket: { start: 100, end: 200, status: 'mixed', successes: 2, failures: 1, slowestResponseTimeMs: 400 }
     })
 
     expect(received).toHaveLength(3)
     expect(received[1]?.uptimeMetrics).toEqual(received[0]?.uptimeMetrics)
-    expect(received[2]?.uptimeMetrics?.[0]?.buckets).toEqual([{ start: 100, end: 200, status: 'mixed', successes: 2, failures: 1, slowestResponseTimeMs: 400 }])
+    expect(received[2]?.uptimeMetrics?.[0]?.buckets['24h']).toEqual([{ start: 100, end: 200, status: 'mixed', successes: 2, failures: 1, slowestResponseTimeMs: 400 }])
   })
 })

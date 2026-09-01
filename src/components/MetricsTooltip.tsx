@@ -24,7 +24,7 @@ import {
   tickerConfig,
   type MetricDetail
 } from './app-card-metrics'
-import { formatUptimeBucketTime, UptimeHeartbeat, uptimeBucketStatusLabel, uptimeBucketsForDuration, uptimePercent, type UptimeBucket } from './UptimeHeartbeat'
+import { formatUptimeBucketTime, UptimeHeartbeat, uptimeBucketStatusLabel, uptimeBucketsForRange, uptimePercent, type UptimeBucket } from './UptimeHeartbeat'
 
 type Props = {
   card: CardType
@@ -307,7 +307,7 @@ function uptimeBucketSummary(bucket: UptimeBucket): {
 
 function UptimeMetricRow({ metric, onSelect }: { metric: UptimeMetricSummary; onSelect: (metric: UptimeMetricSummary) => void }) {
   const [hoveredBucket, setHoveredBucket] = useState<UptimeBucket>()
-  const buckets = uptimeBucketsForDuration(metric.buckets, 24 * 60 * 60 * 1_000)
+  const buckets = uptimeBucketsForRange(metric.buckets, '24h')
   const summary = hoveredBucket
     ? uptimeBucketSummary(hoveredBucket)
     : {

@@ -6,7 +6,8 @@ import type { AppConfig } from './config'
 import { canViewMetric } from './docker'
 import { getDiscoveryCoordinator } from './discovery-coordinator'
 import { getLatestMetricUsage, getMetricHistory, getResourceMetricHistory } from './metrics'
-import type { ContainerResources, CustomMetric, MetricsResponse, ResourceMetricSample, UptimeMetric, UptimeStatus } from './status'
+import type { ContainerResources, CustomMetric, MetricsResponse, ResourceMetricSample, UptimeMetric } from './status'
+import type { UptimeBucket, UptimeRange } from './realtime-client'
 
 const PATHNAME = '/api/realtime'
 const MAX_CLIENT_MESSAGE_BYTES = 16 * 1024
@@ -14,8 +15,11 @@ const MAX_METRIC_SUBSCRIPTIONS = 32
 const MAX_OUTBOUND_EVENTS = 64
 const MAX_OUTBOUND_BYTES = 1024 * 1024
 const SOCKET_LIFETIME_MS = 60 * 60 * 1000
-const UPTIME_BUCKET_DURATION_MS = 30 * 24 * 60 * 60 * 1000
-const UPTIME_BUCKET_COUNT = 120
+const UPTIME_RANGES: { range: UptimeRange; durationMs: number; bucketCount: number }[] = [
+  { range: '24h', durationMs: 24 * 60 * 60 * 1_000, bucketCount: 24 },
+  { range: '7d', durationMs: 7 * 24 * 60 * 60 * 1_000, bucketCount: 21 },
+  { range: '30d', durationMs: 30 * 24 * 60 * 60 * 1_000, bucketCount: 30 }
+]
 
 type ClientMessage = { type: 'subscribe_status' } | { type: 'subscribe_metrics'; cardId: string } | { type: 'unsubscribe_metrics'; cardId: string }
 
@@ -33,19 +37,9 @@ type RealtimeSocket = {
 export type RealtimePublisher = {
   publishStatusDelta(cardId: string, status: unknown): Promise<void>
   publishMetricsDelta(cardId: string): Promise<void>
-  publishUptimeBucketDelta(cardId: string, key: string, bucket: unknown): Promise<void>
 }
 
-type UptimeBucket = {
-  start: number
-  end: number
-  status: UptimeStatus | 'mixed'
-  successes: number
-  failures: number
-  slowestResponseTimeMs?: number
-}
-
-type RealtimeUptimeMetric = Omit<UptimeMetric, 'observations'> & { buckets: UptimeBucket[] }
+type RealtimeUptimeMetric = Omit<UptimeMetric, 'observations'> & { buckets: Record<UptimeRange, UptimeBucket[]> }
 type RealtimeMetricsResponse = Omit<MetricsResponse, 'uptimeMetrics'> & { uptimeMetrics?: RealtimeUptimeMetric[] }
 type CachedMetricsSnapshot = {
   resource: ContainerResources | null
@@ -101,9 +95,9 @@ export function sameOrigin(request: IncomingMessage): boolean {
   const forwarded = forwardedParameters(firstForwardedValue(request.headers.forwarded))
   const host = forwarded.host ?? firstForwardedValue(request.headers['x-forwarded-host']) ?? request.headers.host
   if (!host) return false
-  const protocol = (forwarded.proto ?? firstForwardedValue(request.headers['x-forwarded-proto'])) === 'https' ? 'https:' : 'http:'
+  const protocol = (forwarded.proto ?? firstForwardedValue(request.headers['x-forwarded-proto']))?.toLowerCase() === 'https' ? 'https:' : 'http:'
   try {
-    return new URL(origin).origin === `${protocol}//${host}`
+    return new URL(origin).origin === new URL(`${protocol}//${host}`).origin
   } catch {
     return false
   }
@@ -142,11 +136,11 @@ function visibleResource<T extends ContainerResources>(resource: T, visible: (me
   }
 }
 
-function uptimeBuckets(metric: UptimeMetric, now = Date.now()): UptimeBucket[] {
-  const bucketMs = UPTIME_BUCKET_DURATION_MS / UPTIME_BUCKET_COUNT
+function uptimeBuckets(metric: UptimeMetric, durationMs: number, bucketCount: number, now = Date.now()): UptimeBucket[] {
+  const bucketMs = durationMs / bucketCount
   const end = Math.floor(now / bucketMs) * bucketMs + bucketMs
-  const start = end - UPTIME_BUCKET_DURATION_MS
-  return Array.from({ length: UPTIME_BUCKET_COUNT }, (_, index) => {
+  const start = end - durationMs
+  return Array.from({ length: bucketCount }, (_, index) => {
     const bucketStart = start + index * bucketMs
     const bucketEnd = bucketStart + bucketMs
     const observations = metric.observations.filter((observation) => observation.timestamp >= bucketStart && observation.timestamp < bucketEnd)
@@ -164,6 +158,10 @@ function uptimeBuckets(metric: UptimeMetric, now = Date.now()): UptimeBucket[] {
   })
 }
 
+function uptimeBucketsByRange(metric: UptimeMetric): Record<UptimeRange, UptimeBucket[]> {
+  return Object.fromEntries(UPTIME_RANGES.map(({ range, durationMs, bucketCount }) => [range, uptimeBuckets(metric, durationMs, bucketCount)])) as Record<UptimeRange, UptimeBucket[]>
+}
+
 function cachedMetricsSnapshot(config: AppConfig, cardId: string, historyPeriodMs: number, snapshots: Map<string, Map<number, CachedMetricsSnapshot>>): CachedMetricsSnapshot {
   const cached = snapshots.get(cardId)?.get(historyPeriodMs)
   if (cached) return cached
@@ -174,7 +172,7 @@ function cachedMetricsSnapshot(config: AppConfig, cardId: string, historyPeriodM
     historyPeriodMs,
     pending: usage === undefined,
     customMetrics: usage?.customMetrics.map((metric) => ('unit' in metric ? { ...metric, history: getMetricHistory(config, cardId, metric.key, historyPeriodMs), historyPeriodMs } : metric)) ?? [],
-    uptimeMetrics: (usage?.uptimeMetrics ?? []).map((metric) => ({ key: metric.key, label: metric.label, current: metric.current, buckets: uptimeBuckets(metric) })),
+    uptimeMetrics: (usage?.uptimeMetrics ?? []).map((metric) => ({ key: metric.key, label: metric.label, current: metric.current, buckets: uptimeBucketsByRange(metric) })),
     ...(usage?.metricErrors ? { metricErrors: usage.metricErrors } : {})
   }
   const cardSnapshots = snapshots.get(cardId) ?? new Map<number, CachedMetricsSnapshot>()
@@ -210,7 +208,7 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
   const devWebSockets = new WebSocketServer({ noServer: true, maxPayload: MAX_CLIENT_MESSAGE_BYTES })
   const coordinator = getDiscoveryCoordinator(config)
   coordinator.start()
-  const publishedUptimeBuckets = new Map<string, UptimeBucket[]>()
+  const publishedUptimeBuckets = new Map<string, Record<UptimeRange, UptimeBucket[]>>()
   const metricSnapshots = new Map<string, Map<number, CachedMetricsSnapshot>>()
   let version = 0
 
@@ -287,17 +285,23 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
   const publishMetricsDelta = async (cardId: string): Promise<void> => {
     metricSnapshots.delete(cardId)
     const usage = getLatestMetricUsage(cardId)
-    const changedBuckets: { key: string; bucket: UptimeBucket }[] = []
+    const changedBuckets: { key: string; range: UptimeRange; bucket: UptimeBucket }[] = []
     let bucketWindowRolled = false
     for (const metric of usage?.uptimeMetrics ?? []) {
       const bucketKey = `${cardId}\0${metric.key}`
-      const buckets = uptimeBuckets(metric)
+      const buckets = uptimeBucketsByRange(metric)
       const previous = publishedUptimeBuckets.get(bucketKey)
-      if (previous && previous[0]?.start === buckets[0]?.start) {
-        for (let index = 0; index < buckets.length; index++) {
-          if (JSON.stringify(previous[index]) !== JSON.stringify(buckets[index])) changedBuckets.push({ key: metric.key, bucket: buckets[index]! })
+      for (const { range } of UPTIME_RANGES) {
+        const previousRange = previous?.[range]
+        const currentRange = buckets[range]
+        if (previousRange && previousRange[0]?.start === currentRange[0]?.start) {
+          for (let index = 0; index < currentRange.length; index++) {
+            if (JSON.stringify(previousRange[index]) !== JSON.stringify(currentRange[index])) changedBuckets.push({ key: metric.key, range, bucket: currentRange[index]! })
+          }
+        } else if (previousRange) {
+          bucketWindowRolled = true
         }
-      } else if (previous) bucketWindowRolled = true
+      }
       publishedUptimeBuckets.set(bucketKey, buckets)
     }
     await Promise.all(
@@ -307,8 +311,8 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
           const metrics = metricsSnapshot(config, client.headers, cardId, metricSnapshots, bucketWindowRolled)
           if (metrics) send(client, { type: 'metrics_delta', version: nextVersion(), cardId, metrics })
           const access = coordinator.getMetricAccess(client.headers, cardId)
-          for (const { key, bucket } of changedBuckets) {
-            if (access && canViewMetric(config, client.headers, access.metricsAccess, key)) send(client, { type: 'uptime_bucket_delta', version: nextVersion(), cardId, key, bucket })
+          for (const { key, range, bucket } of changedBuckets) {
+            if (access && canViewMetric(config, client.headers, access.metricsAccess, key)) send(client, { type: 'uptime_bucket_delta', version: nextVersion(), cardId, key, range, bucket })
           }
         })
     )
@@ -357,17 +361,7 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
       for (const client of clients) closeClient(client, 1001)
     },
     publishStatusDelta,
-    publishMetricsDelta,
-    publishUptimeBucketDelta: async (cardId, key, bucket) => {
-      await Promise.all(
-        [...clients]
-          .filter((client) => client.metrics.has(cardId))
-          .map(async (client) => {
-            const metrics = metricsSnapshot(config, client.headers, cardId, metricSnapshots)
-            if (metrics && metrics.uptimeMetrics?.some((metric) => metric.key === key)) send(client, { type: 'uptime_bucket_delta', version: nextVersion(), cardId, key, bucket })
-          })
-      )
-    }
+    publishMetricsDelta
   }
 }
 

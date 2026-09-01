@@ -3,13 +3,13 @@ import { Gauge, X } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import type { UptimeMetricSummary } from '@/lib/realtime-client'
-import { UptimeHeartbeat, uptimeBucketsForDuration, uptimePercent } from './UptimeHeartbeat'
+import { UptimeHeartbeat, uptimeBucketsForRange, uptimePercent } from './UptimeHeartbeat'
 
 const ranges = [
   { label: '24h', durationMs: 24 * 60 * 60 * 1_000 },
   { label: '7d', durationMs: 7 * 24 * 60 * 60 * 1_000 },
   { label: '30d', durationMs: 30 * 24 * 60 * 60 * 1_000 }
-]
+] as const
 
 function formatPercent(value: number | undefined): string {
   return value === undefined ? 'No data' : `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}%`
@@ -24,7 +24,7 @@ export function UptimeDetailDialog({ metric, onOpenChange }: { metric: UptimeMet
   }, [metric])
   const currentMetric = metric ?? displayedMetric
   const range = ranges[rangeIndex]!
-  const buckets = uptimeBucketsForDuration(currentMetric?.buckets ?? [], range.durationMs)
+  const buckets = currentMetric ? uptimeBucketsForRange(currentMetric.buckets, range.label) : []
   const percent = uptimePercent(buckets)
   return (
     <Dialog open={metric !== null} onOpenChange={onOpenChange}>

@@ -33,8 +33,8 @@ describe('realtime origin validation', () => {
         request({
           host: 'dashmark:4321',
           origin: 'https://dash.example.test',
-          'x-forwarded-host': 'dash.example.test',
-          'x-forwarded-proto': 'https'
+          'x-forwarded-host': 'dash.example.test:443',
+          'x-forwarded-proto': 'HTTPS'
         })
       )
     ).toBe(true)

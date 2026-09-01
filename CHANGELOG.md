@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Accept same-origin realtime WebSocket upgrades through standards-compliant TLS-terminating reverse proxies.
+- Restore range-appropriate uptime graph density for 24-hour, 7-day, and 30-day views.
 - Serialize custom metric requests to each metric-source origin to prevent cards from overloading a shared provider.
 - Persist uptime history, using bootstrap queries only when no retained card and metric history exists.
 - Include the CrowdSec Web UI LAPI status metric in the bundled catalog.

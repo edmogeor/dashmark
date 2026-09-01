@@ -1,6 +1,6 @@
 import { useState, type PointerEvent } from 'react'
 import type { UptimeObservation } from '@/lib/status'
-import type { UptimeBucket } from '@/lib/realtime-client'
+import type { UptimeBucket, UptimeRange } from '@/lib/realtime-client'
 import { Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -44,8 +44,8 @@ export function uptimePercent(buckets: UptimeBucket[]): number | undefined {
   return successes + failures > 0 ? (successes / (successes + failures)) * 100 : undefined
 }
 
-export function uptimeBucketsForDuration(buckets: UptimeBucket[], durationMs: number, now = Date.now()): UptimeBucket[] {
-  return buckets.filter((bucket) => bucket.end > now - durationMs && bucket.start <= now)
+export function uptimeBucketsForRange(buckets: Record<UptimeRange, UptimeBucket[]>, range: UptimeRange): UptimeBucket[] {
+  return buckets[range]
 }
 
 export function formatUptimeBucketTime(timestamp: number): string {

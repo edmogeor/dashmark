@@ -9,11 +9,13 @@ export type UptimeBucket = {
   slowestResponseTimeMs?: number
 }
 
+export type UptimeRange = '24h' | '7d' | '30d'
+
 export type UptimeMetricSummary = {
   key: string
   label: string
   current: UptimeStatus
-  buckets: UptimeBucket[]
+  buckets: Record<UptimeRange, UptimeBucket[]>
 }
 
 export type RealtimeMetricsResponse = Omit<MetricsResponse, 'uptimeMetrics'> & {
@@ -29,7 +31,7 @@ type ServerMessage =
   | { type: 'status_delta'; version: number; cardId: string; status: ContainerStatus }
   | { type: 'metrics_snapshot'; version: number; cardId: string; metrics: RealtimeMetricsResponse }
   | { type: 'metrics_delta'; version: number; cardId: string; metrics: RealtimeMetricsResponse }
-  | { type: 'uptime_bucket_delta'; version: number; cardId: string; key: string; bucket: UptimeBucket }
+  | { type: 'uptime_bucket_delta'; version: number; cardId: string; key: string; range: UptimeRange; bucket: UptimeBucket }
 
 const INITIAL_RECONNECT_DELAY_MS = 1_000
 const MAX_RECONNECT_DELAY_MS = 30_000
@@ -56,7 +58,13 @@ function isServerMessage(value: unknown): value is ServerMessage {
   if (value.type === 'status_snapshot') return isRecord(value.statuses)
   if (value.type === 'status_delta') return typeof value.cardId === 'string' && isRecord(value.status)
   if (value.type === 'metrics_snapshot' || value.type === 'metrics_delta') return typeof value.cardId === 'string' && isRecord(value.metrics)
-  return value.type === 'uptime_bucket_delta' && typeof value.cardId === 'string' && typeof value.key === 'string' && isUptimeBucket(value.bucket)
+  return (
+    value.type === 'uptime_bucket_delta' &&
+    typeof value.cardId === 'string' &&
+    typeof value.key === 'string' &&
+    (value.range === '24h' || value.range === '7d' || value.range === '30d') &&
+    isUptimeBucket(value.bucket)
+  )
 }
 
 function realtimeUrl(): string {
@@ -195,7 +203,15 @@ export class RealtimeClient {
       const uptimeMetrics = metrics?.uptimeMetrics
       if (!metrics || !uptimeMetrics) return
       const updatedUptimeMetrics = uptimeMetrics.map((metric) =>
-        metric.key !== value.key ? metric : { ...metric, buckets: metric.buckets.map((bucket) => (bucket.start === value.bucket.start ? value.bucket : bucket)) }
+        metric.key !== value.key
+          ? metric
+          : {
+              ...metric,
+              buckets: {
+                ...metric.buckets,
+                [value.range]: metric.buckets[value.range].map((bucket) => (bucket.start === value.bucket.start ? value.bucket : bucket))
+              }
+            }
       )
       this.publishMetrics(value.cardId, { ...metrics, uptimeMetrics: updatedUptimeMetrics })
     }
