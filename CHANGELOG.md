@@ -11,10 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Replace dashboard HTTP polling with server-owned realtime collection over authenticated WebSockets.
 - Host the Astro application and realtime WebSocket endpoint with Fastify.
+- Reuse per-card realtime snapshots across subscribers and discard stale in-memory metric state when cards disappear.
 - Remove the HTTP status and metrics snapshot routes.
 
 ### Fixed
 
+- Accept same-origin realtime WebSocket upgrades through standards-compliant TLS-terminating reverse proxies.
 - Serialize custom metric requests to each metric-source origin to prevent cards from overloading a shared provider.
 - Persist uptime history, using bootstrap queries only when no retained card and metric history exists.
 - Include the CrowdSec Web UI LAPI status metric in the bundled catalog.

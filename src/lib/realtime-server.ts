@@ -47,6 +47,15 @@ type UptimeBucket = {
 
 type RealtimeUptimeMetric = Omit<UptimeMetric, 'observations'> & { buckets: UptimeBucket[] }
 type RealtimeMetricsResponse = Omit<MetricsResponse, 'uptimeMetrics'> & { uptimeMetrics?: RealtimeUptimeMetric[] }
+type CachedMetricsSnapshot = {
+  resource: ContainerResources | null
+  history: ResourceMetricSample[]
+  historyPeriodMs: number
+  pending: boolean
+  customMetrics: CustomMetric[]
+  uptimeMetrics: RealtimeUptimeMetric[]
+  metricErrors?: MetricsResponse['metricErrors']
+}
 
 export type RealtimeServer = RealtimePublisher & {
   authorize(request: IncomingMessage): number | undefined
@@ -69,13 +78,30 @@ function requestHeaders(request: IncomingMessage): Headers {
   return headers
 }
 
-function sameOrigin(request: IncomingMessage): boolean {
+function firstForwardedValue(value: string | string[] | undefined): string | undefined {
+  const header = Array.isArray(value) ? value[0] : value
+  return header?.split(',')[0]?.trim()
+}
+
+function forwardedParameters(value: string | undefined): { host?: string; proto?: string } {
+  if (!value) return {}
+  return Object.fromEntries(
+    value.split(';').flatMap((parameter) => {
+      const [name, ...parts] = parameter.trim().split('=')
+      const entry = parts.join('=').replace(/^"|"$/g, '')
+      const key = name?.toLowerCase()
+      return (key === 'host' || key === 'proto') && entry ? [[key, entry]] : []
+    })
+  )
+}
+
+export function sameOrigin(request: IncomingMessage): boolean {
   const origin = request.headers.origin
   if (!origin) return true
-  const host = request.headers.host
+  const forwarded = forwardedParameters(firstForwardedValue(request.headers.forwarded))
+  const host = forwarded.host ?? firstForwardedValue(request.headers['x-forwarded-host']) ?? request.headers.host
   if (!host) return false
-  const forwardedProtocol = request.headers['x-forwarded-proto']?.toString().split(',')[0]?.trim()
-  const protocol = forwardedProtocol === 'https' ? 'https:' : 'http:'
+  const protocol = (forwarded.proto ?? firstForwardedValue(request.headers['x-forwarded-proto'])) === 'https' ? 'https:' : 'http:'
   try {
     return new URL(origin).origin === `${protocol}//${host}`
   } catch {
@@ -138,30 +164,44 @@ function uptimeBuckets(metric: UptimeMetric, now = Date.now()): UptimeBucket[] {
   })
 }
 
-async function metricsSnapshot(config: AppConfig, headers: Headers, cardId: string, includeUptime = true): Promise<RealtimeMetricsResponse | undefined> {
-  const access = getDiscoveryCoordinator(config).getMetricAccess(headers, cardId)
-  if (!access) return undefined
+function cachedMetricsSnapshot(config: AppConfig, cardId: string, historyPeriodMs: number, snapshots: Map<string, Map<number, CachedMetricsSnapshot>>): CachedMetricsSnapshot {
+  const cached = snapshots.get(cardId)?.get(historyPeriodMs)
+  if (cached) return cached
   const usage = getLatestMetricUsage(cardId)
-  const visible = (metric: string) => canViewMetric(config, headers, access.metricsAccess, metric)
-  const historyPeriodMs = access.historyPeriodMs ?? config.metricsHistoryPeriodMs
-  const customMetrics: CustomMetric[] =
-    usage?.customMetrics
-      .filter((metric) => visible(metric.key))
-      .map((metric) => ('unit' in metric ? { ...metric, history: getMetricHistory(config, cardId, metric.key, historyPeriodMs), historyPeriodMs } : metric)) ?? []
-  return {
-    resource: usage?.resource ? visibleResource(usage.resource, visible) : null,
-    history: getResourceMetricHistory(config, cardId, historyPeriodMs).map((sample) => visibleResource<ResourceMetricSample>(sample, visible)),
+  const snapshot: CachedMetricsSnapshot = {
+    resource: usage?.resource ?? null,
+    history: getResourceMetricHistory(config, cardId, historyPeriodMs),
     historyPeriodMs,
     pending: usage === undefined,
+    customMetrics: usage?.customMetrics.map((metric) => ('unit' in metric ? { ...metric, history: getMetricHistory(config, cardId, metric.key, historyPeriodMs), historyPeriodMs } : metric)) ?? [],
+    uptimeMetrics: (usage?.uptimeMetrics ?? []).map((metric) => ({ key: metric.key, label: metric.label, current: metric.current, buckets: uptimeBuckets(metric) })),
+    ...(usage?.metricErrors ? { metricErrors: usage.metricErrors } : {})
+  }
+  const cardSnapshots = snapshots.get(cardId) ?? new Map<number, CachedMetricsSnapshot>()
+  cardSnapshots.set(historyPeriodMs, snapshot)
+  snapshots.set(cardId, cardSnapshots)
+  return snapshot
+}
+
+function metricsSnapshot(config: AppConfig, headers: Headers, cardId: string, snapshots: Map<string, Map<number, CachedMetricsSnapshot>>, includeUptime = true): RealtimeMetricsResponse | undefined {
+  const access = getDiscoveryCoordinator(config).getMetricAccess(headers, cardId)
+  if (!access) return undefined
+  const visible = (metric: string) => canViewMetric(config, headers, access.metricsAccess, metric)
+  const historyPeriodMs = access.historyPeriodMs ?? config.metricsHistoryPeriodMs
+  const snapshot = cachedMetricsSnapshot(config, cardId, historyPeriodMs, snapshots)
+  const customMetrics: CustomMetric[] = snapshot.customMetrics.filter((metric) => visible(metric.key))
+  return {
+    resource: snapshot.resource ? visibleResource(snapshot.resource, visible) : null,
+    history: snapshot.history.map((sample) => visibleResource<ResourceMetricSample>(sample, visible)),
+    historyPeriodMs,
+    pending: snapshot.pending,
     customMetrics,
     ...(includeUptime
       ? {
-          uptimeMetrics: (usage?.uptimeMetrics ?? [])
-            .filter((metric) => visible(metric.key))
-            .map((metric) => ({ key: metric.key, label: metric.label, current: metric.current, buckets: uptimeBuckets(metric) }))
+          uptimeMetrics: snapshot.uptimeMetrics?.filter((metric) => visible(metric.key))
         }
       : {}),
-    metricErrors: (usage?.metricErrors ?? access.metricErrors ?? []).filter((error) => visible(error.key))
+    metricErrors: (snapshot.metricErrors ?? access.metricErrors ?? []).filter((error) => visible(error.key))
   }
 }
 
@@ -171,6 +211,7 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
   const coordinator = getDiscoveryCoordinator(config)
   coordinator.start()
   const publishedUptimeBuckets = new Map<string, UptimeBucket[]>()
+  const metricSnapshots = new Map<string, Map<number, CachedMetricsSnapshot>>()
   let version = 0
 
   const nextVersion = () => ++version
@@ -204,7 +245,7 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
   }
   const sendMetricsSnapshot = async (client: RealtimeSocket, cardId: string): Promise<boolean> => {
     await coordinator.ready()
-    const metrics = await metricsSnapshot(config, client.headers, cardId)
+    const metrics = metricsSnapshot(config, client.headers, cardId, metricSnapshots)
     if (!metrics || client.closed) return false
     send(client, { type: 'metrics_snapshot', version: nextVersion(), cardId, metrics })
     return true
@@ -233,6 +274,10 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
   coordinator.onMetricsChange((cardId) => {
     void publishMetricsDelta(cardId)
   })
+  coordinator.onCardsChange((cardIds) => {
+    for (const cardId of metricSnapshots.keys()) if (!cardIds.has(cardId)) metricSnapshots.delete(cardId)
+    for (const key of publishedUptimeBuckets.keys()) if (!cardIds.has(key.slice(0, key.indexOf('\0')))) publishedUptimeBuckets.delete(key)
+  })
   const publishStatusDelta = async (cardId: string, status: unknown): Promise<void> => {
     for (const client of [...clients].filter((candidate) => candidate.statusSubscribed)) {
       const visible = coordinator.getStatusSnapshot(client.headers)
@@ -240,6 +285,7 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
     }
   }
   const publishMetricsDelta = async (cardId: string): Promise<void> => {
+    metricSnapshots.delete(cardId)
     const usage = getLatestMetricUsage(cardId)
     const changedBuckets: { key: string; bucket: UptimeBucket }[] = []
     let bucketWindowRolled = false
@@ -258,7 +304,7 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
       [...clients]
         .filter((client) => client.metrics.has(cardId))
         .map(async (client) => {
-          const metrics = await metricsSnapshot(config, client.headers, cardId, bucketWindowRolled)
+          const metrics = metricsSnapshot(config, client.headers, cardId, metricSnapshots, bucketWindowRolled)
           if (metrics) send(client, { type: 'metrics_delta', version: nextVersion(), cardId, metrics })
           const access = coordinator.getMetricAccess(client.headers, cardId)
           for (const { key, bucket } of changedBuckets) {
@@ -317,7 +363,7 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
         [...clients]
           .filter((client) => client.metrics.has(cardId))
           .map(async (client) => {
-            const metrics = await metricsSnapshot(config, client.headers, cardId)
+            const metrics = metricsSnapshot(config, client.headers, cardId, metricSnapshots)
             if (metrics && metrics.uptimeMetrics?.some((metric) => metric.key === key)) send(client, { type: 'uptime_bucket_delta', version: nextVersion(), cardId, key, bucket })
           })
       )

@@ -12,6 +12,7 @@ export type DiscoveryCoordinator = {
   getStatusSnapshot(headers: Headers): StatusSnapshot
   getMetricAccess(headers: Headers, cardId: string): ContainerMetricUsage | undefined
   onStatusChange(listener: (cardId: string, status: ContainerStatus) => void): () => void
+  onCardsChange(listener: (cardIds: ReadonlySet<string>) => void): () => void
   publishMetrics(cardId: string): void
   onMetricsChange(listener: (cardId: string) => void): () => void
   clear(): void
@@ -30,6 +31,7 @@ function createDiscoveryCoordinator(config: AppConfig): DiscoveryCoordinator {
   let started = false
   let initialRefresh = Promise.resolve()
   const listeners = new Set<(cardId: string, status: ContainerStatus) => void>()
+  const cardListeners = new Set<(cardIds: ReadonlySet<string>) => void>()
   const metricListeners = new Set<(cardId: string) => void>()
 
   const refresh = async (): Promise<void> => {
@@ -40,6 +42,8 @@ function createDiscoveryCoordinator(config: AppConfig): DiscoveryCoordinator {
     }
     error = undefined
     cards = discovered.cards
+    const cardIds = new Set(cards.map((card) => card.id))
+    for (const listener of cardListeners) listener(cardIds)
     refreshMetricRetention(
       config,
       cards
@@ -100,6 +104,10 @@ function createDiscoveryCoordinator(config: AppConfig): DiscoveryCoordinator {
       listeners.add(listener)
       return () => listeners.delete(listener)
     },
+    onCardsChange: (listener) => {
+      cardListeners.add(listener)
+      return () => cardListeners.delete(listener)
+    },
     publishMetrics: (cardId) => {
       for (const listener of metricListeners) listener(cardId)
     },
@@ -115,6 +123,7 @@ function createDiscoveryCoordinator(config: AppConfig): DiscoveryCoordinator {
       statuses = {}
       error = undefined
       listeners.clear()
+      cardListeners.clear()
       metricListeners.clear()
     }
   }

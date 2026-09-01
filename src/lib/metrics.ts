@@ -14,10 +14,19 @@ const latestMetricUsage = new Map<string, ContainerMetricUsage>()
 const customMetricCounterCache = new Map<string, { value: number; timestamp: number }>()
 const NETWORK_RATE_PRIME_DELAY_MS = 1_000
 
+function discardRemovedMetricState(cardIds: ReadonlySet<string>): void {
+  for (const cardId of latestMetricUsage.keys()) if (!cardIds.has(cardId)) latestMetricUsage.delete(cardId)
+  for (const cardId of lastMetricCollection.keys()) if (!cardIds.has(cardId)) lastMetricCollection.delete(cardId)
+  for (const key of customMetricCounterCache.keys()) {
+    const cardId = key.slice(0, key.indexOf('\0'))
+    if (!cardIds.has(cardId)) customMetricCounterCache.delete(key)
+  }
+}
+
 export function counterRates(cardId: string, metrics: ContainerMetricUsage['customMetrics'], timestamp: number): ContainerMetricUsage['customMetrics'] {
   return metrics.flatMap((metric) => {
     if (!('rate' in metric) || metric.rate !== true) return [metric]
-    const key = `${cardId}:${metric.key}`
+    const key = `${cardId}\0${metric.key}`
     const previous = customMetricCounterCache.get(key)
     customMetricCounterCache.set(key, { value: metric.value, timestamp })
     if (!previous || timestamp <= previous.timestamp) return [{ ...metric, value: 0, pending: true }]
@@ -113,17 +122,17 @@ export function getLatestMetricUsage(cardId: string): ContainerMetricUsage | und
 export function startMetricsCollection(config: AppConfig): void {
   if (collectionStarted || !config.showMetrics) return
   collectionStarted = true
-  void getDiscoveryCoordinator(config)
-    .ready()
-    .then(() => {
-      const initialCollection = collectInBackground(config)
-      if (!initialCollection) return
-      void initialCollection.then(() => {
-        const timer = setTimeout(() => collectInBackground(config, true), NETWORK_RATE_PRIME_DELAY_MS)
-        timer.unref()
-        scheduleCollection(config)
-      })
+  const coordinator = getDiscoveryCoordinator(config)
+  coordinator.onCardsChange(discardRemovedMetricState)
+  void coordinator.ready().then(() => {
+    const initialCollection = collectInBackground(config)
+    if (!initialCollection) return
+    void initialCollection.then(() => {
+      const timer = setTimeout(() => collectInBackground(config, true), NETWORK_RATE_PRIME_DELAY_MS)
+      timer.unref()
+      scheduleCollection(config)
     })
+  })
 }
 
 export function clearMetricsDatabase(): void {
