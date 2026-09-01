@@ -1,4 +1,5 @@
 import http from 'node:http'
+import { listenMockServer } from './mock-server.mjs'
 
 const MINUTE_MS = 60_000
 
@@ -45,11 +46,6 @@ export function startMockMetricServer() {
       res.end(JSON.stringify({ message: 'Not found' }))
     })
 
-    server.listen(0, '127.0.0.1', () => {
-      const { port } = server.address()
-      const url = `http://127.0.0.1:${port}`
-      console.log(`Mock metric API listening on ${url}`)
-      resolve({ server, url })
-    })
+    listenMockServer(server, 'http', 'metric').then(resolve)
   })
 }

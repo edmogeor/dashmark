@@ -731,6 +731,50 @@ function parseJsonValue(value: unknown): MetricJsonValue | undefined {
 const MAX_AUTH_STEPS = 5
 const MAX_EXTRACTED_TOKENS = 16
 
+function parseMetricRequestBody(body: unknown, path: string, kind: 'form' | 'json'): { values?: Record<string, MetricRequestValue> | Record<string, MetricJsonValue>; error?: string } {
+  if (body === undefined) return {}
+  if (!isRecord(body) || Object.keys(body).length === 0)
+    return {
+      error: `${path}.${kind} must be a non-empty mapping of secret or token references`
+    }
+  const values: Record<string, MetricRequestValue> | Record<string, MetricJsonValue> = {}
+  for (const [name, reference] of Object.entries(body)) {
+    const parsed = kind === 'json' ? parseJsonValue(reference) : parseRequestValue(reference)
+    if (!name || parsed === undefined)
+      return {
+        error: `${path}.${kind} must be a non-empty mapping of scalar values, secret or token references${kind === 'json' ? ', arrays, or objects' : ''}`
+      }
+    values[name] = parsed
+  }
+  return { values }
+}
+
+function parseMetricTokenExtractors(value: unknown, path: string): { extract?: Record<string, MetricTokenExtractor>; error?: string } {
+  if (value === undefined) return {}
+  if (!isRecord(value) || Object.keys(value).length === 0 || Object.keys(value).length > MAX_EXTRACTED_TOKENS)
+    return { error: `${path}.extract must define between 1 and ${MAX_EXTRACTED_TOKENS} tokens` }
+  const extract: Record<string, MetricTokenExtractor> = {}
+  for (const [name, extractor] of Object.entries(value)) {
+    if (!/^[a-z][a-z0-9_-]*$/.test(name) || !isRecord(extractor) || Object.keys(extractor).length !== 1) return { error: `${path}.extract must use valid token names and one extractor` }
+    if (typeof extractor.jq === 'string' && extractor.jq.trim()) extract[name] = { jq: extractor.jq }
+    else if (
+      isRecord(extractor.cheerio) &&
+      typeof extractor.cheerio.selector === 'string' &&
+      extractor.cheerio.selector.trim() &&
+      extractor.cheerio.selector.length <= 256 &&
+      (extractor.cheerio.attribute === undefined || typeof extractor.cheerio.attribute === 'string')
+    ) {
+      extract[name] = {
+        cheerio: {
+          selector: extractor.cheerio.selector,
+          ...(typeof extractor.cheerio.attribute === 'string' ? { attribute: extractor.cheerio.attribute } : {})
+        }
+      }
+    } else return { error: `${path}.extract.${name} must define jq or a bounded cheerio selector` }
+  }
+  return { extract }
+}
+
 function parseMetricRequest(value: unknown, path: string): { request?: MetricHttpRequest; error?: string } {
   if (!isRecord(value) || Object.keys(value).some((key) => !['url', 'method', 'headers', 'query', 'form', 'json', 'extract'].includes(key))) {
     return { error: `${path} contains an unknown configuration key` }
@@ -746,64 +790,11 @@ function parseMetricRequest(value: unknown, path: string): { request?: MetricHtt
   if (method === 'POST' && Number(value.form !== undefined) + Number(value.json !== undefined) > 1) return { error: `${path} must define at most one form or json body` }
   const { headers, query, error } = parseMetricHeaders(value)
   if (error) return { error: `${path}.${error}` }
-  const parseBody = (
-    body: unknown,
-    kind: 'form' | 'json'
-  ): {
-    values?: Record<string, MetricRequestValue> | Record<string, MetricJsonValue>
-    error?: string
-  } => {
-    if (body === undefined) return {}
-    if (!isRecord(body) || Object.keys(body).length === 0)
-      return {
-        error: `${path}.${kind} must be a non-empty mapping of secret or token references`
-      }
-    const values: Record<string, MetricRequestValue> | Record<string, MetricJsonValue> = {}
-    for (const [name, reference] of Object.entries(body)) {
-      const parsed = kind === 'json' ? parseJsonValue(reference) : parseRequestValue(reference)
-      if (!name || parsed === undefined)
-        return {
-          error: `${path}.${kind} must be a non-empty mapping of scalar values, secret or token references${kind === 'json' ? ', arrays, or objects' : ''}`
-        }
-      values[name] = parsed
-    }
-    return { values }
-  }
-  const form = parseBody(value.form, 'form')
-  const json = parseBody(value.json, 'json')
+  const form = parseMetricRequestBody(value.form, path, 'form')
+  const json = parseMetricRequestBody(value.json, path, 'json')
   if (form.error || json.error) return { error: form.error ?? json.error }
-  let extract: Record<string, MetricTokenExtractor> | undefined
-  if (value.extract !== undefined) {
-    if (!isRecord(value.extract) || Object.keys(value.extract).length === 0 || Object.keys(value.extract).length > MAX_EXTRACTED_TOKENS)
-      return {
-        error: `${path}.extract must define between 1 and ${MAX_EXTRACTED_TOKENS} tokens`
-      }
-    extract = {}
-    for (const [name, extractor] of Object.entries(value.extract)) {
-      if (!/^[a-z][a-z0-9_-]*$/.test(name) || !isRecord(extractor) || Object.keys(extractor).length !== 1)
-        return {
-          error: `${path}.extract must use valid token names and one extractor`
-        }
-      if (typeof extractor.jq === 'string' && extractor.jq.trim()) extract[name] = { jq: extractor.jq }
-      else if (
-        isRecord(extractor.cheerio) &&
-        typeof extractor.cheerio.selector === 'string' &&
-        extractor.cheerio.selector.trim() &&
-        extractor.cheerio.selector.length <= 256 &&
-        (extractor.cheerio.attribute === undefined || typeof extractor.cheerio.attribute === 'string')
-      ) {
-        extract[name] = {
-          cheerio: {
-            selector: extractor.cheerio.selector,
-            ...(typeof extractor.cheerio.attribute === 'string' ? { attribute: extractor.cheerio.attribute } : {})
-          }
-        }
-      } else
-        return {
-          error: `${path}.extract.${name} must define jq or a bounded cheerio selector`
-        }
-    }
-  }
+  const { extract, error: extractError } = parseMetricTokenExtractors(value.extract, path)
+  if (extractError) return { error: extractError }
   return {
     request: {
       url,
@@ -1253,18 +1244,16 @@ function parseCustomMetricFields(metric: Record<string, unknown>) {
 
 type ParsedCustomMetricFields = ReturnType<typeof parseCustomMetricFields>
 
-function validateCustomMetricFields(metric: Record<string, unknown>, fields: ParsedCustomMetricFields): string | undefined {
-  const { label, valueType, unit, rate, chart, chartGroup, transform, color, stateColors, stateLabels, parameters, text, forEach, pagination, source, url, transport, jq, prometheus } = fields
-  if (!label) return 'label must be a non-empty string'
-  if (!source || !url) return 'source.url is required'
-  if (!isMetricUrl(url)) return 'source.url must use HTTP or HTTPS, or begin with {url} or {metric_source}'
-  if (transport !== undefined && transport !== 'socketio') return 'source.transport must be socketio when specified'
+function validateCustomMetricExtractor(metric: Record<string, unknown>, fields: ParsedCustomMetricFields): string | undefined {
+  const { prometheus, forEach, pagination, jq, text } = fields
   if (metric.prometheus !== undefined && !prometheus) return 'prometheus.name, labels, reduction, or value_label is invalid'
   if (metric.for_each !== undefined && !forEach) return 'for_each requires item and value jq expressions, a child URL containing {item}, and a reduction'
   if (metric.pagination !== undefined && (!pagination || !jq)) return 'pagination requires a jq extractor with items and next expressions'
   if (Number(jq !== undefined) + Number(prometheus !== undefined) + Number(text) + Number(forEach !== undefined) !== 1) return 'define exactly one valid jq, prometheus, text, or for_each extractor'
-  if (valueType !== 'number' && valueType !== 'string' && valueType !== 'state' && valueType !== 'uptime') return 'value_type must be number, string, state, or uptime'
-  if (metric.rate !== undefined && metric.rate !== true) return 'rate must be true when specified'
+}
+
+function validateCustomMetricFormatting(metric: Record<string, unknown>, fields: ParsedCustomMetricFields): string | undefined {
+  const { chart, transform, color, stateColors, stateLabels, parameters, chartGroup } = fields
   if (!chart) return 'chart must be step, line, area, or none'
   if (metric.transform !== undefined && !transform) return 'transform must define finite multiply and/or add values'
   if (metric.color !== undefined && !color) return 'color must be success, info, warning, error, or disabled'
@@ -1272,6 +1261,10 @@ function validateCustomMetricFields(metric: Record<string, unknown>, fields: Par
   if (metric.state_labels !== undefined && !stateLabels) return 'state_labels must map non-empty values to display labels of at most 32 characters'
   if (metric.parameters !== undefined && !parameters) return 'parameters must define named URL-component parameters'
   if (metric.chart_group !== undefined && (!chartGroup || !/^[a-z][a-z0-9_-]*$/.test(chartGroup))) return 'chart_group must be a lowercase identifier'
+}
+
+function validateCustomMetricValueType(metric: Record<string, unknown>, fields: ParsedCustomMetricFields): string | undefined {
+  const { valueType, unit, rate, chart, chartGroup, color, stateColors, stateLabels, forEach, pagination, transport, prometheus } = fields
   if (
     (valueType === 'string' || valueType === 'state') &&
     (metric.unit !== undefined ||
@@ -1287,12 +1280,26 @@ function validateCustomMetricFields(metric: Record<string, unknown>, fields: Par
   if ((valueType === 'number' || valueType === 'string') && stateColors !== undefined) return 'state_colors requires value_type state'
   if ((valueType === 'number' || valueType === 'string') && stateLabels !== undefined) return 'state_labels requires value_type state'
   if (valueType === 'state' && color === undefined) return 'state metrics require a color'
-  if (valueType === 'number' && (!unit || prometheus?.valueLabel !== undefined || (chartGroup !== undefined && chart === 'none'))) {
+  if (valueType === 'number' && (!unit || prometheus?.valueLabel !== undefined || (chartGroup !== undefined && chart === 'none')))
     return chartGroup !== undefined && chart === 'none' ? 'chart_group requires a visible chart' : 'numeric metrics require a valid unit and cannot use value_label'
-  }
   if (rate && valueType !== 'number') return 'rate requires value_type number'
   if (forEach && (valueType !== 'number' || transport === 'socketio')) return 'for_each requires a numeric HTTP metric'
   if (pagination && transport === 'socketio') return 'pagination requires an HTTP metric'
+}
+
+function validateCustomMetricFields(metric: Record<string, unknown>, fields: ParsedCustomMetricFields): string | undefined {
+  const { label, valueType, source, url, transport } = fields
+  if (!label) return 'label must be a non-empty string'
+  if (!source || !url) return 'source.url is required'
+  if (!isMetricUrl(url)) return 'source.url must use HTTP or HTTPS, or begin with {url} or {metric_source}'
+  if (transport !== undefined && transport !== 'socketio') return 'source.transport must be socketio when specified'
+  const extractorError = validateCustomMetricExtractor(metric, fields)
+  if (extractorError) return extractorError
+  if (valueType !== 'number' && valueType !== 'string' && valueType !== 'state' && valueType !== 'uptime') return 'value_type must be number, string, state, or uptime'
+  if (metric.rate !== undefined && metric.rate !== true) return 'rate must be true when specified'
+  const formattingError = validateCustomMetricFormatting(metric, fields)
+  if (formattingError) return formattingError
+  return validateCustomMetricValueType(metric, fields)
 }
 
 function parseCustomMetricSource(fields: ParsedCustomMetricFields): { source?: MetricSourceOverride; error?: string } {
@@ -1475,6 +1482,50 @@ function parseMetricCharts(value: unknown, path: string): ServiceMetrics['charts
   return charts
 }
 
+type MetricEntryParts = {
+  definitions: Record<string, unknown>
+  overrides: Record<string, unknown>
+  access: Record<string, string[]>
+  inputs: Record<string, Record<string, string | number | boolean>>
+  entries: string[]
+}
+
+function parseMetricEntryAccess(configured: Record<string, unknown>, name: string, entryPath: string, access: MetricEntryParts['access']) {
+  const visibleTo = configured.visible_to === undefined ? undefined : stringList(configured.visible_to)
+  if (configured.visible_to !== undefined && !visibleTo) invalid(`${entryPath}.visible_to`, 'a non-empty string or list of strings')
+  if (visibleTo) access[name] = visibleTo
+}
+
+function parseBuiltInMetricEntry(name: string, definition: unknown, entryPath: string, parts: MetricEntryParts): boolean {
+  if (!RESOURCE_STATS.includes(name as ResourceStat)) return false
+  if (definition !== null && !isRecord(definition)) invalid(entryPath, 'a built-in metric mapping')
+  const configured = definition ?? {}
+  validateKnownFields(configured, new Set(['visible_to']), entryPath)
+  parseMetricEntryAccess(configured, name, entryPath, parts.access)
+  parts.entries.push(name)
+  return true
+}
+
+function parseCatalogMetricEntry(name: string, definition: unknown, entryPath: string, catalog: Record<string, Record<string, unknown>>, parts: MetricEntryParts): boolean {
+  if (!catalog[name]) return false
+  if (definition !== null && !isRecord(definition)) invalid(entryPath, 'a shipped metric mapping')
+  const configured = definition ?? {}
+  validateKnownFields(configured, new Set(['inputs', 'overrides', 'visible_to']), entryPath)
+  let configuredInputs: Record<string, string | number | boolean> | undefined
+  if (configured.inputs !== undefined) {
+    if (!isRecord(configured.inputs) || Object.values(configured.inputs).some((item) => typeof item !== 'string' && typeof item !== 'number' && typeof item !== 'boolean'))
+      invalid(`${entryPath}.inputs`, 'a mapping of scalar values')
+    configuredInputs = configured.inputs as Record<string, string | number | boolean>
+  }
+  const parameters = parseMetricParameters(catalog[name]?.parameters)
+  for (const input of Object.keys(configuredInputs ?? {})) if (!parameters?.[input]) invalid(`${entryPath}.inputs.${input}`, 'a declared metric input')
+  if (configuredInputs) parts.inputs[name] = configuredInputs
+  if (configured.overrides !== undefined) parts.overrides[name] = configured.overrides
+  parseMetricEntryAccess(configured, name, entryPath, parts.access)
+  parts.entries.push(name)
+  return true
+}
+
 function parseMetricEntries(
   value: unknown,
   path: string,
@@ -1484,61 +1535,29 @@ function parseMetricEntries(
 ): Pick<ServiceMetrics, 'entries' | 'entryAccess' | 'entryOverrides' | 'entryInputs' | 'entryErrors'> {
   if (value === undefined) return {}
   if (!isRecord(value)) invalid(`${path}.entries`, 'a mapping of metric entries')
-  const definitions: Record<string, unknown> = {}
-  const overrides: Record<string, unknown> = {}
-  const access: Record<string, string[]> = {}
-  const inputs: Record<string, Record<string, string | number | boolean>> = {}
-  const entries: string[] = []
+  const parts: MetricEntryParts = { definitions: {}, overrides: {}, access: {}, inputs: {}, entries: [] }
   for (const [name, definition] of Object.entries(value)) {
     const entryPath = `${path}.entries.${name}`
-    if (RESOURCE_STATS.includes(name as ResourceStat)) {
-      if (definition !== null && !isRecord(definition)) invalid(entryPath, 'a built-in metric mapping')
-      const configured = definition ?? {}
-      validateKnownFields(configured, new Set(['visible_to']), entryPath)
-      const visibleTo = configured.visible_to === undefined ? undefined : stringList(configured.visible_to)
-      if (configured.visible_to !== undefined && !visibleTo) invalid(`${entryPath}.visible_to`, 'a non-empty string or list of strings')
-      if (visibleTo) access[name] = visibleTo
-      entries.push(name)
-      continue
-    }
-    if (catalog[name]) {
-      if (definition !== null && !isRecord(definition)) invalid(entryPath, 'a shipped metric mapping')
-      const configured = definition ?? {}
-      validateKnownFields(configured, new Set(['inputs', 'overrides', 'visible_to']), entryPath)
-      let configuredInputs: Record<string, string | number | boolean> | undefined
-      if (configured.inputs !== undefined) {
-        if (!isRecord(configured.inputs) || Object.values(configured.inputs).some((item) => typeof item !== 'string' && typeof item !== 'number' && typeof item !== 'boolean'))
-          invalid(`${entryPath}.inputs`, 'a mapping of scalar values')
-        configuredInputs = configured.inputs as Record<string, string | number | boolean>
-      }
-      const parameters = parseMetricParameters(catalog[name]?.parameters)
-      for (const input of Object.keys(configuredInputs ?? {})) if (!parameters?.[input]) invalid(`${entryPath}.inputs.${input}`, 'a declared metric input')
-      if (configuredInputs) inputs[name] = configuredInputs
-      if (configured.overrides !== undefined) overrides[name] = configured.overrides
-      const visibleTo = configured.visible_to === undefined ? undefined : stringList(configured.visible_to)
-      if (configured.visible_to !== undefined && !visibleTo) invalid(`${entryPath}.visible_to`, 'a non-empty string or list of strings')
-      if (visibleTo) access[name] = visibleTo
-      entries.push(name)
-      continue
-    }
+    if (parseBuiltInMetricEntry(name, definition, entryPath, parts)) continue
+    if (parseCatalogMetricEntry(name, definition, entryPath, catalog, parts)) continue
     if (!/^[a-z][a-z0-9_-]*$/.test(name) || !isRecord(definition)) invalid(entryPath, 'a named metric mapping')
     const { visible_to: visibleTo, ...metric } = definition
     if (visibleTo !== undefined) {
       validateStringList(visibleTo, `${entryPath}.visible_to`)
-      access[name] = stringList(visibleTo)!
+      parts.access[name] = stringList(visibleTo)!
     }
-    definitions[name] = metric
-    entries.push(name)
+    parts.definitions[name] = metric
+    parts.entries.push(name)
   }
-  const parsedOverrides = parseMetricOverrides(overrides, catalog, charts, true)
+  const parsedOverrides = parseMetricOverrides(parts.overrides, catalog, charts, true)
   for (const [key, reason] of Object.entries(parsedOverrides.errors ?? {})) invalid(`${path}.entries.${key}.overrides`, reason)
-  const parsed = parseMetricOverrides(definitions, catalog, charts, false, sharedSources)
+  const parsed = parseMetricOverrides(parts.definitions, catalog, charts, false, sharedSources)
   const entryOverrides = { ...parsedOverrides.metrics, ...parsed.metrics }
   return {
-    ...(entries.length > 0 ? { entries: entries.filter((key) => !parsed.errors?.[key]) } : {}),
-    ...(Object.keys(access).length > 0 ? { entryAccess: access } : {}),
+    ...(parts.entries.length > 0 ? { entries: parts.entries.filter((key) => !parsed.errors?.[key]) } : {}),
+    ...(Object.keys(parts.access).length > 0 ? { entryAccess: parts.access } : {}),
     ...(Object.keys(entryOverrides).length > 0 ? { entryOverrides } : {}),
-    ...(Object.keys(inputs).length > 0 ? { entryInputs: inputs } : {}),
+    ...(Object.keys(parts.inputs).length > 0 ? { entryInputs: parts.inputs } : {}),
     ...(parsed.errors && Object.keys(parsed.errors).length > 0 ? { entryErrors: parsed.errors } : {})
   }
 }

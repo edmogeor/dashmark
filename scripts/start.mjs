@@ -30,7 +30,6 @@ app.get(
   {
     websocket: true,
     preValidation: async (request, reply) => {
-      if (!realtime) return reply.code(503).send()
       const status = realtime.authorize(request.raw)
       return status ? reply.code(status).send() : undefined
     }

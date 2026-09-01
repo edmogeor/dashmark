@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Replace dashboard HTTP polling with server-owned realtime collection over authenticated WebSockets.
+- Host the Astro application and realtime WebSocket endpoint with Fastify.
 - Remove the HTTP status and metrics snapshot routes.
 
 ### Fixed

@@ -1,4 +1,5 @@
 import http from 'node:http'
+import { listenMockServer } from './mock-server.mjs'
 
 export const demoContainers = [
   {
@@ -183,12 +184,7 @@ export function startMockDocker(containers = demoContainers) {
       send(404, JSON.stringify({ message: 'Not found' }))
     })
 
-    server.listen(0, '127.0.0.1', () => {
-      const { port } = server.address()
-      const url = `tcp://127.0.0.1:${port}`
-      console.log(`Mock Docker API listening on ${url}`)
-      server.on('close', () => clearInterval(statusTimer))
-      resolve({ server, url })
-    })
+    server.on('close', () => clearInterval(statusTimer))
+    listenMockServer(server, 'tcp', 'Docker').then(resolve)
   })
 }

@@ -18,7 +18,7 @@ function realtimeDevServer() {
   return {
     name: 'dashmark-realtime',
     hooks: {
-      'astro:server:setup': async ({ server }) => {
+      'astro:server:setup': ({ server }) => {
         globalThis.__dashmarkDevServer = server.httpServer
         globalThis.__dashmarkDevRealtimeAttached = false
       }
