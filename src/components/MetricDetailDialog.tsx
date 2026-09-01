@@ -5,12 +5,13 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ChartContainer, ChartTooltip } from '@/components/ui/chart'
 import { chartDomain, endLabelOffset } from '@/lib/chart-layout'
 import { downsampleChartData, metricData, tickerConfig, type ChartPoint, type MetricDetail, type MetricSeries } from './app-card-metrics'
+import { createDateTimeFormatter } from '@/i18n'
 
-const timestampFormatter = new Intl.DateTimeFormat(undefined, {
+const timestampFormatter = createDateTimeFormatter({
   hour: 'numeric',
   minute: '2-digit'
 })
-const exactTimestampFormatter = new Intl.DateTimeFormat(undefined, {
+const exactTimestampFormatter = createDateTimeFormatter({
   hour: 'numeric',
   minute: '2-digit',
   second: '2-digit'

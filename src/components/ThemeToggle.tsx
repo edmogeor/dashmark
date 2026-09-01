@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { Sun, Moon } from 'lucide-react'
-import { strings } from '@/lib/strings'
+import { strings } from '@/i18n'
 import { THEME_REVEAL_TIMEOUT_MS, THEME_STORAGE_KEY } from '@/lib/constants'
 
 type Theme = 'light' | 'dark'

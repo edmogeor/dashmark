@@ -1,6 +1,6 @@
 import type { AppConfig } from './config'
 import type { AuthUser } from './auth'
-import { strings } from './strings'
+import { strings } from '@/i18n'
 import { MORNING_START_HOUR, AFTERNOON_START_HOUR, EVENING_START_HOUR } from './constants'
 
 export type GreetingPeriod = 'morning' | 'afternoon' | 'evening'

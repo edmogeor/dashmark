@@ -5,7 +5,7 @@ import { getConfig } from '@/lib/config'
 import { getCards } from '@/lib/docker'
 import { getUser, hasAllowedAccess } from '@/lib/auth'
 import { resolveGreeting } from '@/lib/greeting'
-import { strings } from '@/lib/strings'
+import { strings } from '@/i18n'
 import { THEME_STORAGE_KEY } from '@/lib/constants'
 import '@/styles/global.css'
 
@@ -24,7 +24,7 @@ const greeting = resolveGreeting(config, user)
 ---
 
 <!doctype html>
-<html lang={strings.meta.lang} class="dark" data-theme-toggle-enabled={config.showThemeToggle ? 'true' : 'false'}>
+<html lang={config.locale} class="dark" data-theme-toggle-enabled={config.showThemeToggle ? 'true' : 'false'}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content" />

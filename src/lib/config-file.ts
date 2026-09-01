@@ -6,7 +6,7 @@ import { RESOURCE_STATS, type ResourceStat } from './labels'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
 import { dashmarkError, errorMessage, isRecord, type DashmarkError } from './errors'
-import { strings } from './strings'
+import { strings } from '@/i18n'
 import type { CustomMetricStateColor } from './status'
 
 export type ServiceMetrics = {
@@ -612,7 +612,7 @@ function metricCatalog(): Record<string, Record<string, unknown>> {
           withFileTypes: true
         })
         .flatMap((file) => {
-          if (!file.isFile() || !file.name.endsWith('.yml') || file.name === 'provider.yml') return []
+          if (!file.isFile() || !file.name.endsWith('.yml') || file.name === 'provider.yml' || file.name.endsWith('.translations.yml')) return []
           const filePath = path.join(directory, provider.name, file.name)
           return [
             {

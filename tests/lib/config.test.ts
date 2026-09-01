@@ -36,7 +36,8 @@ const trackedVars = [
   'GREETING_MORNING',
   'GREETING_AFTERNOON',
   'GREETING_EVENING',
-  'CUSTOM_STYLESHEET'
+  'CUSTOM_STYLESHEET',
+  'LOCALE'
 ]
 
 const originals = trackedVars.map((name) => ({ name, value: process.env[name] }))
@@ -162,6 +163,21 @@ describe('getConfig feature toggles', () => {
 
     process.env[environmentVariable] = configuredValue
     expect(getConfig()[configKey]).toBe(expectedValue)
+  })
+})
+
+describe('getConfig locale', () => {
+  it('defaults to US English and falls back to it for unavailable locales', () => {
+    delete process.env.LOCALE
+    expect(getConfig().locale).toBe('en-US')
+
+    process.env.LOCALE = 'de'
+    expect(getConfig().locale).toBe('en-US')
+  })
+
+  it('accepts US English explicitly', () => {
+    process.env.LOCALE = 'en-US'
+    expect(getConfig().locale).toBe('en-US')
   })
 })
 

@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import Fuse from 'fuse.js'
 import type { Card } from '@/lib/docker'
 import { SEARCH_FUZZY_THRESHOLD } from '@/lib/constants'
-import { strings } from '@/lib/strings'
+import { strings } from '@/i18n'
 
 const UNCATEGORISED = strings.category.uncategorised
 const UNCATEGORISED_KEY = ''

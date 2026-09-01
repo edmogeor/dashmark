@@ -4,6 +4,7 @@ import type { UptimeBucket, UptimeRange } from '@/lib/realtime-client'
 import { Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { formatDateTime, strings } from '@/i18n'
 
 const HOUR_MS = 60 * 60 * 1_000
 
@@ -55,16 +56,16 @@ export function formatUptimeBucketTime(timestamp: number): string {
   const yesterday = startOfDay - 24 * HOUR_MS
   const daysSinceMonday = (today.getDay() + 6) % 7
   const startOfWeek = startOfDay - daysSinceMonday * 24 * HOUR_MS
-  const day = new Intl.DateTimeFormat(undefined, { weekday: 'long' }).format(timestamp)
-  const calendarDate = new Intl.DateTimeFormat(undefined, {
+  const day = formatDateTime(timestamp, { weekday: 'long' })
+  const calendarDate = formatDateTime(timestamp, {
     month: 'short',
     day: 'numeric'
-  }).format(timestamp)
-  const relativeDay = timestamp >= startOfDay ? 'Today' : timestamp >= yesterday ? 'Yesterday' : timestamp >= startOfWeek ? day : calendarDate
-  const time = new Intl.DateTimeFormat(undefined, {
+  })
+  const relativeDay = timestamp >= startOfDay ? strings.time.today : timestamp >= yesterday ? strings.time.yesterday : timestamp >= startOfWeek ? day : calendarDate
+  const time = formatDateTime(date, {
     hour: '2-digit',
     minute: '2-digit'
-  }).format(date)
+  })
   return `${relativeDay}, ${time}`
 }
 

@@ -1,14 +1,13 @@
-export const strings = {
+export const en = {
   app: {
     title: 'Dashmark'
   },
   meta: {
-    lang: 'en',
     description: 'A lightweight dashboard of links to your Docker services.'
   },
   category: {
     all: 'All categories',
-    uncategorised: 'Uncategorised'
+    uncategorised: 'Uncategorized'
   },
   greeting: {
     morning: 'Good morning',
@@ -51,6 +50,10 @@ export const strings = {
     switchToLight: 'Switch to light mode',
     switchToDark: 'Switch to dark mode'
   },
+  time: {
+    today: 'Today',
+    yesterday: 'Yesterday'
+  },
   errors: {
     unableToLoadServices: 'Unable to load services',
     statusUpdateFailed: 'Status update failed:',
@@ -62,11 +65,3 @@ export const strings = {
     expectedHeader: (header: string) => `Expected header: ${header}`
   }
 } as const
-
-function isKnownStatus(value: string): value is keyof typeof strings.status {
-  return value in strings.status
-}
-
-export function statusLabel(value: string): string {
-  return isKnownStatus(value) ? strings.status[value] : value
-}

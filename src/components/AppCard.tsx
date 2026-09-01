@@ -18,7 +18,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils'
 import type { Card as CardType } from '@/lib/docker'
 import { getInitials } from '@/lib/initials'
-import { strings } from '@/lib/strings'
+import { strings } from '@/i18n'
 import { useIsDark } from '@/lib/use-is-dark'
 import { TOOLTIP_DELAY_MS } from '@/lib/constants'
 import { showErrorToast, clearStaleErrorToasts } from '@/lib/error-toasts'

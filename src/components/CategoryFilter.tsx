@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils'
 import { Check, ChevronDown, ListFilter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { strings } from '@/lib/strings'
+import { strings } from '@/i18n'
 
 type CategoryFilterProps = {
   categories: { name: string; count: number }[]

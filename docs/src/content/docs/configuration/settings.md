@@ -3,7 +3,7 @@ title: Dashboard settings
 description: Configure Dashmark-wide behavior with environment variables or YAML.
 ---
 
-Set options with environment variables in Compose, or use their snake_case names in `config.yml` under `settings`. YAML takes precedence. `CONFIG_FILE` is the only environment-only option.
+Set options with environment variables in Compose, or use their snake_case names in `config.yml` under `settings`. YAML takes precedence. `CONFIG_FILE` and `LOCALE` are environment-only options.
 
 Before upgrading, review the [release notes](https://github.com/edmogeor/dashmark/releases) for breaking configuration changes.
 
@@ -25,13 +25,14 @@ settings:
 
 ## Docker and files
 
-| Environment variable | Default                       | YAML key            | Purpose                                              |
-| -------------------- | ----------------------------- | ------------------- | ---------------------------------------------------- |
-| `DOCKER_HOSTS`       | `unix:///var/run/docker.sock` | `docker_hosts`      | Docker endpoint, or named comma-separated endpoints. |
-| `CONFIG_FILE`        | `/data/config.yml`            | None                | YAML configuration file path.                        |
-| `ICONS_DIR`          | `/data/icons`                 | `icons_dir`         | Local icon directory.                                |
-| `CUSTOM_STYLESHEET`  | unset                         | `custom_stylesheet` | Mounted CSS file, served as `/custom.css`.           |
-| `PORT`               | `4321`                        | `port`              | HTTP port.                                           |
+| Environment variable | Default                       | YAML key            | Purpose                                                   |
+| -------------------- | ----------------------------- | ------------------- | --------------------------------------------------------- |
+| `DOCKER_HOSTS`       | `unix:///var/run/docker.sock` | `docker_hosts`      | Docker endpoint, or named comma-separated endpoints.      |
+| `CONFIG_FILE`        | `/data/config.yml`            | None                | YAML configuration file path.                             |
+| `ICONS_DIR`          | `/data/icons`                 | `icons_dir`         | Local icon directory.                                     |
+| `CUSTOM_STYLESHEET`  | unset                         | `custom_stylesheet` | Mounted CSS file, served as `/custom.css`.                |
+| `PORT`               | `4321`                        | `port`              | HTTP port.                                                |
+| `LOCALE`             | `en-US`                       | None                | Dashboard locale. Only US English is currently available. |
 
 ## Interface
 

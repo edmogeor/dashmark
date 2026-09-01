@@ -6,7 +6,7 @@ import { TooltipContent } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { badgeColor, chartColorVariable } from '@/lib/badge-color'
 import type { Card as CardType } from '@/lib/docker'
-import { strings } from '@/lib/strings'
+import { strings } from '@/i18n'
 import type { ContainerResources, CustomMetric, CustomMetricStateColor, NumericCustomMetric, ResourceMetricSample } from '@/lib/status'
 import type { UptimeMetricSummary } from '@/lib/realtime-client'
 import {

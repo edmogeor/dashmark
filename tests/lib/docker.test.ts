@@ -102,7 +102,7 @@ describe('getCards', () => {
 
     expect(cards[0]).toMatchObject({
       resourceStats: [],
-      customMetricLabels: [{ key: 'test/queue-depth', label: 'Queue depth' }]
+      customMetricLabels: [{ key: 'test/queue-depth', label: 'Localized queue depth' }]
     })
   })
 
@@ -1210,7 +1210,7 @@ backup:
     await expect(getContainerMetricUsage(config, new Headers(), 'default:catalog-metric')).resolves.toEqual({
       resource: undefined,
       historyPeriodMs: config.metricsHistoryPeriodMs,
-      customMetrics: [{ key: 'test/queue-depth', label: 'Queue depth', unit: 'count', chart: 'step', value: 4 }],
+      customMetrics: [{ key: 'test/queue-depth', label: 'Localized queue depth', unit: 'count', chart: 'step', value: 4 }],
       metricErrors: []
     })
     expect(String(got.mock.calls[0]?.[0])).toBe('https://service.example.com/api/queue')
@@ -1460,7 +1460,7 @@ radarr:
     await expect(getContainerMetricUsage(config, new Headers(), 'default:provider-metrics')).resolves.toEqual({
       resource: undefined,
       historyPeriodMs: config.metricsHistoryPeriodMs,
-      customMetrics: [{ key: 'test/queue-depth', label: 'Queue depth', unit: 'count', chart: 'step', value: 4 }],
+      customMetrics: [{ key: 'test/queue-depth', label: 'Localized queue depth', unit: 'count', chart: 'step', value: 4 }],
       metricErrors: []
     })
   })

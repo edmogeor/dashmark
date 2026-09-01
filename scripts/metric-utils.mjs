@@ -5,7 +5,7 @@ export function metricFiles(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const file = path.join(directory, entry.name)
     if (entry.isDirectory()) return metricFiles(file)
-    return entry.name.endsWith('.yml') && entry.name !== 'provider.yml' ? [file] : []
+    return entry.name.endsWith('.yml') && entry.name !== 'provider.yml' && !entry.name.endsWith('.translations.yml') ? [file] : []
   })
 }
 

@@ -22,6 +22,17 @@ extract:
   jq: .totalCount
 ```
 
+### Add translations
+
+Keep translated labels beside the metric they describe. Create an optional `metrics/<provider>/<metric-name>.translations.yml` companion file, with a locale key and visible label:
+
+```yaml
+en-US:
+  label: Queued
+```
+
+Dashmark falls back to `display.label` when a locale file or label is unavailable. Do not translate metric keys, extractor fields, parameter names, or other collection configuration.
+
 ## 2. Add authentication when needed
 
 Declare reusable credential references in `metrics/<provider>/provider.yml`. Use environment variables, secret files, or labels, never literal credentials.

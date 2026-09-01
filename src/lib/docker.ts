@@ -11,10 +11,11 @@ import { getUser, hasAllowedAccess } from './auth'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
 import { dashmarkError, errorMessage, isRecord, type DashmarkError } from './errors'
-import { strings } from './strings'
+import { strings } from '@/i18n'
 import type { ContainerResources, ContainerStatus, UptimeMetric } from './status'
 import { collectCustomMetric } from './custom-metrics'
 import { getUptimeObservationHistory, mergeUptimeObservationHistory } from './metrics-storage'
+import { localizeMetricLabel } from './metric-translations'
 import {
   DOCKER_REQUEST_TIMEOUT_MS,
   DOCKER_MAX_RESPONSE_BYTES,
@@ -1050,7 +1051,7 @@ function metricDetails(resolved: ResolvedMetricCard, config: AppConfig, hasConta
 }
 
 function metricCardFields(resolved: ResolvedMetricCard, config: AppConfig) {
-  const customMetricLabels = selectedMetricLabels(resolved).map(([key, metric]) => ({ key, label: metric.label }))
+  const customMetricLabels = selectedMetricLabels(resolved).map(([key, metric]) => ({ key, label: localizeMetricLabel(config.locale, key, metric.label) }))
   const selectedMetrics = selectedCustomMetrics(resolved)
   const customMetricKeys = selectedMetrics.flatMap(([key, metric]) => (metric.valueType === 'number' ? [key] : []))
   const uptimeMetricKeys = selectedMetrics.flatMap(([key, metric]) => (metric.valueType === 'uptime' ? [key] : []))
@@ -1066,13 +1067,14 @@ function metricCardFields(resolved: ResolvedMetricCard, config: AppConfig) {
   }
 }
 
-function collectedCustomMetric(key: string, metric: MetricOverride, value: number | string): CollectedCustomMetric | undefined {
-  if (metric.valueType === 'string' && typeof value === 'string') return { key, label: metric.label, value }
+function collectedCustomMetric(locale: AppConfig['locale'], key: string, metric: MetricOverride, value: number | string): CollectedCustomMetric | undefined {
+  const label = localizeMetricLabel(locale, key, metric.label)
+  if (metric.valueType === 'string' && typeof value === 'string') return { key, label, value }
   if (metric.valueType === 'state' && typeof value === 'string') {
     const valueLabel = metric.stateLabels?.[value]
     return {
       key,
-      label: metric.label,
+      label,
       ...(valueLabel === undefined ? {} : { valueLabel }),
       color: metric.stateColors?.[value] ?? metric.color,
       value
@@ -1081,7 +1083,7 @@ function collectedCustomMetric(key: string, metric: MetricOverride, value: numbe
   if (metric.valueType === 'number' && typeof value === 'number') {
     return {
       key,
-      label: metric.label,
+      label,
       unit: metric.unit,
       chart: metric.chart,
       ...(metric.chartGroup === undefined ? {} : { chartGroup: metric.chartGroup }),
@@ -1115,15 +1117,15 @@ async function collectSelectedCustomMetrics(
       const observations = mergeUptimeObservationHistory(config, cardId, key, result.observations, uptimeHistoryPeriodMs)
       uptimeMetrics.push({
         key,
-        label: metric.label,
+        label: localizeMetricLabel(config.locale, key, metric.label),
         current: observations.at(-1)?.status ?? 'unknown',
         observations
       })
     } else if ('error' in result && metric.valueType === 'uptime' && uptimeHistory.length > 0) {
-      uptimeMetrics.push({ key, label: metric.label, current: uptimeHistory.at(-1)?.status ?? 'unknown', observations: uptimeHistory })
+      uptimeMetrics.push({ key, label: localizeMetricLabel(config.locale, key, metric.label), current: uptimeHistory.at(-1)?.status ?? 'unknown', observations: uptimeHistory })
       collectedErrors.push({ key, message: result.error })
     } else if ('value' in result) {
-      const collected = collectedCustomMetric(key, metric, result.value)
+      const collected = collectedCustomMetric(config.locale, key, metric, result.value)
       if (collected) customMetrics.push(collected)
     } else if ('error' in result) collectedErrors.push({ key, message: result.error })
   }

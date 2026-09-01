@@ -3,6 +3,7 @@ import { logger } from './logger'
 import { logMessages } from './log-messages'
 import { AUTO_ACCESS_GROUPS_HEADER, ACCESS_GROUPS_HEADER_TOKEN, DEFAULT_METRICS_POLL_INTERVAL_MS, DEFAULT_PORT, MAX_PORT, METRICS_HISTORY_PERIOD_MS } from './constants'
 import { loadYamlConfig, type DashboardSettings } from './config-file'
+import { resolveLocale, type Locale } from '@/i18n'
 
 export type AppConfig = DashboardSettings & {
   dockerHost: string
@@ -26,6 +27,7 @@ export type AppConfig = DashboardSettings & {
   metricsDatabasePath: string
   metricsPollIntervalMs: number
   metricsHistoryPeriodMs: number
+  locale: Locale
   authToken?: string
 }
 
@@ -166,6 +168,7 @@ export function getConfig(): AppConfig {
     metricsDatabasePath: stringValue('METRICS_DATABASE_PATH', settings.metricsDatabasePath) || (process.env.NODE_ENV === 'production' ? '/tmp/dashmark/metrics.db' : '.astro/metrics.db'),
     metricsPollIntervalMs: intervalValue('METRICS_POLL_INTERVAL', settings.metricsPollInterval, DEFAULT_METRICS_POLL_INTERVAL_MS),
     metricsHistoryPeriodMs: intervalValue('METRICS_HISTORY_PERIOD', settings.metricsHistoryPeriod, METRICS_HISTORY_PERIOD_MS),
+    locale: resolveLocale(process.env.LOCALE),
     categoryOrder,
     enableAutomaticDescriptions: boolValue('ENABLE_AUTOMATIC_DESCRIPTIONS', settings.enableAutomaticDescriptions, true),
     enableAutomaticIcons: boolValue('ENABLE_AUTOMATIC_ICONS', settings.enableAutomaticIcons, true),

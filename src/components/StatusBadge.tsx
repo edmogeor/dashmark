@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
-import { statusLabel, strings } from '@/lib/strings'
+import { statusLabel, strings } from '@/i18n'
 
 type StatusBadgeProps = {
   state?: string
