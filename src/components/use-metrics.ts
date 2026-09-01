@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import type { ContainerResources, CustomMetric, ResourceMetricSample } from '@/lib/status'
 import type { UptimeMetricSummary } from '@/lib/realtime-client'
 import { useRealtimeMetrics } from './use-realtime'
@@ -30,7 +30,7 @@ export function useMetrics(cardId: string, enabled: boolean, active: boolean, in
     setUptimeMetrics([])
     setLoading(false)
   }, [initialResources])
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!enabled || !active) return
     setResources(null)
     setHistory([])

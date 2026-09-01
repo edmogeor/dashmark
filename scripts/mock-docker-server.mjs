@@ -119,10 +119,12 @@ export function startMockDocker(containers = demoContainers) {
       { State: 'running', Status: 'Up 5 seconds (healthy)' }
     ]
     let statusIndex = 0
+    const eventResponses = new Set()
     const statusTimer = setInterval(() => {
       if (!changingContainer) return
       statusIndex = (statusIndex + 1) % states.length
       Object.assign(changingContainer, states[statusIndex])
+      for (const response of eventResponses) response.write(`${JSON.stringify({ Type: 'container', Action: 'health_status' })}\n`)
     }, 12_000)
     statusTimer.unref()
     const server = http.createServer((req, res) => {
@@ -135,6 +137,13 @@ export function startMockDocker(containers = demoContainers) {
 
       if (req.url === '/version') {
         send(200, JSON.stringify({ ApiVersion: '1.41' }))
+        return
+      }
+
+      if (req.url?.startsWith('/v') && new URL(req.url, 'http://localhost').pathname.endsWith('/events')) {
+        res.statusCode = 200
+        eventResponses.add(res)
+        req.on('close', () => eventResponses.delete(res))
         return
       }
 

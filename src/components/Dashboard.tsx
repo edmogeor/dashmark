@@ -317,6 +317,7 @@ type DashboardProps = {
   initialShowMetrics?: boolean
   initialShowBranding?: boolean
   initialOpenInNewTab?: boolean
+  enableRealtime?: boolean
   categoryOrder?: string[]
   showHeader?: boolean
   showGroups?: boolean
@@ -549,6 +550,7 @@ function DashboardContent({
   initialShowMetrics = true,
   initialShowBranding = true,
   initialOpenInNewTab = false,
+  enableRealtime = true,
   categoryOrder = [],
   showHeader = false,
   showGroups = false,
@@ -560,13 +562,13 @@ function DashboardContent({
   const [search, setSearch] = useState('')
   const deferredSearch = useDeferredValue(search)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(!initialError)
+  const [isLoading, setIsLoading] = useState(enableRealtime && !initialError)
   const showLoading = useStableLoading(isLoading)
   const [statusUnavailable, setStatusUnavailable] = useState(false)
   const hasPageOverflow = usePageOverflow()
 
   useRealtimeStatus({
-    enabled: !error,
+    enabled: enableRealtime && !error,
     setCards,
     setUnavailable: setStatusUnavailable,
     setLoading: setIsLoading
