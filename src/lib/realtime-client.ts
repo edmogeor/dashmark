@@ -77,6 +77,7 @@ export class RealtimeClient {
   private socket: WebSocket | null = null
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private reconnectAttempts = 0
+  private unavailable = false
   private latestVersion = 0
   private statuses: Record<string, ContainerStatus> = {}
   private statusListeners = new Set<StatusListener>()
@@ -95,24 +96,28 @@ export class RealtimeClient {
     }
   }
 
-  retainMetrics(cardId: string, listener: MetricsListener): () => void {
+  retainMetrics(cardId: string, listener: MetricsListener, connectionListener: ConnectionListener): () => void {
     const listeners = this.metricListeners.get(cardId) ?? new Set<MetricsListener>()
     const wasUnused = listeners.size === 0
     listeners.add(listener)
     this.metricListeners.set(cardId, listeners)
+    this.connectionListeners.add(connectionListener)
     const metrics = this.metrics.get(cardId)
     if (metrics) listener(metrics)
+    if (this.unavailable) connectionListener(true)
     this.start()
     if (wasUnused) this.send({ type: 'subscribe_metrics', cardId })
     return () => {
       const current = this.metricListeners.get(cardId)
-      if (!current) return
-      current.delete(listener)
-      if (current.size === 0) {
-        this.metricListeners.delete(cardId)
-        this.metrics.delete(cardId)
-        this.send({ type: 'unsubscribe_metrics', cardId })
+      if (current) {
+        current.delete(listener)
+        if (current.size === 0) {
+          this.metricListeners.delete(cardId)
+          this.metrics.delete(cardId)
+          this.send({ type: 'unsubscribe_metrics', cardId })
+        }
       }
+      this.connectionListeners.delete(connectionListener)
       this.stopIfUnused()
     }
   }
@@ -141,6 +146,7 @@ export class RealtimeClient {
     socket.addEventListener('open', () => {
       if (this.socket !== socket) return
       this.reconnectAttempts = 0
+      this.unavailable = false
       this.latestVersion = 0
       this.connectionListeners.forEach((listener) => listener(false))
       this.send({ type: 'subscribe_status' })
@@ -166,7 +172,10 @@ export class RealtimeClient {
   private scheduleReconnect() {
     if (document.visibilityState !== 'visible' || (!this.statusListeners.size && !this.metricListeners.size)) return
     this.reconnectAttempts += 1
-    if (this.reconnectAttempts >= UNAVAILABLE_AFTER_ATTEMPTS) this.connectionListeners.forEach((listener) => listener(true))
+    if (this.reconnectAttempts >= UNAVAILABLE_AFTER_ATTEMPTS) {
+      this.unavailable = true
+      this.connectionListeners.forEach((listener) => listener(true))
+    }
     const delay = Math.min(INITIAL_RECONNECT_DELAY_MS * 2 ** (this.reconnectAttempts - 1), MAX_RECONNECT_DELAY_MS)
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null

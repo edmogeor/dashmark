@@ -37,11 +37,12 @@ export function useRealtimeStatus({
   }, [enabled, setCards, setLoading, setUnavailable])
 }
 
-export function useRealtimeMetrics(cardId: string, active: boolean, onMetrics: (metrics: RealtimeMetricsResponse) => void): void {
+export function useRealtimeMetrics(cardId: string, active: boolean, onMetrics: (metrics: RealtimeMetricsResponse) => void, onUnavailable: (unavailable: boolean) => void): void {
   const handleMetrics = useEffectEvent(onMetrics)
+  const handleUnavailable = useEffectEvent(onUnavailable)
 
   useEffect(() => {
     if (!active) return
-    return realtimeClient.retainMetrics(cardId, handleMetrics)
+    return realtimeClient.retainMetrics(cardId, handleMetrics, handleUnavailable)
   }, [active, cardId])
 }

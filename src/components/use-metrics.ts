@@ -39,15 +39,28 @@ export function useMetrics(cardId: string, enabled: boolean, active: boolean, in
     setUptimeMetrics([])
     setLoading(true)
   }, [active, enabled])
-  useRealtimeMetrics(cardId, enabled && active, (metrics) => {
-    setResources(metrics.resource)
-    setHistory(metrics.history ?? [])
-    setCustomMetrics(metrics.customMetrics)
-    setUptimeMetrics(metrics.uptimeMetrics ?? [])
-    setMetricErrors(metrics.metricErrors)
-    if (metrics.historyPeriodMs) setHistoryPeriodMs(metrics.historyPeriodMs)
-    setLoading(metrics.pending === true)
-  })
+  useRealtimeMetrics(
+    cardId,
+    enabled && active,
+    (metrics) => {
+      setResources(metrics.resource)
+      setHistory(metrics.history ?? [])
+      setCustomMetrics(metrics.customMetrics)
+      setUptimeMetrics(metrics.uptimeMetrics ?? [])
+      setMetricErrors(metrics.metricErrors)
+      if (metrics.historyPeriodMs) setHistoryPeriodMs(metrics.historyPeriodMs)
+      setLoading(metrics.pending === true)
+    },
+    (unavailable) => {
+      if (!unavailable) return setLoading(true)
+      setResources(null)
+      setHistory([])
+      setCustomMetrics([])
+      setMetricErrors([])
+      setUptimeMetrics([])
+      setLoading(false)
+    }
+  )
   return {
     resources,
     history,

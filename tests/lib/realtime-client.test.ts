@@ -6,6 +6,23 @@ function dispatch(client: RealtimeClient, message: unknown): void {
 }
 
 describe('realtime metrics', () => {
+  it('notifies a metric subscriber when realtime is already unavailable', () => {
+    const client = new RealtimeClient()
+    const unavailable: boolean[] = []
+    ;(client as unknown as { unavailable: boolean }).unavailable = true
+    ;(client as unknown as { start: () => void }).start = () => {}
+    ;(client as unknown as { stopIfUnused: () => void }).stopIfUnused = () => {}
+
+    const release = client.retainMetrics(
+      'card-1',
+      () => {},
+      (value) => unavailable.push(value)
+    )
+
+    expect(unavailable).toEqual([true])
+    release()
+  })
+
   it('retains bucket summaries through metric deltas and applies bucket deltas', () => {
     const client = new RealtimeClient()
     const received: RealtimeMetricsResponse[] = []
