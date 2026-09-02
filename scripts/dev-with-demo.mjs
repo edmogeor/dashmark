@@ -49,21 +49,22 @@ function proxyHeaders(headers, identity) {
   return { ...forwarded, ...identity }
 }
 
+function upstreamRequestOptions(request, targetPort, identity) {
+  return {
+    hostname: '127.0.0.1',
+    port: targetPort,
+    method: request.method,
+    path: request.url,
+    headers: proxyHeaders(request.headers, identity)
+  }
+}
+
 function startMockProxy(targetPort, publicPort, identity) {
   const server = http.createServer((request, response) => {
-    const upstream = http.request(
-      {
-        hostname: '127.0.0.1',
-        port: targetPort,
-        method: request.method,
-        path: request.url,
-        headers: proxyHeaders(request.headers, identity)
-      },
-      (upstreamResponse) => {
-        response.writeHead(upstreamResponse.statusCode ?? 502, upstreamResponse.headers)
-        upstreamResponse.pipe(response)
-      }
-    )
+    const upstream = http.request(upstreamRequestOptions(request, targetPort, identity), (upstreamResponse) => {
+      response.writeHead(upstreamResponse.statusCode ?? 502, upstreamResponse.headers)
+      upstreamResponse.pipe(response)
+    })
     upstream.on('error', () => {
       if (!response.headersSent) response.writeHead(502)
       response.end('Dashmark development server is unavailable')
@@ -72,13 +73,7 @@ function startMockProxy(targetPort, publicPort, identity) {
   })
 
   server.on('upgrade', (request, socket, head) => {
-    const upstream = http.request({
-      hostname: '127.0.0.1',
-      port: targetPort,
-      method: request.method,
-      path: request.url,
-      headers: proxyHeaders(request.headers, identity)
-    })
+    const upstream = http.request(upstreamRequestOptions(request, targetPort, identity))
     upstream.on('upgrade', (upstreamResponse, upstreamSocket, upstreamHead) => {
       const headers = Object.entries(upstreamResponse.headers)
         .flatMap(([name, value]) => (Array.isArray(value) ? value.map((item) => `${name}: ${item}`) : value ? [`${name}: ${value}`] : []))

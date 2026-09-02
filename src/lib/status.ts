@@ -155,21 +155,25 @@ function isCustomMetricSample(value: unknown): value is CustomMetricSample {
 }
 
 function isCustomMetric(value: unknown): value is CustomMetric {
+  return isRecord(value) && typeof value.key === 'string' && typeof value.label === 'string' && (isCustomMetricState(value) || isCustomMetricNumber(value))
+}
+
+function isCustomMetricState(value: Record<string, unknown>): boolean {
+  return typeof value.value === 'string' && (value.color === undefined || isCustomMetricStateColor(value.color)) && (value.valueLabel === undefined || typeof value.valueLabel === 'string')
+}
+
+function isCustomMetricNumber(value: Record<string, unknown>): boolean {
   return (
-    isRecord(value) &&
-    typeof value.key === 'string' &&
-    typeof value.label === 'string' &&
-    ((typeof value.value === 'string' && (value.color === undefined || isCustomMetricStateColor(value.color)) && (value.valueLabel === undefined || typeof value.valueLabel === 'string')) ||
-      (typeof value.value === 'number' &&
-        Number.isFinite(value.value) &&
-        isCustomMetricUnit(value.unit) &&
-        isCustomMetricChart(value.chart) &&
-        (value.chartGroup === undefined || typeof value.chartGroup === 'string') &&
-        (value.pending === undefined || value.pending === true) &&
-        Array.isArray(value.history) &&
-        value.history.every(isCustomMetricSample) &&
-        typeof value.historyPeriodMs === 'number' &&
-        value.historyPeriodMs > 0))
+    typeof value.value === 'number' &&
+    Number.isFinite(value.value) &&
+    isCustomMetricUnit(value.unit) &&
+    isCustomMetricChart(value.chart) &&
+    (value.chartGroup === undefined || typeof value.chartGroup === 'string') &&
+    (value.pending === undefined || value.pending === true) &&
+    Array.isArray(value.history) &&
+    value.history.every(isCustomMetricSample) &&
+    typeof value.historyPeriodMs === 'number' &&
+    value.historyPeriodMs > 0
   )
 }
 

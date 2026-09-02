@@ -69,6 +69,16 @@ function number(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined
 }
 
+function networkBytes(networks: unknown[], field: 'rx_bytes' | 'tx_bytes'): number | undefined {
+  return networks.reduce<number | undefined>(
+    (total, network) => {
+      const bytes = isRecord(network) ? number(network[field]) : undefined
+      return total === undefined || bytes === undefined ? undefined : total + bytes
+    },
+    networks.length > 0 ? 0 : undefined
+  )
+}
+
 export function parseDockerStats(value: unknown): DockerStats | undefined {
   if (!isRecord(value) || !isRecord(value.cpu_stats) || !isRecord(value.precpu_stats)) return undefined
   const cpuUsage = isRecord(value.cpu_stats.cpu_usage) ? value.cpu_stats.cpu_usage : undefined
@@ -84,20 +94,8 @@ export function parseDockerStats(value: unknown): DockerStats | undefined {
   const onlineCpus = number(value.cpu_stats.online_cpus)
   const memoryStats = isRecord(value.memory_stats) ? value.memory_stats : undefined
   const networks = isRecord(value.networks) ? Object.values(value.networks) : []
-  const receivedBytes = networks.reduce<number | undefined>(
-    (total, network) => {
-      const received = isRecord(network) ? number(network.rx_bytes) : undefined
-      return total === undefined || received === undefined ? undefined : total + received
-    },
-    networks.length > 0 ? 0 : undefined
-  )
-  const sentBytes = networks.reduce<number | undefined>(
-    (total, network) => {
-      const sent = isRecord(network) ? number(network.tx_bytes) : undefined
-      return total === undefined || sent === undefined ? undefined : total + sent
-    },
-    networks.length > 0 ? 0 : undefined
-  )
+  const receivedBytes = networkBytes(networks, 'rx_bytes')
+  const sentBytes = networkBytes(networks, 'tx_bytes')
   return {
     cpuStats: { totalUsage, systemUsage, onlineCpus, cpuCount },
     previousCpuStats: { totalUsage: previousTotalUsage, systemUsage: previousSystemUsage },

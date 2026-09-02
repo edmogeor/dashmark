@@ -18,18 +18,15 @@ function requestValues(values: Record<string, unknown> | undefined): Record<stri
   return values && Object.fromEntries(Object.entries(values).map(([name, value]) => [name, value !== null && typeof value === 'object' && 'token' in value ? value : { value: 'test-secret' }]))
 }
 
-function jsonSecretReferences(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(jsonSecretReferences)
+function replaceJsonSecretReferences(value: unknown, replacement: unknown): unknown {
+  if (Array.isArray(value)) return value.map((item) => replaceJsonSecretReferences(item, replacement))
   if (value === null || typeof value !== 'object') return value
-  if ('env' in value || 'file' in value || 'label' in value) return { value: 'test-secret' }
-  return Object.fromEntries(Object.entries(value).map(([name, item]) => [name, jsonSecretReferences(item)]))
+  if ('env' in value || 'file' in value || 'label' in value) return replacement
+  return Object.fromEntries(Object.entries(value).map(([name, item]) => [name, replaceJsonSecretReferences(item, replacement)]))
 }
 
 export function resolvedJsonRequestValues(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(resolvedJsonRequestValues)
-  if (value === null || typeof value !== 'object') return value
-  if ('env' in value || 'file' in value || 'label' in value) return 'test-secret'
-  return Object.fromEntries(Object.entries(value).map(([name, item]) => [name, resolvedJsonRequestValues(item)]))
+  return replaceJsonSecretReferences(value, 'test-secret')
 }
 
 export function loadMetric(definitionUrl: URL, baseUrl: string): MetricOverride {
@@ -80,7 +77,7 @@ export function loadMetric(definitionUrl: URL, baseUrl: string): MetricOverride 
                 url: resolveUrl(step.url, baseUrl, parameters),
                 ...(step.method ? { method: step.method } : {}),
                 ...(step.form ? { form: Object.fromEntries(Object.keys(step.form).map((name) => [name, { value: `test-${name}` }])) } : {}),
-                ...(step.json ? { json: jsonSecretReferences(step.json) as Record<string, unknown> } : {}),
+                ...(step.json ? { json: replaceJsonSecretReferences(step.json, { value: 'test-secret' }) as Record<string, unknown> } : {}),
                 ...(step.extract ? { extract: step.extract } : {})
               }))
             }
