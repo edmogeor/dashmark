@@ -19,6 +19,8 @@ import {
 const { got } = vi.hoisted(() => ({ got: vi.fn() }))
 
 vi.mock('got', () => ({ default: got }))
+vi.mock('@/lib/icons', () => ({ resolveIcon: vi.fn().mockResolvedValue({ type: 'placeholder', initials: 'DM' }) }))
+vi.mock('@/lib/descriptions', () => ({ resolveDescription: vi.fn().mockReturnValue('Stream media collections from anywhere') }))
 
 const tempDirectories: string[] = []
 
