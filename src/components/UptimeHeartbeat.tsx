@@ -203,7 +203,7 @@ export function UptimeHeartbeat({
           onHover={onBucketHover}
           selectedBucketStart={selectedBucketStart}
           onTouchSelect={toggleTouchTooltip}
-          onBlur={() => setSelectedBucketStart(undefined)}
+          onBlur={() => setSelectedBucketStart(null)}
           onMouseEnter={() => setSelectedBucketStart(undefined)}
           showTooltips={showTooltips}
           collisionBoundary={collisionBoundary}
