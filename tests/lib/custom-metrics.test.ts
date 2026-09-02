@@ -3,7 +3,7 @@ import type { AddressInfo } from 'node:net'
 import { Server as SocketIoServer } from 'socket.io'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { collectCustomMetric } from '@/lib/custom-metrics'
-import type { MetricOverride } from '@/lib/config-file'
+import type { MetricOverride } from '@/lib/config-file-types'
 
 let server: Server
 let baseUrl: string

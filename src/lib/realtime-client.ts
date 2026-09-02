@@ -1,4 +1,7 @@
 import type { ContainerStatus, MetricsResponse, UptimeStatus } from './status'
+import { UPTIME_RANGES, type UptimeRange } from './uptime-ranges'
+
+export type { UptimeRange } from './uptime-ranges'
 
 export type UptimeBucket = {
   start: number
@@ -8,8 +11,6 @@ export type UptimeBucket = {
   failures: number
   slowestResponseTimeMs?: number
 }
-
-export type UptimeRange = '24h' | '7d' | '30d'
 
 export type UptimeMetricSummary = {
   key: string
@@ -62,7 +63,7 @@ function isServerMessage(value: unknown): value is ServerMessage {
     value.type === 'uptime_bucket_delta' &&
     typeof value.cardId === 'string' &&
     typeof value.key === 'string' &&
-    (value.range === '24h' || value.range === '7d' || value.range === '30d') &&
+    UPTIME_RANGES.some(({ range }) => value.range === range) &&
     isUptimeBucket(value.bucket)
   )
 }

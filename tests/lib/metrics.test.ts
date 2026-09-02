@@ -3,8 +3,16 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getConfig } from '@/lib/config'
-import { clearMetricsDatabase, counterRates, getMetricHistory, getResourceMetricHistory, saveMetricSample, saveResourceMetric } from '@/lib/metrics'
-import { getUptimeObservationHistory, mergeUptimeObservationHistory, refreshMetricRetention } from '@/lib/metrics-storage'
+import { clearMetricsDatabase, counterRates } from '@/lib/metrics'
+import {
+  getMetricHistory,
+  getResourceMetricHistory,
+  getUptimeObservationHistory,
+  mergeUptimeObservationHistory,
+  refreshMetricRetention,
+  saveMetricSample,
+  saveResourceMetric
+} from '@/lib/metrics-storage'
 
 const directories: string[] = []
 

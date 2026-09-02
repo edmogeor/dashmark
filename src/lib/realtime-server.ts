@@ -2,12 +2,15 @@ import type { IncomingMessage, Server } from 'node:http'
 import type { Duplex } from 'node:stream'
 import WebSocket, { WebSocketServer } from 'ws'
 import { isAuthorized } from './auth'
+import { isRecord } from './errors'
 import type { AppConfig } from './config'
 import { canViewMetric } from './docker'
 import { getDiscoveryCoordinator } from './discovery-coordinator'
-import { getLatestMetricUsage, getMetricHistory, getResourceMetricHistory } from './metrics'
+import { getLatestMetricUsage } from './metrics'
+import { getMetricHistory, getResourceMetricHistory } from './metrics-storage'
 import type { ContainerResources, CustomMetric, MetricsResponse, ResourceMetricSample, UptimeMetric } from './status'
-import type { UptimeBucket, UptimeRange } from './realtime-client'
+import type { UptimeBucket } from './realtime-client'
+import { UPTIME_RANGES, type UptimeRange } from './uptime-ranges'
 
 const PATHNAME = '/api/realtime'
 const MAX_CLIENT_MESSAGE_BYTES = 16 * 1024
@@ -15,12 +18,6 @@ const MAX_METRIC_SUBSCRIPTIONS = 32
 const MAX_OUTBOUND_EVENTS = 64
 const MAX_OUTBOUND_BYTES = 1024 * 1024
 const SOCKET_LIFETIME_MS = 60 * 60 * 1000
-const UPTIME_RANGES: { range: UptimeRange; durationMs: number; bucketCount: number }[] = [
-  { range: '24h', durationMs: 24 * 60 * 60 * 1_000, bucketCount: 24 },
-  { range: '7d', durationMs: 7 * 24 * 60 * 60 * 1_000, bucketCount: 21 },
-  { range: '30d', durationMs: 30 * 24 * 60 * 60 * 1_000, bucketCount: 30 }
-]
-
 type ClientMessage = { type: 'subscribe_status' } | { type: 'subscribe_metrics'; cardId: string } | { type: 'unsubscribe_metrics'; cardId: string }
 
 type RealtimeSocket = {
@@ -113,8 +110,8 @@ function reject(socket: Duplex, status: number, reason: string): void {
 }
 
 function parseMessage(value: unknown): ClientMessage | undefined {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
-  const message = value as Record<string, unknown>
+  if (!isRecord(value)) return undefined
+  const message = value
   if (message.type === 'subscribe_status' && Object.keys(message).length === 1) return { type: message.type }
   if (
     (message.type === 'subscribe_metrics' || message.type === 'unsubscribe_metrics') &&
@@ -163,7 +160,11 @@ function uptimeBuckets(metric: UptimeMetric, durationMs: number, bucketCount: nu
 }
 
 function uptimeBucketsByRange(metric: UptimeMetric): Record<UptimeRange, UptimeBucket[]> {
-  return Object.fromEntries(UPTIME_RANGES.map(({ range, durationMs, bucketCount }) => [range, uptimeBuckets(metric, durationMs, bucketCount)])) as Record<UptimeRange, UptimeBucket[]>
+  const buckets: Record<UptimeRange, UptimeBucket[]> = { '24h': [], '7d': [], '30d': [] }
+  for (const { range, durationMs, bucketCount } of UPTIME_RANGES) {
+    buckets[range] = uptimeBuckets(metric, durationMs, bucketCount)
+  }
+  return buckets
 }
 
 function cachedMetricsSnapshot(config: AppConfig, cardId: string, historyPeriodMs: number, snapshots: Map<string, Map<number, CachedMetricsSnapshot>>): CachedMetricsSnapshot {

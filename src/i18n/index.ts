@@ -31,8 +31,7 @@ type Localized<T> = T extends (...args: infer Args) => string ? (...args: Args) 
 
 export type Messages = Localized<typeof enUS>
 
-// Future locale catalogs use this helper to remain structurally complete.
-export function defineMessages(messages: Messages): Messages {
+function defineMessages(messages: Messages): Messages {
   return messages
 }
 
@@ -56,7 +55,7 @@ const messagesByLocale: Record<Locale, Messages> = {
 }
 
 export function resolveLocale(value: string | undefined): Locale {
-  return locales.includes(value as Locale) ? (value as Locale) : defaultLocale
+  return locales.find((locale) => locale === value) ?? defaultLocale
 }
 
 export function getMessages(locale: Locale = defaultLocale): Messages {

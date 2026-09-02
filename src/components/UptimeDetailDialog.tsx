@@ -3,16 +3,18 @@ import { Gauge, X } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import type { UptimeMetricSummary } from '@/lib/realtime-client'
+import { UPTIME_RANGES, type UptimeRange } from '@/lib/uptime-ranges'
 import { UptimeHeartbeat, uptimeBucketsForRange, uptimePercent } from './UptimeHeartbeat'
 import { useLocalization } from './localization'
 
 export function UptimeDetailDialog({ metric, onOpenChange }: { metric: UptimeMetricSummary | null; onOpenChange: (open: boolean) => void }) {
   const { locale, messages } = useLocalization()
-  const ranges = [
-    { key: '24h', label: messages.time.ranges.day, durationMs: 24 * 60 * 60 * 1_000 },
-    { key: '7d', label: messages.time.ranges.week, durationMs: 7 * 24 * 60 * 60 * 1_000 },
-    { key: '30d', label: messages.time.ranges.month, durationMs: 30 * 24 * 60 * 60 * 1_000 }
-  ] as const
+  const labels: Record<UptimeRange, string> = {
+    '24h': messages.time.ranges.day,
+    '7d': messages.time.ranges.week,
+    '30d': messages.time.ranges.month
+  }
+  const ranges = UPTIME_RANGES.map((range) => ({ ...range, label: labels[range.range] }))
   const formatPercent = (value: number | undefined): string =>
     value === undefined ? messages.uptime.noData : new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 2 }).format(value / 100)
   const [rangeIndex, setRangeIndex] = useState(2)
@@ -23,7 +25,7 @@ export function UptimeDetailDialog({ metric, onOpenChange }: { metric: UptimeMet
   }, [metric])
   const currentMetric = metric ?? displayedMetric
   const range = ranges[rangeIndex]!
-  const buckets = currentMetric ? uptimeBucketsForRange(currentMetric.buckets, range.key) : []
+  const buckets = currentMetric ? uptimeBucketsForRange(currentMetric.buckets, range.range) : []
   const percent = uptimePercent(buckets)
   return (
     <Dialog open={metric !== null} onOpenChange={onOpenChange}>
@@ -45,9 +47,9 @@ export function UptimeDetailDialog({ metric, onOpenChange }: { metric: UptimeMet
               <div className="flex items-center gap-2">
                 <ToggleGroup
                   type="single"
-                  value={range.key}
+                  value={range.range}
                   onValueChange={(value) => {
-                    const index = ranges.findIndex((candidate) => candidate.key === value)
+                    const index = ranges.findIndex((candidate) => candidate.range === value)
                     if (index >= 0) setRangeIndex(index)
                   }}
                   spacing={0}
@@ -55,7 +57,7 @@ export function UptimeDetailDialog({ metric, onOpenChange }: { metric: UptimeMet
                   aria-label={messages.uptime.period}
                 >
                   {ranges.map((candidate) => (
-                    <ToggleGroupItem key={candidate.key} value={candidate.key} className="h-6 min-w-0 cursor-pointer px-2 text-xs data-[state=on]:bg-background data-[state=on]:shadow-sm">
+                    <ToggleGroupItem key={candidate.range} value={candidate.range} className="h-6 min-w-0 cursor-pointer px-2 text-xs data-[state=on]:bg-background data-[state=on]:shadow-sm">
                       {candidate.label}
                     </ToggleGroupItem>
                   ))}

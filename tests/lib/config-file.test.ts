@@ -53,7 +53,7 @@ service:
           jq: '[.records[].queue.size] | add'
 `)
 
-    const metrics = loadYamlConfig(config).config.services.service?.metrics as unknown as Record<string, unknown>
+    const metrics = loadYamlConfig(config.configFile).config.services.service?.metrics
 
     expect(metrics).toMatchObject({
       collection: expect.objectContaining({ intervalMs: expect.anything(), retentionMs: expect.anything() }),
@@ -70,7 +70,7 @@ service:
         })
       })
     })
-    expect(metrics.entries).toEqual(expect.arrayContaining(['cpu', 'memory']))
+    expect(metrics?.entries).toEqual(expect.arrayContaining(['cpu', 'memory']))
   })
 
   it('accepts mapped built-in metric configuration', () => {
@@ -85,7 +85,7 @@ service:
         visible_to: [admins, operators]
 `)
 
-    const metrics = loadYamlConfig(config).config.services.service?.metrics as unknown as Record<string, unknown>
+    const metrics = loadYamlConfig(config.configFile).config.services.service?.metrics
 
     expect(metrics).toMatchObject({
       entries: ['cpu', 'memory'],
@@ -97,7 +97,7 @@ service:
     const config = getConfig()
     config.configFile = writeConfig('service:\n  metrics: none\n')
 
-    expect(loadYamlConfig(config).config.services.service?.metrics).toEqual({ entries: [] })
+    expect(loadYamlConfig(config.configFile).config.services.service?.metrics).toEqual({ entries: [] })
   })
 
   it('resolves a local metric source from a shared profile', () => {
@@ -123,7 +123,7 @@ service:
         extract: { jq: '.state | tonumber' }
 `)
 
-    const metric = loadYamlConfig(config).config.services.service?.metrics?.entryOverrides?.office_temperature
+    const metric = loadYamlConfig(config.configFile).config.services.service?.metrics?.entryOverrides?.office_temperature
 
     expect(metric?.source).toMatchObject({
       url: 'http://homeassistant:8123/api/states/sensor.office_temperature',
@@ -148,7 +148,7 @@ service:
           jq: '[.results[] | { timestamp, status }]'
 `)
 
-    const metric = loadYamlConfig(config).config.services.service?.metrics?.entryOverrides?.uptime
+    const metric = loadYamlConfig(config.configFile).config.services.service?.metrics?.entryOverrides?.uptime
 
     expect(metric?.source).toMatchObject({ query: { limit: 100 }, initialQuery: { limit: 10_000 } })
   })
@@ -159,27 +159,27 @@ service:
 settings:
   enable_access_contol: true
 `)
-    expect(loadYamlConfig(config).error?.detail).toBe('unknown configuration key: settings.enable_access_contol')
+    expect(loadYamlConfig(config.configFile).error?.detail).toBe('unknown configuration key: settings.enable_access_contol')
 
     config.configFile = writeConfig(`
 settings:
   enable_access_control: "true"
 `)
-    expect(loadYamlConfig(config).error?.detail).toBe('settings.enable_access_control must be a boolean')
+    expect(loadYamlConfig(config.configFile).error?.detail).toBe('settings.enable_access_control must be a boolean')
   })
 
   it('returns an empty config with no error when the file is missing', () => {
     const config = getConfig()
     config.configFile = path.join(os.tmpdir(), 'definitely-missing-config.yml')
 
-    expect(loadYamlConfig(config)).toEqual({ config: { settings: {}, services: {} } })
+    expect(loadYamlConfig(config.configFile)).toEqual({ config: { settings: {}, services: {} } })
   })
 
   it('returns an error for malformed YAML', () => {
     const config = getConfig()
     config.configFile = writeConfig('bad: [unclosed\n')
 
-    const result = loadYamlConfig(config)
+    const result = loadYamlConfig(config.configFile)
 
     expect(result.config).toEqual({ settings: {}, services: {} })
     expect(result.error?.code).toBe('CONFIG_INVALID')
@@ -190,11 +190,11 @@ settings:
     const configPath = writeConfig('a:\n  url: https://a.example.com\n')
     config.configFile = configPath
 
-    expect(loadYamlConfig(config).config.services.a).toEqual({ url: 'https://a.example.com' })
+    expect(loadYamlConfig(config.configFile).config.services.a).toEqual({ url: 'https://a.example.com' })
 
     fs.writeFileSync(configPath, 'b:\n  url: https://b.example.com\n  title: B\n')
 
-    const result = loadYamlConfig(config)
+    const result = loadYamlConfig(config.configFile)
     expect(result.config.services.b).toEqual({ url: 'https://b.example.com', title: 'B' })
     expect(result.config.services.a).toBeUndefined()
   })

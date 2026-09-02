@@ -8,14 +8,6 @@ import { getCards, getContainerMetricUsage, getContainerResourceUsage, getContai
 
 const { got } = vi.hoisted(() => ({ got: vi.fn() }))
 
-vi.mock('@/lib/descriptions', () => ({
-  resolveDescription: vi.fn(() => 'Automatic description')
-}))
-
-vi.mock('@/lib/icons', () => ({
-  resolveIcon: vi.fn(async () => ({ type: 'placeholder', initials: 'D' }))
-}))
-
 vi.mock('got', () => ({ default: got }))
 
 const tempDirectories: string[] = []
@@ -136,7 +128,7 @@ describe('getCards', () => {
     expect(cards).toHaveLength(1)
     expect(cards[0]).toMatchObject({
       title: 'Plex',
-      description: 'Automatic description',
+      description: 'Stream media collections from anywhere',
       url: 'https://plex.home.local',
       category: 'Media',
       showStatus: false,

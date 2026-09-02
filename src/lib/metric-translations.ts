@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import yaml from 'js-yaml'
 import type { Locale } from '@/i18n'
+import { isRecord } from './errors'
 
 type CachedTranslation = {
   signature: string
@@ -28,8 +29,8 @@ export function localizeMetricLabel(locale: Locale, key: string, fallback: strin
     if (cached?.signature === signature) return cached.label ?? fallback
 
     const document = yaml.load(fs.readFileSync(file, 'utf8'))
-    const translation = document && typeof document === 'object' && !Array.isArray(document) ? (document as Record<string, unknown>)[locale] : undefined
-    const configuredLabel = translation && typeof translation === 'object' && !Array.isArray(translation) ? (translation as Record<string, unknown>).label : undefined
+    const translation = isRecord(document) ? document[locale] : undefined
+    const configuredLabel = isRecord(translation) ? translation.label : undefined
     const label = typeof configuredLabel === 'string' && configuredLabel.trim() ? configuredLabel : undefined
     cachedTranslations.set(file, { signature, label })
     return label ?? fallback

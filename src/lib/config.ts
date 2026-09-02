@@ -2,7 +2,8 @@ import fs from 'node:fs'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
 import { AUTO_ACCESS_GROUPS_HEADER, ACCESS_GROUPS_HEADER_TOKEN, DEFAULT_METRICS_POLL_INTERVAL_MS, DEFAULT_PORT, MAX_PORT, METRICS_HISTORY_PERIOD_MS } from './constants'
-import { loadYamlConfig, type DashboardSettings } from './config-file'
+import { loadYamlConfig } from './config-file'
+import type { DashboardSettings } from './config-file-types'
 import { resolveLocale, type Locale } from '@/i18n'
 
 export type AppConfig = DashboardSettings & {
@@ -126,7 +127,7 @@ function parseDockerHosts(value: string | undefined): DockerHostConfig[] | undef
 
 export function getConfig(): AppConfig {
   const configFile = process.env.CONFIG_FILE || '/data/config.yml'
-  const settings = loadYamlConfig({ configFile } as AppConfig).config.settings
+  const settings = loadYamlConfig(configFile).config.settings
   const yamlOrEnv = <T>(name: string, value: T | undefined): string | T | undefined => value ?? process.env[name]
   const stringValue = (name: string, value: string | undefined) => optionalString(yamlOrEnv(name, value) as string | undefined)
   const boolValue = (name: string, value: boolean | undefined, defaultValue: boolean) => {

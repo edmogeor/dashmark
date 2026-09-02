@@ -45,7 +45,6 @@ export class SelfhstIconCache {
     return `${CACHE_ROUTE}${icon.key}`
   }
 
-  // fallow-ignore-next-line unused-class-member -- called by scripts/start.mjs through the built runtime.
   async get(key: string): Promise<CachedIcon | null> {
     if (!validKey(key)) return null
     const source = this.sources.get(key)

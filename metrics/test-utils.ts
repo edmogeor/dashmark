@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import yaml from 'js-yaml'
 import { expect } from 'vitest'
 import { collectCustomMetric } from '@/lib/custom-metrics'
-import type { MetricOverride } from '@/lib/config-file'
+import type { MetricOverride } from '@/lib/config-file-types'
 
 type MetricDefinition = {
   display: { label: string; chart?: string }

@@ -7,10 +7,11 @@ import { getConfig } from '@/lib/config'
 import { THEME_STORAGE_KEY } from '@/lib/constants'
 import { demoUser, getDemoCards } from '@/demo/dashboard'
 import { resolveGreeting } from '@/lib/greeting'
-import { strings } from '@/lib/strings'
+import { getMessages } from '@/i18n'
 import '@/styles/global.css'
 
 const config = getConfig()
+const strings = getMessages(config.locale)
 const demoCards = await getDemoCards(config)
 const greeting = resolveGreeting(config, demoUser)
 

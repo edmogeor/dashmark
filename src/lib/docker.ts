@@ -2,8 +2,9 @@ import http from 'node:http'
 import https from 'node:https'
 import { URL } from 'node:url'
 import type { AppConfig, DockerHostConfig } from './config'
-import type { MetricOverride, ServiceMetricOverrides, ServiceOverrides } from './config-file'
-import { loadMetricCatalog, loadYamlConfig } from './config-file'
+import { loadYamlConfig } from './config-file'
+import { loadMetricCatalog } from './config-file-metrics'
+import type { MetricOverride, ServiceMetricOverrides, ServiceOverrides } from './config-file-types'
 import { parseLabels, parseResourceStats, isValidUrl, traefikUrl, hasDashmarkLabels, RESOURCE_STATS, type ParsedLabels, type ResourceStat } from './labels'
 import { resolveIcon, type IconResult } from './icons'
 import { resolveDescription } from './descriptions'
@@ -16,6 +17,7 @@ import type { ContainerResources, ContainerStatus, UptimeMetric } from './status
 import { collectCustomMetric } from './custom-metrics'
 import { getUptimeObservationHistory, mergeUptimeObservationHistory } from './metrics-storage'
 import { localizeMetricLabel } from './metric-translations'
+import { resolveMetricSources } from './metric-source-resolution'
 import {
   DOCKER_REQUEST_TIMEOUT_MS,
   DOCKER_MAX_RESPONSE_BYTES,
@@ -25,7 +27,6 @@ import {
   DOCKER_PLAIN_PORT,
   DOCKER_API_FALLBACK_VERSION,
   COMPOSE_SERVICE_LABEL,
-  LABEL_PREFIX,
   UPTIME_HISTORY_PERIOD_MS
 } from './constants'
 
@@ -636,168 +637,6 @@ function resolveYamlMetrics(service: ServiceOverrides, url: string): ResolvedMet
   }
 }
 
-function resolveMetricSources(
-  metrics: ServiceMetricOverrides,
-  cardUrl: string | undefined,
-  metricSources: Record<string, string> | undefined,
-  labels: Record<string, string>,
-  metricParameters: Record<string, Record<string, string | number | boolean>> | undefined
-): ServiceMetricOverrides | undefined {
-  const formatParameter = (value: string | number | boolean, parameter: NonNullable<MetricOverride['parameters']>[string]): string => {
-    let text = String(value)
-    const transform = parameter.transform
-    if (!transform) return text
-    if (transform.trim) text = text.trim()
-    if (transform.lowercase) text = text.toLowerCase()
-    for (const [search, replacement] of Object.entries(transform.replace ?? {})) text = text.replaceAll(search, replacement)
-    return text
-  }
-  const resolveUrl = (url: string, metricApiUrl: string | undefined, parameters: MetricOverride['parameters'], values: Record<string, string | number | boolean> | undefined): string | undefined => {
-    const baseUrl = url.startsWith('{metric_source}') ? (metricApiUrl ?? cardUrl) : url.startsWith('{url}') ? cardUrl : undefined
-    const placeholder = url.startsWith('{metric_source}') ? '{metric_source}' : '{url}'
-    const resolved = baseUrl === undefined && url.startsWith('{') ? undefined : baseUrl ? `${baseUrl.replace(/\/$/, '')}${url.slice(placeholder.length)}` : url
-    return resolved?.replace(/\{([a-z][a-z0-9_]*)\}/g, (match, name: string) => {
-      if (!parameters?.[name] || values?.[name] === undefined) return match
-      return encodeURIComponent(formatParameter(values[name], parameters[name]))
-    })
-  }
-  const resolveReference = (reference: unknown): unknown => {
-    if (reference === null || typeof reference !== 'object' || Array.isArray(reference)) return reference
-    const keys = Object.keys(reference)
-    if (keys.length === 1 && typeof (reference as { token?: unknown }).token === 'string') return reference
-    if (keys.every((key) => ['env', 'file', 'label', 'value'].includes(key)) && keys.some((key) => typeof (reference as Record<string, unknown>)[key] === 'string')) {
-      const secret = reference as { label?: string }
-      const value = secret.label === undefined ? undefined : labels[secret.label]
-      return value === undefined ? reference : { ...reference, value }
-    }
-    return Object.fromEntries(Object.entries(reference).map(([name, value]) => [name, resolveReference(value)]))
-  }
-  const resolveReferences = (references: (typeof metrics)[string]['source']['headers']) =>
-    Object.fromEntries(Object.entries(references ?? {}).map(([name, reference]) => [name, resolveReference(reference)])) as NonNullable<typeof references>
-  const resolveSocketIo = (socketio: NonNullable<(typeof metrics)[string]['source']['socketio']>) => {
-    const resolveArguments = (args: typeof socketio.request.args) =>
-      args?.map((argument) => {
-        if (typeof argument !== 'object') return argument
-        return resolveReference(argument) as typeof argument
-      })
-    const auth = resolveReferences(socketio.auth)
-    return {
-      ...socketio,
-      ...(Object.keys(auth).length > 0 ? { auth } : {}),
-      ...(socketio.login
-        ? {
-            login: {
-              ...socketio.login,
-              ...(socketio.login.args ? { args: resolveArguments(socketio.login.args) } : {})
-            }
-          }
-        : {}),
-      request: {
-        ...socketio.request,
-        ...(socketio.request.args ? { args: resolveArguments(socketio.request.args) } : {})
-      }
-    }
-  }
-  const resolveRequest = (
-    request: Extract<NonNullable<(typeof metrics)[string]['source']['auth']>, { type: 'cookie_session' }>['steps'][number],
-    metric: MetricOverride,
-    metricApiUrl: string | undefined,
-    values: Record<string, string | number | boolean> | undefined
-  ) => {
-    const url = resolveUrl(request.url, metricApiUrl, metric.parameters, values)
-    if (!url) return undefined
-    const headers = resolveReferences(request.headers)
-    const query = resolveReferences(request.query)
-    const form = resolveReferences(request.form)
-    const resolveJsonParameters = (value: unknown): unknown => {
-      if (value === null || typeof value !== 'object' || Array.isArray(value)) return value
-      if (Object.keys(value).length === 1 && typeof (value as { parameter?: unknown }).parameter === 'string') {
-        const name = (value as { parameter: string }).parameter
-        return metric.parameters?.[name]?.type === 'json_value' && values?.[name] !== undefined ? { __dashmarkParameterValue: values[name] } : value
-      }
-      return Object.fromEntries(Object.entries(value).map(([name, item]) => [name, resolveJsonParameters(item)]))
-    }
-    const json = request.json === undefined ? undefined : (resolveJsonParameters(resolveReference(request.json)) as typeof request.json)
-    return {
-      ...request,
-      url,
-      ...(Object.keys(headers).length > 0 ? { headers } : {}),
-      ...(Object.keys(query).length > 0 ? { query } : {}),
-      ...(Object.keys(form).length > 0 ? { form } : {}),
-      ...(json && Object.keys(json).length > 0 ? { json } : {})
-    }
-  }
-  const resolveForEach = (metric: MetricOverride, metricApiUrl: string | undefined, values: Record<string, string | number | boolean> | undefined): MetricOverride | undefined => {
-    if (!metric.forEach) return metric
-    const requestUrl = resolveUrl(metric.forEach.requestUrl, metricApiUrl, metric.parameters, values)
-    return requestUrl ? { ...metric, forEach: { ...metric.forEach, requestUrl } } : undefined
-  }
-  const resolved = Object.fromEntries(
-    Object.entries(metrics).flatMap(([key, metric]) => {
-      const metricLabel = key.replaceAll('/', '.')
-      const labelValues = Object.fromEntries(
-        Object.keys(metric.parameters ?? {}).flatMap((name) => {
-          const value = labels[`${LABEL_PREFIX}.metrics_input.${metricLabel}.${name}`]
-          return value === undefined ? [] : [[name, value]]
-        })
-      )
-      const values = { ...metricParameters?.[key], ...labelValues }
-      if (Object.keys(metric.parameters ?? {}).some((name) => values?.[name] === undefined)) return []
-      const provider = key.split('/')[0]
-      const metricApiUrl = metricSources?.[provider]
-      const resolvedMetric = resolveForEach(metric, metricApiUrl, values)
-      if (!resolvedMetric) return []
-      const request = resolveRequest(
-        {
-          ...resolvedMetric.source,
-          method: resolvedMetric.source.method ?? 'GET'
-        },
-        resolvedMetric,
-        metricApiUrl,
-        values
-      )
-      if (!request) return []
-      const auth = resolvedMetric.source.auth
-      const steps = auth?.type === 'cookie_session' ? auth.steps.map((step) => resolveRequest(step, resolvedMetric, metricApiUrl, values)) : undefined
-      if (steps?.some((step) => !step)) return []
-      const basicAuth =
-        auth?.type === 'basic'
-          ? {
-              ...auth,
-              username: resolveReferences({ username: auth.username }).username! as typeof auth.username,
-              password: resolveReferences({ password: auth.password }).password! as typeof auth.password
-            }
-          : undefined
-      const tokenAuth =
-        auth?.type === 'token'
-          ? {
-              ...auth,
-              value: resolveReferences({ value: auth.value }).value! as typeof auth.value
-            }
-          : undefined
-      const initialQuery = resolveReferences(resolvedMetric.source.initialQuery)
-      return [
-        [
-          key,
-          {
-            ...resolvedMetric,
-            source: {
-              ...request,
-              ...(Object.keys(initialQuery).length > 0 ? { initialQuery } : {}),
-              ...(resolvedMetric.source.transport ? { transport: resolvedMetric.source.transport } : {}),
-              ...(resolvedMetric.source.socketio ? { socketio: resolveSocketIo(resolvedMetric.source.socketio) } : {}),
-              ...(auth?.type === 'cookie_session' && steps ? { auth: { ...auth, steps: steps as typeof auth.steps } } : {}),
-              ...(basicAuth ? { auth: basicAuth } : {}),
-              ...(tokenAuth ? { auth: tokenAuth } : {})
-            }
-          }
-        ]
-      ]
-    })
-  )
-  return Object.keys(resolved).length > 0 ? (resolved as ServiceMetricOverrides) : undefined
-}
-
 function isVisibleContainer(config: AppConfig, headers: Headers, { labels, url }: ResolvedContainer): boolean {
   return !labels.hidden && url !== undefined && canAccess(config, headers, labels.access)
 }
@@ -908,7 +747,7 @@ type LoadedServices = {
 }
 
 async function loadServicesAndContainers(config: AppConfig): Promise<LoadedServices> {
-  const yamlConfig = loadYamlConfig(config)
+  const yamlConfig = loadYamlConfig(config.configFile)
   if (yamlConfig.error) return { yamlServices: {}, containers: [], error: yamlConfig.error }
 
   const yamlServices = yamlConfig.config.services
@@ -1194,7 +1033,7 @@ async function getDockerMetricUsage(config: AppConfig, headers: Headers, cardId:
   const containerId = cardId.slice(host.id.length + 1)
   if (!containerId) return undefined
 
-  const yamlConfig = loadYamlConfig(config)
+  const yamlConfig = loadYamlConfig(config.configFile)
   if (yamlConfig.error) return undefined
 
   try {
@@ -1239,7 +1078,7 @@ export async function getContainerResourceUsage(config: AppConfig, headers: Head
 export async function collectContainerResourceUsage(config: AppConfig, isDue: (cardId: string, pollIntervalMs: number) => boolean = () => true): Promise<ContainerMetricSample[]> {
   if (!config.showMetrics) return []
 
-  const yamlConfig = loadYamlConfig(config)
+  const yamlConfig = loadYamlConfig(config.configFile)
   if (yamlConfig.error) return []
   const samples: ContainerMetricSample[] = []
   const matchedYamlKeys = new Set<string>()

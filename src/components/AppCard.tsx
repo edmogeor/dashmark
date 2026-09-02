@@ -1,36 +1,18 @@
-import {
-  lazy,
-  memo,
-  Suspense,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type Dispatch,
-  type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent,
-  type ReactNode,
-  type SetStateAction
-} from 'react'
-import { Gauge, Info } from 'lucide-react'
+import { lazy, memo, Suspense, useCallback, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { Card as CardType } from '@/lib/docker'
-import { getInitials } from '@/lib/initials'
-import { useIsDark } from '@/lib/use-is-dark'
-import { TOOLTIP_DELAY_MS } from '@/lib/constants'
-import { showErrorToast, clearStaleErrorToasts } from '@/lib/error-toasts'
 import { MarqueeText } from './MarqueeText'
 import { MetricsTooltip } from './MetricsTooltip'
 import { StatusBadge } from './StatusBadge'
-import { customMetricsHistory, resourceMetricHistory, type MetricDetail } from './app-card-metrics'
+import { AppCardActions } from './AppCardActions'
+import { AppCardIcon } from './AppCardIcon'
+import type { MetricDetail } from './app-card-metrics'
+import { UptimeDetailDialog } from './UptimeDetailDialog'
+import { isMetricUsageActive, isStatusBadgeVisible, shouldShowResources, useLiveMetricDetail, useMetricErrorToasts } from './use-app-card-metrics'
 import { useMetrics } from './use-metrics'
 import { useTooltipController } from './tooltip-controller'
-import type { CustomMetric, ResourceMetricSample } from '@/lib/status'
 import type { UptimeMetricSummary } from '@/lib/realtime-client'
-import { UptimeDetailDialog } from './UptimeDetailDialog'
-import { useLocalization } from './localization'
 
 const loadMetricDetailDialog = () =>
   import('./MetricDetailDialog').then(({ MetricDetailDialog }) => ({
@@ -47,160 +29,17 @@ type AppCardProps = {
   openInNewTab?: boolean
 }
 
-function InitialsPlaceholder({ title, asCard }: { title: string; asCard: boolean }) {
-  return (
-    <div
-      className={cn(
-        'dashmark-app-icon dashmark-app-icon-placeholder flex aspect-square shrink-0 self-stretch items-center justify-center rounded-[45%] ps-1 text-xl font-[550] text-foreground/50',
-        asCard ? 'bg-surface dark:bg-background' : 'bg-card'
-      )}
-    >
-      {getInitials(title)}
-      <span aria-hidden="true" className="dashmark-app-icon-glimmer" />
-    </div>
-  )
-}
-
-function useContrastAwareSrc(icon: CardType['icon']): string | undefined {
-  const isDark = useIsDark()
-  if (icon.type !== 'image') return undefined
-  if (!icon.contrast) return icon.src
-  if (icon.contrast === 'dark' && isDark) return icon.lightSrc ?? icon.src
-  if (icon.contrast === 'light' && !isDark) return icon.darkSrc ?? icon.src
-  return icon.src
-}
-
-function AppIcon({ icon, title, asCard }: { icon: CardType['icon']; title: string; asCard: boolean }) {
-  const [error, setError] = useState(false)
-  const src = useContrastAwareSrc(icon)
-  return icon.type === 'image' && src && !error ? (
-    <div className={cn('dashmark-app-icon flex aspect-square shrink-0 self-stretch items-center justify-center rounded-[45%] p-4', asCard ? 'bg-surface dark:bg-background' : 'bg-card')}>
-      <img src={src} alt={icon.alt} className="h-full w-full object-contain" loading="lazy" onError={() => setError(true)} />
-      <span aria-hidden="true" className="dashmark-app-icon-glimmer" />
-    </div>
-  ) : (
-    <InitialsPlaceholder title={title} asCard={asCard} />
-  )
-}
-
-function useMetricErrorToasts(card: CardType, metricErrors: { key: string; code: 'collection_failed' | 'configuration_invalid' }[]) {
-  const { messages } = useLocalization()
-  const allErrors = [...(card.metricErrors ?? []), ...metricErrors]
-  const signature = allErrors.map((error) => `${error.key}:${error.code}`).join('|')
-  useEffect(() => {
-    const activeErrors = new Set(allErrors.map((error) => `metric-${card.id}:${error.key}`))
-    for (const error of allErrors) {
-      const label = card.customMetricLabels?.find((metric) => metric.key === error.key)?.label ?? error.key
-      const detail = error.code === 'configuration_invalid' ? messages.metrics.configurationInvalid : messages.metrics.collectionFailed
-      showErrorToast(`metric-${card.id}:${error.key}`, messages.card.metricUnavailable(card.title), `${label}: ${detail}`)
-    }
-    clearStaleErrorToasts(`metric-${card.id}:`, activeErrors)
-  }, [card.id, card.title, messages, signature])
-}
-
-function useLiveMetricDetail(setDetail: Dispatch<SetStateAction<MetricDetail | null>>, history: ResourceMetricSample[], customMetrics: CustomMetric[]) {
-  useEffect(() => setDetail((current) => (!current || current.customMetricKeys ? current : { ...current, history: resourceMetricHistory(history) })), [history, setDetail])
-  useEffect(
-    () =>
-      setDetail((current) => {
-        if (!current?.customMetricKeys) return current
-        const metrics = current.customMetricKeys.flatMap((key) => {
-          const metric = customMetrics.find((candidate) => candidate.key === key)
-          return metric && 'unit' in metric ? [metric] : []
-        })
-        return metrics.length === current.customMetricKeys.length
-          ? {
-              ...current,
-              history: customMetricsHistory(metrics),
-              historyPeriodMs: metrics[0]!.historyPeriodMs
-            }
-          : current
-      }),
-    [customMetrics, setDetail]
-  )
-}
-
-function AppCardActions({
-  card,
-  showResources,
-  resourceOpen,
-  descriptionOpen,
-  onResourceOpenChange,
-  onDescriptionOpenChange,
-  onResourceIntent,
-  onPointerDown,
-  children
-}: {
-  card: CardType
-  showResources: boolean
-  resourceOpen: boolean
-  descriptionOpen: boolean
-  onResourceOpenChange: (open: boolean) => void
-  onDescriptionOpenChange: (open: boolean) => void
-  onResourceIntent: () => void
-  onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>, id: string) => void
-  children: ReactNode
-}) {
-  const { messages } = useLocalization()
-  const resourceId = `resource-${card.id}`
-  const descriptionId = `description-${card.id}`
-  return (
-    <TooltipProvider delayDuration={TOOLTIP_DELAY_MS}>
-      <div className="absolute top-2 end-2 flex items-center gap-1">
-        {showResources && (
-          <Tooltip open={resourceOpen} onOpenChange={onResourceOpenChange}>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                className="dashmark-app-resources-trigger card-action-button cursor-help rounded-full p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
-                onClick={(event) => event.preventDefault()}
-                onFocus={onResourceIntent}
-                onPointerEnter={onResourceIntent}
-                onPointerDown={(event) => onPointerDown(event, resourceId)}
-              >
-                <Gauge className="h-4 w-4" />
-                <span className="sr-only">{messages.card.resourceUsage}</span>
-              </button>
-            </TooltipTrigger>
-            {children}
-          </Tooltip>
-        )}
-        {card.description && (
-          <Tooltip open={descriptionOpen} onOpenChange={onDescriptionOpenChange}>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                className="dashmark-app-description-trigger card-action-button cursor-pointer rounded-full p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0 dark:hover:text-muted-foreground/70"
-                onClick={(event) => event.preventDefault()}
-                onPointerDown={(event) => onPointerDown(event, descriptionId)}
-              >
-                <Info className="h-4 w-4" />
-                <span className="sr-only">{messages.card.description}</span>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="top" align="center" collisionPadding={16} className="dashmark-app-description max-w-xs">
-              <p>{card.description}</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
-      </div>
-    </TooltipProvider>
-  )
-}
-
 export const AppCard = memo(function AppCard({ card, showStatus = true, showMetrics = true, asCard = false, isLoading = false, openInNewTab = false }: AppCardProps) {
   const { activeTooltip, setActiveTooltip } = useTooltipController()
   const dismissesTooltip = useRef(false)
   const [hovered, setHovered] = useState(false)
   const [detail, setDetail] = useState<MetricDetail | null>(null)
   const [uptimeDetail, setUptimeDetail] = useState<UptimeMetricSummary | null>(null)
-  const hasSelectedCustomMetric = card.metrics?.some((metric) => !['cpu', 'memory', 'network', 'none'].includes(metric)) ?? false
-  const hasCustomMetrics = (card.customMetricLabels?.length ?? 0) > 0 || (card.metricErrors?.length ?? 0) > 0 || hasSelectedCustomMetric
-  const showResources = showMetrics && card.showStatus !== false && ((card.hasContainer && ((card.resourceStats?.length ?? 0) > 0 || hasCustomMetrics)) || (!card.hasContainer && hasCustomMetrics))
+  const showResources = shouldShowResources(card, showMetrics)
   const resourceId = `resource-${card.id}`
   const descriptionId = `description-${card.id}`
   const resourceOpen = activeTooltip === resourceId
-  const usage = useMetrics(card.id, showResources, resourceOpen || hovered || detail !== null || uptimeDetail !== null, card.resourceUsage)
+  const usage = useMetrics(card.id, showResources, isMetricUsageActive(resourceOpen, hovered, detail, uptimeDetail), card.resourceUsage)
   useMetricErrorToasts(card, usage.metricErrors)
   useLiveMetricDetail(setDetail, usage.history, usage.customMetrics)
   const setTooltip = (id: string, open: boolean) => (open ? setActiveTooltip(id) : activeTooltip === id ? setActiveTooltip(null) : undefined)
@@ -214,8 +53,7 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showMetr
   const closeDetail = useCallback((open: boolean) => {
     if (!open) setDetail(null)
   }, [])
-  const hasStatus = card.health === 'starting' || card.health === 'unhealthy' || Boolean(card.state)
-  const showBadge = showStatus && card.showStatus !== false && (hasStatus || (isLoading && card.hasContainer))
+  const showBadge = isStatusBadgeVisible(card, showStatus, isLoading)
   const hasActions = showResources || Boolean(card.description)
   const className = cn(
     'dashmark-app-card group/card h-full overflow-hidden transition-[background-color,translate] not-has-[.card-action-button:hover]:hover:-translate-y-0.5',
@@ -249,7 +87,7 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showMetr
       >
         <Card className={className}>
           <CardContent className="dashmark-app-content relative flex h-24 items-center gap-3 p-3">
-            <AppIcon icon={card.icon} title={card.title} asCard={asCard} />
+            <AppCardIcon icon={card.icon} title={card.title} asCard={asCard} />
             <div className="dashmark-app-details flex min-w-0 flex-1 flex-col gap-2">
               <div className="dashmark-app-header flex min-w-0">
                 <MarqueeText className={cn('dashmark-app-title min-w-0 flex-1 text-sm font-[550] sm:text-[0.9375rem] lg:text-base', hasActions && 'me-[65px]')}>{card.title}</MarqueeText>

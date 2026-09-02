@@ -134,9 +134,13 @@ export async function fetchSelfhstIcons(): Promise<SelfhstIcon[]> {
 
 const fuseCache = new WeakMap<object, unknown>()
 
+function isFuse<T extends ReferenceMatch>(value: unknown): value is Fuse<T> {
+  return value instanceof Fuse
+}
+
 function getFuse<T extends ReferenceMatch>(items: T[]): Fuse<T> {
-  const cached = fuseCache.get(items) as Fuse<T> | undefined
-  if (cached) return cached
+  const cached = fuseCache.get(items)
+  if (isFuse<T>(cached)) return cached
 
   const fuse = new Fuse(items, {
     keys: [

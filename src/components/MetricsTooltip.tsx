@@ -9,7 +9,6 @@ import type { Card as CardType } from '@/lib/docker'
 import type { ContainerResources, CustomMetric, CustomMetricStateColor, NumericCustomMetric, ResourceMetricSample } from '@/lib/status'
 import type { UptimeMetricSummary } from '@/lib/realtime-client'
 import {
-  customMetricsHistory,
   formatAxisBytes,
   formatAxisCustomMetric,
   formatAxisPercent,
@@ -18,11 +17,10 @@ import {
   formatDetailedBytes,
   formatDetailedCustomMetric,
   formatDetailedPercent,
-  formatPercent,
-  resourceMetricHistory,
-  tickerConfig,
-  type MetricDetail
-} from './app-card-metrics'
+  formatPercent
+} from './app-card-metric-formatters'
+import { customMetricsHistory, resourceMetricHistory } from './app-card-metric-chart-data'
+import { tickerConfig, type MetricDetail } from './app-card-metrics'
 import { formatUptimeBucketTime, UptimeHeartbeat, uptimeBucketStatusLabel, uptimeBucketsForRange, uptimePercent, type UptimeBucket } from './UptimeHeartbeat'
 import { useLocalization } from './localization'
 

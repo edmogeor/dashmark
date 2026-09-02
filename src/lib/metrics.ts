@@ -4,8 +4,6 @@ import type { ContainerMetricUsage } from './docker'
 import { clearMetricsStorage, metricsDatabase, pruneMetricHistory, saveMetricSample, saveResourceMetric } from './metrics-storage'
 import { getDiscoveryCoordinator } from './discovery-coordinator'
 
-export { getMetricHistory, getResourceMetricHistory, saveMetricSample, saveResourceMetric } from './metrics-storage'
-
 let collectionStarted = false
 let collectionInProgress = false
 let collectionTimer: ReturnType<typeof setTimeout> | undefined

@@ -1,6 +1,7 @@
 import { useState, type PointerEvent } from 'react'
 import type { UptimeObservation } from '@/lib/status'
-import type { UptimeBucket, UptimeRange } from '@/lib/realtime-client'
+import type { UptimeBucket } from '@/lib/realtime-client'
+import type { UptimeRange } from '@/lib/uptime-ranges'
 import { Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -10,7 +11,8 @@ import { useLocalization } from './localization'
 const HOUR_MS = 60 * 60 * 1_000
 
 function startOfWeek(date: Date, locale: Locale): number {
-  const weekInfo = (new Intl.Locale(locale) as Intl.Locale & { getWeekInfo?: () => { firstDay: number } }).getWeekInfo?.()
+  const localeWithWeekInfo: Intl.Locale & { getWeekInfo?: () => { firstDay: number } } = new Intl.Locale(locale)
+  const weekInfo = localeWithWeekInfo.getWeekInfo?.()
   if (!weekInfo) return Number.NaN
   const firstDay = weekInfo.firstDay
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() - ((date.getDay() - (firstDay % 7) + 7) % 7)).getTime()

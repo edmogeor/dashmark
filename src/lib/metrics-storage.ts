@@ -16,6 +16,8 @@ type DatabaseMetricRow = {
 }
 type GenericMetricRow = { timestamp: number; value: number }
 type DatabaseUptimeObservation = { timestamp: number; status: UptimeObservation['status']; responseTimeMs: number }
+type CardTargetRow = { cardId: string }
+type MetricTargetRow = CardTargetRow & { metricKey: string }
 
 export type MetricRetentionTarget = {
   cardId: string
@@ -26,6 +28,33 @@ export type MetricRetentionTarget = {
 }
 
 let state: DatabaseState | undefined
+
+function isDatabaseMetricRow(row: Record<string, unknown>): row is DatabaseMetricRow {
+  return (
+    typeof row.timestamp === 'number' &&
+    (typeof row.cpuPercent === 'number' || row.cpuPercent === null) &&
+    (typeof row.memoryUsage === 'number' || row.memoryUsage === null) &&
+    (typeof row.memoryLimit === 'number' || row.memoryLimit === null) &&
+    (typeof row.receivedBytesPerSecond === 'number' || row.receivedBytesPerSecond === null) &&
+    (typeof row.sentBytesPerSecond === 'number' || row.sentBytesPerSecond === null)
+  )
+}
+
+function isGenericMetricRow(row: Record<string, unknown>): row is GenericMetricRow {
+  return typeof row.timestamp === 'number' && typeof row.value === 'number'
+}
+
+function isDatabaseUptimeObservation(row: Record<string, unknown>): row is DatabaseUptimeObservation {
+  return typeof row.timestamp === 'number' && (row.status === 'up' || row.status === 'down' || row.status === 'unknown') && typeof row.responseTimeMs === 'number'
+}
+
+function isCardTargetRow(row: Record<string, unknown>): row is CardTargetRow {
+  return typeof row.cardId === 'string'
+}
+
+function isMetricTargetRow(row: Record<string, unknown>): row is MetricTargetRow {
+  return typeof row.cardId === 'string' && typeof row.metricKey === 'string'
+}
 
 function observationKey(observation: UptimeObservation): string {
   return `${observation.timestamp}\0${observation.status}\0${observation.responseTimeMs ?? ''}`
@@ -101,7 +130,8 @@ export function getResourceMetricHistory(config: AppConfig, cardId: string, hist
     .prepare(
       `SELECT timestamp, cpu_percent AS cpuPercent, memory_usage AS memoryUsage, memory_limit AS memoryLimit, received_bytes_per_second AS receivedBytesPerSecond, sent_bytes_per_second AS sentBytesPerSecond FROM resource_metrics WHERE card_id = ? AND timestamp >= ? ORDER BY timestamp`
     )
-    .all(cardId, now - historyPeriodMs) as DatabaseMetricRow[]
+    .all(cardId, now - historyPeriodMs)
+    .filter(isDatabaseMetricRow)
   return rows.map((row) => ({
     timestamp: row.timestamp,
     cpuPercent: row.cpuPercent ?? undefined,
@@ -123,13 +153,15 @@ export function saveMetricSample(config: AppConfig, cardId: string, metricKey: s
 export function getMetricHistory(config: AppConfig, cardId: string, metricKey: string, historyPeriodMs = config.metricsHistoryPeriodMs, now = Date.now()): GenericMetricRow[] {
   return metricsDatabase(config.metricsDatabasePath)
     .prepare('SELECT timestamp, value FROM metric_samples WHERE card_id = ? AND metric_key = ? AND timestamp >= ? ORDER BY timestamp')
-    .all(cardId, metricKey, now - historyPeriodMs) as GenericMetricRow[]
+    .all(cardId, metricKey, now - historyPeriodMs)
+    .filter(isGenericMetricRow)
 }
 
 export function getUptimeObservationHistory(config: AppConfig, cardId: string, metricKey: string, historyPeriodMs: number, now = Date.now()): UptimeObservation[] {
   const rows = metricsDatabase(config.metricsDatabasePath)
     .prepare('SELECT timestamp, status, response_time_ms AS responseTimeMs FROM uptime_observations WHERE card_id = ? AND metric_key = ? AND timestamp >= ? ORDER BY timestamp')
-    .all(cardId, metricKey, now - historyPeriodMs) as DatabaseUptimeObservation[]
+    .all(cardId, metricKey, now - historyPeriodMs)
+    .filter(isDatabaseUptimeObservation)
   return rows.map(({ timestamp, status, responseTimeMs }) => ({ timestamp, status, ...(responseTimeMs < 0 ? {} : { responseTimeMs }) }))
 }
 
@@ -188,24 +220,24 @@ export function refreshMetricRetention(config: AppConfig, targets: readonly Metr
     for (const target of uptimeTargets.values()) saveUptimeRetention.run(target.cardId, target.metricKey, target.retentionMs)
 
     const deleteCardRetention = db.prepare('DELETE FROM card_metric_retention WHERE card_id = ?')
-    for (const { cardId } of db.prepare('SELECT card_id AS cardId FROM card_metric_retention').all() as { cardId: string }[]) {
+    for (const { cardId } of db.prepare('SELECT card_id AS cardId FROM card_metric_retention').all().filter(isCardTargetRow)) {
       if (!cardTargets.has(cardId)) deleteCardRetention.run(cardId)
     }
     const deleteUptimeRetention = db.prepare('DELETE FROM uptime_metric_retention WHERE card_id = ? AND metric_key = ?')
-    for (const target of db.prepare('SELECT card_id AS cardId, metric_key AS metricKey FROM uptime_metric_retention').all() as { cardId: string; metricKey: string }[]) {
+    for (const target of db.prepare('SELECT card_id AS cardId, metric_key AS metricKey FROM uptime_metric_retention').all().filter(isMetricTargetRow)) {
       if (!uptimeTargets.has(`${target.cardId}\0${target.metricKey}`)) deleteUptimeRetention.run(target.cardId, target.metricKey)
     }
 
     const deleteResource = db.prepare('DELETE FROM resource_metrics WHERE card_id = ?')
-    for (const { cardId } of db.prepare('SELECT DISTINCT card_id AS cardId FROM resource_metrics').all() as { cardId: string }[]) {
+    for (const { cardId } of db.prepare('SELECT DISTINCT card_id AS cardId FROM resource_metrics').all().filter(isCardTargetRow)) {
       if (!cardTargets.get(cardId)?.hasResourceMetrics) deleteResource.run(cardId)
     }
     const deleteCustomMetric = db.prepare('DELETE FROM metric_samples WHERE card_id = ? AND metric_key = ?')
-    for (const row of db.prepare('SELECT DISTINCT card_id AS cardId, metric_key AS metricKey FROM metric_samples').all() as { cardId: string; metricKey: string }[]) {
+    for (const row of db.prepare('SELECT DISTINCT card_id AS cardId, metric_key AS metricKey FROM metric_samples').all().filter(isMetricTargetRow)) {
       if (!customMetricKeys.get(row.cardId)?.has(row.metricKey)) deleteCustomMetric.run(row.cardId, row.metricKey)
     }
     const deleteUptime = db.prepare('DELETE FROM uptime_observations WHERE card_id = ? AND metric_key = ?')
-    for (const row of db.prepare('SELECT DISTINCT card_id AS cardId, metric_key AS metricKey FROM uptime_observations').all() as { cardId: string; metricKey: string }[]) {
+    for (const row of db.prepare('SELECT DISTINCT card_id AS cardId, metric_key AS metricKey FROM uptime_observations').all().filter(isMetricTargetRow)) {
       if (!uptimeTargets.has(`${row.cardId}\0${row.metricKey}`)) deleteUptime.run(row.cardId, row.metricKey)
     }
 

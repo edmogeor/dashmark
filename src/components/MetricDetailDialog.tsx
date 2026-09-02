@@ -4,7 +4,8 @@ import { Area, AreaChart, CartesianGrid, LabelList, Line, LineChart, XAxis, YAxi
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ChartContainer, ChartTooltip } from '@/components/ui/chart'
 import { chartDomain, endLabelOffset } from '@/lib/chart-layout'
-import { downsampleChartData, metricData, tickerConfig, type ChartPoint, type MetricDetail, type MetricSeries } from './app-card-metrics'
+import { downsampleChartData, metricData, type ChartPoint, type MetricSeries } from './app-card-metric-chart-data'
+import { tickerConfig, type MetricDetail } from './app-card-metrics'
 import { createDateTimeFormatter, type Locale } from '@/i18n'
 import { useLocalization } from './localization'
 

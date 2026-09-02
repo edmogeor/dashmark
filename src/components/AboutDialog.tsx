@@ -7,6 +7,15 @@ import { useLocalization } from './localization'
 
 type VersionResponse = { version: string; update?: { tagName: string; url: string } }
 
+function isVersionResponse(value: unknown): value is VersionResponse {
+  if (typeof value !== 'object' || value === null || !('version' in value) || typeof value.version !== 'string') return false
+  if (!('update' in value) || value.update === undefined) return true
+
+  return (
+    typeof value.update === 'object' && value.update !== null && 'tagName' in value.update && typeof value.update.tagName === 'string' && 'url' in value.update && typeof value.update.url === 'string'
+  )
+}
+
 const brandIconPath = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/brand/icon.svg`
 const versionApiPath = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/api/version`
 const isDemo = __DASHMARK_DEMO__
@@ -30,7 +39,8 @@ export function AboutDialog() {
     if (isDemo || !open || version || loading) return
     setLoading(true)
     void fetch(versionApiPath)
-      .then((response) => (response.ok ? (response.json() as Promise<VersionResponse>) : undefined))
+      .then((response) => (response.ok ? response.json() : undefined))
+      .then((response) => (isVersionResponse(response) ? response : undefined))
       .then(setVersion)
       .catch(() => undefined)
       .finally(() => setLoading(false))

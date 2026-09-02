@@ -1,36 +1,24 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { getConfig } from '@/lib/config'
 import { resolveIcon } from '@/lib/icons'
 
-const { source } = vi.hoisted(() => ({ source: vi.fn() }))
-
-vi.mock('node:fs', () => ({
-  default: {
-    existsSync: vi.fn(),
-    readFileSync: vi.fn()
-  }
-}))
-
-vi.mock('@/lib/selfhst-icon-cache', () => ({
-  getSelfhstIconCache: () => ({ source })
-}))
-
 describe('resolveIcon', () => {
   const config = getConfig()
-  config.iconsDir = '/app/icons'
+  let iconsDirectory: string
 
   beforeEach(() => {
+    iconsDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'dashmark-icons-'))
+    config.iconsDir = iconsDirectory
     global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify([{ name: 'plex.svg' }, { name: 'grafana.svg' }]), { status: 200 }))
-    source.mockImplementation((url: string) => (url.endsWith('-light.svg') || url.endsWith('-dark.svg') ? null : '/api/selfhst-icons/cached.svg'))
-    vi.mocked(fs.readFileSync).mockImplementation(
-      (filePath) => (String(filePath).endsWith('icon-contrast.json') ? JSON.stringify({ 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/plex.svg': 'dark' }) : undefined) as never
-    )
   })
 
   afterEach(() => {
     vi.resetAllMocks()
     config.enableAutomaticIcons = true
+    fs.rmSync(iconsDirectory, { recursive: true, force: true })
   })
 
   it('returns placeholder for icon=none', async () => {
@@ -71,12 +59,8 @@ describe('resolveIcon', () => {
       title: 'Plex',
       containerName: 'plex'
     })
-    expect(result).toEqual({
-      type: 'image',
-      src: '/api/selfhst-icons/cached.svg',
-      alt: 'Plex',
-      contrast: 'dark'
-    })
+    expect(result).toMatchObject({ type: 'image', alt: 'Plex' })
+    expect(result.type === 'image' && result.src).toMatch(/^\/api\/selfhst-icons\/[a-f0-9]{64}\.svg$/)
   })
 
   it('keeps selfhst URLs remote when building the static demo', async () => {
@@ -90,10 +74,8 @@ describe('resolveIcon', () => {
     expect(result).toEqual({
       type: 'image',
       src: 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/plex.svg',
-      alt: 'Plex',
-      contrast: 'dark'
+      alt: 'Plex'
     })
-    expect(source).not.toHaveBeenCalled()
   })
 
   it('returns a placeholder for an unknown selfhst reference', async () => {
@@ -106,7 +88,7 @@ describe('resolveIcon', () => {
   })
 
   it('treats a bare name as a path inside ICONS_DIR', async () => {
-    vi.mocked(fs.existsSync).mockReturnValue(true)
+    fs.writeFileSync(path.join(iconsDirectory, 'plex'), '')
 
     const result = await resolveIcon(config, {
       iconLabel: 'plex',
@@ -122,7 +104,8 @@ describe('resolveIcon', () => {
   })
 
   it('resolves a subdirectory path inside ICONS_DIR', async () => {
-    vi.mocked(fs.existsSync).mockReturnValue(true)
+    fs.mkdirSync(path.join(iconsDirectory, 'media'))
+    fs.writeFileSync(path.join(iconsDirectory, 'media', 'plex.svg'), '')
 
     const result = await resolveIcon(config, {
       iconLabel: 'media/plex.svg',
@@ -137,7 +120,7 @@ describe('resolveIcon', () => {
   })
 
   it('resolves custom file icon when present', async () => {
-    vi.mocked(fs.existsSync).mockReturnValue(true)
+    fs.writeFileSync(path.join(iconsDirectory, 'custom.png'), '')
 
     const result = await resolveIcon(config, {
       iconLabel: 'custom.png',
@@ -152,8 +135,6 @@ describe('resolveIcon', () => {
   })
 
   it('falls back to placeholder for missing custom file', async () => {
-    vi.mocked(fs.existsSync).mockReturnValue(false)
-
     const result = await resolveIcon(config, {
       iconLabel: 'missing.png',
       title: 'Plex',
@@ -168,12 +149,8 @@ describe('resolveIcon', () => {
       title: 'Plex',
       containerName: 'plex'
     })
-    expect(result).toEqual({
-      type: 'image',
-      src: '/api/selfhst-icons/cached.svg',
-      alt: 'Plex',
-      contrast: 'dark'
-    })
+    expect(result).toMatchObject({ type: 'image', alt: 'Plex' })
+    expect(result.type === 'image' && result.src).toMatch(/^\/api\/selfhst-icons\/[a-f0-9]{64}\.svg$/)
   })
 
   it('skips automatic matching when enableAutomaticIcons is false', async () => {

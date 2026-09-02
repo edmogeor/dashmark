@@ -5,8 +5,7 @@ export async function serveSelfhstIcon(cache: SelfhstIconCache, key: string): Pr
   const icon = await cache.get(key)
   if (!icon) return new Response(null, { status: 404 })
 
-  const body = icon.content.buffer.slice(icon.content.byteOffset, icon.content.byteOffset + icon.content.byteLength) as ArrayBuffer
-  return new Response(body, {
+  return new Response(new Uint8Array(icon.content), {
     headers: {
       'Cache-Control': 'public, max-age=3600',
       'Content-Type': icon.mimeType,

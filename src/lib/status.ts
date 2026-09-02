@@ -1,4 +1,5 @@
 import { isDashmarkError, isRecord, type DashmarkError } from './errors'
+import type { CustomMetricChart } from './config-file-types'
 
 export type CustomMetricStateColor = 'success' | 'info' | 'warning' | 'error' | 'disabled'
 
@@ -21,7 +22,6 @@ export type ResourceMetricSample = ContainerResources & {
 }
 
 export type CustomMetricSample = { timestamp: number; value: number }
-export type CustomMetricChart = 'step' | 'line' | 'area' | 'none'
 export type CustomMetricUnit =
   | 'number'
   | 'count'

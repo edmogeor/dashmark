@@ -25,6 +25,7 @@ export function useMetrics(cardId: string, enabled: boolean, active: boolean, in
     if (!initialResources) return
     setResources(initialResources)
     setHistory([])
+    setHistoryPeriodMs(5 * 60_000)
     setCustomMetrics([])
     setMetricErrors([])
     setUptimeMetrics([])
@@ -34,6 +35,7 @@ export function useMetrics(cardId: string, enabled: boolean, active: boolean, in
     if (!enabled || !active) return
     setResources(null)
     setHistory([])
+    setHistoryPeriodMs(5 * 60_000)
     setCustomMetrics([])
     setMetricErrors([])
     setUptimeMetrics([])
@@ -55,6 +57,7 @@ export function useMetrics(cardId: string, enabled: boolean, active: boolean, in
       if (!unavailable) return setLoading(true)
       setResources(null)
       setHistory([])
+      setHistoryPeriodMs(5 * 60_000)
       setCustomMetrics([])
       setMetricErrors([])
       setUptimeMetrics([])
