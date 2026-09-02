@@ -12,6 +12,7 @@ const ANALYSIS_SIZE = 32
 const BLUR_SIGMA = 4
 const DARK_LUMINANCE_THRESHOLD = 0.2
 const LIGHT_LUMINANCE_THRESHOLD = 0.9
+const ICON_ANALYSIS_CONCURRENCY = 4
 
 function downloadTarball(url, dest) {
   return new Promise((resolve, reject) => {
@@ -126,11 +127,18 @@ async function main() {
     icons.sort((a, b) => a.reference.localeCompare(b.reference))
 
     const contrasts = {}
-    for (const icon of icons) {
-      const iconPath = new URL(icon.url).pathname.split('/').slice(-2).join('/')
-      const contrast = await analyzeIcon(path.join(tempDir, 'icons-main', iconPath))
-      if (contrast) contrasts[icon.url] = contrast
-    }
+    let nextIconIndex = 0
+    // Match Node's default libuv pool size without creating work for every icon at once.
+    await Promise.all(
+      Array.from({ length: Math.min(ICON_ANALYSIS_CONCURRENCY, icons.length) }, async () => {
+        while (nextIconIndex < icons.length) {
+          const icon = icons[nextIconIndex++]
+          const iconPath = new URL(icon.url).pathname.split('/').slice(-2).join('/')
+          const contrast = await analyzeIcon(path.join(tempDir, 'icons-main', iconPath))
+          if (contrast) contrasts[icon.url] = contrast
+        }
+      })
+    )
 
     await fs.writeFile(path.join(DATA_DIR, 'icons.json'), JSON.stringify(icons, null, 2))
     await fs.writeFile(path.join(DATA_DIR, 'icon-contrast.json'), JSON.stringify(contrasts, null, 2))
