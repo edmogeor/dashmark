@@ -1,26 +1,15 @@
-import type { ContainerStatus, MetricsResponse, UptimeStatus } from './status'
+import type { ContainerStatus, UptimeStatus } from './status'
+import type { RealtimeMetricsResponse } from './realtime-protocol'
+import type { UptimeBucket } from './uptime-buckets'
 import { UPTIME_RANGES, type UptimeRange } from './uptime-ranges'
 
 export type { UptimeRange } from './uptime-ranges'
-
-export type UptimeBucket = {
-  start: number
-  end: number
-  status: UptimeStatus | 'mixed'
-  successes: number
-  failures: number
-  slowestResponseTimeMs?: number
-}
 
 export type UptimeMetricSummary = {
   key: string
   label: string
   current: UptimeStatus
   buckets: Record<UptimeRange, UptimeBucket[]>
-}
-
-export type RealtimeMetricsResponse = Omit<MetricsResponse, 'uptimeMetrics'> & {
-  uptimeMetrics?: UptimeMetricSummary[]
 }
 
 type StatusListener = (statuses: Record<string, ContainerStatus>) => void

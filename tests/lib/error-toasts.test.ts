@@ -13,18 +13,26 @@ vi.mock('sonner', () => ({
 type ErrorConfig = { id: string; onDismiss?: () => void }
 
 let sequence = 0
+let errorConfigs: ErrorConfig[] = []
 
 function nextId(): string {
   sequence += 1
   return `metric-card-${sequence}:metric-key`
 }
 
-function errorCalls(): ErrorConfig[] {
-  return vi.mocked(toast.error).mock.calls.map(([, config]) => config as ErrorConfig)
-}
-
 beforeEach(() => {
   vi.useFakeTimers()
+  errorConfigs = []
+  vi.mocked(toast.error).mockImplementation((_message, config) => {
+    if (typeof config?.id === 'string') {
+      const { id, onDismiss } = config
+      errorConfigs.push({
+        id,
+        onDismiss: onDismiss ? () => onDismiss({ id }) : undefined
+      })
+    }
+    return config?.id ?? ''
+  })
   vi.mocked(toast.error).mockClear()
   vi.mocked(toast.dismiss).mockClear()
 })
@@ -42,7 +50,7 @@ describe('showErrorToast', () => {
     expect(toast.error).not.toHaveBeenCalled()
     vi.advanceTimersByTime(1)
     expect(toast.error).toHaveBeenCalledTimes(1)
-    expect(errorCalls()[0]?.id).toBe(id)
+    expect(errorConfigs[0]?.id).toBe(id)
   })
 
   it('cancels a pending toast when cleared before showing', () => {
@@ -93,7 +101,7 @@ describe('showErrorToast', () => {
     const id = nextId()
     showErrorToast(id, 'Title')
     vi.advanceTimersByTime(ERROR_TOAST_DEBOUNCE_MS)
-    errorCalls()[0]?.onDismiss?.()
+    errorConfigs[0]?.onDismiss?.()
 
     showErrorToast(id, 'Title')
     vi.advanceTimersByTime(ERROR_TOAST_DEBOUNCE_MS * 4)

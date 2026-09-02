@@ -1,9 +1,8 @@
 import { createServer, type Server } from 'node:http'
-import type { AddressInfo } from 'node:net'
 import { Server as SocketIoServer } from 'socket.io'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { collectCustomMetric } from '@/lib/custom-metrics'
-import type { MetricOverride } from '@/lib/config-file-types'
+import type { JqMetricExtractor, MetricOverride, NumericMetricOverride, PrometheusMetricExtractor } from '@/lib/config-file-types'
 
 let server: Server
 let baseUrl: string
@@ -192,15 +191,19 @@ beforeAll(async () => {
     })
   })
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-  baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+  const address = server.address()
+  if (!address || typeof address === 'string') throw new Error('Test server did not provide a TCP address')
+  baseUrl = `http://127.0.0.1:${address.port}`
 })
 
 afterAll(async () => {
   await new Promise<void>((resolve) => socketServer.close(() => resolve()))
 })
 
-function metric(extractor: Pick<MetricOverride, 'jq'> | Pick<MetricOverride, 'prometheus'>): MetricOverride {
-  return { label: 'Test metric', unit: 'number', source: { url: `${baseUrl}/data` }, ...extractor } as MetricOverride
+function metric(extractor: { jq: JqMetricExtractor }): NumericMetricOverride
+function metric(extractor: { prometheus: PrometheusMetricExtractor }): NumericMetricOverride
+function metric(extractor: { jq: JqMetricExtractor } | { prometheus: PrometheusMetricExtractor }): NumericMetricOverride {
+  return { label: 'Test metric', valueType: 'number', unit: 'number', chart: 'step', source: { url: `${baseUrl}/data` }, ...extractor }
 }
 
 describe('collectCustomMetric', () => {
@@ -398,7 +401,7 @@ describe('collectCustomMetric', () => {
           ]
         }
       }
-    }
+    } satisfies MetricOverride
 
     await expect(collectCustomMetric('authenticated', cookieMetric)).resolves.toEqual({ value: 7 })
     await expect(collectCustomMetric('authenticated', cookieMetric)).resolves.toEqual({ value: 7 })
@@ -482,7 +485,7 @@ describe('collectCustomMetric', () => {
   })
 
   it('uses shared cookies and extracted HTML and JSON tokens in later requests', async () => {
-    const authenticatedPostMetric = {
+    const authenticatedPostMetric: MetricOverride = {
       label: 'Authenticated POST metric',
       valueType: 'number' as const,
       unit: 'count',
@@ -502,7 +505,7 @@ describe('collectCustomMetric', () => {
         }
       },
       jq: { expression: '.value' }
-    } as MetricOverride
+    }
 
     await expect(collectCustomMetric('csrf-post', authenticatedPostMetric)).resolves.toEqual({ value: 11 })
   })
@@ -516,7 +519,7 @@ describe('collectCustomMetric', () => {
         chart: 'step',
         source: { url: `${baseUrl}/form-metric`, method: 'POST', form: { scope: { value: 'metrics' } } },
         jq: { expression: '.value' }
-      } as MetricOverride)
+      } satisfies MetricOverride)
     ).resolves.toEqual({ value: 13 })
   })
 
@@ -533,7 +536,7 @@ describe('collectCustomMetric', () => {
           json: { method: 'status', params: [], credentials: { token: { value: 'nested-token' } } }
         },
         jq: { expression: '.value' }
-      } as MetricOverride)
+      } satisfies MetricOverride)
     ).resolves.toEqual({ value: 15 })
   })
 
@@ -555,7 +558,7 @@ describe('collectCustomMetric', () => {
         }
       },
       jq: { expression: '.value' }
-    } as MetricOverride
+    } satisfies MetricOverride
 
     await expect(collectCustomMetric('socket', socketMetric)).resolves.toEqual({ value: 42 })
     expect(socketEvents).toEqual([
@@ -582,7 +585,7 @@ describe('collectCustomMetric', () => {
         socketio: { path: '/socket.io', auth: { token: { value: 'socket-token' } }, request: { event: 'metric' } }
       },
       jq: { expression: '.value' }
-    } as MetricOverride
+    } satisfies MetricOverride
 
     await expect(collectCustomMetric('socket-session', socketMetric)).resolves.toEqual({ value: 42 })
     expect(socketHeaders).toContainEqual(expect.objectContaining({ cookie: expect.stringContaining('metric-session=authenticated'), 'x-metric-client': 'dashmark' }))

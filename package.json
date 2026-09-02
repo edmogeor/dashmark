@@ -15,6 +15,7 @@
     "astro": "astro",
     "typecheck": "astro check",
     "lint": "oxlint .",
+    "fallow": "fallow dead-code",
     "generate:metrics-library": "node scripts/generate-metrics-library.mjs",
     "validate:metrics": "npm run generate:metrics-library -- --check && node scripts/validate-metrics.mjs",
     "test": "vitest run",

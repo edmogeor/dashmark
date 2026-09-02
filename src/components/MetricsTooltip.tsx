@@ -4,24 +4,15 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { TooltipContent } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { badgeColor, chartColorVariable } from '@/lib/badge-color'
+import { badgeColor } from '@/lib/badge-color'
 import type { Card as CardType } from '@/lib/docker'
-import type { ContainerResources, CustomMetric, CustomMetricStateColor, NumericCustomMetric, ResourceMetricSample } from '@/lib/status'
+import type { ContainerResources, CustomMetric, CustomMetricStateColor, ResourceMetricSample } from '@/lib/status'
 import type { UptimeMetricSummary } from '@/lib/realtime-client'
-import {
-  formatAxisBytes,
-  formatAxisCustomMetric,
-  formatAxisPercent,
-  formatBytes,
-  formatCustomMetric,
-  formatDetailedBytes,
-  formatDetailedCustomMetric,
-  formatDetailedPercent,
-  formatPercent
-} from './app-card-metric-formatters'
-import { customMetricsHistory, resourceMetricHistory } from './app-card-metric-chart-data'
-import { tickerConfig, type MetricDetail } from './app-card-metrics'
-import { formatUptimeBucketTime, UptimeHeartbeat, uptimeBucketStatusLabel, uptimeBucketsForRange, uptimePercent, type UptimeBucket } from './UptimeHeartbeat'
+import { formatBytes, formatCustomMetric, formatPercent } from './app-card-metric-formatters'
+import { customMetricDetail, networkMetricDetail, resourceMetricDetail } from './app-card-metric-details'
+import type { MetricDetail } from './app-card-metrics'
+import { formatUptimeBucketTime, UptimeHeartbeat, uptimeBucketStatusLabel, uptimeBucketsForRange, uptimePercent } from './UptimeHeartbeat'
+import type { UptimeBucket } from '@/lib/uptime-buckets'
 import { useLocalization } from './localization'
 
 type Props = {
@@ -133,86 +124,6 @@ function MetricBadge({ value, valueLabel, color }: { value: string; valueLabel?:
   return <Badge className={cn('dashmark-state-badge max-w-full rounded-full', `dashmark-state-${color}`)}>{valueLabel ?? value.replace(/_/g, ' ')}</Badge>
 }
 
-function resourceDetail(
-  label: string,
-  history: ResourceMetricSample[],
-  historyPeriodMs: number,
-  key: 'cpu' | 'memory',
-  resources: ContainerResources,
-  locale: ReturnType<typeof useLocalization>['locale']
-): MetricDetail {
-  const memory = key === 'memory'
-  const limit = resources.memoryLimit
-  return {
-    label,
-    history: resourceMetricHistory(history),
-    historyPeriodMs,
-    series: [
-      {
-        key,
-        label,
-        color: tickerConfig[key].color,
-        value: (sample) => (memory && limit && sample.memory !== undefined ? (sample.memory / limit) * 100 : sample[key])
-      }
-    ],
-    formatValue: (value) => (memory && limit ? formatDetailedPercent(value, locale) : memory ? formatDetailedBytes(value, locale) : formatDetailedPercent(value, locale)),
-    formatTooltipValue: memory && limit ? (value) => `${formatDetailedBytes((value / 100) * limit, locale)} (${formatDetailedPercent(value, locale)})` : undefined,
-    formatAxisValue: memory && limit ? (value) => formatAxisPercent(value, locale) : memory ? (value) => formatAxisBytes(value, locale) : (value) => formatAxisPercent(value, locale),
-    chart: 'line'
-  }
-}
-
-function networkDetail(
-  history: ResourceMetricSample[],
-  historyPeriodMs: number,
-  label: string,
-  messages: ReturnType<typeof useLocalization>['messages'],
-  locale: ReturnType<typeof useLocalization>['locale']
-): MetricDetail {
-  return {
-    label,
-    history: resourceMetricHistory(history),
-    historyPeriodMs,
-    series: [
-      {
-        key: 'received',
-        label: messages.card.received,
-        color: tickerConfig.received.color,
-        value: (sample) => sample.received
-      },
-      {
-        key: 'sent',
-        label: messages.card.sent,
-        color: tickerConfig.sent.color,
-        value: (sample) => sample.sent
-      }
-    ],
-    formatValue: (value) => `${formatDetailedBytes(value, locale)}/s`,
-    formatAxisValue: (value) => `${formatAxisBytes(value, locale)}/s`,
-    chart: 'step'
-  }
-}
-
-function customMetricDetail(metric: NumericCustomMetric, customMetrics: CustomMetric[], locale: ReturnType<typeof useLocalization>['locale']): MetricDetail {
-  const chartMetrics =
-    metric.chartGroup === undefined ? [metric] : customMetrics.filter((candidate): candidate is NumericCustomMetric => 'unit' in candidate && candidate.chartGroup === metric.chartGroup)
-  return {
-    label: metric.label,
-    history: customMetricsHistory(chartMetrics),
-    historyPeriodMs: metric.historyPeriodMs,
-    series: chartMetrics.map((candidate, index) => ({
-      key: candidate.key,
-      label: candidate.label,
-      color: chartColorVariable(index),
-      value: (sample) => sample[candidate.key]
-    })),
-    formatValue: (value) => formatDetailedCustomMetric(value, metric.unit, locale),
-    formatAxisValue: (value) => formatAxisCustomMetric(value, metric.unit, locale),
-    chart: metric.chart === 'none' ? 'step' : metric.chart,
-    customMetricKeys: chartMetrics.map((candidate) => candidate.key)
-  }
-}
-
 function NetworkMetrics({
   resources,
   pending,
@@ -224,7 +135,7 @@ function NetworkMetrics({
   onSelect: (detail: MetricDetail) => void
 }) {
   const { locale, messages } = useLocalization()
-  const detail = () => onSelect(networkDetail(history, historyPeriodMs, messages.metrics.networkUsage, messages, locale))
+  const detail = () => onSelect(networkMetricDetail(history, historyPeriodMs, messages.metrics.networkUsage, messages.card.received, messages.card.sent, locale))
   return (
     <>
       {(['received', 'sent'] as const).map((key) => {
@@ -260,7 +171,7 @@ function ResourceStatMetric({
       label={label}
       metricKey={metricKey}
       value={metricKey === 'memory' ? (resources.memoryLimit ? formatPercent((value / resources.memoryLimit) * 100, locale) : formatBytes(value, locale)) : formatPercent(value, locale)}
-      onSelect={() => onSelect(resourceDetail(label, history, historyPeriodMs, metricKey, resources, locale))}
+      onSelect={() => onSelect(resourceMetricDetail(label, history, historyPeriodMs, metricKey, resources, locale))}
     />
   )
 }

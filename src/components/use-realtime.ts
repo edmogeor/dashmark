@@ -1,8 +1,8 @@
 import { useEffect, useEffectEvent } from 'react'
 import type { Card } from '@/lib/docker'
 import { realtimeClient } from '@/lib/realtime-client'
+import type { RealtimeMetricsResponse } from '@/lib/realtime-protocol'
 import type { ContainerStatus } from '@/lib/status'
-import type { RealtimeMetricsResponse } from '@/lib/realtime-client'
 
 export function mergeStatuses(cards: Card[], statuses: Record<string, ContainerStatus>): Card[] {
   return cards.map((card) => {

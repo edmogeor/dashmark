@@ -4,7 +4,17 @@ import os from 'node:os'
 import path from 'node:path'
 import { MockDockerServer } from '../mocks/docker-server'
 import { getConfig } from '@/lib/config'
-import { getCards, getContainerMetricUsage, getContainerResourceUsage, getContainerStatuses, collectContainerResourceUsage, clearDockerCache, watchContainerEvents } from '@/lib/docker'
+import {
+  getCards,
+  getContainerMetricUsage,
+  getContainerResourceUsage,
+  getContainerStatuses,
+  collectContainerResourceUsage,
+  collectDiscoveredMetricUsage,
+  discoveredMetricSchedules,
+  clearDockerCache,
+  watchContainerEvents
+} from '@/lib/docker'
 
 const { got } = vi.hoisted(() => ({ got: vi.fn() }))
 
@@ -1007,8 +1017,10 @@ describe('getContainerStatuses', () => {
       expect(first?.receivedBytesPerSecond).toBeUndefined()
 
       now.mockReturnValue(1_000)
+      const previousStats = server.stats.resources
+      if (!previousStats || typeof previousStats !== 'object') throw new Error('Expected resource stats fixture')
       server.stats.resources = {
-        ...(server.stats.resources as Record<string, unknown>),
+        ...previousStats,
         networks: { eth0: { rx_bytes: 3_000, tx_bytes: 1_000 } }
       }
       const second = await getContainerResourceUsage(config, new Headers(), 'default:resources')
@@ -1550,5 +1562,125 @@ radarr:
     const { statuses, error } = await getContainerStatuses(config, new Headers())
     expect(Object.keys(statuses)).toHaveLength(0)
     expect(error?.code).toBe('CONFIG_INVALID')
+  })
+})
+
+describe('metric collection planning', () => {
+  let server: MockDockerServer
+  let dockerHost: string
+
+  beforeEach(async () => {
+    server = new MockDockerServer()
+    dockerHost = await server.start()
+    clearDockerCache()
+  })
+
+  afterEach(async () => {
+    await server.stop()
+  })
+
+  it('replaces and removes discovered targets after rediscovery', async () => {
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    server.containers = [{ Id: 'first', Names: ['/first'], Image: 'nginx', ImageID: 'sha256:first', State: 'running', Status: 'Up 1 hour', Labels: { 'dashmark.url': 'https://first.example.com' } }]
+
+    await getCards(config, new Headers())
+    expect(discoveredMetricSchedules().map(({ cardId }) => cardId)).toEqual(['default:first'])
+    const onChange = vi.fn()
+    const stop = watchContainerEvents(config, onChange)
+    await vi.waitFor(() => expect(server.eventConnections).toBe(1))
+
+    server.containers = [
+      { Id: 'second', Names: ['/second'], Image: 'nginx', ImageID: 'sha256:second', State: 'running', Status: 'Up 1 hour', Labels: { 'dashmark.url': 'https://second.example.com' } }
+    ]
+    server.emitContainerEvent()
+    await vi.waitFor(() => expect(onChange).toHaveBeenCalledTimes(1))
+    await getCards(config, new Headers())
+    expect(discoveredMetricSchedules().map(({ cardId }) => cardId)).toEqual(['default:second'])
+
+    server.containers = []
+    server.emitContainerEvent()
+    await vi.waitFor(() => expect(onChange).toHaveBeenCalledTimes(2))
+    await getCards(config, new Headers())
+    expect(discoveredMetricSchedules()).toEqual([])
+    stop()
+  })
+
+  it('limits scheduled collection to eight Docker workers', async () => {
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    server.statsDelayMs = 20
+    server.containers = Array.from({ length: 9 }, (_, index) => ({
+      Id: `worker-${index}`,
+      Names: [`/worker-${index}`],
+      Image: 'nginx',
+      ImageID: `sha256:worker-${index}`,
+      State: 'running',
+      Status: 'Up 1 hour',
+      Labels: { 'dashmark.url': `https://worker-${index}.example.com` }
+    }))
+    for (const container of server.containers) {
+      server.stats[container.Id] = {
+        cpu_stats: { cpu_usage: { total_usage: 200 }, system_cpu_usage: 400 },
+        precpu_stats: { cpu_usage: { total_usage: 100 }, system_cpu_usage: 200 }
+      }
+    }
+
+    await getCards(config, new Headers())
+    await collectDiscoveredMetricUsage(new Set(discoveredMetricSchedules().map(({ cardId }) => cardId)))
+
+    expect(server.statsRequests).toBe(9)
+    expect(server.maxConcurrentStatsRequests).toBe(8)
+  })
+
+  it('uses the same Docker and YAML plans for on-demand and scheduled collection', async () => {
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.configFile = writeTempConfig(`
+docker-service:
+  metrics:
+    entries:
+      value:
+        display: { label: Value }
+        value: { unit: count }
+        source: { url: https://metrics.example.test/docker }
+        extract: { jq: .value }
+yaml-service:
+  url: https://yaml.example.test
+  metrics:
+    entries:
+      value:
+        display: { label: Value }
+        value: { unit: count }
+        source: { url: https://metrics.example.test/yaml }
+        extract: { jq: .value }
+`)
+    server.containers = [
+      {
+        Id: 'docker-service',
+        Names: ['/docker-service'],
+        Image: 'nginx',
+        ImageID: 'sha256:docker-service',
+        State: 'running',
+        Status: 'Up 1 hour',
+        Labels: { 'dashmark.url': 'https://docker.example.test', 'dashmark.metrics': 'value' }
+      }
+    ]
+    mockGotResponse('{"value":6}')
+    const dockerOnDemand = await getContainerMetricUsage(config, new Headers(), 'default:docker-service')
+    const yamlOnDemand = await getContainerMetricUsage(config, new Headers(), 'yaml-yaml-service')
+
+    await getCards(config, new Headers())
+    const scheduled = await collectDiscoveredMetricUsage(new Set(discoveredMetricSchedules().map(({ cardId }) => cardId)))
+
+    expect(dockerOnDemand).toMatchObject({ customMetrics: [{ key: 'value', value: 6 }], historyPeriodMs: config.metricsHistoryPeriodMs })
+    expect(yamlOnDemand).toMatchObject({ customMetrics: [{ key: 'value', value: 6 }], historyPeriodMs: config.metricsHistoryPeriodMs })
+    const onDemand = [
+      { cardId: 'default:docker-service', usage: dockerOnDemand },
+      { cardId: 'yaml-yaml-service', usage: yamlOnDemand }
+    ].map(({ cardId, usage }) => ({ cardId, customMetrics: usage?.customMetrics, metricErrors: usage?.metricErrors, historyPeriodMs: usage?.historyPeriodMs }))
+    const scheduledOutcomes = scheduled.map(({ cardId, customMetrics, metricErrors, metricsHistoryPeriodMs }) => ({ cardId, customMetrics, metricErrors, historyPeriodMs: metricsHistoryPeriodMs }))
+
+    expect(scheduledOutcomes.sort((a, b) => a.cardId.localeCompare(b.cardId))).toEqual(onDemand)
   })
 })

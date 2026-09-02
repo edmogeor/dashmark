@@ -2,50 +2,23 @@ import type { IncomingMessage, Server } from 'node:http'
 import type { Duplex } from 'node:stream'
 import WebSocket, { WebSocketServer } from 'ws'
 import { isAuthorized } from './auth'
-import { isRecord } from './errors'
 import type { AppConfig } from './config'
 import { canViewMetric } from './docker'
 import { getDiscoveryCoordinator } from './discovery-coordinator'
 import { getLatestMetricUsage } from './metrics'
-import { getMetricHistory, getResourceMetricHistory } from './metrics-storage'
-import type { ContainerResources, CustomMetric, MetricsResponse, ResourceMetricSample, UptimeMetric } from './status'
-import type { UptimeBucket } from './realtime-client'
+import type { UptimeBucket } from './uptime-buckets'
 import { UPTIME_RANGES, type UptimeRange } from './uptime-ranges'
+import { metricsSnapshot, uptimeBucketsByRange, type MetricsSnapshots } from './realtime-metrics-snapshot'
+import { parseClientMessage } from './realtime-protocol'
+import { createSocketLifecycle, type RealtimeSocket } from './realtime-socket-lifecycle'
 
 const PATHNAME = '/api/realtime'
 const MAX_CLIENT_MESSAGE_BYTES = 16 * 1024
 const MAX_METRIC_SUBSCRIPTIONS = 32
-const MAX_OUTBOUND_EVENTS = 64
-const MAX_OUTBOUND_BYTES = 1024 * 1024
-const SOCKET_LIFETIME_MS = 60 * 60 * 1000
-type ClientMessage = { type: 'subscribe_status' } | { type: 'subscribe_metrics'; cardId: string } | { type: 'unsubscribe_metrics'; cardId: string }
-
-type RealtimeSocket = {
-  socket: WebSocket
-  headers: Headers
-  metrics: Set<string>
-  statusSubscribed: boolean
-  pendingEvents: number
-  pendingBytes: number
-  closed: boolean
-  lifetime: ReturnType<typeof setTimeout>
-}
 
 export type RealtimePublisher = {
   publishStatusDelta(cardId: string, status: unknown): Promise<void>
   publishMetricsDelta(cardId: string): Promise<void>
-}
-
-type RealtimeUptimeMetric = Omit<UptimeMetric, 'observations'> & { buckets: Record<UptimeRange, UptimeBucket[]> }
-type RealtimeMetricsResponse = Omit<MetricsResponse, 'uptimeMetrics'> & { uptimeMetrics?: RealtimeUptimeMetric[] }
-type CachedMetricsSnapshot = {
-  resource: ContainerResources | null
-  history: ResourceMetricSample[]
-  historyPeriodMs: number
-  pending: boolean
-  customMetrics: CustomMetric[]
-  uptimeMetrics: RealtimeUptimeMetric[]
-  metricErrors?: MetricsResponse['metricErrors']
 }
 
 export type RealtimeServer = RealtimePublisher & {
@@ -90,7 +63,7 @@ function originProtocol(value: string | undefined): 'http:' | 'https:' {
   return value?.toLowerCase() === 'https' || value?.toLowerCase() === 'wss' ? 'https:' : 'http:'
 }
 
-export function sameOrigin(request: IncomingMessage): boolean {
+export function sameOrigin(request: Pick<IncomingMessage, 'headers'>): boolean {
   const origin = request.headers.origin
   if (!origin) return true
   const forwarded = forwardedParameters(firstForwardedValue(request.headers.forwarded))
@@ -109,138 +82,15 @@ function reject(socket: Duplex, status: number, reason: string): void {
   socket.destroy()
 }
 
-function parseMessage(value: unknown): ClientMessage | undefined {
-  if (!isRecord(value)) return undefined
-  const message = value
-  if (message.type === 'subscribe_status' && Object.keys(message).length === 1) return { type: message.type }
-  if (
-    (message.type === 'subscribe_metrics' || message.type === 'unsubscribe_metrics') &&
-    typeof message.cardId === 'string' &&
-    message.cardId.length > 0 &&
-    message.cardId.length <= 256 &&
-    Object.keys(message).length === 2
-  ) {
-    return { type: message.type, cardId: message.cardId }
-  }
-  return undefined
-}
-
-function visibleResource<T extends ContainerResources>(resource: T, visible: (metric: string) => boolean): T {
-  return {
-    ...resource,
-    cpuPercent: visible('cpu') ? resource.cpuPercent : undefined,
-    memoryUsage: visible('memory') ? resource.memoryUsage : undefined,
-    memoryLimit: visible('memory') ? resource.memoryLimit : undefined,
-    receivedBytesPerSecond: visible('network') ? resource.receivedBytesPerSecond : undefined,
-    sentBytesPerSecond: visible('network') ? resource.sentBytesPerSecond : undefined,
-    networkRatePending: visible('network') ? resource.networkRatePending : undefined
-  }
-}
-
-function uptimeBuckets(metric: UptimeMetric, durationMs: number, bucketCount: number, now = Date.now()): UptimeBucket[] {
-  const bucketMs = durationMs / bucketCount
-  const end = Math.floor(now / bucketMs) * bucketMs + bucketMs
-  const start = end - durationMs
-  return Array.from({ length: bucketCount }, (_, index) => {
-    const bucketStart = start + index * bucketMs
-    const bucketEnd = bucketStart + bucketMs
-    const observations = metric.observations.filter((observation) => observation.timestamp >= bucketStart && observation.timestamp < bucketEnd)
-    const successes = observations.filter((observation) => observation.status === 'up').length
-    const failures = observations.filter((observation) => observation.status === 'down').length
-    const responseTimes = observations.flatMap((observation) => (observation.responseTimeMs === undefined ? [] : [observation.responseTimeMs]))
-    return {
-      start: bucketStart,
-      end: bucketEnd,
-      status: failures > 0 && successes > 0 ? 'mixed' : failures > 0 ? 'down' : successes > 0 ? 'up' : 'unknown',
-      successes,
-      failures,
-      ...(responseTimes.length > 0 ? { slowestResponseTimeMs: Math.max(...responseTimes) } : {})
-    }
-  })
-}
-
-function uptimeBucketsByRange(metric: UptimeMetric): Record<UptimeRange, UptimeBucket[]> {
-  const buckets: Record<UptimeRange, UptimeBucket[]> = { '24h': [], '7d': [], '30d': [] }
-  for (const { range, durationMs, bucketCount } of UPTIME_RANGES) {
-    buckets[range] = uptimeBuckets(metric, durationMs, bucketCount)
-  }
-  return buckets
-}
-
-function cachedMetricsSnapshot(config: AppConfig, cardId: string, historyPeriodMs: number, snapshots: Map<string, Map<number, CachedMetricsSnapshot>>): CachedMetricsSnapshot {
-  const cached = snapshots.get(cardId)?.get(historyPeriodMs)
-  if (cached) return cached
-  const usage = getLatestMetricUsage(cardId)
-  const snapshot: CachedMetricsSnapshot = {
-    resource: usage?.resource ?? null,
-    history: getResourceMetricHistory(config, cardId, historyPeriodMs),
-    historyPeriodMs,
-    pending: usage === undefined,
-    customMetrics: usage?.customMetrics.map((metric) => ('unit' in metric ? { ...metric, history: getMetricHistory(config, cardId, metric.key, historyPeriodMs), historyPeriodMs } : metric)) ?? [],
-    uptimeMetrics: (usage?.uptimeMetrics ?? []).map((metric) => ({ key: metric.key, label: metric.label, current: metric.current, buckets: uptimeBucketsByRange(metric) })),
-    ...(usage?.metricErrors ? { metricErrors: usage.metricErrors } : {})
-  }
-  const cardSnapshots = snapshots.get(cardId) ?? new Map<number, CachedMetricsSnapshot>()
-  cardSnapshots.set(historyPeriodMs, snapshot)
-  snapshots.set(cardId, cardSnapshots)
-  return snapshot
-}
-
-function metricsSnapshot(config: AppConfig, headers: Headers, cardId: string, snapshots: Map<string, Map<number, CachedMetricsSnapshot>>, includeUptime = true): RealtimeMetricsResponse | undefined {
-  const access = getDiscoveryCoordinator(config).getMetricAccess(headers, cardId)
-  if (!access) return undefined
-  const visible = (metric: string) => canViewMetric(config, headers, access.metricsAccess, metric)
-  const historyPeriodMs = access.historyPeriodMs ?? config.metricsHistoryPeriodMs
-  const snapshot = cachedMetricsSnapshot(config, cardId, historyPeriodMs, snapshots)
-  const customMetrics: CustomMetric[] = snapshot.customMetrics.filter((metric) => visible(metric.key))
-  return {
-    resource: snapshot.resource ? visibleResource(snapshot.resource, visible) : null,
-    history: snapshot.history.map((sample) => visibleResource<ResourceMetricSample>(sample, visible)),
-    historyPeriodMs,
-    pending: snapshot.pending,
-    customMetrics,
-    ...(includeUptime
-      ? {
-          uptimeMetrics: snapshot.uptimeMetrics?.filter((metric) => visible(metric.key))
-        }
-      : {}),
-    metricErrors: (snapshot.metricErrors ?? access.metricErrors ?? []).filter((error) => visible(error.key))
-  }
-}
-
 function createRealtimeServer(config: AppConfig): RealtimeServer {
-  const clients = new Set<RealtimeSocket>()
   const devWebSockets = new WebSocketServer({ noServer: true, maxPayload: MAX_CLIENT_MESSAGE_BYTES })
   const coordinator = getDiscoveryCoordinator(config)
   coordinator.start()
   const publishedUptimeBuckets = new Map<string, Record<UptimeRange, UptimeBucket[]>>()
-  const metricSnapshots = new Map<string, Map<number, CachedMetricsSnapshot>>()
+  const metricSnapshots: MetricsSnapshots = new Map()
   let version = 0
 
   const nextVersion = () => ++version
-  const closeClient = (client: RealtimeSocket, code = 1000): void => {
-    if (client.closed) return
-    client.closed = true
-    clearTimeout(client.lifetime)
-    clients.delete(client)
-    client.socket.close(code)
-  }
-  const send = (client: RealtimeSocket, message: object): boolean => {
-    if (client.closed || client.socket.readyState !== WebSocket.OPEN) return false
-    const data = JSON.stringify(message)
-    const bytes = Buffer.byteLength(data)
-    if (client.pendingEvents >= MAX_OUTBOUND_EVENTS || client.pendingBytes + bytes > MAX_OUTBOUND_BYTES) {
-      closeClient(client, 1008)
-      return false
-    }
-    client.pendingEvents++
-    client.pendingBytes += bytes
-    client.socket.send(data, () => {
-      client.pendingEvents--
-      client.pendingBytes -= bytes
-    })
-    return true
-  }
   const sendStatusSnapshot = async (client: RealtimeSocket): Promise<void> => {
     await coordinator.ready()
     const result = coordinator.getStatusSnapshot(client.headers)
@@ -254,9 +104,9 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
     return true
   }
   const handleMessage = async (client: RealtimeSocket, value: string): Promise<void> => {
-    let message: ClientMessage | undefined
+    let message
     try {
-      message = parseMessage(JSON.parse(value))
+      message = parseClientMessage(JSON.parse(value))
     } catch {}
     if (!message) return closeClient(client, 1008)
     if (message.type === 'subscribe_status') {
@@ -271,6 +121,15 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
     if (!client.metrics.has(message.cardId) && client.metrics.size >= MAX_METRIC_SUBSCRIPTIONS) return closeClient(client, 1008)
     if (await sendMetricsSnapshot(client, message.cardId)) client.metrics.add(message.cardId)
   }
+  const {
+    clients,
+    closeClient,
+    connect: connectSocket,
+    send
+  } = createSocketLifecycle({
+    onMessage: (client, value) => void handleMessage(client, value),
+    onConnect: (client) => void sendStatusSnapshot(client)
+  })
   coordinator.onStatusChange((cardId, status) => {
     void publishStatusDelta(cardId, status)
   })
@@ -329,25 +188,7 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
     return isAuthorized(authRequest, config.authToken) ? undefined : 401
   }
   const connect = (socket: WebSocket, request: IncomingMessage): void => {
-    const client: RealtimeSocket = {
-      socket,
-      headers: requestHeaders(request),
-      metrics: new Set(),
-      statusSubscribed: true,
-      pendingEvents: 0,
-      pendingBytes: 0,
-      closed: false,
-      lifetime: setTimeout(() => closeClient(client, 1001), SOCKET_LIFETIME_MS)
-    }
-    client.lifetime.unref()
-    clients.add(client)
-    socket.on('message', (data, isBinary) => {
-      if (isBinary) return closeClient(client, 1003)
-      void handleMessage(client, data.toString())
-    })
-    socket.on('close', () => closeClient(client))
-    socket.on('error', () => closeClient(client))
-    void sendStatusSnapshot(client)
+    connectSocket(socket, requestHeaders(request))
   }
   const attachDevServer = (server: Server): void => {
     const handleUpgrade = (request: IncomingMessage, socket: Duplex, head: Buffer) => {

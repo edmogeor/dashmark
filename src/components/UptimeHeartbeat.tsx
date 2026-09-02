@@ -1,6 +1,5 @@
 import { useState, type PointerEvent } from 'react'
-import type { UptimeObservation } from '@/lib/status'
-import type { UptimeBucket } from '@/lib/realtime-client'
+import type { UptimeBucket } from '@/lib/uptime-buckets'
 import type { UptimeRange } from '@/lib/uptime-ranges'
 import { Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -22,32 +21,7 @@ function formatResponseTime(value: number, locale: Locale): string {
   return new Intl.NumberFormat(locale, { style: 'unit', unit: 'millisecond', unitDisplay: 'narrow', maximumFractionDigits: 2 }).format(value)
 }
 
-export type { UptimeBucket } from '@/lib/realtime-client'
 export type UptimeBucketStatus = UptimeBucket['status']
-
-export function uptimeBuckets(observations: UptimeObservation[], durationMs: number, bucketCount: number, now = Date.now()): UptimeBucket[] {
-  const bucketMs = durationMs / bucketCount
-  const currentBucketStart = Math.floor(now / bucketMs) * bucketMs
-  const hasCurrentObservation = observations.some((observation) => observation.timestamp >= currentBucketStart && observation.timestamp <= now)
-  const end = hasCurrentObservation ? currentBucketStart + bucketMs : currentBucketStart
-  const start = end - durationMs
-  return Array.from({ length: bucketCount }, (_, index) => {
-    const bucketStart = start + index * bucketMs
-    const bucketEnd = bucketStart + bucketMs
-    const entries = observations.filter((entry) => entry.timestamp >= bucketStart && entry.timestamp < bucketEnd)
-    const successes = entries.filter((entry) => entry.status === 'up').length
-    const failures = entries.filter((entry) => entry.status === 'down').length
-    const responseTimes = entries.flatMap((entry) => (entry.responseTimeMs === undefined ? [] : [entry.responseTimeMs]))
-    return {
-      start: bucketStart,
-      end: bucketEnd,
-      status: failures > 0 && successes > 0 ? 'mixed' : failures > 0 ? 'down' : successes > 0 ? 'up' : 'unknown',
-      successes,
-      failures,
-      slowestResponseTimeMs: responseTimes.length > 0 ? Math.max(...responseTimes) : undefined
-    }
-  })
-}
 
 export function uptimePercent(buckets: UptimeBucket[]): number | undefined {
   const successes = buckets.reduce((total, bucket) => total + bucket.successes, 0)

@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { RealtimeClient, type RealtimeMetricsResponse } from '@/lib/realtime-client'
+import { RealtimeClient } from '@/lib/realtime-client'
+import type { RealtimeMetricsResponse } from '@/lib/realtime-protocol'
 
 class FakeWebSocket extends EventTarget {
   static readonly CONNECTING = 0

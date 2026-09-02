@@ -9,9 +9,14 @@ type SocketIoArgument = NonNullable<NonNullable<MetricOverride['source']['socket
 type CookieSessionAuth = Extract<NonNullable<MetricOverride['source']['auth']>, { type: 'cookie_session' }>
 type CookieSessionRequest = CookieSessionAuth['steps'][number]
 type BasicAuth = Extract<NonNullable<MetricOverride['source']['auth']>, { type: 'basic' }>
-type TokenAuth = Extract<NonNullable<MetricOverride['source']['auth']>, { type: 'token' }>
 type SecretReference = BasicAuth['username']
 type ParameterValues = Record<string, string | number | boolean> | undefined
+type MetricResolution = {
+  cardUrl: string | undefined
+  metricApiUrl: string | undefined
+  values: Record<string, string | number | boolean>
+  labels: Record<string, string>
+}
 
 function isMetricRequestValue(value: unknown): value is MetricRequestValue {
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return true
@@ -82,14 +87,8 @@ function resolveJsonValue(value: MetricJsonValue, metric: MetricOverride, values
   return Object.fromEntries(Object.entries(resolved).map(([name, item]) => [name, resolveJsonValue(item, metric, values, labels)]))
 }
 
-function resolveRequest(
-  request: MetricOverride['source'] | CookieSessionRequest,
-  metric: MetricOverride,
-  cardUrl: string | undefined,
-  metricApiUrl: string | undefined,
-  values: ParameterValues,
-  labels: Record<string, string>
-) {
+function resolveRequest(request: MetricOverride['source'] | CookieSessionRequest, metric: MetricOverride, resolution: MetricResolution) {
+  const { cardUrl, metricApiUrl, values, labels } = resolution
   const url = resolveUrl(request.url, cardUrl, metricApiUrl, metric.parameters, values)
   if (!url) return undefined
   const headers = resolveReferences(request.headers, labels)
@@ -103,6 +102,60 @@ function resolveRequest(
     ...(Object.keys(query).length > 0 ? { query } : {}),
     ...(Object.keys(form).length > 0 ? { form } : {}),
     ...(json && Object.keys(json).length > 0 ? { json } : {})
+  }
+}
+
+function resolveParameterValues(
+  key: string,
+  metric: MetricOverride,
+  labels: Record<string, string>,
+  metricParameters: Record<string, Record<string, string | number | boolean>> | undefined
+): Record<string, string | number | boolean> | undefined {
+  const metricLabel = key.replaceAll('/', '.')
+  const labelValues = Object.fromEntries(
+    Object.keys(metric.parameters ?? {}).flatMap((name) => {
+      const value = labels[`${LABEL_PREFIX}.metrics_input.${metricLabel}.${name}`]
+      return value === undefined ? [] : [[name, value]]
+    })
+  )
+  const values = { ...metricParameters?.[key], ...labelValues }
+  return Object.keys(metric.parameters ?? {}).every((name) => values[name] !== undefined) ? values : undefined
+}
+
+function resolveForEach(metric: MetricOverride, resolution: MetricResolution): MetricOverride | undefined {
+  if (!metric.forEach) return metric
+  const requestUrl = resolveUrl(metric.forEach.requestUrl, resolution.cardUrl, resolution.metricApiUrl, metric.parameters, resolution.values)
+  return requestUrl ? { ...metric, forEach: { ...metric.forEach, requestUrl } } : undefined
+}
+
+function resolveCookieSessionAuth(auth: CookieSessionAuth, metric: MetricOverride, resolution: MetricResolution): CookieSessionAuth | undefined {
+  const steps = auth.steps.map((step) => resolveRequest(step, metric, resolution))
+  return steps.some((step) => !step) ? undefined : { ...auth, steps: steps.filter((step): step is CookieSessionRequest => step !== undefined) }
+}
+
+function resolveAuth(auth: MetricOverride['source']['auth'], metric: MetricOverride, resolution: MetricResolution) {
+  if (auth?.type === 'cookie_session') return resolveCookieSessionAuth(auth, metric, resolution)
+  if (auth?.type === 'basic') {
+    return { ...auth, username: resolveSecretReference(auth.username, resolution.labels), password: resolveSecretReference(auth.password, resolution.labels) }
+  }
+  if (auth?.type === 'token') return { ...auth, value: resolveSecretReference(auth.value, resolution.labels) }
+  return auth
+}
+
+function resolveSource(metric: MetricOverride, resolution: MetricResolution): MetricOverride['source'] | undefined {
+  const request = resolveRequest({ ...metric.source, method: metric.source.method ?? 'GET' }, metric, resolution)
+  if (!request) return undefined
+
+  const auth = resolveAuth(metric.source.auth, metric, resolution)
+  if (metric.source.auth?.type === 'cookie_session' && !auth) return undefined
+
+  const initialQuery = resolveReferences(metric.source.initialQuery, resolution.labels)
+  return {
+    ...request,
+    ...(Object.keys(initialQuery).length > 0 ? { initialQuery } : {}),
+    ...(metric.source.transport ? { transport: metric.source.transport } : {}),
+    ...(metric.source.socketio ? { socketio: resolveSocketIo(metric.source.socketio, resolution.labels) } : {}),
+    ...(auth ? { auth } : {})
   }
 }
 
@@ -129,40 +182,15 @@ function resolveMetric(
   labels: Record<string, string>,
   metricParameters: Record<string, Record<string, string | number | boolean>> | undefined
 ): MetricOverride | undefined {
-  const metricLabel = key.replaceAll('/', '.')
-  const labelValues = Object.fromEntries(
-    Object.keys(metric.parameters ?? {}).flatMap((name) => {
-      const value = labels[`${LABEL_PREFIX}.metrics_input.${metricLabel}.${name}`]
-      return value === undefined ? [] : [[name, value]]
-    })
-  )
-  const values = { ...metricParameters?.[key], ...labelValues }
-  if (Object.keys(metric.parameters ?? {}).some((name) => values[name] === undefined)) return undefined
-  const metricApiUrl = metricSources?.[key.split('/')[0]]
-  const requestUrl = metric.forEach && resolveUrl(metric.forEach.requestUrl, cardUrl, metricApiUrl, metric.parameters, values)
-  if (metric.forEach && !requestUrl) return undefined
-  const resolvedMetric = requestUrl ? { ...metric, forEach: { ...metric.forEach!, requestUrl } } : metric
-  const request = resolveRequest({ ...resolvedMetric.source, method: resolvedMetric.source.method ?? 'GET' }, resolvedMetric, cardUrl, metricApiUrl, values, labels)
-  if (!request) return undefined
-  const auth = resolvedMetric.source.auth
-  const steps = auth?.type === 'cookie_session' ? auth.steps.map((step) => resolveRequest(step, resolvedMetric, cardUrl, metricApiUrl, values, labels)) : undefined
-  if (steps?.some((step) => !step)) return undefined
-  const basicAuth: BasicAuth | undefined =
-    auth?.type === 'basic' ? { ...auth, username: resolveSecretReference(auth.username, labels), password: resolveSecretReference(auth.password, labels) } : undefined
-  const tokenAuth: TokenAuth | undefined = auth?.type === 'token' ? { ...auth, value: resolveSecretReference(auth.value, labels) } : undefined
-  const initialQuery = resolveReferences(resolvedMetric.source.initialQuery, labels)
-  return {
-    ...resolvedMetric,
-    source: {
-      ...request,
-      ...(Object.keys(initialQuery).length > 0 ? { initialQuery } : {}),
-      ...(resolvedMetric.source.transport ? { transport: resolvedMetric.source.transport } : {}),
-      ...(resolvedMetric.source.socketio ? { socketio: resolveSocketIo(resolvedMetric.source.socketio, labels) } : {}),
-      ...(auth?.type === 'cookie_session' && steps ? { auth: { ...auth, steps: steps.filter((step): step is CookieSessionRequest => step !== undefined) } } : {}),
-      ...(basicAuth ? { auth: basicAuth } : {}),
-      ...(tokenAuth ? { auth: tokenAuth } : {})
-    }
-  }
+  const values = resolveParameterValues(key, metric, labels, metricParameters)
+  if (!values) return undefined
+
+  const resolution = { cardUrl, metricApiUrl: metricSources?.[key.split('/')[0]], values, labels }
+  const resolvedMetric = resolveForEach(metric, resolution)
+  if (!resolvedMetric) return undefined
+
+  const source = resolveSource(resolvedMetric, resolution)
+  return source ? { ...resolvedMetric, source } : undefined
 }
 
 function resolveSecretReference(reference: SecretReference, labels: Record<string, string>): SecretReference {

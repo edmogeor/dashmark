@@ -1,21 +1,19 @@
-import { useDeferredValue, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
-import { AnimatePresence, LayoutGroup, motion, type Transition } from 'framer-motion'
-import { useWindowVirtualizer } from '@tanstack/react-virtual'
-import type { Virtualizer } from '@tanstack/virtual-core'
+import { useDeferredValue, useEffect, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { LayoutGroup, motion, type Transition } from 'framer-motion'
 import { SearchBar } from './SearchBar'
 import { CategoryFilter } from './CategoryFilter'
-import { AppCard } from './AppCard'
-import { useDashboardViewModel, type CategoryItem } from './use-dashboard-view-model'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { DashboardLayout, useDelayedLayoutAnimation } from './DashboardLayout'
+import { useDashboardViewModel } from './use-dashboard-view-model'
+import { Card, CardContent } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { CircleAlert, User } from 'lucide-react'
+import { User } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 import type { Card as CardType } from '@/lib/docker'
 import type { DashmarkError } from '@/lib/errors'
 import { useStableLoading } from '@/lib/use-stable-loading'
 import { useRealtimeStatus } from './use-realtime'
 import { usePageOverflow } from '@/lib/use-page-overflow'
-import { getTextDirection, type Locale } from '@/i18n'
+import type { Locale } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { badgeColor } from '@/lib/badge-color'
 import { STATUS_TOAST_ID, TOOLTIP_DELAY_MS } from '@/lib/constants'
@@ -25,31 +23,9 @@ import { useIsDark } from '@/lib/use-is-dark'
 import { clearErrorToast, showErrorToast } from '@/lib/error-toasts'
 import { LocalizationProvider, useLocalization } from './localization'
 
-const COLUMN_WIDTH = 300
-const COLUMN_GUTTER = 20
-const MASONRY_OVERSCAN = 3
 const POSITION_TRANSITION: Transition = { duration: 0.25, ease: 'easeOut' }
 const brandMarkDarkPath = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/brand/logo-mark-dark.svg`
 const brandMarkLightPath = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/brand/logo-mark-light.svg`
-
-function measureElement<T extends Element>(element: T, entry: ResizeObserverEntry | undefined, instance: Virtualizer<Window, T>): number {
-  const borderBox = entry?.borderBoxSize
-  if (Array.isArray(borderBox) && borderBox[0]) {
-    return borderBox[0].blockSize
-  }
-  // During initial mount the ResizeObserver entry isn't available yet, so
-  // return the virtualizer's estimate instead of forcing a synchronous layout.
-  const index = instance.indexFromElement(element)
-  return instance.options.estimateSize(index)
-}
-
-const CARD_ESTIMATE_BASE = 54
-const CARD_ESTIMATE_DELTA = 128
-
-function estimateCategoryHeight(index: number, items: CategoryItem[]): number {
-  const cardCount = items[index]?.cards.length ?? 1
-  return CARD_ESTIMATE_BASE + cardCount * CARD_ESTIMATE_DELTA
-}
 
 function GroupBadge({ group, colorIndex }: { group: string; colorIndex: number }) {
   return (
@@ -96,219 +72,6 @@ function UserGroupsBadge({ groups, colorOffset }: { groups: string[]; colorOffse
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-      )}
-    </div>
-  )
-}
-
-function ErrorPanel({ error }: { error: DashmarkError }) {
-  const { messages } = useLocalization()
-  return (
-    <AnimatedGridItem className="dashmark-error flex items-center justify-center" delay={0.08}>
-      <div className="dashmark-error-panel mx-auto flex w-full max-w-xl gap-4 rounded-lg border border-error-border bg-error-bg p-6 text-error-text">
-        <CircleAlert className="mt-0.5 h-5 w-5 shrink-0" />
-        <div className="min-w-0">
-          <p className="font-[550]">{messages.errors.unableToLoadServices}</p>
-          <p className="mt-1 text-sm">{error.message}</p>
-          {error.detail && <p className="mt-2 whitespace-pre-wrap text-xs opacity-80">{error.detail}</p>}
-        </div>
-      </div>
-    </AnimatedGridItem>
-  )
-}
-
-type AnimatedGridItemProps = {
-  children: ReactNode
-  className?: string
-  style?: CSSProperties
-  layoutId?: string
-  dataIndex?: number
-  measureElement?: (element: HTMLDivElement | null) => void
-  isReentry?: boolean
-  delay?: number
-  animate?: boolean
-  enableLayout?: boolean
-}
-
-function AnimatedGridItem({ children, className, style, layoutId, dataIndex, measureElement, isReentry = false, delay = 0, animate = true, enableLayout = true }: AnimatedGridItemProps) {
-  const hidden = isReentry ? { opacity: 0 } : { opacity: 0, y: 12 }
-  const shown = isReentry ? { opacity: 1 } : { opacity: 1, y: 0 }
-
-  return (
-    <motion.div
-      ref={measureElement}
-      layoutId={layoutId}
-      data-index={dataIndex}
-      className={className}
-      style={style}
-      layout={enableLayout ? 'position' : false}
-      initial={hidden}
-      animate={animate ? shown : hidden}
-      exit={{ opacity: 0, transition: { duration: 0.15, ease: 'easeOut' } }}
-      transition={{ duration: 0.3, ease: 'easeOut', delay: isReentry ? 0 : delay, layout: POSITION_TRANSITION }}
-    >
-      {children}
-    </motion.div>
-  )
-}
-
-type CategoryColumnProps = {
-  data: CategoryItem
-  twoColumn: boolean
-  showStatus: boolean
-  showMetrics: boolean
-  isLoading: boolean
-  openInNewTab: boolean
-  enableCardLayout: boolean
-}
-
-function CategoryColumn({ data, twoColumn, showStatus, showMetrics, isLoading, openInNewTab, enableCardLayout }: CategoryColumnProps) {
-  const { category, cards } = data
-  return (
-    <Card className="dashmark-category dashmark-card-gradient @container overflow-hidden">
-      <CardHeader className="dashmark-category-header p-5 pb-3">
-        <CardTitle className="dashmark-category-title text-xs uppercase tracking-[0.18em] text-muted-foreground">{category}</CardTitle>
-      </CardHeader>
-      <CardContent className="p-5 pt-0">
-        <div className={cn('dashmark-category-apps grid grid-cols-1 gap-4', twoColumn && '@[520px]:grid-cols-2')}>
-          {cards.map((card) => (
-            <motion.div
-              key={`${card.id}-${enableCardLayout ? 'layout' : 'static'}`}
-              initial={false}
-              layout={enableCardLayout}
-              layoutId={enableCardLayout ? `card-${card.id}` : undefined}
-              className="h-full"
-              transition={{ layout: POSITION_TRANSITION }}
-            >
-              <AppCard card={card} showStatus={showStatus} showMetrics={showMetrics} isLoading={isLoading} openInNewTab={openInNewTab} />
-            </motion.div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function itemsSignature(items: CategoryItem[]): string {
-  return items.map((item) => `${item.key}:${item.cards.length}`).join('\0')
-}
-
-type MasonryGridProps = {
-  items: CategoryItem[]
-  entries: Map<string, ItemEntry>
-  onReady?: () => void
-  animate?: boolean
-  showStatus: boolean
-  showMetrics: boolean
-  isLoading: boolean
-  openInNewTab: boolean
-  enableCardLayout: boolean
-}
-
-function MasonryGrid({ items, entries, onReady, animate, showStatus, showMetrics, isLoading, openInNewTab, enableCardLayout }: MasonryGridProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const notifiedRef = useRef(false)
-  const onReadyRef = useRef(onReady)
-  const [width, setWidth] = useState(0)
-  const { locale } = useLocalization()
-  const isRTL = getTextDirection(locale) === 'rtl'
-
-  useEffect(() => {
-    onReadyRef.current = onReady
-  }, [onReady])
-
-  useLayoutEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-
-    const measure = () => {
-      const width = el.getBoundingClientRect().width
-      setWidth((current) => (current === width ? current : width))
-    }
-    measure()
-
-    const observer = new ResizeObserver(measure)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
-
-  useEffect(() => {
-    if (!notifiedRef.current && width > 0) {
-      notifiedRef.current = true
-      onReadyRef.current?.()
-    }
-  }, [width])
-
-  const lanes = Math.max(1, Math.floor((width + COLUMN_GUTTER) / (COLUMN_WIDTH + COLUMN_GUTTER)))
-  const columnWidth = (width - (lanes - 1) * COLUMN_GUTTER) / lanes
-
-  const virtualizer = useWindowVirtualizer({
-    count: items.length,
-    lanes,
-    gap: COLUMN_GUTTER,
-    overscan: MASONRY_OVERSCAN,
-    estimateSize: (index) => estimateCategoryHeight(index, items),
-    getItemKey: (index) => items[index]?.key ?? index,
-    measureElement,
-    useAnimationFrameWithResizeObserver: true
-  })
-
-  const itemsKey = itemsSignature(items)
-  useLayoutEffect(() => {
-    // The virtualizer caches lane assignments by index. When the category at a
-    // given index changes (e.g. search filters or clears), those cached lanes
-    // become stale and can place the last category in the wrong column. Reset
-    // the virtualizer's measurements so lanes are reassigned from the current
-    // items.
-    virtualizer.measure()
-  }, [itemsKey, virtualizer])
-
-  const virtualItems = virtualizer.getVirtualItems()
-  const visualRank = new Map([...virtualItems].sort((a, b) => (isRTL ? b.lane - a.lane : a.lane - b.lane) || a.start - b.start).map((item, rank) => [item.index, rank]))
-
-  const twoColumn = items.some((item) => item.cards.length > 1)
-  const showGrid = width > 0
-
-  return (
-    <div ref={containerRef} className="dashmark-category-grid">
-      {showGrid && (
-        <div className="dashmark-category-grid-items relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-          <AnimatePresence>
-            {virtualItems.map((virtualItem) => {
-              const item = items[virtualItem.index]
-              if (!item) return null
-              const entry = entries.get(item.key)
-              const delay = 0.08 + (visualRank.get(virtualItem.index) ?? 0) * 0.06
-              return (
-                <AnimatedGridItem
-                  key={entry?.key}
-                  measureElement={virtualizer.measureElement}
-                  dataIndex={virtualItem.index}
-                  className="absolute"
-                  isReentry={entry?.isReentry}
-                  delay={delay}
-                  animate={animate}
-                  enableLayout={enableCardLayout}
-                  style={{
-                    top: virtualItem.start,
-                    left: virtualItem.lane * (columnWidth + COLUMN_GUTTER),
-                    width: columnWidth
-                  }}
-                >
-                  <CategoryColumn
-                    data={item}
-                    twoColumn={twoColumn}
-                    showStatus={showStatus}
-                    showMetrics={showMetrics}
-                    isLoading={isLoading}
-                    openInNewTab={openInNewTab}
-                    enableCardLayout={enableCardLayout}
-                  />
-                </AnimatedGridItem>
-              )
-            })}
-          </AnimatePresence>
-        </div>
       )}
     </div>
   )
@@ -445,112 +208,6 @@ function DashboardSearch({
   )
 }
 
-type DashboardResultsProps = {
-  error: DashmarkError | null
-  hasResults: boolean
-  hasCategories: boolean
-  isSearching: boolean
-  uncategorised: CardType[]
-  categoryItems: CategoryItem[]
-  showStatus: boolean
-  showMetrics: boolean
-  isLoading: boolean
-  openInNewTab: boolean
-  onMasonryReady: () => void
-  animateMasonry: boolean
-  enableCardLayout: boolean
-}
-
-type ItemEntry = {
-  key: string
-  isReentry: boolean
-}
-
-function useItemEntries(ids: string[]): Map<string, ItemEntry> {
-  const visibleIdsRef = useRef(new Set<string>())
-  const versionsRef = useRef(new Map<string, number>())
-  const entries = new Map<string, ItemEntry>()
-
-  for (const id of ids) {
-    const wasVisible = visibleIdsRef.current.has(id)
-    if (!wasVisible) {
-      versionsRef.current.set(id, (versionsRef.current.get(id) ?? 0) + 1)
-    }
-    entries.set(id, {
-      key: `${id}-${versionsRef.current.get(id)}`,
-      isReentry: visibleIdsRef.current.size > 0 && !wasVisible
-    })
-  }
-
-  useLayoutEffect(() => {
-    visibleIdsRef.current = new Set(ids)
-  }, [ids])
-
-  return entries
-}
-
-function DashboardResults({
-  error,
-  hasResults,
-  hasCategories,
-  isSearching,
-  uncategorised,
-  categoryItems,
-  showStatus,
-  showMetrics,
-  isLoading,
-  openInNewTab,
-  onMasonryReady,
-  animateMasonry,
-  enableCardLayout
-}: DashboardResultsProps) {
-  const { locale, messages } = useLocalization()
-  const isRTL = getTextDirection(locale) === 'rtl'
-  const cardEntries = useItemEntries(uncategorised.map((card) => card.id))
-  const categoryEntries = useItemEntries(categoryItems.map((item) => item.key))
-
-  if (error) return <ErrorPanel error={error} />
-
-  if (!hasResults) {
-    return (
-      <div className="dashmark-empty-state flex items-center justify-center py-4">
-        <p className="dashmark-empty-state-message whitespace-nowrap text-muted-foreground">{messages.dashboard.noServices}</p>
-      </div>
-    )
-  }
-
-  if (!hasCategories) {
-    return (
-      <div className="dashmark-app-grid grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        <AnimatePresence>
-          {uncategorised.map((card, index) => {
-            const entry = cardEntries.get(card.id)
-            return (
-              <AnimatedGridItem key={entry?.key} layoutId={`card-${card.id}`} isReentry={isSearching || entry?.isReentry} delay={0.08 + (isRTL ? uncategorised.length - index - 1 : index) * 0.06}>
-                <AppCard card={card} showStatus={showStatus} showMetrics={showMetrics} asCard isLoading={isLoading} openInNewTab={openInNewTab} />
-              </AnimatedGridItem>
-            )
-          })}
-        </AnimatePresence>
-      </div>
-    )
-  }
-
-  return (
-    <MasonryGrid
-      items={categoryItems}
-      entries={categoryEntries}
-      onReady={onMasonryReady}
-      animate={animateMasonry}
-      enableCardLayout={enableCardLayout}
-      showStatus={showStatus}
-      showMetrics={showMetrics}
-      isLoading={isLoading}
-      openInNewTab={openInNewTab}
-    />
-  )
-}
-
 function DashboardContent({
   initialCards,
   initialError,
@@ -601,17 +258,11 @@ function DashboardContent({
 
   const [masonryLayoutReady, setMasonryLayoutReady] = useState(false)
   const [searchBarDone, setSearchBarDone] = useState(false)
-  const [cardLayoutEnabled, setCardLayoutEnabled] = useState(false)
+  const cardLayoutEnabled = useDelayedLayoutAnimation(masonryLayoutReady, searchBarDone)
 
   useEffect(() => {
     if (!willRenderMasonry) setMasonryLayoutReady(true)
   }, [willRenderMasonry])
-
-  useEffect(() => {
-    if (!masonryLayoutReady || !searchBarDone) return
-    const timeout = setTimeout(() => setCardLayoutEnabled(true), 300)
-    return () => clearTimeout(timeout)
-  }, [masonryLayoutReady, searchBarDone])
 
   function handleMasonryReady() {
     setMasonryLayoutReady(true)
@@ -644,7 +295,7 @@ function DashboardContent({
 
         <div className={`dashmark-content mx-auto w-full max-w-6xl px-6 pb-12 ${initialShowSearch || showHeader ? '' : 'pt-12'}`}>
           <div className="dashmark-results min-h-0">
-            <DashboardResults
+            <DashboardLayout
               error={error}
               hasResults={hasResults}
               hasCategories={shouldUseCategoryContainers}

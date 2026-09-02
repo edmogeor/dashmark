@@ -21,6 +21,9 @@ export class MockDockerServer {
   public apiVersion: string = '1.41'
   public stats: Record<string, unknown> = {}
   public statsRequests: number = 0
+  public statsDelayMs: number = 0
+  public activeStatsRequests: number = 0
+  public maxConcurrentStatsRequests: number = 0
   public eventConnections: number = 0
   private eventResponses = new Set<http.ServerResponse>()
 
@@ -54,14 +57,19 @@ export class MockDockerServer {
       const statsMatch = req.url?.match(/^\/v1\.41\/containers\/([^/]+)\/stats\?stream=false$/)
       if (statsMatch) {
         this.statsRequests += 1
+        this.activeStatsRequests += 1
+        this.maxConcurrentStatsRequests = Math.max(this.maxConcurrentStatsRequests, this.activeStatsRequests)
         const stats = this.stats[decodeURIComponent(statsMatch[1])]
-        if (stats === undefined) {
-          res.writeHead(404)
-          res.end(JSON.stringify({ message: 'Not found' }))
-          return
-        }
-        res.writeHead(200)
-        res.end(JSON.stringify(stats))
+        setTimeout(() => {
+          this.activeStatsRequests -= 1
+          if (stats === undefined) {
+            res.writeHead(404)
+            res.end(JSON.stringify({ message: 'Not found' }))
+            return
+          }
+          res.writeHead(200)
+          res.end(JSON.stringify(stats))
+        }, this.statsDelayMs)
         return
       }
 
