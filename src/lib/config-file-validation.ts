@@ -896,28 +896,42 @@ function validateCustomMetricFormatting(metric: Record<string, unknown>, fields:
   if (metric.chart_group !== undefined && (!chartGroup || !/^[a-z][a-z0-9_-]*$/.test(chartGroup))) return 'chart_group must be a lowercase identifier'
 }
 
-function validateCustomMetricValueType(metric: Record<string, unknown>, fields: ParsedCustomMetricFields): string | undefined {
-  const { valueType, unit, rate, chart, chartGroup, color, stateColors, stateLabels, forEach, pagination, transport, prometheus } = fields
+function validateStringOrStateMetric(metric: Record<string, unknown>, fields: ParsedCustomMetricFields): string | undefined {
+  const { valueType, prometheus } = fields
+  if (valueType !== 'string' && valueType !== 'state') return
   if (
-    (valueType === 'string' || valueType === 'state') &&
-    (metric.unit !== undefined ||
-      metric.chart !== undefined ||
-      metric.chart_group !== undefined ||
-      metric.transform !== undefined ||
-      prometheus?.reduce !== undefined ||
-      (prometheus && !prometheus.valueLabel))
+    metric.unit !== undefined ||
+    metric.chart !== undefined ||
+    metric.chart_group !== undefined ||
+    metric.transform !== undefined ||
+    prometheus?.reduce !== undefined ||
+    (prometheus && !prometheus.valueLabel)
   ) {
     return 'string metrics cannot use units, reductions, or charts'
   }
-  if ((valueType === 'number' || valueType === 'string') && color !== undefined) return 'color requires value_type state'
-  if ((valueType === 'number' || valueType === 'string') && stateColors !== undefined) return 'state_colors requires value_type state'
-  if ((valueType === 'number' || valueType === 'string') && stateLabels !== undefined) return 'state_labels requires value_type state'
+}
+
+function validateMetricStateOptions(fields: ParsedCustomMetricFields): string | undefined {
+  const { valueType, color, stateColors, stateLabels } = fields
+  if (valueType === 'number' || valueType === 'string') {
+    if (color !== undefined) return 'color requires value_type state'
+    if (stateColors !== undefined) return 'state_colors requires value_type state'
+    if (stateLabels !== undefined) return 'state_labels requires value_type state'
+  }
   if (valueType === 'state' && color === undefined) return 'state metrics require a color'
+}
+
+function validateNumericMetric(fields: ParsedCustomMetricFields): string | undefined {
+  const { valueType, unit, chart, chartGroup, rate, forEach, pagination, transport, prometheus } = fields
   if (valueType === 'number' && (!unit || prometheus?.valueLabel !== undefined || (chartGroup !== undefined && chart === 'none')))
     return chartGroup !== undefined && chart === 'none' ? 'chart_group requires a visible chart' : 'numeric metrics require a valid unit and cannot use value_label'
   if (rate && valueType !== 'number') return 'rate requires value_type number'
   if (forEach && (valueType !== 'number' || transport === 'socketio')) return 'for_each requires a numeric HTTP metric'
   if (pagination && transport === 'socketio') return 'pagination requires an HTTP metric'
+}
+
+function validateCustomMetricValueType(metric: Record<string, unknown>, fields: ParsedCustomMetricFields): string | undefined {
+  return validateStringOrStateMetric(metric, fields) ?? validateMetricStateOptions(fields) ?? validateNumericMetric(fields)
 }
 
 function validateCustomMetricFields(metric: Record<string, unknown>, fields: ParsedCustomMetricFields): string | undefined {
