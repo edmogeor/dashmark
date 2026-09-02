@@ -259,6 +259,16 @@
   }
 }
 
+@media (hover: none) and (prefers-reduced-motion: no-preference) {
+  .dashmark-app-icon-glimmer::after {
+    transition: transform 450ms ease-out;
+  }
+
+  .dashmark-app-link:active .dashmark-app-icon-glimmer::after {
+    transform: translateX(130%);
+  }
+}
+
 .dashmark-card-gradient {
   background-image: linear-gradient(to bottom, color-mix(in oklab, var(--foreground) 2%, transparent), transparent 70%);
 }
