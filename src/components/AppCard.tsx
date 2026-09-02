@@ -1,4 +1,4 @@
-import { lazy, memo, Suspense, useCallback, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import { lazy, memo, Suspense, useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import type { Card as CardType } from '@/lib/docker'
@@ -32,7 +32,10 @@ type AppCardProps = {
 export const AppCard = memo(function AppCard({ card, showStatus = true, showMetrics = true, asCard = false, isLoading = false, openInNewTab = false }: AppCardProps) {
   const { activeTooltip, setActiveTooltip } = useTooltipController()
   const dismissesTooltip = useRef(false)
+  const delaysNavigation = useRef(false)
+  const navigationTimer = useRef<number | undefined>(undefined)
   const [hovered, setHovered] = useState(false)
+  const [touchGlimmer, setTouchGlimmer] = useState(false)
   const [detail, setDetail] = useState<MetricDetail | null>(null)
   const [uptimeDetail, setUptimeDetail] = useState<UptimeMetricSummary | null>(null)
   const showResources = shouldShowResources(card, showMetrics)
@@ -50,6 +53,7 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showMetr
       setActiveTooltip(activeTooltip === id ? null : id)
     }
   }
+  useEffect(() => () => window.clearTimeout(navigationTimer.current), [])
   const closeDetail = useCallback((open: boolean) => {
     if (!open) setDetail(null)
   }, [])
@@ -77,15 +81,25 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showMetr
             setActiveTooltip(null)
           }
         }}
+        onPointerDown={(event) => {
+          if (event.pointerType === 'touch' && !event.defaultPrevented) {
+            delaysNavigation.current = !openInNewTab
+            setTouchGlimmer(true)
+          }
+        }}
         onClickCapture={(event: ReactMouseEvent<HTMLAnchorElement>) => {
           if (dismissesTooltip.current) {
             event.preventDefault()
             event.stopPropagation()
             dismissesTooltip.current = false
+          } else if (delaysNavigation.current) {
+            event.preventDefault()
+            delaysNavigation.current = false
+            navigationTimer.current = window.setTimeout(() => window.location.assign(card.url), 450)
           }
         }}
       >
-        <Card className={className}>
+        <Card className={cn(className, touchGlimmer && 'dashmark-app-card-glimmering')}>
           <CardContent className="dashmark-app-content relative flex h-24 items-center gap-3 p-3">
             <AppCardIcon icon={card.icon} title={card.title} asCard={asCard} />
             <div className="dashmark-app-details flex min-w-0 flex-1 flex-col gap-2">

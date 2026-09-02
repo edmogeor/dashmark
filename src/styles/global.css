@@ -264,7 +264,8 @@
     transition: transform 450ms ease-out;
   }
 
-  .dashmark-app-link:active .dashmark-app-icon-glimmer::after {
+  .dashmark-app-link:active .dashmark-app-icon-glimmer::after,
+  .dashmark-app-card-glimmering .dashmark-app-icon-glimmer::after {
     transform: translateX(130%);
   }
 }
