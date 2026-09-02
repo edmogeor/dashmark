@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { MAX_CUSTOM_METRIC_STATE_LABEL_LENGTH } from './constants'
 import { RESOURCE_STATS } from './labels'
 import { logger } from './logger'
 import { isRecord } from './errors'
@@ -180,7 +181,7 @@ function parseMetricStateLabels(value: unknown): Record<string, string> | undefi
   if (!isRecord(value) || Object.keys(value).length === 0) return undefined
   const labels: Record<string, string> = {}
   for (const [name, label] of Object.entries(value)) {
-    if (!name || typeof label !== 'string' || !label.trim() || label.length > 32) return undefined
+    if (!name || typeof label !== 'string' || !label.trim() || label.length > MAX_CUSTOM_METRIC_STATE_LABEL_LENGTH) return undefined
     labels[name] = label
   }
   return labels
@@ -890,7 +891,7 @@ function validateCustomMetricFormatting(metric: Record<string, unknown>, fields:
   if (metric.transform !== undefined && !transform) return 'transform must define finite multiply and/or add values'
   if (metric.color !== undefined && !color) return 'color must be success, info, warning, error, or disabled'
   if (metric.state_colors !== undefined && !stateColors) return 'state_colors must map non-empty values to success, info, warning, error, or disabled'
-  if (metric.state_labels !== undefined && !stateLabels) return 'state_labels must map non-empty values to display labels of at most 32 characters'
+  if (metric.state_labels !== undefined && !stateLabels) return `state_labels must map non-empty values to display labels of at most ${MAX_CUSTOM_METRIC_STATE_LABEL_LENGTH} characters`
   if (metric.parameters !== undefined && !parameters) return 'parameters must define named URL-component parameters'
   if (metric.chart_group !== undefined && (!chartGroup || !/^[a-z][a-z0-9_-]*$/.test(chartGroup))) return 'chart_group must be a lowercase identifier'
 }

@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro'
+import { VERSION_CHECK_CACHE_TTL_MS, VERSION_CHECK_FAILURE_CACHE_TTL_MS, VERSION_CHECK_TIMEOUT_MS } from '@/lib/constants'
 import { APP_VERSION, isNewerVersion, LATEST_RELEASE_URL } from '@/lib/version'
 import { isRecord } from '@/lib/errors'
 
@@ -18,13 +19,13 @@ async function latestRelease(): Promise<Release | undefined> {
   try {
     const response = await fetch(LATEST_RELEASE_URL, {
       headers: { Accept: 'application/vnd.github+json' },
-      signal: AbortSignal.timeout(5_000)
+      signal: AbortSignal.timeout(VERSION_CHECK_TIMEOUT_MS)
     })
     const release = response.ok ? parseRelease(await response.json()) : undefined
-    cached = { expiresAt: Date.now() + 60 * 60_000, release }
+    cached = { expiresAt: Date.now() + VERSION_CHECK_CACHE_TTL_MS, release }
     return release
   } catch {
-    cached = { expiresAt: Date.now() + 5 * 60_000 }
+    cached = { expiresAt: Date.now() + VERSION_CHECK_FAILURE_CACHE_TTL_MS }
     return undefined
   }
 }

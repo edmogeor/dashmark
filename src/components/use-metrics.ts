@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useState } from 'react'
+import { METRICS_HISTORY_PERIOD_MS } from '@/lib/constants'
 import type { ContainerResources, CustomMetric, MetricError, ResourceMetricSample } from '@/lib/status'
 import type { UptimeMetricSummary } from '@/lib/realtime-client'
 import { useRealtimeMetrics } from './use-realtime'
@@ -16,7 +17,7 @@ type MetricUsage = {
 export function useMetrics(cardId: string, enabled: boolean, active: boolean, initialResources?: ContainerResources): MetricUsage {
   const [resources, setResources] = useState<ContainerResources | null>(initialResources ?? null)
   const [history, setHistory] = useState<ResourceMetricSample[]>([])
-  const [historyPeriodMs, setHistoryPeriodMs] = useState(5 * 60_000)
+  const [historyPeriodMs, setHistoryPeriodMs] = useState(METRICS_HISTORY_PERIOD_MS)
   const [customMetrics, setCustomMetrics] = useState<CustomMetric[]>([])
   const [metricErrors, setMetricErrors] = useState<MetricError[]>([])
   const [uptimeMetrics, setUptimeMetrics] = useState<UptimeMetricSummary[]>([])
@@ -25,7 +26,7 @@ export function useMetrics(cardId: string, enabled: boolean, active: boolean, in
     if (!initialResources) return
     setResources(initialResources)
     setHistory([])
-    setHistoryPeriodMs(5 * 60_000)
+    setHistoryPeriodMs(METRICS_HISTORY_PERIOD_MS)
     setCustomMetrics([])
     setMetricErrors([])
     setUptimeMetrics([])
@@ -35,7 +36,7 @@ export function useMetrics(cardId: string, enabled: boolean, active: boolean, in
     if (!enabled || !active) return
     setResources(null)
     setHistory([])
-    setHistoryPeriodMs(5 * 60_000)
+    setHistoryPeriodMs(METRICS_HISTORY_PERIOD_MS)
     setCustomMetrics([])
     setMetricErrors([])
     setUptimeMetrics([])
@@ -57,7 +58,7 @@ export function useMetrics(cardId: string, enabled: boolean, active: boolean, in
       if (!unavailable) return setLoading(true)
       setResources(null)
       setHistory([])
-      setHistoryPeriodMs(5 * 60_000)
+      setHistoryPeriodMs(METRICS_HISTORY_PERIOD_MS)
       setCustomMetrics([])
       setMetricErrors([])
       setUptimeMetrics([])

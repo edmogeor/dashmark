@@ -10,6 +10,7 @@ import { CircleAlert } from 'lucide-react'
 import type { Card as CardType } from '@/lib/docker'
 import type { DashmarkError } from '@/lib/errors'
 import { getTextDirection } from '@/i18n'
+import { LAYOUT_ANIMATION_DELAY_MS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 
 const COLUMN_WIDTH = 300
@@ -114,7 +115,7 @@ export function useDelayedLayoutAnimation(masonryLayoutReady: boolean, searchBar
   const [enabled, setEnabled] = useState(false)
   useEffect(() => {
     if (!masonryLayoutReady || !searchBarDone) return
-    const timeout = setTimeout(() => setEnabled(true), 300)
+    const timeout = setTimeout(() => setEnabled(true), LAYOUT_ANIMATION_DELAY_MS)
     return () => clearTimeout(timeout)
   }, [masonryLayoutReady, searchBarDone])
   return enabled

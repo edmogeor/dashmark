@@ -5,6 +5,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { TooltipContent } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { badgeColor } from '@/lib/badge-color'
+import { METRICS_TOOLTIP_VISIBLE_ROW_LIMIT } from '@/lib/constants'
 import type { Card as CardType } from '@/lib/docker'
 import type { ContainerResources, CustomMetric, CustomMetricStateColor, ResourceMetricSample } from '@/lib/status'
 import type { UptimeMetricSummary } from '@/lib/realtime-client'
@@ -306,14 +307,14 @@ function ResourceMetrics({ card, resources, history, historyPeriodMs, customMetr
   const metricLabel = (key: string) => (key === 'cpu' || key === 'memory' ? messages.card[key] : (selectedByKey.get(key)?.label ?? key))
   if (loading && resources === null)
     return (
-      <MetricList scrollable={metricCount > 4}>
+      <MetricList scrollable={metricCount > METRICS_TOOLTIP_VISIBLE_ROW_LIMIT}>
         {metrics.map((key) => (
           <PendingMetricEntry key={key} metricKey={key} label={metricLabel(key)} />
         ))}
       </MetricList>
     )
   return (
-    <MetricList scrollable={metricCount > 4}>
+    <MetricList scrollable={metricCount > METRICS_TOOLTIP_VISIBLE_ROW_LIMIT}>
       {metrics.map((key) => {
         if (key === 'cpu' || key === 'memory')
           return <ResourceStatMetric key={key} metricKey={key} resources={resources} history={history} historyPeriodMs={historyPeriodMs} onSelect={onDetailSelect} />
