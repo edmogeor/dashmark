@@ -1,0 +1,18 @@
+{
+  en-US: { label: Logged-in users },
+  de: { label: Angemeldete Benutzer },
+  es: { label: Usuarios conectados },
+  fr: { label: Utilisateurs connectés },
+  it: { label: Utenti connessi },
+  nl: { label: Aangemelde gebruikers },
+  pl: { label: Zalogowani użytkownicy },
+  pt-BR: { label: Usuários conectados },
+  ru: { label: Вошедшие пользователи },
+  tr: { label: Oturum açmış kullanıcılar },
+  uk: { label: 'Користувачі, які увійшли' },
+  ar: { label: المستخدمون المسجلون الدخول },
+  zh-Hans: { label: 已登录用户 },
+  zh-Hant: { label: 已登入使用者 },
+  ja: { label: ログイン中のユーザー },
+  ko: { label: 로그인한 사용자 }
+}

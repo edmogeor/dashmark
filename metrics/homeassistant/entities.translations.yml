@@ -1,0 +1,18 @@
+{
+  en-US: { label: Entities },
+  de: { label: Entitäten },
+  es: { label: Entidades },
+  fr: { label: Entités },
+  it: { label: Entità },
+  nl: { label: Entiteiten },
+  pl: { label: Encje },
+  pt-BR: { label: Entidades },
+  ru: { label: Сущности },
+  tr: { label: Varlıklar },
+  uk: { label: Сутності },
+  ar: { label: الكيانات },
+  zh-Hans: { label: 实体 },
+  zh-Hant: { label: 實體 },
+  ja: { label: エンティティ },
+  ko: { label: 엔티티 }
+}

@@ -1,6 +1,6 @@
 import type { AppConfig } from './config'
 import type { AuthUser } from './auth'
-import { strings } from '@/i18n'
+import { getMessages } from '@/i18n'
 import { MORNING_START_HOUR, AFTERNOON_START_HOUR, EVENING_START_HOUR } from './constants'
 
 export type GreetingPeriod = 'morning' | 'afternoon' | 'evening'
@@ -25,13 +25,14 @@ export function greetingPeriod(date: Date): GreetingPeriod {
 }
 
 export function timeOfDayGreeting(config: AppConfig, date: Date): string {
+  const messages = getMessages(config.locale)
   switch (greetingPeriod(date)) {
     case 'morning':
-      return config.greetingMorning ?? strings.greeting.morning
+      return config.greetingMorning ?? messages.greeting.morning
     case 'afternoon':
-      return config.greetingAfternoon ?? strings.greeting.afternoon
+      return config.greetingAfternoon ?? messages.greeting.afternoon
     case 'evening':
-      return config.greetingEvening ?? strings.greeting.evening
+      return config.greetingEvening ?? messages.greeting.evening
   }
 }
 

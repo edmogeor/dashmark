@@ -1,0 +1,18 @@
+{
+  en-US: { label: Wanted episodes },
+  de: { label: Gesuchte Episoden },
+  es: { label: Episodios buscados },
+  fr: { label: Épisodes recherchés },
+  it: { label: Episodi ricercati },
+  nl: { label: Gezochte afleveringen },
+  pl: { label: Poszukiwane odcinki },
+  pt-BR: { label: Episódios procurados },
+  ru: { label: Разыскиваемые эпизоды },
+  tr: { label: Aranan bölümler },
+  uk: { label: Розшукувані епізоди },
+  ar: { label: الحلقات المطلوبة },
+  zh-Hans: { label: 想看的剧集 },
+  zh-Hant: { label: 想看的劇集 },
+  ja: { label: 検索中のエピソード },
+  ko: { label: 원하는 에피소드 }
+}

@@ -1,0 +1,16 @@
+en-US: { label: Backup health }
+de: { label: Sicherungsstatus }
+es: { label: Estado de copia de seguridad }
+fr: { label: État de la sauvegarde }
+it: { label: Stato del backup }
+nl: { label: Back-upstatus }
+pl: { label: Stan kopii zapasowej }
+pt-BR: { label: Status do backup }
+ru: { label: Состояние резервного копирования }
+tr: { label: Yedekleme durumu }
+uk: { label: Стан резервного копіювання }
+ar: { label: حالة النسخ الاحتياطي }
+zh-Hans: { label: 备份状态 }
+zh-Hant: { label: 備份狀態 }
+ja: { label: バックアップの状態 }
+ko: { label: 백업 상태 }

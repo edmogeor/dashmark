@@ -1,0 +1,18 @@
+{
+  en-US: { label: DNS queries },
+  de: { label: DNS-Abfragen },
+  es: { label: Consultas DNS },
+  fr: { label: Requêtes DNS },
+  it: { label: Richieste DNS },
+  nl: { label: DNS-query's },
+  pl: { label: Zapytania DNS },
+  pt-BR: { label: Consultas DNS },
+  ru: { label: DNS-запросы },
+  tr: { label: DNS sorguları },
+  uk: { label: DNS-запити },
+  ar: { label: استعلامات DNS },
+  zh-Hans: { label: DNS 查询 },
+  zh-Hant: { label: DNS 查詢 },
+  ja: { label: DNS クエリ },
+  ko: { label: DNS 쿼리 }
+}

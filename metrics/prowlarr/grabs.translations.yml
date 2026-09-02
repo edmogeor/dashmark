@@ -1,0 +1,18 @@
+{
+  en-US: { label: Grabs },
+  de: { label: Abrufe },
+  es: { label: Capturas },
+  fr: { label: Récupérations },
+  it: { label: Acquisizioni },
+  nl: { label: Ophalen },
+  pl: { label: Pobrania },
+  pt-BR: { label: Capturas },
+  ru: { label: Захваты },
+  tr: { label: Almalar },
+  uk: { label: Захоплення },
+  ar: { label: عمليات الجلب },
+  zh-Hans: { label: 抓取 },
+  zh-Hant: { label: 抓取 },
+  ja: { label: 取得 },
+  ko: { label: 가져오기 }
+}

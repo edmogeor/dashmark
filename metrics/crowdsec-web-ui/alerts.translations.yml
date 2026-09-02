@@ -1,0 +1,18 @@
+{
+  en-US: { label: Alerts },
+  de: { label: Warnungen },
+  es: { label: Alertas },
+  fr: { label: Alertes },
+  it: { label: Avvisi },
+  nl: { label: Waarschuwingen },
+  pl: { label: Alerty },
+  pt-BR: { label: Alertas },
+  ru: { label: Оповещения },
+  tr: { label: Uyarılar },
+  uk: { label: Сповіщення },
+  ar: { label: التنبيهات },
+  zh-Hans: { label: 警报 },
+  zh-Hant: { label: 警示 },
+  ja: { label: アラート },
+  ko: { label: 경고 }
+}

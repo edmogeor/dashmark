@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useState } from 'react'
-import type { ContainerResources, CustomMetric, ResourceMetricSample } from '@/lib/status'
+import type { ContainerResources, CustomMetric, MetricError, ResourceMetricSample } from '@/lib/status'
 import type { UptimeMetricSummary } from '@/lib/realtime-client'
 import { useRealtimeMetrics } from './use-realtime'
 
@@ -8,7 +8,7 @@ type MetricUsage = {
   history: ResourceMetricSample[]
   historyPeriodMs: number
   customMetrics: CustomMetric[]
-  metricErrors: { key: string; message: string }[]
+  metricErrors: MetricError[]
   uptimeMetrics: UptimeMetricSummary[]
   loading: boolean
 }
@@ -18,7 +18,7 @@ export function useMetrics(cardId: string, enabled: boolean, active: boolean, in
   const [history, setHistory] = useState<ResourceMetricSample[]>([])
   const [historyPeriodMs, setHistoryPeriodMs] = useState(5 * 60_000)
   const [customMetrics, setCustomMetrics] = useState<CustomMetric[]>([])
-  const [metricErrors, setMetricErrors] = useState<{ key: string; message: string }[]>([])
+  const [metricErrors, setMetricErrors] = useState<MetricError[]>([])
   const [uptimeMetrics, setUptimeMetrics] = useState<UptimeMetricSummary[]>([])
   const [loading, setLoading] = useState(false)
   useEffect(() => {

@@ -1,0 +1,18 @@
+{
+  en-US: { label: Blocked },
+  de: { label: Blockiert },
+  es: { label: Bloqueado },
+  fr: { label: Bloqué },
+  it: { label: Bloccato },
+  nl: { label: Geblokkeerd },
+  pl: { label: Zablokowane },
+  pt-BR: { label: Bloqueado },
+  ru: { label: Заблокировано },
+  tr: { label: Engellendi },
+  uk: { label: Заблоковано },
+  ar: { label: محظور },
+  zh-Hans: { label: 已拦截 },
+  zh-Hant: { label: 已封鎖 },
+  ja: { label: ブロック済み },
+  ko: { label: 차단됨 }
+}

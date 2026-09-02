@@ -18,7 +18,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils'
 import type { Card as CardType } from '@/lib/docker'
 import { getInitials } from '@/lib/initials'
-import { strings } from '@/i18n'
 import { useIsDark } from '@/lib/use-is-dark'
 import { TOOLTIP_DELAY_MS } from '@/lib/constants'
 import { showErrorToast, clearStaleErrorToasts } from '@/lib/error-toasts'
@@ -31,6 +30,7 @@ import { useTooltipController } from './tooltip-controller'
 import type { CustomMetric, ResourceMetricSample } from '@/lib/status'
 import type { UptimeMetricSummary } from '@/lib/realtime-client'
 import { UptimeDetailDialog } from './UptimeDetailDialog'
+import { useLocalization } from './localization'
 
 const loadMetricDetailDialog = () =>
   import('./MetricDetailDialog').then(({ MetricDetailDialog }) => ({
@@ -51,11 +51,12 @@ function InitialsPlaceholder({ title, asCard }: { title: string; asCard: boolean
   return (
     <div
       className={cn(
-        'dashmark-app-icon dashmark-app-icon-placeholder flex aspect-square shrink-0 self-stretch items-center justify-center rounded-[45%] pl-1 text-xl font-[550] text-foreground/50',
+        'dashmark-app-icon dashmark-app-icon-placeholder flex aspect-square shrink-0 self-stretch items-center justify-center rounded-[45%] ps-1 text-xl font-[550] text-foreground/50',
         asCard ? 'bg-surface dark:bg-background' : 'bg-card'
       )}
     >
       {getInitials(title)}
+      <span aria-hidden="true" className="dashmark-app-icon-glimmer" />
     </div>
   )
 }
@@ -82,17 +83,19 @@ function AppIcon({ icon, title, asCard }: { icon: CardType['icon']; title: strin
   )
 }
 
-function useMetricErrorToasts(card: CardType, metricErrors: { key: string; message: string }[]) {
+function useMetricErrorToasts(card: CardType, metricErrors: { key: string; code: 'collection_failed' | 'configuration_invalid' }[]) {
+  const { messages } = useLocalization()
   const allErrors = [...(card.metricErrors ?? []), ...metricErrors]
-  const signature = allErrors.map((error) => `${error.key}:${error.message}`).join('|')
+  const signature = allErrors.map((error) => `${error.key}:${error.code}`).join('|')
   useEffect(() => {
     const activeErrors = new Set(allErrors.map((error) => `metric-${card.id}:${error.key}`))
     for (const error of allErrors) {
       const label = card.customMetricLabels?.find((metric) => metric.key === error.key)?.label ?? error.key
-      showErrorToast(`metric-${card.id}:${error.key}`, `${card.title} metric unavailable`, `${label}: ${error.message}`)
+      const detail = error.code === 'configuration_invalid' ? messages.metrics.configurationInvalid : messages.metrics.collectionFailed
+      showErrorToast(`metric-${card.id}:${error.key}`, messages.card.metricUnavailable(card.title), `${label}: ${detail}`)
     }
     clearStaleErrorToasts(`metric-${card.id}:`, activeErrors)
-  }, [card.id, card.title, signature])
+  }, [card.id, card.title, messages, signature])
 }
 
 function useLiveMetricDetail(setDetail: Dispatch<SetStateAction<MetricDetail | null>>, history: ResourceMetricSample[], customMetrics: CustomMetric[]) {
@@ -138,11 +141,12 @@ function AppCardActions({
   onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>, id: string) => void
   children: ReactNode
 }) {
+  const { messages } = useLocalization()
   const resourceId = `resource-${card.id}`
   const descriptionId = `description-${card.id}`
   return (
     <TooltipProvider delayDuration={TOOLTIP_DELAY_MS}>
-      <div className="absolute top-2 right-2 flex items-center gap-1">
+      <div className="absolute top-2 end-2 flex items-center gap-1">
         {showResources && (
           <Tooltip open={resourceOpen} onOpenChange={onResourceOpenChange}>
             <TooltipTrigger asChild>
@@ -155,7 +159,7 @@ function AppCardActions({
                 onPointerDown={(event) => onPointerDown(event, resourceId)}
               >
                 <Gauge className="h-4 w-4" />
-                <span className="sr-only">{strings.card.resourceUsage}</span>
+                <span className="sr-only">{messages.card.resourceUsage}</span>
               </button>
             </TooltipTrigger>
             {children}
@@ -171,7 +175,7 @@ function AppCardActions({
                 onPointerDown={(event) => onPointerDown(event, descriptionId)}
               >
                 <Info className="h-4 w-4" />
-                <span className="sr-only">{strings.card.description}</span>
+                <span className="sr-only">{messages.card.description}</span>
               </button>
             </TooltipTrigger>
             <TooltipContent side="top" align="center" collisionPadding={16} className="dashmark-app-description max-w-xs">
@@ -248,9 +252,11 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showMetr
             <AppIcon icon={card.icon} title={card.title} asCard={asCard} />
             <div className="dashmark-app-details flex min-w-0 flex-1 flex-col gap-2">
               <div className="dashmark-app-header flex min-w-0">
-                <MarqueeText className={cn('dashmark-app-title min-w-0 flex-1 text-sm font-[550] sm:text-[0.9375rem] lg:text-base', hasActions && 'mr-[65px]')}>{card.title}</MarqueeText>
+                <MarqueeText className={cn('dashmark-app-title min-w-0 flex-1 text-sm font-[550] sm:text-[0.9375rem] lg:text-base', hasActions && 'me-[65px]')}>{card.title}</MarqueeText>
               </div>
-              <MarqueeText className="dashmark-app-url text-xs text-muted-foreground">{card.url}</MarqueeText>
+              <MarqueeText className="dashmark-app-url text-xs text-muted-foreground">
+                <bdi dir="ltr">{card.url}</bdi>
+              </MarqueeText>
               {showBadge && (
                 <div className="dashmark-app-status-container">
                   <StatusBadge state={card.state} health={card.health} loading={isLoading && card.hasContainer} asCard={asCard} />

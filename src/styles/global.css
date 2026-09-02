@@ -11,6 +11,12 @@
   initial-value: 0px;
 }
 
+@property --marquee-left-fade {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
 @keyframes dashmark-dialog-backdrop-in {
   from {
     opacity: 0;
@@ -462,6 +468,10 @@
     opacity: 1;
   }
 
+  html[dir='rtl'] .dashmark-category-filter-option {
+    direction: rtl;
+  }
+
   .marquee-content {
     display: inline-block;
     max-width: 100%;
@@ -487,6 +497,21 @@
     -webkit-mask-image: linear-gradient(to right, transparent 0, black 1rem, black calc(100% - var(--marquee-right-fade)), transparent 100%);
   }
 
+  [dir='rtl'] .group\/marquee[data-overflow]:hover,
+  [dir='rtl'] .group\/marquee[data-overflow]:active {
+    --marquee-left-fade: 1rem;
+    mask-image: linear-gradient(to right, transparent 0, black var(--marquee-left-fade), black calc(100% - 1rem), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0, black var(--marquee-left-fade), black calc(100% - 1rem), transparent 100%);
+  }
+
+  .dashmark-theme-toggle-control {
+    clip-path: polygon(100% 0, 0 0, 100% 100%);
+  }
+
+  [dir='rtl'] .dashmark-theme-toggle-control {
+    clip-path: polygon(0 0, 100% 0, 0 100%);
+  }
+
   @keyframes marquee-scroll {
     0% {
       transform: translateX(0);
@@ -503,5 +528,19 @@
     100% {
       --marquee-right-fade: 0px;
     }
+  }
+
+  @keyframes marquee-fade-rtl {
+    0% {
+      --marquee-left-fade: 1rem;
+    }
+    100% {
+      --marquee-left-fade: 0px;
+    }
+  }
+
+  [dir='rtl'] .group\/marquee[data-overflow]:hover,
+  [dir='rtl'] .group\/marquee[data-overflow]:active {
+    animation-name: marquee-fade-rtl;
   }
 }

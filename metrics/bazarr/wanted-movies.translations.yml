@@ -1,0 +1,18 @@
+{
+  en-US: { label: Wanted movies },
+  de: { label: Gesuchte Filme },
+  es: { label: Películas buscadas },
+  fr: { label: Films recherchés },
+  it: { label: Film ricercati },
+  nl: { label: Gezochte films },
+  pl: { label: Poszukiwane filmy },
+  pt-BR: { label: Filmes procurados },
+  ru: { label: Разыскиваемые фильмы },
+  tr: { label: Aranan filmler },
+  uk: { label: Розшукувані фільми },
+  ar: { label: الأفلام المطلوبة },
+  zh-Hans: { label: 想看的电影 },
+  zh-Hant: { label: 想看的電影 },
+  ja: { label: 検索中の映画 },
+  ko: { label: 원하는 영화 }
+}

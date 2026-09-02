@@ -6,7 +6,6 @@ import { TooltipContent } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { badgeColor, chartColorVariable } from '@/lib/badge-color'
 import type { Card as CardType } from '@/lib/docker'
-import { strings } from '@/i18n'
 import type { ContainerResources, CustomMetric, CustomMetricStateColor, NumericCustomMetric, ResourceMetricSample } from '@/lib/status'
 import type { UptimeMetricSummary } from '@/lib/realtime-client'
 import {
@@ -25,6 +24,7 @@ import {
   type MetricDetail
 } from './app-card-metrics'
 import { formatUptimeBucketTime, UptimeHeartbeat, uptimeBucketStatusLabel, uptimeBucketsForRange, uptimePercent, type UptimeBucket } from './UptimeHeartbeat'
+import { useLocalization } from './localization'
 
 type Props = {
   card: CardType
@@ -66,7 +66,7 @@ function ResourceMetric({ label, value, metricKey, pending = false, onSelect }: 
       }
     >
       <span className="dashmark-app-resource-metric-label min-w-0 truncate text-muted-foreground">{label}</span>
-      <div className="dashmark-app-resource-metric-value ml-auto shrink-0">
+      <div className="dashmark-app-resource-metric-value ms-auto shrink-0">
         <span className="dashmark-app-resource-metric-number font-medium tabular-nums">{value}</span>
       </div>
     </div>
@@ -74,6 +74,7 @@ function ResourceMetric({ label, value, metricKey, pending = false, onSelect }: 
 }
 
 function PendingMetric({ label, metricKey, waitingForNetwork = false }: { label: string; metricKey?: string; waitingForNetwork?: boolean }) {
+  const { messages } = useLocalization()
   return (
     <ResourceMetric
       label={label}
@@ -82,7 +83,7 @@ function PendingMetric({ label, metricKey, waitingForNetwork = false }: { label:
       value={
         <span role="status">
           <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-          <span className="sr-only">{waitingForNetwork ? strings.card.waitingForNetwork : `Loading ${label}`}</span>
+          <span className="sr-only">{waitingForNetwork ? messages.card.waitingForNetwork : messages.card.loading(label)}</span>
         </span>
       }
     />
@@ -90,7 +91,7 @@ function PendingMetric({ label, metricKey, waitingForNetwork = false }: { label:
 }
 
 function UnavailableMetric({ label, metricKey }: { label: string; metricKey?: string }) {
-  return <ResourceMetric label={label} metricKey={metricKey} value={strings.card.unavailable} pending />
+  return <ResourceMetric label={label} metricKey={metricKey} value={useLocalization().messages.card.unavailable} pending />
 }
 
 function MetricList({ scrollable, children }: { scrollable: boolean; children: ReactNode }) {
@@ -121,7 +122,7 @@ function MetricList({ scrollable, children }: { scrollable: boolean; children: R
   if (!scrollable) return content
   return (
     <div className="relative h-36">
-      <ScrollArea ref={scrollAreaRef} className="h-full pr-4">
+      <ScrollArea ref={scrollAreaRef} className="h-full pe-4">
         {content}
       </ScrollArea>
       <div className={cn('pointer-events-none absolute inset-x-0 top-0 h-4 bg-linear-to-b from-popover to-transparent transition-opacity', fade.top ? 'opacity-100' : 'opacity-0')} />
@@ -134,7 +135,14 @@ function MetricBadge({ value, valueLabel, color }: { value: string; valueLabel?:
   return <Badge className={cn('dashmark-state-badge max-w-full rounded-full', `dashmark-state-${color}`)}>{valueLabel ?? value.replace(/_/g, ' ')}</Badge>
 }
 
-function resourceDetail(label: string, history: ResourceMetricSample[], historyPeriodMs: number, key: 'cpu' | 'memory', resources: ContainerResources): MetricDetail {
+function resourceDetail(
+  label: string,
+  history: ResourceMetricSample[],
+  historyPeriodMs: number,
+  key: 'cpu' | 'memory',
+  resources: ContainerResources,
+  locale: ReturnType<typeof useLocalization>['locale']
+): MetricDetail {
   const memory = key === 'memory'
   const limit = resources.memoryLimit
   return {
@@ -149,39 +157,45 @@ function resourceDetail(label: string, history: ResourceMetricSample[], historyP
         value: (sample) => (memory && limit && sample.memory !== undefined ? (sample.memory / limit) * 100 : sample[key])
       }
     ],
-    formatValue: (value) => (memory && limit ? formatDetailedPercent(value) : memory ? formatDetailedBytes(value) : formatDetailedPercent(value)),
-    formatTooltipValue: memory && limit ? (value) => `${formatDetailedBytes((value / 100) * limit)} (${formatDetailedPercent(value)})` : undefined,
-    formatAxisValue: memory && limit ? formatAxisPercent : memory ? formatAxisBytes : formatAxisPercent,
+    formatValue: (value) => (memory && limit ? formatDetailedPercent(value, locale) : memory ? formatDetailedBytes(value, locale) : formatDetailedPercent(value, locale)),
+    formatTooltipValue: memory && limit ? (value) => `${formatDetailedBytes((value / 100) * limit, locale)} (${formatDetailedPercent(value, locale)})` : undefined,
+    formatAxisValue: memory && limit ? (value) => formatAxisPercent(value, locale) : memory ? (value) => formatAxisBytes(value, locale) : (value) => formatAxisPercent(value, locale),
     chart: 'line'
   }
 }
 
-function networkDetail(history: ResourceMetricSample[], historyPeriodMs: number): MetricDetail {
+function networkDetail(
+  history: ResourceMetricSample[],
+  historyPeriodMs: number,
+  label: string,
+  messages: ReturnType<typeof useLocalization>['messages'],
+  locale: ReturnType<typeof useLocalization>['locale']
+): MetricDetail {
   return {
-    label: 'Network usage',
+    label,
     history: resourceMetricHistory(history),
     historyPeriodMs,
     series: [
       {
         key: 'received',
-        label: strings.card.received,
+        label: messages.card.received,
         color: tickerConfig.received.color,
         value: (sample) => sample.received
       },
       {
         key: 'sent',
-        label: strings.card.sent,
+        label: messages.card.sent,
         color: tickerConfig.sent.color,
         value: (sample) => sample.sent
       }
     ],
-    formatValue: (value) => `${formatDetailedBytes(value)}/s`,
-    formatAxisValue: (value) => `${formatAxisBytes(value)}/s`,
+    formatValue: (value) => `${formatDetailedBytes(value, locale)}/s`,
+    formatAxisValue: (value) => `${formatAxisBytes(value, locale)}/s`,
     chart: 'step'
   }
 }
 
-function customMetricDetail(metric: NumericCustomMetric, customMetrics: CustomMetric[]): MetricDetail {
+function customMetricDetail(metric: NumericCustomMetric, customMetrics: CustomMetric[], locale: ReturnType<typeof useLocalization>['locale']): MetricDetail {
   const chartMetrics =
     metric.chartGroup === undefined ? [metric] : customMetrics.filter((candidate): candidate is NumericCustomMetric => 'unit' in candidate && candidate.chartGroup === metric.chartGroup)
   return {
@@ -194,8 +208,8 @@ function customMetricDetail(metric: NumericCustomMetric, customMetrics: CustomMe
       color: chartColorVariable(index),
       value: (sample) => sample[candidate.key]
     })),
-    formatValue: (value) => formatDetailedCustomMetric(value, metric.unit),
-    formatAxisValue: (value) => formatAxisCustomMetric(value, metric.unit),
+    formatValue: (value) => formatDetailedCustomMetric(value, metric.unit, locale),
+    formatAxisValue: (value) => formatAxisCustomMetric(value, metric.unit, locale),
     chart: metric.chart === 'none' ? 'step' : metric.chart,
     customMetricKeys: chartMetrics.map((candidate) => candidate.key)
   }
@@ -211,17 +225,18 @@ function NetworkMetrics({
   pending: boolean
   onSelect: (detail: MetricDetail) => void
 }) {
-  const detail = () => onSelect(networkDetail(history, historyPeriodMs))
+  const { locale, messages } = useLocalization()
+  const detail = () => onSelect(networkDetail(history, historyPeriodMs, messages.metrics.networkUsage, messages, locale))
   return (
     <>
       {(['received', 'sent'] as const).map((key) => {
         const value = resources?.[key === 'received' ? 'receivedBytesPerSecond' : 'sentBytesPerSecond']
         return value !== undefined ? (
-          <ResourceMetric key={key} label={strings.card[key]} metricKey={key} value={`${formatBytes(value)}/s`} onSelect={detail} />
+          <ResourceMetric key={key} label={messages.card[key]} metricKey={key} value={`${formatBytes(value, locale)}/s`} onSelect={detail} />
         ) : pending ? (
-          <PendingMetric key={key} label={strings.card[key]} metricKey={key} waitingForNetwork />
+          <PendingMetric key={key} label={messages.card[key]} metricKey={key} waitingForNetwork />
         ) : (
-          <UnavailableMetric key={key} label={strings.card[key]} metricKey={key} />
+          <UnavailableMetric key={key} label={messages.card[key]} metricKey={key} />
         )
       })}
     </>
@@ -238,30 +253,33 @@ function ResourceStatMetric({
   metricKey: 'cpu' | 'memory'
   onSelect: (detail: MetricDetail) => void
 }) {
-  const label = strings.card[metricKey]
+  const { locale, messages } = useLocalization()
+  const label = messages.card[metricKey]
   const value = metricKey === 'cpu' ? resources?.cpuPercent : resources?.memoryUsage
   if (value === undefined || !resources) return <UnavailableMetric label={label} metricKey={metricKey} />
   return (
     <ResourceMetric
       label={label}
       metricKey={metricKey}
-      value={metricKey === 'memory' ? (resources.memoryLimit ? formatPercent((value / resources.memoryLimit) * 100) : formatBytes(value)) : formatPercent(value)}
-      onSelect={() => onSelect(resourceDetail(label, history, historyPeriodMs, metricKey, resources))}
+      value={metricKey === 'memory' ? (resources.memoryLimit ? formatPercent((value / resources.memoryLimit) * 100, locale) : formatBytes(value, locale)) : formatPercent(value, locale)}
+      onSelect={() => onSelect(resourceDetail(label, history, historyPeriodMs, metricKey, resources, locale))}
     />
   )
 }
 
 function PendingMetricEntry({ metricKey, label }: { metricKey: string; label: string }) {
+  const { messages } = useLocalization()
   if (metricKey !== 'network') return <PendingMetric label={label} metricKey={metricKey} />
   return (
     <>
-      <PendingMetric label={strings.card.received} metricKey="received" />
-      <PendingMetric label={strings.card.sent} metricKey="sent" />
+      <PendingMetric label={messages.card.received} metricKey="received" />
+      <PendingMetric label={messages.card.sent} metricKey="sent" />
     </>
   )
 }
 
 function CustomMetrics({ selected, customMetrics, onSelect }: { selected: { key: string; label: string }[]; customMetrics: CustomMetric[]; onSelect: (detail: MetricDetail) => void }) {
+  const { locale } = useLocalization()
   return (
     <>
       {selected.map((selectedMetric) => {
@@ -283,8 +301,8 @@ function CustomMetrics({ selected, customMetrics, onSelect }: { selected: { key:
             key={metric.key}
             label={metric.label}
             metricKey={metric.key}
-            value={formatCustomMetric(metric.value, metric.unit)}
-            onSelect={interactive ? () => onSelect(customMetricDetail(metric, customMetrics)) : undefined}
+            value={formatCustomMetric(metric.value, metric.unit, locale)}
+            onSelect={interactive ? () => onSelect(customMetricDetail(metric, customMetrics, locale)) : undefined}
           />
         )
       })}
@@ -292,27 +310,32 @@ function CustomMetrics({ selected, customMetrics, onSelect }: { selected: { key:
   )
 }
 
-function formatUptimePercent(value: number | undefined): string {
-  return value === undefined ? strings.card.unavailable : `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}%`
+function formatUptimePercent(value: number | undefined, locale: ReturnType<typeof useLocalization>['locale'], messages: ReturnType<typeof useLocalization>['messages']): string {
+  return value === undefined ? messages.card.unavailable : new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 2 }).format(value / 100)
 }
 
-function uptimeBucketSummary(bucket: UptimeBucket): {
+function uptimeBucketSummary(
+  bucket: UptimeBucket,
+  locale: ReturnType<typeof useLocalization>['locale'],
+  messages: ReturnType<typeof useLocalization>['messages']
+): {
   label: string
   value: string
 } {
-  const label = formatUptimeBucketTime(bucket.start)
-  const value = uptimeBucketStatusLabel[bucket.status]
+  const label = formatUptimeBucketTime(bucket.start, locale, messages)
+  const value = uptimeBucketStatusLabel(bucket.status, messages)
   return { label, value }
 }
 
 function UptimeMetricRow({ metric, onSelect }: { metric: UptimeMetricSummary; onSelect: (metric: UptimeMetricSummary) => void }) {
+  const { locale, messages } = useLocalization()
   const [hoveredBucket, setHoveredBucket] = useState<UptimeBucket>()
   const buckets = uptimeBucketsForRange(metric.buckets, '24h')
   const summary = hoveredBucket
-    ? uptimeBucketSummary(hoveredBucket)
+    ? uptimeBucketSummary(hoveredBucket, locale, messages)
     : {
         label: metric.label,
-        value: formatUptimePercent(uptimePercent(buckets))
+        value: formatUptimePercent(uptimePercent(buckets), locale, messages)
       }
   return (
     <button
@@ -323,7 +346,7 @@ function UptimeMetricRow({ metric, onSelect }: { metric: UptimeMetricSummary; on
         event.stopPropagation()
         onSelect(metric)
       }}
-      aria-label={`View ${metric.label.toLowerCase()} history`}
+      aria-label={messages.metrics.viewHistory(metric.label.toLowerCase())}
     >
       <div className="grid gap-0.5 text-xs">
         <div className="flex items-center justify-between gap-3">
@@ -360,6 +383,7 @@ function SelectedMetrics({
 }
 
 function ResourceMetrics({ card, resources, history, historyPeriodMs, customMetrics, uptimeMetrics, loading, onDetailSelect, onUptimeDetailSelect }: Props) {
+  const { messages } = useLocalization()
   const showCpu = card.resourceStats?.includes('cpu')
   const showMemory = card.resourceStats?.includes('memory')
   const showNetwork = card.resourceStats?.includes('network') && !card.usesHostNetwork
@@ -370,7 +394,7 @@ function ResourceMetrics({ card, resources, history, historyPeriodMs, customMetr
   const metrics = configuredMetrics ?? [...(showCpu ? ['cpu'] : []), ...(showMemory ? ['memory'] : []), ...(showNetwork ? ['network'] : []), ...selected.map((metric) => metric.key)]
   const metricCount = metrics.reduce((count, key) => count + (key === 'network' ? 2 : 1), 0)
   const selectedByKey = new Map(selected.map((metric) => [metric.key, metric]))
-  const metricLabel = (key: string) => (key === 'cpu' || key === 'memory' ? strings.card[key] : (selectedByKey.get(key)?.label ?? key))
+  const metricLabel = (key: string) => (key === 'cpu' || key === 'memory' ? messages.card[key] : (selectedByKey.get(key)?.label ?? key))
   if (loading && resources === null)
     return (
       <MetricList scrollable={metricCount > 4}>
@@ -398,11 +422,12 @@ function ResourceMetrics({ card, resources, history, historyPeriodMs, customMetr
 }
 
 export function MetricsTooltip(props: Props) {
+  const { messages } = useLocalization()
   const { card } = props
   return (
     <TooltipContent side="top" align="center" collisionPadding={16} className="dashmark-app-resources w-60 p-3" data-card-id={card.id}>
       <div className="dashmark-app-resources-header mb-3 flex items-baseline justify-between gap-3 border-b pb-2">
-        <span className="dashmark-app-resources-title text-[0.6875rem] leading-none font-medium tracking-[0.18em] text-muted-foreground uppercase">Metrics</span>
+        <span className="dashmark-app-resources-title text-[0.6875rem] leading-none font-medium tracking-[0.18em] text-muted-foreground uppercase">{messages.metrics.title}</span>
         {card.host && (
           <span className={cn('dashmark-app-resource-host inline-flex select-none items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium', badgeColor(card.hostColor ?? 0))}>
             <Server className="h-3 w-3" aria-hidden="true" />

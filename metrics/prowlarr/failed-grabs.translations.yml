@@ -1,0 +1,18 @@
+{
+  en-US: { label: Failed grabs },
+  de: { label: Fehlgeschlagene Abrufe },
+  es: { label: Capturas fallidas },
+  fr: { label: Récupérations échouées },
+  it: { label: Acquisizioni non riuscite },
+  nl: { label: Mislukte ophalingen },
+  pl: { label: Nieudane pobrania },
+  pt-BR: { label: Capturas com falha },
+  ru: { label: Неудачные захваты },
+  tr: { label: Başarısız almalar },
+  uk: { label: Невдалі захоплення },
+  ar: { label: عمليات الجلب الفاشلة },
+  zh-Hans: { label: 失败的抓取 },
+  zh-Hant: { label: 失敗的抓取 },
+  ja: { label: 失敗した取得 },
+  ko: { label: 실패한 가져오기 }
+}

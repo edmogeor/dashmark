@@ -1,0 +1,18 @@
+{
+  en-US: { label: Latency },
+  de: { label: Latenz },
+  es: { label: Latencia },
+  fr: { label: Latence },
+  it: { label: Latenza },
+  nl: { label: Latentie },
+  pl: { label: Opóźnienie },
+  pt-BR: { label: Latência },
+  ru: { label: Задержка },
+  tr: { label: Gecikme },
+  uk: { label: Затримка },
+  ar: { label: زمن الاستجابة },
+  zh-Hans: { label: 延迟 },
+  zh-Hant: { label: 延遲 },
+  ja: { label: レイテンシ },
+  ko: { label: 지연 시간 }
+}

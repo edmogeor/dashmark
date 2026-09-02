@@ -1,0 +1,18 @@
+{
+  en-US: { label: Active streams },
+  de: { label: Aktive Streams },
+  es: { label: Transmisiones activas },
+  fr: { label: Flux actifs },
+  it: { label: Streaming attivi },
+  nl: { label: Actieve streams },
+  pl: { label: Aktywne strumienie },
+  pt-BR: { label: Transmissões ativas },
+  ru: { label: Активные потоки },
+  tr: { label: Etkin akışlar },
+  uk: { label: Активні потоки },
+  ar: { label: التدفقات النشطة },
+  zh-Hans: { label: 活跃流 },
+  zh-Hant: { label: 使用中的串流 },
+  ja: { label: アクティブなストリーム },
+  ko: { label: 활성 스트림 }
+}

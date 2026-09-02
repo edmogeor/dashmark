@@ -1,0 +1,16 @@
+en-US: { label: Issues }
+de: { label: Probleme }
+es: { label: Problemas }
+fr: { label: Problèmes }
+it: { label: Problemi }
+nl: { label: Problemen }
+pl: { label: Problemy }
+pt-BR: { label: Problemas }
+ru: { label: Проблемы }
+tr: { label: Sorunlar }
+uk: { label: Проблеми }
+ar: { label: المشكلات }
+zh-Hans: { label: 问题 }
+zh-Hant: { label: 問題 }
+ja: { label: 問題 }
+ko: { label: 문제 }

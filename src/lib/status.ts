@@ -57,7 +57,7 @@ export type NumericCustomMetric = {
 export type TextCustomMetric = { key: string; label: string; value: string }
 export type StateCustomMetric = TextCustomMetric & { color: CustomMetricStateColor; valueLabel?: string }
 export type CustomMetric = NumericCustomMetric | TextCustomMetric | StateCustomMetric
-export type MetricError = { key: string; message: string }
+export type MetricError = { key: string; code: 'collection_failed' | 'configuration_invalid' }
 
 export type UptimeStatus = 'up' | 'down' | 'unknown'
 export type UptimeObservation = { timestamp: number; status: UptimeStatus; responseTimeMs?: number }
@@ -210,7 +210,7 @@ function isCustomMetricChart(value: unknown): value is CustomMetricChart {
 }
 
 function isMetricError(value: unknown): value is MetricError {
-  return isRecord(value) && typeof value.key === 'string' && typeof value.message === 'string'
+  return isRecord(value) && typeof value.key === 'string' && (value.code === 'collection_failed' || value.code === 'configuration_invalid')
 }
 
 export function isStatusResponse(value: unknown): value is StatusResponse {

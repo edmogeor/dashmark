@@ -1,0 +1,18 @@
+{
+  en-US: { label: WAN received },
+  de: { label: WAN empfangen },
+  es: { label: WAN recibida },
+  fr: { label: WAN reçue },
+  it: { label: WAN ricevuta },
+  nl: { label: WAN ontvangen },
+  pl: { label: WAN odebrana },
+  pt-BR: { label: WAN recebida },
+  ru: { label: Получено WAN },
+  tr: { label: WAN alındı },
+  uk: { label: WAN отримано },
+  ar: { label: WAN المستلمة },
+  zh-Hans: { label: WAN 已接收 },
+  zh-Hant: { label: WAN 已接收 },
+  ja: { label: WAN 受信 },
+  ko: { label: WAN 수신 }
+}

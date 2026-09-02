@@ -1,0 +1,16 @@
+en-US: { label: Leeches }
+de: { label: Leecher }
+es: { label: Clientes descargando }
+fr: { label: Clients téléchargeant }
+it: { label: Leecher }
+nl: { label: Leechers }
+pl: { label: Pobierający }
+pt-BR: { label: Baixadores }
+ru: { label: Личеры }
+tr: { label: İndirenler }
+uk: { label: Лічери }
+ar: { label: المستنزفون }
+zh-Hans: { label: 下载者 }
+zh-Hant: { label: 下載者 }
+ja: { label: リーチャー }
+ko: { label: 리처 }

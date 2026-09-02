@@ -3,6 +3,7 @@ import { CircleCheck, CircleX, ExternalLink, Info, LoaderCircle } from 'lucide-r
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { APP_VERSION, BUY_ME_A_COFFEE_URL, GITHUB_URL } from '@/lib/version'
+import { useLocalization } from './localization'
 
 type VersionResponse = { version: string; update?: { tagName: string; url: string } }
 
@@ -20,6 +21,7 @@ function GitHubIcon() {
 }
 
 export function AboutDialog() {
+  const { messages } = useLocalization()
   const [open, setOpen] = useState(false)
   const [version, setVersion] = useState<VersionResponse>()
   const [loading, setLoading] = useState(false)
@@ -39,7 +41,7 @@ export function AboutDialog() {
       <DialogTrigger asChild>
         <button
           type="button"
-          aria-label="About Dashmark"
+          aria-label={messages.app.about}
           className="dashmark-about-button inline-flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none dark:hover:text-muted-foreground/70"
         >
           <Info className="h-4 w-4" />
@@ -48,37 +50,37 @@ export function AboutDialog() {
       <DialogContent className="max-w-md">
         <DialogHeader className="items-center text-center">
           <img src={brandIconPath} alt="" className="mb-2 h-12 w-12" />
-          <DialogTitle>Dashmark</DialogTitle>
-          <DialogDescription>A lightweight dashboard of links to your Docker services.</DialogDescription>
+          <DialogTitle>{messages.app.title}</DialogTitle>
+          <DialogDescription>{messages.meta.description}</DialogDescription>
           <p className="text-sm text-muted-foreground">
-            Created by{' '}
+            {messages.app.createdBy}{' '}
             <a href="https://github.com/edmogeor" target="_blank" rel="noreferrer" className="font-medium text-foreground underline-offset-4 hover:underline">
               edmogeor
             </a>
           </p>
-          <p className="text-xs text-muted-foreground">Copyright © 2026 edmogeor</p>
+          <p className="text-xs text-muted-foreground">{messages.app.copyright}</p>
         </DialogHeader>
         <div className="space-y-3 rounded-md border bg-muted/30 p-4 text-sm">
           <div className="flex items-center justify-between gap-4">
-            <span className="text-muted-foreground">{isDemo ? 'Latest stable version' : 'Installed version'}</span>
+            <span className="text-muted-foreground">{isDemo ? messages.about.latestStableVersion : messages.about.installedVersion}</span>
             <code className="font-medium">v{displayedVersion ?? version?.version ?? APP_VERSION}</code>
           </div>
           {loading && (
             <div className="flex items-center gap-2 text-muted-foreground">
-              <LoaderCircle className="h-4 w-4 animate-spin" /> Checking for updates
+              <LoaderCircle className="h-4 w-4 animate-spin" /> {messages.about.checkingForUpdates}
             </div>
           )}
           {version?.update && (
             <a href={version.update.url} target="_blank" rel="noreferrer" className="flex items-center justify-between gap-3 font-medium text-primary hover:underline">
               <span className="flex items-center gap-2">
-                <CircleX className="h-4 w-4" /> Update available: {version.update.tagName}
+                <CircleX className="h-4 w-4" /> {messages.about.updateAvailable(version.update.tagName)}
               </span>
               <ExternalLink className="h-4 w-4 shrink-0" />
             </a>
           )}
           {(isDemo || (version && !version.update)) && (
             <p className="flex items-center gap-2 text-muted-foreground">
-              <CircleCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> You are up to date.
+              <CircleCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> {messages.about.upToDate}
             </p>
           )}
         </div>

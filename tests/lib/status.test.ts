@@ -46,7 +46,7 @@ describe('isStatusResponse', () => {
           { key: 'version', label: 'Version', value: '1.2.3' },
           { key: 'state', label: 'State', value: 'Healthy', color: 'success' }
         ],
-        metricErrors: [{ key: 'failed', message: 'Metric is unavailable' }]
+        metricErrors: [{ key: 'failed', code: 'collection_failed' }]
       })
     ).toBe(true)
   })

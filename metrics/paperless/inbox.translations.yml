@@ -1,0 +1,18 @@
+{
+  en-US: { label: Inbox },
+  de: { label: Posteingang },
+  es: { label: Bandeja de entrada },
+  fr: { label: Boîte de réception },
+  it: { label: Posta in arrivo },
+  nl: { label: Postvak IN },
+  pl: { label: Skrzynka odbiorcza },
+  pt-BR: { label: Caixa de entrada },
+  ru: { label: Входящие },
+  tr: { label: Gelen kutusu },
+  uk: { label: Вхідні },
+  ar: { label: الوارد },
+  zh-Hans: { label: 收件箱 },
+  zh-Hant: { label: 收件匣 },
+  ja: { label: 受信トレイ },
+  ko: { label: 받은 편지함 }
+}

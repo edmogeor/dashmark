@@ -1,0 +1,18 @@
+{
+  en-US: { label: Albums },
+  de: { label: Alben },
+  es: { label: Álbumes },
+  fr: { label: Albums },
+  it: { label: Album },
+  nl: { label: Albums },
+  pl: { label: Albumy },
+  pt-BR: { label: Álbuns },
+  ru: { label: Альбомы },
+  tr: { label: Albümler },
+  uk: { label: Альбоми },
+  ar: { label: الألبومات },
+  zh-Hans: { label: 专辑 },
+  zh-Hant: { label: 專輯 },
+  ja: { label: アルバム },
+  ko: { label: 앨범 }
+}

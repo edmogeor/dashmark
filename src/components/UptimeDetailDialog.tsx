@@ -4,18 +4,17 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import type { UptimeMetricSummary } from '@/lib/realtime-client'
 import { UptimeHeartbeat, uptimeBucketsForRange, uptimePercent } from './UptimeHeartbeat'
-
-const ranges = [
-  { label: '24h', durationMs: 24 * 60 * 60 * 1_000 },
-  { label: '7d', durationMs: 7 * 24 * 60 * 60 * 1_000 },
-  { label: '30d', durationMs: 30 * 24 * 60 * 60 * 1_000 }
-] as const
-
-function formatPercent(value: number | undefined): string {
-  return value === undefined ? 'No data' : `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}%`
-}
+import { useLocalization } from './localization'
 
 export function UptimeDetailDialog({ metric, onOpenChange }: { metric: UptimeMetricSummary | null; onOpenChange: (open: boolean) => void }) {
+  const { locale, messages } = useLocalization()
+  const ranges = [
+    { key: '24h', label: messages.time.ranges.day, durationMs: 24 * 60 * 60 * 1_000 },
+    { key: '7d', label: messages.time.ranges.week, durationMs: 7 * 24 * 60 * 60 * 1_000 },
+    { key: '30d', label: messages.time.ranges.month, durationMs: 30 * 24 * 60 * 60 * 1_000 }
+  ] as const
+  const formatPercent = (value: number | undefined): string =>
+    value === undefined ? messages.uptime.noData : new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 2 }).format(value / 100)
   const [rangeIndex, setRangeIndex] = useState(2)
   const [dialogContent, setDialogContent] = useState<HTMLDivElement | null>(null)
   const [displayedMetric, setDisplayedMetric] = useState(metric)
@@ -24,7 +23,7 @@ export function UptimeDetailDialog({ metric, onOpenChange }: { metric: UptimeMet
   }, [metric])
   const currentMetric = metric ?? displayedMetric
   const range = ranges[rangeIndex]!
-  const buckets = currentMetric ? uptimeBucketsForRange(currentMetric.buckets, range.label) : []
+  const buckets = currentMetric ? uptimeBucketsForRange(currentMetric.buckets, range.key) : []
   const percent = uptimePercent(buckets)
   return (
     <Dialog open={metric !== null} onOpenChange={onOpenChange}>
@@ -46,17 +45,17 @@ export function UptimeDetailDialog({ metric, onOpenChange }: { metric: UptimeMet
               <div className="flex items-center gap-2">
                 <ToggleGroup
                   type="single"
-                  value={range.label}
+                  value={range.key}
                   onValueChange={(value) => {
-                    const index = ranges.findIndex((candidate) => candidate.label === value)
+                    const index = ranges.findIndex((candidate) => candidate.key === value)
                     if (index >= 0) setRangeIndex(index)
                   }}
                   spacing={0}
                   className="rounded-md bg-muted p-0.5"
-                  aria-label="Uptime period"
+                  aria-label={messages.uptime.period}
                 >
                   {ranges.map((candidate) => (
-                    <ToggleGroupItem key={candidate.label} value={candidate.label} className="h-6 min-w-0 cursor-pointer px-2 text-xs data-[state=on]:bg-background data-[state=on]:shadow-sm">
+                    <ToggleGroupItem key={candidate.key} value={candidate.key} className="h-6 min-w-0 cursor-pointer px-2 text-xs data-[state=on]:bg-background data-[state=on]:shadow-sm">
                       {candidate.label}
                     </ToggleGroupItem>
                   ))}
@@ -67,33 +66,33 @@ export function UptimeDetailDialog({ metric, onOpenChange }: { metric: UptimeMet
                   onClick={() => onOpenChange(false)}
                 >
                   <X className="h-4 w-4" />
-                  <span className="sr-only">Close</span>
+                  <span className="sr-only">{messages.common.close}</span>
                 </button>
               </div>
-              <DialogDescription className="sr-only">Uptime history</DialogDescription>
+              <DialogDescription className="sr-only">{messages.uptime.history}</DialogDescription>
             </DialogHeader>
             <div className="space-y-6 pt-2">
               <div>
                 <p className="text-3xl font-[550] tabular-nums">{formatPercent(percent)}</p>
-                <p className="text-xs text-muted-foreground">availability for the selected period</p>
+                <p className="text-xs text-muted-foreground">{messages.uptime.availability}</p>
               </div>
               <UptimeHeartbeat buckets={buckets} className="h-20 gap-1" showTooltips collisionBoundary={dialogContent} />
               <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1.5">
                   <i className="h-2 w-2 rounded-sm bg-success" />
-                  Up
+                  {messages.uptime.up}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <i className="h-2 w-2 rounded-sm bg-destructive" />
-                  Down
+                  {messages.uptime.down}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <i className="h-2 w-2 rounded-sm bg-warning" />
-                  Partial
+                  {messages.uptime.partial}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <i className="h-2 w-2 rounded-sm bg-muted-foreground/30" />
-                  No data
+                  {messages.uptime.noData}
                 </span>
               </div>
             </div>

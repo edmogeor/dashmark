@@ -1,0 +1,18 @@
+{
+  en-US: { label: Uptime },
+  de: { label: Betriebszeit },
+  es: { label: Tiempo de actividad },
+  fr: { label: Temps de fonctionnement },
+  it: { label: Tempo di attività },
+  nl: { label: Beschikbaarheid },
+  pl: { label: Czas działania },
+  pt-BR: { label: Tempo de atividade },
+  ru: { label: Время работы },
+  tr: { label: Çalışma süresi },
+  uk: { label: Час роботи },
+  ar: { label: وقت التشغيل },
+  zh-Hans: { label: 正常运行时间 },
+  zh-Hant: { label: 正常運行時間 },
+  ja: { label: 稼働時間 },
+  ko: { label: 가동 시간 }
+}

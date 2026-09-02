@@ -1,0 +1,16 @@
+en-US: { label: Series }
+de: { label: Serien }
+es: { label: Series }
+fr: { label: Séries }
+it: { label: Serie }
+nl: { label: Series }
+pl: { label: Seriale }
+pt-BR: { label: Séries }
+ru: { label: Сериалы }
+tr: { label: Diziler }
+uk: { label: Серіали }
+ar: { label: مسلسلات }
+zh-Hans: { label: 剧集 }
+zh-Hant: { label: 影集 }
+ja: { label: シリーズ }
+ko: { label: 시리즈 }

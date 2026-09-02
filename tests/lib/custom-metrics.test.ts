@@ -317,7 +317,7 @@ describe('collectCustomMetric', () => {
 
   it('reports an unavailable metric when jq produces a non-numeric value', async () => {
     await expect(collectCustomMetric('items', { ...metric({ jq: { expression: '.items' } }), source: { url: `${baseUrl}/items` } })).resolves.toMatchObject({
-      error: 'jq extraction did not produce a finite number'
+      error: 'collection_failed'
     })
   })
 
@@ -453,7 +453,7 @@ describe('collectCustomMetric', () => {
           auth: { type: 'basic', optional: true, username: { env: 'DASHMARK_TEST_MISSING_OPTIONAL_USERNAME' }, password: { env: 'DASHMARK_TEST_MISSING_OPTIONAL_PASSWORD' } }
         }
       })
-    ).resolves.toMatchObject({ error: 'Authentication is required, but Credential DASHMARK_TEST_MISSING_OPTIONAL_USERNAME is unavailable' })
+    ).resolves.toMatchObject({ error: 'collection_failed' })
   })
 
   it('sends static headers and prefixed token authentication', async () => {
@@ -589,6 +589,6 @@ describe('collectCustomMetric', () => {
   })
 
   it('rejects responses larger than one megabyte', async () => {
-    await expect(collectCustomMetric('large', { ...metric({ jq: { expression: '.value' } }), source: { url: `${baseUrl}/large` } })).resolves.toEqual({ error: 'Could not reach metric source' })
+    await expect(collectCustomMetric('large', { ...metric({ jq: { expression: '.value' } }), source: { url: `${baseUrl}/large` } })).resolves.toEqual({ error: 'collection_failed' })
   })
 })

@@ -1,0 +1,18 @@
+{
+  en-US: { label: Download },
+  de: { label: Herunterladen },
+  es: { label: Descarga },
+  fr: { label: Téléchargement },
+  it: { label: Download },
+  nl: { label: Downloaden },
+  pl: { label: Pobieranie },
+  pt-BR: { label: Download },
+  ru: { label: Загрузка },
+  tr: { label: İndirme },
+  uk: { label: Завантаження },
+  ar: { label: تنزيل },
+  zh-Hans: { label: 下载 },
+  zh-Hant: { label: 下載 },
+  ja: { label: ダウンロード },
+  ko: { label: 다운로드 }
+}

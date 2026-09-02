@@ -1,0 +1,18 @@
+{
+  en-US: { label: Failed queries },
+  de: { label: Fehlgeschlagene Abfragen },
+  es: { label: Consultas fallidas },
+  fr: { label: Requêtes échouées },
+  it: { label: Query non riuscite },
+  nl: { label: Mislukte zoekopdrachten },
+  pl: { label: Nieudane zapytania },
+  pt-BR: { label: Consultas com falha },
+  ru: { label: Неудачные запросы },
+  tr: { label: Başarısız sorgular },
+  uk: { label: Невдалі запити },
+  ar: { label: الاستعلامات الفاشلة },
+  zh-Hans: { label: 失败的查询 },
+  zh-Hant: { label: 失敗的查詢 },
+  ja: { label: 失敗したクエリ },
+  ko: { label: 실패한 쿼리 }
+}

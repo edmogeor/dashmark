@@ -1,0 +1,16 @@
+en-US: { label: Queued }
+de: { label: In Warteschlange }
+es: { label: En cola }
+fr: { label: En attente }
+it: { label: In coda }
+nl: { label: In wachtrij }
+pl: { label: W kolejce }
+pt-BR: { label: Na fila }
+ru: { label: В очереди }
+tr: { label: Kuyrukta }
+uk: { label: У черзі }
+ar: { label: في قائمة الانتظار }
+zh-Hans: { label: 排队中 }
+zh-Hant: { label: 排隊中 }
+ja: { label: キュー済み }
+ko: { label: 대기열 }

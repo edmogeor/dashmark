@@ -48,7 +48,7 @@ export type Card = {
   metricsPollIntervalMs?: number
   metricsHistoryPeriodMs?: number
   metricsAccess?: Record<string, string[]>
-  metricErrors?: { key: string; message: string }[]
+  metricErrors?: { key: string; code: 'collection_failed' | 'configuration_invalid' }[]
   resourceUsage?: ContainerResources
   searchAliases: string[]
   hasContainer: boolean
@@ -976,7 +976,7 @@ export type ContainerMetricUsage = {
   historyPeriodMs: number
   customMetrics: CollectedCustomMetric[]
   uptimeMetrics?: CollectedUptimeMetric[]
-  metricErrors: { key: string; message: string }[]
+  metricErrors: { key: string; code: 'collection_failed' | 'configuration_invalid' }[]
   metricsAccess?: Record<string, string[]>
   metricsPollIntervalMs?: number
 }
@@ -1031,11 +1031,10 @@ function selectedMetricLabels(resolved: ResolvedMetricCard): SelectedCustomMetri
   })
 }
 
-function selectedCustomMetricErrors(resolved: ResolvedMetricCard): { key: string; message: string }[] {
+function selectedCustomMetricErrors(resolved: ResolvedMetricCard): { key: string; code: 'configuration_invalid' }[] {
   if (!resolved.labels.metrics) return []
   return resolved.labels.metrics.flatMap((key) => {
-    const message = resolved.customMetricErrors?.[key]
-    return message ? [{ key, message }] : []
+    return resolved.customMetricErrors?.[key] ? [{ key, code: 'configuration_invalid' }] : []
   })
 }
 
@@ -1123,11 +1122,11 @@ async function collectSelectedCustomMetrics(
       })
     } else if ('error' in result && metric.valueType === 'uptime' && uptimeHistory.length > 0) {
       uptimeMetrics.push({ key, label: localizeMetricLabel(config.locale, key, metric.label), current: uptimeHistory.at(-1)?.status ?? 'unknown', observations: uptimeHistory })
-      collectedErrors.push({ key, message: result.error })
+      collectedErrors.push({ key, code: result.error })
     } else if ('value' in result) {
       const collected = collectedCustomMetric(config.locale, key, metric, result.value)
       if (collected) customMetrics.push(collected)
-    } else if ('error' in result) collectedErrors.push({ key, message: result.error })
+    } else if ('error' in result) collectedErrors.push({ key, code: result.error })
   }
   return {
     customMetrics,

@@ -1,0 +1,18 @@
+{
+  en-US: { label: Entity State },
+  de: { label: Entitätsstatus },
+  es: { label: Estado de la entidad },
+  fr: { label: État de l'entité },
+  it: { label: Stato dell'entità },
+  nl: { label: Entiteitsstatus },
+  pl: { label: Stan encji },
+  pt-BR: { label: Estado da entidade },
+  ru: { label: Состояние сущности },
+  tr: { label: Varlık durumu },
+  uk: { label: Стан сутності },
+  ar: { label: حالة الكيان },
+  zh-Hans: { label: 实体状态 },
+  zh-Hant: { label: 實體狀態 },
+  ja: { label: エンティティの状態 },
+  ko: { label: 엔터티 상태 }
+}

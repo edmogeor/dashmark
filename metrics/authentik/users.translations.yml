@@ -1,0 +1,18 @@
+{
+  en-US: { label: Users },
+  de: { label: Benutzer },
+  es: { label: Usuarios },
+  fr: { label: Utilisateurs },
+  it: { label: Utenti },
+  nl: { label: Gebruikers },
+  pl: { label: Użytkownicy },
+  pt-BR: { label: Usuários },
+  ru: { label: Пользователи },
+  tr: { label: Kullanıcılar },
+  uk: { label: Користувачі },
+  ar: { label: المستخدمون },
+  zh-Hans: { label: 用户 },
+  zh-Hant: { label: 使用者 },
+  ja: { label: ユーザー },
+  ko: { label: 사용자 }
+}

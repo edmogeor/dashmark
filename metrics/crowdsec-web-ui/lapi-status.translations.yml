@@ -1,0 +1,18 @@
+{
+  en-US: { label: LAPI status },
+  de: { label: LAPI-Status },
+  es: { label: Estado de LAPI },
+  fr: { label: État de LAPI },
+  it: { label: Stato LAPI },
+  nl: { label: LAPI-status },
+  pl: { label: Status LAPI },
+  pt-BR: { label: Status da LAPI },
+  ru: { label: Статус LAPI },
+  tr: { label: LAPI durumu },
+  uk: { label: Стан LAPI },
+  ar: { label: حالة LAPI },
+  zh-Hans: { label: LAPI 状态 },
+  zh-Hant: { label: LAPI 狀態 },
+  ja: { label: LAPI のステータス },
+  ko: { label: LAPI 상태 }
+}

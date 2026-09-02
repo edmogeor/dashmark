@@ -5,21 +5,22 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ChartContainer, ChartTooltip } from '@/components/ui/chart'
 import { chartDomain, endLabelOffset } from '@/lib/chart-layout'
 import { downsampleChartData, metricData, tickerConfig, type ChartPoint, type MetricDetail, type MetricSeries } from './app-card-metrics'
-import { createDateTimeFormatter } from '@/i18n'
+import { createDateTimeFormatter, type Locale } from '@/i18n'
+import { useLocalization } from './localization'
 
-const timestampFormatter = createDateTimeFormatter({
+const timestampFormat: Intl.DateTimeFormatOptions = {
   hour: 'numeric',
   minute: '2-digit'
-})
-const exactTimestampFormatter = createDateTimeFormatter({
+}
+const exactTimestampFormat: Intl.DateTimeFormatOptions = {
   hour: 'numeric',
   minute: '2-digit',
   second: '2-digit'
-})
+}
 
-function formatTimestamp(timestamp: unknown, formatter = timestampFormatter): string {
+function formatTimestamp(timestamp: unknown, locale: Locale, options = timestampFormat): string {
   const value = Number(timestamp)
-  return Number.isFinite(value) ? formatter.format(value) : ''
+  return Number.isFinite(value) ? createDateTimeFormatter(options, locale).format(value) : ''
 }
 
 function chartData(detail: MetricDetail): ChartPoint[] {
@@ -35,6 +36,7 @@ function chartData(detail: MetricDetail): ChartPoint[] {
 }
 
 function MetricTooltip({ detail }: { detail: MetricDetail }) {
+  const { locale } = useLocalization()
   const [isTouch, setIsTouch] = useState(false)
 
   useEffect(() => {
@@ -59,7 +61,7 @@ function MetricTooltip({ detail }: { detail: MetricDetail }) {
         if (!active || values.length === 0) return null
         return (
           <div className="dashmark-metric-chart-tooltip grid gap-1 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
-            <span className="dashmark-metric-chart-tooltip-time text-muted-foreground">{formatTimestamp(label, exactTimestampFormatter)}</span>
+            <span className="dashmark-metric-chart-tooltip-time text-muted-foreground">{formatTimestamp(label, locale, exactTimestampFormat)}</span>
             {values.map(([series, value]) => (
               <div key={series.key} className="dashmark-metric-chart-tooltip-value flex items-center justify-between gap-4 font-mono font-medium tabular-nums" data-series-key={series.key}>
                 {detail.series.length > 1 && <span className="dashmark-metric-chart-tooltip-label text-muted-foreground">{series.label}</span>}
@@ -140,6 +142,7 @@ function MetricSeriesLine({
 }
 
 function MetricChart({ detail }: { detail: MetricDetail }) {
+  const { locale, messages } = useLocalization()
   const gradientId = useId().replace(/:/g, '')
   const data = useMemo(() => chartData(detail), [detail])
   const values = data.flatMap((point) => detail.series.flatMap((series) => (typeof point[series.key] === 'number' ? [point[series.key] as number] : [])))
@@ -153,7 +156,7 @@ function MetricChart({ detail }: { detail: MetricDetail }) {
   return (
     <div className="dashmark-metric-dialog-body flex h-80 w-full flex-col">
       <div className="min-h-0 flex-1">
-        <ChartContainer config={tickerConfig} className="dashmark-metric-chart h-full w-full aspect-auto" aria-label={`${detail.label} chart`}>
+        <ChartContainer config={tickerConfig} className="dashmark-metric-chart h-full w-full aspect-auto" aria-label={messages.metrics.chart(detail.label)} dir="ltr">
           <Chart className="dashmark-metric-chart-svg" data={data} margin={{ top: 12, right: 4, bottom: 4, left: 0 }} accessibilityLayer={false} throttleDelay={50}>
             {chart === 'area' && (
               <defs>
@@ -173,7 +176,7 @@ function MetricChart({ detail }: { detail: MetricDetail }) {
               domain={[start, end]}
               allowDataOverflow
               className="dashmark-metric-chart-x-axis"
-              tickFormatter={(value) => formatTimestamp(value)}
+              tickFormatter={(value) => formatTimestamp(value, locale)}
               tickLine={false}
               axisLine={false}
               ticks={Array.from({ length: 4 }, (_, index) => start + ((end - start) * index) / 3)}
@@ -201,6 +204,7 @@ function MetricChart({ detail }: { detail: MetricDetail }) {
 }
 
 export const MetricDetailDialog = memo(function MetricDetailDialog({ detail, onOpen, onOpenChange }: { detail: MetricDetail | null; onOpen: () => void; onOpenChange: (open: boolean) => void }) {
+  const { messages } = useLocalization()
   const [displayedDetail, setDisplayedDetail] = useState(detail)
   useEffect(() => {
     if (detail) setDisplayedDetail(detail)
@@ -229,9 +233,9 @@ export const MetricDetailDialog = memo(function MetricDetailDialog({ detail, onO
                 onClick={() => onOpenChange(false)}
               >
                 <X className="h-4 w-4" />
-                <span className="sr-only">Close</span>
+                <span className="sr-only">{messages.common.close}</span>
               </button>
-              <DialogDescription className="sr-only">Live {currentDetail.label.toLowerCase()} details</DialogDescription>
+              <DialogDescription className="sr-only">{messages.metrics.liveDetails(currentDetail.label.toLowerCase())}</DialogDescription>
             </DialogHeader>
             <MetricChart detail={currentDetail} />
           </>

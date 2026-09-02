@@ -1,0 +1,16 @@
+en-US: { label: Open issues }
+de: { label: Offene Probleme }
+es: { label: Problemas abiertos }
+fr: { label: Problèmes ouverts }
+it: { label: Problemi aperti }
+nl: { label: Openstaande problemen }
+pl: { label: Otwarte problemy }
+pt-BR: { label: Problemas em aberto }
+ru: { label: Открытые проблемы }
+tr: { label: Açık sorunlar }
+uk: { label: Відкриті проблеми }
+ar: { label: المشكلات المفتوحة }
+zh-Hans: { label: 未解决问题 }
+zh-Hant: { label: 未解決問題 }
+ja: { label: 未解決の問題 }
+ko: { label: 미해결 문제 }

@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
-import { statusLabel, strings } from '@/i18n'
+import { statusLabel } from '@/i18n'
+import { useLocalization } from './localization'
 
 type StatusBadgeProps = {
   state?: string
@@ -27,12 +28,13 @@ function getColorClass(status: string): string {
 }
 
 export function StatusBadge({ state, health, loading, asCard = false }: StatusBadgeProps) {
+  const { messages } = useLocalization()
   if (loading) {
     return (
       <span
         className={cn('dashmark-app-status dashmark-app-status-loading inline-flex h-5 w-5 items-center justify-center rounded-full', asCard ? 'bg-muted' : 'bg-surface-active')}
         aria-busy="true"
-        aria-label={strings.status.loading}
+        aria-label={messages.status.loading}
       >
         <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
       </span>
@@ -45,5 +47,9 @@ export function StatusBadge({ state, health, loading, asCard = false }: StatusBa
 
   const colorClass = getColorClass(display.toLowerCase())
 
-  return <span className={cn('dashmark-app-status dashmark-state-badge inline-flex select-none items-center rounded-full px-2.5 py-1 text-xs font-medium', colorClass)}>{statusLabel(display)}</span>
+  return (
+    <span className={cn('dashmark-app-status dashmark-state-badge inline-flex select-none items-center rounded-full px-2.5 py-1 text-xs font-medium', colorClass)}>
+      {statusLabel(display, messages)}
+    </span>
+  )
 }

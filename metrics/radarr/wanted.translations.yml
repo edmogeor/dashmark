@@ -1,0 +1,16 @@
+en-US: { label: Wanted }
+de: { label: Gesucht }
+es: { label: Buscadas }
+fr: { label: Recherchés }
+it: { label: Ricercati }
+nl: { label: Gezocht }
+pl: { label: Poszukiwane }
+pt-BR: { label: Procurados }
+ru: { label: Разыскиваемые }
+tr: { label: Aranan }
+uk: { label: Розшукувані }
+ar: { label: مطلوب }
+zh-Hans: { label: 想看的 }
+zh-Hant: { label: 想看的 }
+ja: { label: 欲しいもの }
+ko: { label: 원하는 항목 }

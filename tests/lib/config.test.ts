@@ -167,11 +167,14 @@ describe('getConfig feature toggles', () => {
 })
 
 describe('getConfig locale', () => {
-  it('defaults to US English and falls back to it for unavailable locales', () => {
+  it('defaults to US English, supports configured locales, and falls back for unknown locales', () => {
     delete process.env.LOCALE
     expect(getConfig().locale).toBe('en-US')
 
     process.env.LOCALE = 'de'
+    expect(getConfig().locale).toBe('de')
+
+    process.env.LOCALE = 'en-GB'
     expect(getConfig().locale).toBe('en-US')
   })
 

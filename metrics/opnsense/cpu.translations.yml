@@ -1,0 +1,18 @@
+{
+  en-US: { label: CPU },
+  de: { label: CPU },
+  es: { label: CPU },
+  fr: { label: CPU },
+  it: { label: CPU },
+  nl: { label: CPU },
+  pl: { label: CPU },
+  pt-BR: { label: CPU },
+  ru: { label: ЦП },
+  tr: { label: CPU },
+  uk: { label: ЦП },
+  ar: { label: وحدة المعالجة المركزية },
+  zh-Hans: { label: CPU },
+  zh-Hant: { label: CPU },
+  ja: { label: CPU },
+  ko: { label: CPU }
+}

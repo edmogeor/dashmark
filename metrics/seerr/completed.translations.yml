@@ -1,0 +1,16 @@
+en-US: { label: Completed requests }
+de: { label: Abgeschlossene Anfragen }
+es: { label: Solicitudes completadas }
+fr: { label: Demandes terminées }
+it: { label: Richieste completate }
+nl: { label: Voltooide aanvragen }
+pl: { label: Ukończone żądania }
+pt-BR: { label: Solicitações concluídas }
+ru: { label: Завершенные запросы }
+tr: { label: Tamamlanan istekler }
+uk: { label: Завершені запити }
+ar: { label: الطلبات المكتملة }
+zh-Hans: { label: 已完成请求 }
+zh-Hant: { label: 已完成請求 }
+ja: { label: 完了したリクエスト }
+ko: { label: 완료된 요청 }

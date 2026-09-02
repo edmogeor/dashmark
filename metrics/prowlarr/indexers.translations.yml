@@ -1,0 +1,18 @@
+{
+  en-US: { label: Indexers },
+  de: { label: Indexer },
+  es: { label: Indexadores },
+  fr: { label: Indexeurs },
+  it: { label: Indicizzatori },
+  nl: { label: Indexeerders },
+  pl: { label: Indeksery },
+  pt-BR: { label: Indexadores },
+  ru: { label: Индексаторы },
+  tr: { label: Dizinleyiciler },
+  uk: { label: Індексатори },
+  ar: { label: المفهرسات },
+  zh-Hans: { label: 索引器 },
+  zh-Hant: { label: 索引器 },
+  ja: { label: インデクサー },
+  ko: { label: 인덱서 }
+}

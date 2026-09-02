@@ -1,0 +1,18 @@
+{
+  en-US: { label: Movies },
+  de: { label: Filme },
+  es: { label: Películas },
+  fr: { label: Films },
+  it: { label: Film },
+  nl: { label: Films },
+  pl: { label: Filmy },
+  pt-BR: { label: Filmes },
+  ru: { label: Фильмы },
+  tr: { label: Filmler },
+  uk: { label: Фільми },
+  ar: { label: الأفلام },
+  zh-Hans: { label: 电影 },
+  zh-Hant: { label: 電影 },
+  ja: { label: 映画 },
+  ko: { label: 영화 }
+}

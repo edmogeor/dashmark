@@ -32,11 +32,11 @@ async function queueRequest<T>(origin: string, request: () => Promise<T>): Promi
   }
 }
 
-export type MetricResult = { value: number | string } | { observations: UptimeObservation[] } | { error: string }
+export type MetricResult = { value: number | string } | { observations: UptimeObservation[] } | { error: 'collection_failed' }
 
 function unavailable(key: string, detail: string): MetricResult {
   logger.error('metrics', 'custom metric collection failed', { key, detail })
-  return { error: detail }
+  return { error: 'collection_failed' }
 }
 
 function reduce(values: number[], reduction: CustomMetricReduction | undefined): number | undefined {
@@ -583,7 +583,7 @@ async function collectSocketIoMetric(key: string, metric: MetricOverride, url: U
   } catch (error) {
     const detail = error instanceof Error ? error.name : 'unknown error'
     logger.error('metrics', 'Socket.IO metric request failed', { key, url: url.origin, error: detail })
-    return { error: detail === 'Error' ? 'Socket.IO request failed' : 'Could not reach metric source' }
+    return { error: 'collection_failed' }
   } finally {
     socket.disconnect()
   }
@@ -613,7 +613,7 @@ export async function collectCustomMetric(key: string, metric: MetricOverride, b
     if (response.status >= 300 && response.status < 400) throw new Error('source redirected')
     if (response.status < 200 || response.status >= 300) {
       logger.error('metrics', 'custom metric source returned an error', { key, url: url.origin + url.pathname, status: response.status })
-      return { error: `Source returned HTTP ${response.status}` }
+      return { error: 'collection_failed' }
     }
     const extracted = metric.forEach
       ? await collectForEachMetric(key, response.text, metric, async (childUrl) => {
@@ -638,8 +638,6 @@ export async function collectCustomMetric(key: string, metric: MetricOverride, b
   } catch (error) {
     const detail = error instanceof Error ? error.name : 'unknown error'
     logger.error('metrics', 'custom metric request failed', { key, url: url.origin + url.pathname, error: detail })
-    if (detail === 'TimeoutError') return { error: 'Source request timed out' }
-    if (detail === 'AbortError') return { error: 'Source request was cancelled' }
-    return { error: 'Could not reach metric source' }
+    return { error: 'collection_failed' }
   }
 }

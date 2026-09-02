@@ -1,0 +1,18 @@
+{
+  en-US: { label: Filtered },
+  de: { label: Gefiltert },
+  es: { label: Filtrado },
+  fr: { label: Filtré },
+  it: { label: Filtrato },
+  nl: { label: Gefilterd },
+  pl: { label: Przefiltrowane },
+  pt-BR: { label: Filtrado },
+  ru: { label: Отфильтровано },
+  tr: { label: Filtrelendi },
+  uk: { label: Відфільтровано },
+  ar: { label: تمت التصفية },
+  zh-Hans: { label: 已过滤 },
+  zh-Hant: { label: 已篩選 },
+  ja: { label: フィルタリング済み },
+  ko: { label: 필터링됨 }
+}

@@ -32,6 +32,7 @@ const badgeColors = new Set(['success', 'info', 'warning', 'error', 'disabled'])
 const metricName = /^[a-z][a-z0-9_-]*$/
 const prometheusName = /^[a-zA-Z_:][a-zA-Z0-9_:]*$/
 const sourceBase = /^\{(?:url|metric_source)\}(?:\/|$)/
+const locales = ['en-US', 'de', 'es', 'fr', 'it', 'nl', 'pl', 'pt-BR', 'ru', 'tr', 'uk', 'ar', 'zh-Hans', 'zh-Hant', 'ja', 'ko']
 
 function record(value, message) {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) throw new Error(message)
@@ -419,10 +420,27 @@ function validateMetricDefinition(definition, provider) {
   validateSource(sourceWithDefaults(provider, definition))
 }
 
+function validateTranslations(file) {
+  const translationFile = file.replace(/\.yml$/, '.translations.yml')
+  if (!fs.existsSync(translationFile)) throw new Error('translation file is required')
+
+  const translations = record(yaml.load(fs.readFileSync(translationFile, 'utf8')), 'translation file must contain a YAML mapping')
+  if (Object.keys(translations).length !== locales.length || locales.some((locale) => !Object.hasOwn(translations, locale))) {
+    throw new Error(`translation file must define exactly these locales: ${locales.join(', ')}`)
+  }
+
+  for (const locale of locales) {
+    const translation = record(translations[locale], `translation ${locale} must be a mapping`)
+    allowed(translation, new Set(['label']), `translation ${locale}`)
+    if (typeof translation.label !== 'string' || !translation.label.trim()) throw new Error(`translation ${locale}.label must be a non-empty string`)
+  }
+}
+
 function validate(file, provider) {
   validatePath(file)
   const definition = record(yaml.load(fs.readFileSync(file, 'utf8')), 'must contain a YAML mapping')
   validateMetricDefinition(definition, provider)
+  validateTranslations(file)
 }
 
 const errors = []

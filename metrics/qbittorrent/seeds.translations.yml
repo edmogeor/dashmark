@@ -1,0 +1,16 @@
+en-US: { label: Seeding }
+de: { label: Teilen }
+es: { label: Compartiendo }
+fr: { label: Partage }
+it: { label: Condivisione }
+nl: { label: Seeden }
+pl: { label: Udostępnianie }
+pt-BR: { label: Semeando }
+ru: { label: Раздача }
+tr: { label: Paylaşım }
+uk: { label: Роздавання }
+ar: { label: البذر }
+zh-Hans: { label: 做种 }
+zh-Hant: { label: 做種 }
+ja: { label: シード中 }
+ko: { label: 배포 중 }

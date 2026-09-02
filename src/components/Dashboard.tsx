@@ -15,7 +15,7 @@ import type { DashmarkError } from '@/lib/errors'
 import { useStableLoading } from '@/lib/use-stable-loading'
 import { useRealtimeStatus } from './use-realtime'
 import { usePageOverflow } from '@/lib/use-page-overflow'
-import { strings } from '@/i18n'
+import { getTextDirection, type Locale } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { badgeColor } from '@/lib/badge-color'
 import { STATUS_TOAST_ID, TOOLTIP_DELAY_MS } from '@/lib/constants'
@@ -23,6 +23,7 @@ import { TooltipControllerProvider, useTooltipController } from './tooltip-contr
 import { AboutDialog } from './AboutDialog'
 import { useIsDark } from '@/lib/use-is-dark'
 import { clearErrorToast, showErrorToast } from '@/lib/error-toasts'
+import { LocalizationProvider, useLocalization } from './localization'
 
 const COLUMN_WIDTH = 300
 const COLUMN_GUTTER = 20
@@ -60,6 +61,7 @@ function GroupBadge({ group, colorIndex }: { group: string; colorIndex: number }
 }
 
 function UserGroupsBadge({ groups, colorOffset }: { groups: string[]; colorOffset: number }) {
+  const { locale, messages } = useLocalization()
   const { activeTooltip, setActiveTooltip } = useTooltipController()
   const tooltipId = 'more-groups'
 
@@ -71,7 +73,7 @@ function UserGroupsBadge({ groups, colorOffset }: { groups: string[]; colorOffse
   }
 
   return (
-    <div className="dashmark-user-groups ml-3 flex items-center gap-1.5">
+    <div className="dashmark-user-groups ms-3 flex items-center gap-1.5">
       <GroupBadge group={groups[0]} colorIndex={colorOffset} />
       {groups.length > 1 && (
         <TooltipProvider delayDuration={TOOLTIP_DELAY_MS}>
@@ -79,12 +81,12 @@ function UserGroupsBadge({ groups, colorOffset }: { groups: string[]; colorOffse
             <TooltipTrigger asChild>
               <button
                 type="button"
-                aria-label={`Show ${groups.length - 1} more groups`}
+                aria-label={messages.dashboard.moreGroups(groups.length - 1, new Intl.NumberFormat(locale).format(groups.length - 1))}
                 className="dashmark-group-badge dashmark-group-badge-overflow inline-flex cursor-help select-none items-center rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 onClick={(event) => event.preventDefault()}
                 onPointerDown={handleMoreGroupsPointerDown}
               >
-                +{groups.length - 1}
+                +{new Intl.NumberFormat(locale).format(groups.length - 1)}
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom" sideOffset={6} align="end" collisionPadding={16} className="flex flex-col items-start gap-1.5 py-2.5">
@@ -100,12 +102,13 @@ function UserGroupsBadge({ groups, colorOffset }: { groups: string[]; colorOffse
 }
 
 function ErrorPanel({ error }: { error: DashmarkError }) {
+  const { messages } = useLocalization()
   return (
     <AnimatedGridItem className="dashmark-error flex items-center justify-center" delay={0.08}>
       <div className="dashmark-error-panel mx-auto flex w-full max-w-xl gap-4 rounded-lg border border-error-border bg-error-bg p-6 text-error-text">
         <CircleAlert className="mt-0.5 h-5 w-5 shrink-0" />
         <div className="min-w-0">
-          <p className="font-[550]">{strings.errors.unableToLoadServices}</p>
+          <p className="font-[550]">{messages.errors.unableToLoadServices}</p>
           <p className="mt-1 text-sm">{error.message}</p>
           {error.detail && <p className="mt-2 whitespace-pre-wrap text-xs opacity-80">{error.detail}</p>}
         </div>
@@ -207,6 +210,8 @@ function MasonryGrid({ items, entries, onReady, animate, showStatus, showMetrics
   const notifiedRef = useRef(false)
   const onReadyRef = useRef(onReady)
   const [width, setWidth] = useState(0)
+  const { locale } = useLocalization()
+  const isRTL = getTextDirection(locale) === 'rtl'
 
   useEffect(() => {
     onReadyRef.current = onReady
@@ -259,7 +264,7 @@ function MasonryGrid({ items, entries, onReady, animate, showStatus, showMetrics
   }, [itemsKey, virtualizer])
 
   const virtualItems = virtualizer.getVirtualItems()
-  const visualRank = new Map([...virtualItems].sort((a, b) => a.lane - b.lane || a.start - b.start).map((item, rank) => [item.index, rank]))
+  const visualRank = new Map([...virtualItems].sort((a, b) => (isRTL ? b.lane - a.lane : a.lane - b.lane) || a.start - b.start).map((item, rank) => [item.index, rank]))
 
   const twoColumn = items.some((item) => item.cards.length > 1)
   const showGrid = width > 0
@@ -310,6 +315,7 @@ function MasonryGrid({ items, entries, onReady, animate, showStatus, showMetrics
 }
 
 type DashboardProps = {
+  locale: Locale
   initialCards: CardType[]
   initialError?: DashmarkError
   initialShowSearch?: boolean
@@ -358,12 +364,13 @@ type DashboardSearchPanelProps = {
 }
 
 function DashboardSearchPanel({ showBranding, search, setSearch, error, categories, hasCategories, totalCards, selectedCategory, setSelectedCategory }: DashboardSearchPanelProps) {
+  const { messages } = useLocalization()
   const brandMarkPath = useIsDark() ? brandMarkLightPath : brandMarkDarkPath
 
   return (
     <Card className="dashmark-search-panel dashmark-card-gradient overflow-hidden bg-background shadow-none dark:bg-surface">
       <CardContent className="dashmark-search-panel-content flex flex-row items-center gap-4 p-5">
-        {showBranding && <img src={brandMarkPath} alt="Dashmark" className="dashmark-brand h-8 w-8 shrink-0" />}
+        {showBranding && <img src={brandMarkPath} alt={messages.app.title} className="dashmark-brand h-8 w-8 shrink-0" />}
         <div className="min-w-0 flex-1">
           <SearchBar value={search} onChange={setSearch} disabled={!!error} />
         </div>
@@ -497,6 +504,8 @@ function DashboardResults({
   animateMasonry,
   enableCardLayout
 }: DashboardResultsProps) {
+  const { locale, messages } = useLocalization()
+  const isRTL = getTextDirection(locale) === 'rtl'
   const cardEntries = useItemEntries(uncategorised.map((card) => card.id))
   const categoryEntries = useItemEntries(categoryItems.map((item) => item.key))
 
@@ -505,7 +514,7 @@ function DashboardResults({
   if (!hasResults) {
     return (
       <div className="dashmark-empty-state flex items-center justify-center py-4">
-        <p className="dashmark-empty-state-message whitespace-nowrap text-muted-foreground">{strings.dashboard.noServices}</p>
+        <p className="dashmark-empty-state-message whitespace-nowrap text-muted-foreground">{messages.dashboard.noServices}</p>
       </div>
     )
   }
@@ -517,7 +526,7 @@ function DashboardResults({
           {uncategorised.map((card, index) => {
             const entry = cardEntries.get(card.id)
             return (
-              <AnimatedGridItem key={entry?.key} layoutId={`card-${card.id}`} isReentry={isSearching || entry?.isReentry} delay={0.08 + index * 0.06}>
+              <AnimatedGridItem key={entry?.key} layoutId={`card-${card.id}`} isReentry={isSearching || entry?.isReentry} delay={0.08 + (isRTL ? uncategorised.length - index - 1 : index) * 0.06}>
                 <AppCard card={card} showStatus={showStatus} showMetrics={showMetrics} asCard isLoading={isLoading} openInNewTab={openInNewTab} />
               </AnimatedGridItem>
             )
@@ -557,6 +566,7 @@ function DashboardContent({
   greeting,
   userGroups = []
 }: DashboardProps) {
+  const { messages } = useLocalization()
   const [cards, setCards] = useState<CardType[]>(initialCards)
   const [error] = useState<DashmarkError | null>(initialError ?? null)
   const [search, setSearch] = useState('')
@@ -575,7 +585,7 @@ function DashboardContent({
   })
 
   useEffect(() => {
-    if (statusUnavailable) showErrorToast(STATUS_TOAST_ID, strings.errors.liveUpdatesUnavailable)
+    if (statusUnavailable) showErrorToast(STATUS_TOAST_ID, messages.errors.liveUpdatesUnavailable)
     else clearErrorToast(STATUS_TOAST_ID, { immediate: true })
   }, [statusUnavailable])
 
@@ -584,7 +594,8 @@ function DashboardContent({
     deferredSearch,
     selectedCategory,
     Boolean(error),
-    categoryOrder
+    categoryOrder,
+    messages.category.uncategorised
   )
   const groupColorOffset = new Set(cards.flatMap((card) => (card.host ? [card.host] : []))).size
 
@@ -656,9 +667,12 @@ function DashboardContent({
 }
 
 export function Dashboard(props: DashboardProps) {
+  const { locale, ...dashboardProps } = props
   return (
-    <TooltipControllerProvider>
-      <DashboardContent {...props} />
-    </TooltipControllerProvider>
+    <LocalizationProvider locale={locale}>
+      <TooltipControllerProvider>
+        <DashboardContent {...dashboardProps} locale={locale} />
+      </TooltipControllerProvider>
+    </LocalizationProvider>
   )
 }

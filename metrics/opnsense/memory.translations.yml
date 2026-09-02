@@ -1,0 +1,18 @@
+{
+  en-US: { label: Memory },
+  de: { label: Arbeitsspeicher },
+  es: { label: Memoria },
+  fr: { label: Mémoire },
+  it: { label: Memoria },
+  nl: { label: Geheugen },
+  pl: { label: Pamięć },
+  pt-BR: { label: Memória },
+  ru: { label: Память },
+  tr: { label: Bellek },
+  uk: { label: Пам'ять },
+  ar: { label: الذاكرة },
+  zh-Hans: { label: 内存 },
+  zh-Hant: { label: 記憶體 },
+  ja: { label: メモリ },
+  ko: { label: 메모리 }
+}

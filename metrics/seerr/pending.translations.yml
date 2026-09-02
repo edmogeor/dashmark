@@ -1,0 +1,16 @@
+en-US: { label: Pending requests }
+de: { label: Ausstehende Anfragen }
+es: { label: Solicitudes pendientes }
+fr: { label: Demandes en attente }
+it: { label: Richieste in attesa }
+nl: { label: Openstaande aanvragen }
+pl: { label: Oczekujące żądania }
+pt-BR: { label: Solicitações pendentes }
+ru: { label: Ожидающие запросы }
+tr: { label: Bekleyen istekler }
+uk: { label: Запити в очікуванні }
+ar: { label: الطلبات المعلقة }
+zh-Hans: { label: 待处理请求 }
+zh-Hant: { label: 待處理請求 }
+ja: { label: 保留中のリクエスト }
+ko: { label: 대기 중인 요청 }

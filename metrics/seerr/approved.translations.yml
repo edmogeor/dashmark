@@ -1,0 +1,16 @@
+en-US: { label: Approved requests }
+de: { label: Genehmigte Anfragen }
+es: { label: Solicitudes aprobadas }
+fr: { label: Demandes approuvées }
+it: { label: Richieste approvate }
+nl: { label: Goedgekeurde aanvragen }
+pl: { label: Zatwierdzone żądania }
+pt-BR: { label: Solicitações aprovadas }
+ru: { label: Одобренные запросы }
+tr: { label: Onaylanan istekler }
+uk: { label: Схвалені запити }
+ar: { label: الطلبات المعتمدة }
+zh-Hans: { label: 已批准请求 }
+zh-Hant: { label: 已核准請求 }
+ja: { label: 承認済みのリクエスト }
+ko: { label: 승인된 요청 }

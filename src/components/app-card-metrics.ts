@@ -1,6 +1,8 @@
 import type { CustomMetric, CustomMetricChart, CustomMetricUnit, ResourceMetricSample } from '@/lib/status'
+import { defaultLocale, getMessages, type Locale } from '@/i18n'
 
-const units = ['B', 'KB', 'MB', 'GB', 'TB']
+const byteUnits = ['byte', 'kilobyte', 'megabyte', 'gigabyte', 'terabyte'] as const satisfies readonly Intl.NumberFormatOptions['unit'][]
+const bitUnits = ['bit', 'kilobit', 'megabit', 'gigabit', 'terabit'] as const satisfies readonly Intl.NumberFormatOptions['unit'][]
 const MAX_CHART_POINTS = 600
 
 export const tickerConfig = {
@@ -37,88 +39,116 @@ export type MetricDetail = {
 
 function byteParts(value: number): { amount: number; index: number } {
   const normalizedValue = Math.max(0, value)
-  const index = normalizedValue === 0 ? 0 : Math.min(Math.floor(Math.log(normalizedValue) / Math.log(1_024)), units.length - 1)
+  const index = normalizedValue === 0 ? 0 : Math.min(Math.floor(Math.log(normalizedValue) / Math.log(1_024)), byteUnits.length - 1)
   return { amount: normalizedValue / 1_024 ** index, index }
 }
 
-function formatNumber(value: number, significantDigits: number): string {
-  return value.toLocaleString(undefined, { maximumSignificantDigits: significantDigits })
+function formatNumber(value: number, significantDigits: number, locale: Locale = defaultLocale): string {
+  return new Intl.NumberFormat(locale, { maximumSignificantDigits: significantDigits }).format(value)
 }
 
-function formatBytesWithPrecision(value: number, significantDigits: number): string {
+function formatBytesWithPrecision(value: number, significantDigits: number, locale: Locale = defaultLocale): string {
+  return formatScaledUnit(value, byteUnits, significantDigits, locale)
+}
+
+function formatBitsWithPrecision(value: number, significantDigits: number, locale: Locale = defaultLocale): string {
+  return formatScaledUnit(value, bitUnits, significantDigits, locale)
+}
+
+function formatScaledUnit(value: number, units: readonly Intl.NumberFormatOptions['unit'][], significantDigits: number, locale: Locale): string {
   const { amount, index } = byteParts(value)
-  return `${formatNumber(amount, significantDigits)} ${units[index]}`
+  return new Intl.NumberFormat(locale, {
+    style: 'unit',
+    unit: units[index],
+    unitDisplay: 'narrow',
+    maximumSignificantDigits: significantDigits
+  }).format(amount)
 }
 
-export function formatBytes(value: number): string {
-  return formatBytesWithPrecision(value, 3)
+export function formatBytes(value: number, locale: Locale = defaultLocale): string {
+  return formatBytesWithPrecision(value, 3, locale)
 }
 
-export function formatDetailedBytes(value: number): string {
-  return formatBytesWithPrecision(value, 4)
+export function formatDetailedBytes(value: number, locale: Locale = defaultLocale): string {
+  return formatBytesWithPrecision(value, 4, locale)
 }
 
-export function formatPercent(value: number): string {
-  return `${formatNumber(value, 3)}%`
+export function formatPercent(value: number, locale: Locale = defaultLocale): string {
+  return new Intl.NumberFormat(locale, { style: 'percent', maximumSignificantDigits: 3 }).format(value / 100)
 }
 
-export function formatDetailedPercent(value: number): string {
-  return `${formatNumber(value, 4)}%`
+export function formatDetailedPercent(value: number, locale: Locale = defaultLocale): string {
+  return new Intl.NumberFormat(locale, { style: 'percent', maximumSignificantDigits: 4 }).format(value / 100)
 }
 
-export function formatAxisPercent(value: number): string {
-  return formatPercent(value)
+export function formatAxisPercent(value: number, locale: Locale = defaultLocale): string {
+  return formatPercent(value, locale)
 }
 
-export function formatAxisBytes(value: number): string {
-  return formatBytes(value)
+export function formatAxisBytes(value: number, locale: Locale = defaultLocale): string {
+  return formatBytes(value, locale)
 }
 
-function formatDuration(value: number, significantDigits: number): string {
-  if (value < 1) return `${formatNumber(value * 1_000, significantDigits)}ms`
-  if (value < 60) return `${formatNumber(value, significantDigits)}s`
-  if (value < 3_600) return `${formatNumber(value / 60, significantDigits)}m`
-  return `${formatNumber(value / 3_600, significantDigits)}h`
+function formatDuration(value: number, significantDigits: number, locale: Locale): string {
+  const [amount, unit]: [number, Intl.NumberFormatOptions['unit']] =
+    value < 1 ? [value * 1_000, 'millisecond'] : value < 60 ? [value, 'second'] : value < 3_600 ? [value / 60, 'minute'] : [value / 3_600, 'hour']
+  return new Intl.NumberFormat(locale, { style: 'unit', unit, unitDisplay: 'narrow', maximumSignificantDigits: significantDigits }).format(amount)
 }
 
-function formatCustomMetricWithPrecision(value: number, unit: CustomMetricUnit, significantDigits: number): string {
-  if (typeof unit === 'object') return `${formatNumber(value, significantDigits)} ${unit.suffix}`
-  if (unit === 'bytes') return formatBytesWithPrecision(value, significantDigits)
-  if (unit === 'bytes_per_second') return `${formatBytesWithPrecision(value, significantDigits)}/s`
-  if (unit === 'bits') return `${formatBytesWithPrecision(value / 8, significantDigits)}b`
-  if (unit === 'bits_per_second') return `${formatBytesWithPrecision(value / 8, significantDigits)}b/s`
-  if (unit === 'percent') return `${formatNumber(value, significantDigits)}%`
-  if (unit === 'ratio') return `${formatNumber(value * 100, significantDigits)}%`
-  if (unit === 'seconds') return `${formatNumber(value, significantDigits)}s`
-  if (unit === 'milliseconds') return `${formatNumber(value, significantDigits)}ms`
-  if (unit === 'microseconds') return `${formatNumber(value, significantDigits)}us`
-  if (unit === 'duration') return formatDuration(value, significantDigits)
-  if (unit === 'hertz') return `${formatNumber(value, significantDigits)} Hz`
-  if (unit === 'watts') return `${formatNumber(value, significantDigits)} W`
-  if (unit === 'volts') return `${formatNumber(value, significantDigits)} V`
-  if (unit === 'amperes') return `${formatNumber(value, significantDigits)} A`
-  if (unit === 'celsius') return `${formatNumber(value, significantDigits)} C`
-  if (unit === 'fahrenheit') return `${formatNumber(value, significantDigits)} F`
-  if (unit === 'boolean') return value === 0 ? 'False' : 'True'
-  return formatNumber(value, significantDigits)
+function formatUnit(value: number, unit: Intl.NumberFormatOptions['unit'], significantDigits: number, locale: Locale): string {
+  return new Intl.NumberFormat(locale, { style: 'unit', unit, unitDisplay: 'narrow', maximumSignificantDigits: significantDigits }).format(value)
 }
 
-export function formatCustomMetric(value: number, unit: CustomMetricUnit): string {
-  return formatCustomMetricWithPrecision(value, unit, 3)
+function formatCustomMetricWithPrecision(value: number, unit: CustomMetricUnit, significantDigits: number, locale: Locale): string {
+  if (typeof unit === 'object') return `${formatNumber(value, significantDigits, locale)} ${unit.suffix}`
+  if (unit === 'bytes') return formatBytesWithPrecision(value, significantDigits, locale)
+  if (unit === 'bytes_per_second')
+    return formatScaledUnit(
+      value,
+      byteUnits.map((unit) => `${unit}-per-second` as Intl.NumberFormatOptions['unit']),
+      significantDigits,
+      locale
+    )
+  if (unit === 'bits') return formatBitsWithPrecision(value, significantDigits, locale)
+  if (unit === 'bits_per_second')
+    return formatScaledUnit(
+      value,
+      bitUnits.map((unit) => `${unit}-per-second` as Intl.NumberFormatOptions['unit']),
+      significantDigits,
+      locale
+    )
+  if (unit === 'percent') return formatPercent(value, locale)
+  if (unit === 'ratio') return formatPercent(value * 100, locale)
+  if (unit === 'seconds') return formatUnit(value, 'second', significantDigits, locale)
+  if (unit === 'milliseconds') return formatUnit(value, 'millisecond', significantDigits, locale)
+  if (unit === 'microseconds') return formatUnit(value, 'microsecond', significantDigits, locale)
+  if (unit === 'duration') return formatDuration(value, significantDigits, locale)
+  if (unit === 'hertz') return formatUnit(value, 'hertz', significantDigits, locale)
+  if (unit === 'watts') return formatUnit(value, 'watt', significantDigits, locale)
+  if (unit === 'volts') return formatUnit(value, 'volt', significantDigits, locale)
+  if (unit === 'amperes') return formatUnit(value, 'ampere', significantDigits, locale)
+  if (unit === 'celsius') return formatUnit(value, 'celsius', significantDigits, locale)
+  if (unit === 'fahrenheit') return formatUnit(value, 'fahrenheit', significantDigits, locale)
+  if (unit === 'boolean') return value === 0 ? getMessages(locale).common.false : getMessages(locale).common.true
+  return formatNumber(value, significantDigits, locale)
 }
 
-export function formatDetailedCustomMetric(value: number, unit: CustomMetricUnit): string {
-  return formatCustomMetricWithPrecision(value, unit, 4)
+export function formatCustomMetric(value: number, unit: CustomMetricUnit, locale: Locale = defaultLocale): string {
+  return formatCustomMetricWithPrecision(value, unit, 3, locale)
 }
 
-export function formatAxisCustomMetric(value: number, unit: CustomMetricUnit): string {
-  if (unit === 'bytes') return formatAxisBytes(value)
-  if (unit === 'bytes_per_second') return `${formatAxisBytes(value)}/s`
-  if (unit === 'bits') return `${formatAxisBytes(value / 8)}b`
-  if (unit === 'bits_per_second') return `${formatAxisBytes(value / 8)}b/s`
-  if (unit === 'percent') return formatAxisPercent(value)
-  if (unit === 'ratio') return formatAxisPercent(value * 100)
-  return formatCustomMetric(value, unit)
+export function formatDetailedCustomMetric(value: number, unit: CustomMetricUnit, locale: Locale = defaultLocale): string {
+  return formatCustomMetricWithPrecision(value, unit, 4, locale)
+}
+
+export function formatAxisCustomMetric(value: number, unit: CustomMetricUnit, locale: Locale = defaultLocale): string {
+  if (unit === 'bytes') return formatAxisBytes(value, locale)
+  if (unit === 'bytes_per_second') return formatCustomMetric(value, unit, locale)
+  if (unit === 'bits') return formatCustomMetric(value, unit, locale)
+  if (unit === 'bits_per_second') return formatCustomMetric(value, unit, locale)
+  if (unit === 'percent') return formatAxisPercent(value, locale)
+  if (unit === 'ratio') return formatAxisPercent(value * 100, locale)
+  return formatCustomMetric(value, unit, locale)
 }
 
 export function metricData(history: MetricSample[], series: MetricSeries[]): ChartPoint[] {

@@ -1,0 +1,18 @@
+{
+  en-US: { label: Documents },
+  de: { label: Dokumente },
+  es: { label: Documentos },
+  fr: { label: Documents },
+  it: { label: Documenti },
+  nl: { label: Documenten },
+  pl: { label: Dokumenty },
+  pt-BR: { label: Documentos },
+  ru: { label: Документы },
+  tr: { label: Belgeler },
+  uk: { label: Документи },
+  ar: { label: المستندات },
+  zh-Hans: { label: 文档 },
+  zh-Hant: { label: 文件 },
+  ja: { label: ドキュメント },
+  ko: { label: 문서 }
+}

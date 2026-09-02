@@ -1,0 +1,16 @@
+en-US: { label: Missing }
+de: { label: Fehlend }
+es: { label: Faltantes }
+fr: { label: Manquants }
+it: { label: Mancanti }
+nl: { label: Ontbrekend }
+pl: { label: Brakujące }
+pt-BR: { label: Ausentes }
+ru: { label: Отсутствующие }
+tr: { label: Eksik }
+uk: { label: Відсутні }
+ar: { label: مفقود }
+zh-Hans: { label: 缺失 }
+zh-Hant: { label: 缺少 }
+ja: { label: 不足 }
+ko: { label: 누락됨 }

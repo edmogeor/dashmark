@@ -1,0 +1,18 @@
+{
+  en-US: { label: Queries },
+  de: { label: Abfragen },
+  es: { label: Consultas },
+  fr: { label: Requêtes },
+  it: { label: Query },
+  nl: { label: Zoekopdrachten },
+  pl: { label: Zapytania },
+  pt-BR: { label: Consultas },
+  ru: { label: Запросы },
+  tr: { label: Sorgular },
+  uk: { label: Запити },
+  ar: { label: الاستعلامات },
+  zh-Hans: { label: 查询 },
+  zh-Hant: { label: 查詢 },
+  ja: { label: クエリ },
+  ko: { label: 쿼리 }
+}

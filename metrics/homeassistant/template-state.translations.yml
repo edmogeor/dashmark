@@ -1,0 +1,18 @@
+{
+  en-US: { label: Template State },
+  de: { label: Vorlagenstatus },
+  es: { label: Estado de la plantilla },
+  fr: { label: État du modèle },
+  it: { label: Stato del modello },
+  nl: { label: Sjabloonstatus },
+  pl: { label: Stan szablonu },
+  pt-BR: { label: Estado do modelo },
+  ru: { label: Состояние шаблона },
+  tr: { label: Şablon durumu },
+  uk: { label: Стан шаблону },
+  ar: { label: حالة القالب },
+  zh-Hans: { label: 模板状态 },
+  zh-Hant: { label: 範本狀態 },
+  ja: { label: テンプレートの状態 },
+  ko: { label: 템플릿 상태 }
+}

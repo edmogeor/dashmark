@@ -1,0 +1,18 @@
+{
+  en-US: { label: WAN sent },
+  de: { label: WAN gesendet },
+  es: { label: WAN enviada },
+  fr: { label: WAN envoyée },
+  it: { label: WAN inviata },
+  nl: { label: WAN verzonden },
+  pl: { label: WAN wysłana },
+  pt-BR: { label: WAN enviada },
+  ru: { label: Отправлено WAN },
+  tr: { label: WAN gönderildi },
+  uk: { label: WAN надіслано },
+  ar: { label: WAN المرسلة },
+  zh-Hans: { label: WAN 已发送 },
+  zh-Hant: { label: WAN 已傳送 },
+  ja: { label: WAN 送信 },
+  ko: { label: WAN 송신 }
+}

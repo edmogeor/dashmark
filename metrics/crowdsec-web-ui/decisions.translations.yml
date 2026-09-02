@@ -1,0 +1,18 @@
+{
+  en-US: { label: Active decisions },
+  de: { label: Aktive Entscheidungen },
+  es: { label: Decisiones activas },
+  fr: { label: Décisions actives },
+  it: { label: Decisioni attive },
+  nl: { label: Actieve beslissingen },
+  pl: { label: Aktywne decyzje },
+  pt-BR: { label: Decisões ativas },
+  ru: { label: Активные решения },
+  tr: { label: Etkin kararlar },
+  uk: { label: Активні рішення },
+  ar: { label: القرارات النشطة },
+  zh-Hans: { label: 活跃决策 },
+  zh-Hant: { label: 使用中決策 },
+  ja: { label: アクティブな決定 },
+  ko: { label: 활성 결정 }
+}

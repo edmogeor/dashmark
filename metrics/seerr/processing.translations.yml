@@ -1,0 +1,16 @@
+en-US: { label: Processing requests }
+de: { label: Anfragen in Bearbeitung }
+es: { label: Solicitudes en proceso }
+fr: { label: Demandes en cours de traitement }
+it: { label: Richieste in elaborazione }
+nl: { label: Aanvragen in verwerking }
+pl: { label: Żądania w trakcie przetwarzania }
+pt-BR: { label: Solicitações em processamento }
+ru: { label: Обрабатываемые запросы }
+tr: { label: İşlenen istekler }
+uk: { label: Запити в обробці }
+ar: { label: الطلبات قيد المعالجة }
+zh-Hans: { label: 正在处理的请求 }
+zh-Hant: { label: 正在處理的請求 }
+ja: { label: 処理中のリクエスト }
+ko: { label: 처리 중인 요청 }

@@ -1,0 +1,18 @@
+{
+  en-US: { label: Remaining },
+  de: { label: Verbleibend },
+  es: { label: Restante },
+  fr: { label: Restant },
+  it: { label: Rimanente },
+  nl: { label: Resterend },
+  pl: { label: Pozostało },
+  pt-BR: { label: Restante },
+  ru: { label: Осталось },
+  tr: { label: Kalan },
+  uk: { label: Залишилося },
+  ar: { label: المتبقي },
+  zh-Hans: { label: 剩余 },
+  zh-Hant: { label: 剩餘 },
+  ja: { label: 残り },
+  ko: { label: 남음 }
+}

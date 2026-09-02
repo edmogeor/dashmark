@@ -1,0 +1,18 @@
+{
+  en-US: { label: Downloaded },
+  de: { label: Heruntergeladen },
+  es: { label: Descargado },
+  fr: { label: Téléchargé },
+  it: { label: Scaricato },
+  nl: { label: Gedownload },
+  pl: { label: Pobrano },
+  pt-BR: { label: Baixado },
+  ru: { label: Загружено },
+  tr: { label: İndirildi },
+  uk: { label: Завантажено },
+  ar: { label: تم التنزيل },
+  zh-Hans: { label: 已下载 },
+  zh-Hant: { label: 已下載 },
+  ja: { label: ダウンロード済み },
+  ko: { label: 다운로드됨 }
+}

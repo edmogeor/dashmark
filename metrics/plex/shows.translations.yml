@@ -1,0 +1,18 @@
+{
+  en-US: { label: Shows },
+  de: { label: Serien },
+  es: { label: Series },
+  fr: { label: Séries },
+  it: { label: Serie TV },
+  nl: { label: Series },
+  pl: { label: Seriale },
+  pt-BR: { label: Séries },
+  ru: { label: Сериалы },
+  tr: { label: Diziler },
+  uk: { label: Серіали },
+  ar: { label: المسلسلات },
+  zh-Hans: { label: 电视剧 },
+  zh-Hant: { label: 影集 },
+  ja: { label: テレビ番組 },
+  ko: { label: TV 프로그램 }
+}

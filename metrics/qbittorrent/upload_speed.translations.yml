@@ -1,0 +1,16 @@
+en-US: { label: Upload }
+de: { label: Hochladen }
+es: { label: Subida }
+fr: { label: Téléversement }
+it: { label: Caricamento }
+nl: { label: Uploaden }
+pl: { label: Wysyłanie }
+pt-BR: { label: Upload }
+ru: { label: Отдача }
+tr: { label: Yükleme }
+uk: { label: Вивантаження }
+ar: { label: رفع }
+zh-Hans: { label: 上传 }
+zh-Hant: { label: 上傳 }
+ja: { label: アップロード }
+ko: { label: 업로드 }
