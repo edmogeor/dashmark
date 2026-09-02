@@ -11,12 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Let touch-triggered service icon glimmers complete after touch-up without changing navigation timing.
 
-## [0.6.4] - 2026-09-02
-
-### Fixed
-
-- Let touch-triggered service icon glimmers finish before same-tab navigation.
-
 ## [0.6.3] - 2026-09-02
 
 ### Fixed
