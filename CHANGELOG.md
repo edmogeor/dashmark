@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add dashboard translations for Arabic, Chinese, Dutch, French, German, Italian, Japanese, Korean, Polish, Portuguese (Brazil), Russian, Spanish, Turkish, and Ukrainian, with Arabic right-to-left layout support.
 - Add localized labels for bundled library metrics.
 
+### Changed
+
+- Update dashboard, documentation, and workflow dependencies.
+
 ## [0.5.1] - 2026-09-01
 
 ### Fixed
