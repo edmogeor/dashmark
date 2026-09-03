@@ -3,6 +3,7 @@ import { METRICS_HISTORY_PERIOD_MS } from '@/lib/constants'
 import type { ContainerResources, CustomMetric, MetricError, ResourceMetricSample } from '@/lib/status'
 import type { UptimeMetricSummary } from '@/lib/realtime-client'
 import { useRealtimeMetrics } from './use-realtime'
+import { demoMetricsSnapshot } from '@/demo/metrics'
 
 type MetricUsage = {
   resources: ContainerResources | null
@@ -14,7 +15,7 @@ type MetricUsage = {
   loading: boolean
 }
 
-export function useMetrics(cardId: string, enabled: boolean, active: boolean, initialResources?: ContainerResources): MetricUsage {
+export function useMetrics(cardId: string, enabled: boolean, active: boolean, initialResources?: ContainerResources, demo = false): MetricUsage {
   const [resources, setResources] = useState<ContainerResources | null>(initialResources ?? null)
   const [history, setHistory] = useState<ResourceMetricSample[]>([])
   const [historyPeriodMs, setHistoryPeriodMs] = useState(METRICS_HISTORY_PERIOD_MS)
@@ -23,7 +24,7 @@ export function useMetrics(cardId: string, enabled: boolean, active: boolean, in
   const [uptimeMetrics, setUptimeMetrics] = useState<UptimeMetricSummary[]>([])
   const [loading, setLoading] = useState(false)
   useEffect(() => {
-    if (!initialResources) return
+    if (!initialResources || demo) return
     setResources(initialResources)
     setHistory([])
     setHistoryPeriodMs(METRICS_HISTORY_PERIOD_MS)
@@ -31,7 +32,18 @@ export function useMetrics(cardId: string, enabled: boolean, active: boolean, in
     setMetricErrors([])
     setUptimeMetrics([])
     setLoading(false)
-  }, [initialResources])
+  }, [demo, initialResources])
+  useEffect(() => {
+    if (!demo || !initialResources || !active) return
+    const update = () => {
+      const metrics = demoMetricsSnapshot(cardId, initialResources)
+      setResources(metrics.resource)
+      setHistory(metrics.history)
+    }
+    update()
+    const timer = setInterval(update, 10_000)
+    return () => clearInterval(timer)
+  }, [active, cardId, demo, initialResources])
   useLayoutEffect(() => {
     if (!enabled || !active) return
     setResources(null)
