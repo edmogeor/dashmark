@@ -45,7 +45,10 @@ export type IconResult = { type: 'image'; src: string; alt: string; contrast?: I
 
 function imageIcon(src: string, alt: string): IconResult {
   const contrast = src.startsWith(SELFHST_CDN) ? getIconContrast(src) : undefined
-  return { type: 'image', src, alt, contrast }
+  if (!contrast || !src.endsWith('.svg')) return { type: 'image', src, alt, contrast }
+
+  const variantSrc = src.replace(/\.svg$/, contrast === 'dark' ? '-light.svg' : '-dark.svg')
+  return contrast === 'dark' ? { type: 'image', src, alt, contrast, lightSrc: variantSrc } : { type: 'image', src, alt, contrast, darkSrc: variantSrc }
 }
 
 function cachedSelfhstIcon(url: string, title: string): IconResult | null {

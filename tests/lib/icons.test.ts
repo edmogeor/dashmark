@@ -78,6 +78,23 @@ describe('resolveIcon', () => {
     })
   })
 
+  it('uses a contrasting selfhst SVG variant when one is available', async () => {
+    const result = await resolveIcon(config, {
+      iconLabel: 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/portainer.svg',
+      title: 'Portainer',
+      containerName: 'portainer',
+      cacheSelfhst: false
+    })
+
+    expect(result).toEqual({
+      type: 'image',
+      src: 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/portainer.svg',
+      alt: 'Portainer',
+      contrast: 'dark',
+      lightSrc: 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/portainer-light.svg'
+    })
+  })
+
   it('returns a placeholder for an unknown selfhst reference', async () => {
     const result = await resolveIcon(config, {
       iconLabel: 'selfhst:unknown',
