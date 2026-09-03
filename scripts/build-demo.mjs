@@ -10,7 +10,8 @@ await copyFile(source, target)
 
 try {
   const exitCode = await new Promise((resolve, reject) => {
-    const build = spawn(npm, ['run', 'build'], { stdio: 'inherit' })
+    const command = process.env.DASHMARK_SKIP_PREBUILD === 'true' ? ['run', '--ignore-scripts', 'build'] : ['run', 'build']
+    const build = spawn(npm, command, { stdio: 'inherit' })
     build.once('error', reject)
     build.once('exit', (code) => resolve(code ?? 1))
   })

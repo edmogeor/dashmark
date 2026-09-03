@@ -57,6 +57,7 @@ jobs:
           ASTRO_BASE: /${{ github.event.repository.name }}
           ASTRO_SITE: https://${{ github.repository_owner }}.github.io
           DASHMARK_DEMO: 'true'
+          DASHMARK_SKIP_PREBUILD: 'true'
 
   health-badge:
     needs: test
