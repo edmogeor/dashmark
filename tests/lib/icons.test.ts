@@ -3,7 +3,10 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { getConfig } from '@/lib/config'
+import { getIconContrast } from '@/lib/icon-contrast'
 import { resolveIcon } from '@/lib/icons'
+
+vi.mock('@/lib/icon-contrast', () => ({ getIconContrast: vi.fn() }))
 
 describe('resolveIcon', () => {
   const config = getConfig()
@@ -13,6 +16,7 @@ describe('resolveIcon', () => {
     iconsDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'dashmark-icons-'))
     config.iconsDir = iconsDirectory
     global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify([{ name: 'plex.svg' }, { name: 'grafana.svg' }]), { status: 200 }))
+    vi.mocked(getIconContrast).mockReturnValue(undefined)
   })
 
   afterEach(() => {
@@ -79,6 +83,8 @@ describe('resolveIcon', () => {
   })
 
   it('uses a contrasting selfhst SVG variant when one is available', async () => {
+    vi.mocked(getIconContrast).mockReturnValue('dark')
+
     const result = await resolveIcon(config, {
       iconLabel: 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/portainer.svg',
       title: 'Portainer',

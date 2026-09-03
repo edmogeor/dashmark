@@ -371,18 +371,6 @@
   animation-timing-function: ease;
 }
 
-.dashmark-theme-toggle {
-  view-transition-name: dashmark-theme-toggle;
-}
-
-::view-transition-old(dashmark-theme-toggle) {
-  display: none;
-}
-
-::view-transition-new(dashmark-theme-toggle) {
-  animation: none;
-}
-
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(root),
   ::view-transition-new(root) {

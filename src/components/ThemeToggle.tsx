@@ -132,17 +132,15 @@ export function ThemeToggle({ locale }: { locale: Locale }) {
   function handleToggle() {
     if (override) {
       localStorage.removeItem(THEME_STORAGE_KEY)
-      transitionTheme(null, () => {
-        setOverride(null)
-        setResolved(getSystemTheme())
-      })
+      setOverride(null)
+      setResolved(getSystemTheme())
+      applyTheme(null)
     } else {
       const nextOverride = resolved === 'dark' ? 'light' : 'dark'
       localStorage.setItem(THEME_STORAGE_KEY, nextOverride)
-      transitionTheme(nextOverride, () => {
-        setOverride(nextOverride)
-        setResolved(nextOverride)
-      })
+      setOverride(nextOverride)
+      setResolved(nextOverride)
+      applyTheme(nextOverride)
     }
   }
 
@@ -172,8 +170,9 @@ export function ThemeToggle({ locale }: { locale: Locale }) {
       onPointerLeave={() => {
         if (!isTouch.current) hide()
       }}
+      onFocus={show}
       onBlur={hide}
-      className="dashmark-theme-toggle group fixed top-0 end-0 z-50 h-[38px] w-[38px] cursor-pointer bg-transparent p-0"
+      className="group fixed top-0 end-0 z-50 h-[38px] w-[38px] cursor-pointer bg-transparent p-0 focus-visible:outline-none"
       aria-label={ariaLabel}
       aria-expanded={revealed}
     >
@@ -195,7 +194,7 @@ export function ThemeToggle({ locale }: { locale: Locale }) {
         }}
       >
         <span className="dashmark-theme-toggle-background absolute inset-0 bg-surface-hover transition-colors group-hover:bg-surface-active dark:bg-card dark:group-hover:bg-secondary" />
-        <Icon className="dashmark-theme-toggle-icon relative z-10 me-2 mt-2 h-6 w-6 text-foreground/40 transition-colors group-hover:text-foreground/60" />
+        <Icon className="dashmark-theme-toggle-icon relative z-10 me-2 mt-2 h-6 w-6 text-foreground/40 transition-colors group-hover:text-foreground/60 group-focus-visible:text-white" />
       </span>
     </button>
   )
