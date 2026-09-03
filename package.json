@@ -55,7 +55,7 @@
     "fallow": "3.17.0",
     "framer-motion": "^13.1.0",
     "fuse.js": "^7.0.0",
-    "got": "^15.1.0",
+    "got": "^16.0.0",
     "happy-dom": "^20.11.12",
     "lucide-react": "^1.35.0",
     "oxlint": "^1.80.0",
