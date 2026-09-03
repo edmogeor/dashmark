@@ -18,7 +18,7 @@ describe('runtime dependencies', () => {
       '@fastify/static': '^10.1.3',
       '@fastify/websocket': '^11.3.0',
       fastify: '^5.12.1',
-      'js-yaml': '^4.1.0',
+      'js-yaml': '^5.4.1',
       ws: '^8.21.3'
     })
     expect(packageLock.packages['']?.devDependencies?.['@astrojs/node']).toBeDefined()

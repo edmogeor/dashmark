@@ -8,8 +8,8 @@
     "preview": "astro preview"
   },
   "dependencies": {
-    "@astrojs/starlight": "0.41.9",
-    "@fontsource-variable/onest": "^5.3.0",
-    "astro": "^7.2.1"
+    "@astrojs/starlight": "^0.41.10",
+    "@fontsource-variable/onest": "^5.3.1",
+    "astro": "^7.2.10"
   }
 }
