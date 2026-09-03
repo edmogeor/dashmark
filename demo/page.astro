@@ -22,7 +22,7 @@ const pageUrl = new URL(`${baseUrl}/demo/`, origin).href
 ---
 
 <!doctype html>
-<html lang={strings.meta.lang} class="dark" data-theme-toggle-enabled="true">
+<html lang={config.locale} class="dark" data-theme-toggle-enabled="true">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content" />
@@ -47,10 +47,11 @@ const pageUrl = new URL(`${baseUrl}/demo/`, origin).href
     </script>
   </head>
   <body class="dashmark flex min-h-dvh flex-col bg-background text-foreground">
-    <ThemeToggle client:load />
+    <ThemeToggle locale={config.locale} client:load />
     <main class="dashmark-main w-full">
       <Dashboard
         client:load
+        locale={config.locale}
         initialCards={demoCards}
         initialShowStatus
         initialShowBranding
