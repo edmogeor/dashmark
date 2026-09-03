@@ -1,5 +1,5 @@
 import fs from 'node:fs'
-import yaml from 'js-yaml'
+import * as yaml from 'js-yaml'
 import { dashmarkError, errorMessage, isRecord, type DashmarkError } from './errors'
 import { logger } from './logger'
 import { logMessages } from './log-messages'

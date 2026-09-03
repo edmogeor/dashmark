@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { execFileSync } from 'node:child_process'
-import yaml from 'js-yaml'
+import * as yaml from 'js-yaml'
 import { metricFiles, sourceWithDefaults } from './metric-utils.mjs'
 
 const metricsDirectory = path.resolve('metrics')

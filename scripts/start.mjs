@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import Fastify from 'fastify'
 import staticPlugin from '@fastify/static'
 import websocket from '@fastify/websocket'
-import yaml from 'js-yaml'
+import * as yaml from 'js-yaml'
 
 function yamlPort() {
   try {

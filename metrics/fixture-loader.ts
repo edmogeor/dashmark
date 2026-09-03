@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs'
-import yaml from 'js-yaml'
+import * as yaml from 'js-yaml'
 
 export type MetricDefinition = {
   display: { label: string; chart?: string }

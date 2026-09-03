@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import yaml from 'js-yaml'
+import * as yaml from 'js-yaml'
 import { isRecord } from './errors'
 import { logger } from './logger'
 import { normalizeMetricDefinition, parseMetricCatalog } from './config-file-validation'
