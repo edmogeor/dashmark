@@ -19,7 +19,7 @@ source:
     query:
       pageSize: 1000
 extract:
-  jq: '[.results[] | { timestamp, status: (if .success then "up" else "down" end), responseTimeMs: (.duration / 1000000) }]'
+  jq: '[.items[] | { timestamp, status: (if .success then "up" else "down" end), responseTimeMs: (.duration / 1000000) }]'
   pagination:
     initial_only: true
     items: .results
