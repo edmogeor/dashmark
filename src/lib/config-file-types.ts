@@ -139,6 +139,7 @@ export type JqMetricExtractor = { expression: string }
 export type MetricPagination = {
   items: JqMetricExtractor
   next: JqMetricExtractor
+  initialOnly?: true
 }
 
 export type ForEachMetric = {

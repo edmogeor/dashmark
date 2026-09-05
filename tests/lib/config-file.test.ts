@@ -146,11 +146,16 @@ service:
           initial: { query: { limit: 10000 } }
         extract:
           jq: '[.results[] | { timestamp, status }]'
+          pagination:
+            initial_only: true
+            items: .results
+            next: 'if .pageNumber < 2 then .pageNumber + 1 else 0 end'
 `)
 
     const metric = loadYamlConfig(config.configFile).config.services.service?.metrics?.entryOverrides?.uptime
 
     expect(metric?.source).toMatchObject({ query: { limit: 100 }, initialQuery: { limit: 10_000 } })
+    expect(metric?.pagination).toMatchObject({ initialOnly: true, items: { expression: '.results' } })
   })
 
   it('reports unknown and invalid settings with their paths', () => {

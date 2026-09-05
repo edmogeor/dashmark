@@ -130,10 +130,11 @@ function validateForEach(forEach) {
 
 function validatePagination(pagination) {
   const value = record(pagination, 'pagination must be a mapping')
-  allowed(value, new Set(['items', 'next']), 'pagination')
+  allowed(value, new Set(['items', 'next', 'initial_only']), 'pagination')
   if (typeof value.items !== 'string' || !value.items.trim() || typeof value.next !== 'string' || !value.next.trim()) {
     throw new Error('pagination must define non-empty items and next jq expressions')
   }
+  if (value.initial_only !== undefined && value.initial_only !== true) throw new Error('pagination.initial_only must be true')
 }
 
 function validateSource(source) {

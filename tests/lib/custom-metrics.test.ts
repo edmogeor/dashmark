@@ -51,7 +51,14 @@ beforeAll(async () => {
     }
     if (path.startsWith('/bootstrap')) {
       bootstrapRequests.push(path)
-      response.end(JSON.stringify({ results: [{ timestamp: '2026-08-26T12:00:00Z', success: true }] }))
+      const page = new URL(path, 'http://metrics.test').searchParams.get('page')
+      response.end(
+        JSON.stringify(
+          page === '2'
+            ? { results: [{ timestamp: '2026-08-26T12:01:00Z', success: false }], pageNumber: 2, pageSize: 1_000, totalNumberOfResults: 2_000 }
+            : { results: [{ timestamp: '2026-08-26T12:00:00Z', success: true }], pageNumber: 1, pageSize: 1_000, totalNumberOfResults: 2_000 }
+        )
+      )
       return
     }
     if (path === '/login') {
@@ -222,19 +229,24 @@ describe('collectCustomMetric', () => {
     expect(maxQueuedRequests).toBe(2)
   })
 
-  it('uses a bootstrap query once before collecting incremental history', async () => {
+  it('paginates the Gatus bootstrap query without paginating incremental history', async () => {
     bootstrapRequests = []
     const bootstrapMetric: MetricOverride = {
       label: 'Uptime',
       valueType: 'uptime',
-      source: { url: `${baseUrl}/bootstrap`, query: { pageSize: 100 }, initialQuery: { pageSize: 10_000 } },
-      jq: { expression: '[.results[] | { timestamp, status: (if .success then "up" else "down" end) }]' }
+      source: { url: `${baseUrl}/bootstrap`, query: { pageSize: 100 }, initialQuery: { pageSize: 1_000 } },
+      pagination: {
+        initialOnly: true,
+        items: { expression: '.results' },
+        next: { expression: 'if (.pageNumber * .pageSize) < .totalNumberOfResults then .pageNumber + 1 else 0 end' }
+      },
+      jq: { expression: '[.items[] | { timestamp, status: (if .success then "up" else "down" end) }]' }
     }
 
     await collectCustomMetric('bootstrap', bootstrapMetric, true)
     await collectCustomMetric('bootstrap', bootstrapMetric)
 
-    expect(bootstrapRequests).toEqual(['/bootstrap?pageSize=10000', '/bootstrap?pageSize=100'])
+    expect(bootstrapRequests).toEqual(['/bootstrap?pageSize=1000', '/bootstrap?page=2&pageSize=1000', '/bootstrap?pageSize=100'])
   })
 
   it('extracts normalized uptime observations with jq', async () => {

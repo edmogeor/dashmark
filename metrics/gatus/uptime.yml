@@ -17,6 +17,10 @@ source:
     pageSize: 100
   initial:
     query:
-      pageSize: 10000
+      pageSize: 1000
 extract:
   jq: '[.results[] | { timestamp, status: (if .success then "up" else "down" end), responseTimeMs: (.duration / 1000000) }]'
+  pagination:
+    initial_only: true
+    items: .results
+    next: 'if (.pageNumber * .pageSize) < .totalNumberOfResults then .pageNumber + 1 else 0 end'

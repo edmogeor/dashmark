@@ -86,7 +86,7 @@ async function extractUptimeDocument(key: string, document: unknown, metric: Ext
   }
 }
 
-export async function collectPaginatedJq(key: string, text: string, metric: MetricOverride, request: Request): Promise<MetricResult> {
+export async function collectPaginatedJq(key: string, text: string, metric: MetricOverride, request: Request, collectAllPages = true): Promise<MetricResult> {
   if (!metric.pagination || !('jq' in metric)) return unavailable(key, 'pagination requires a jq extractor')
   try {
     const items: unknown[] = []
@@ -95,6 +95,7 @@ export async function collectPaginatedJq(key: string, text: string, metric: Metr
       const pageItems = await runJq(metric.pagination.items.expression, document)
       if (!Array.isArray(pageItems)) return unavailable(key, 'pagination item extraction did not produce an array')
       items.push(...pageItems)
+      if (!collectAllPages) return metric.valueType === 'uptime' ? extractUptimeDocument(key, { items }, metric) : extractJqValue(key, { items }, metric)
       const next = await runJq(metric.pagination.next.expression, document)
       if (next === 0 || next === null) return metric.valueType === 'uptime' ? extractUptimeDocument(key, { items }, metric) : extractJqValue(key, { items }, metric)
       if (typeof next !== 'number' || !Number.isInteger(next) || next < 1) return unavailable(key, 'pagination next extraction did not produce a page number')

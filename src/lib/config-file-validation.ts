@@ -272,10 +272,10 @@ function parseJqExtractor(value: unknown): JqMetricExtractor | undefined {
 }
 
 function parseMetricPagination(value: unknown): MetricPagination | undefined {
-  if (!isRecord(value) || Object.keys(value).some((key) => key !== 'items' && key !== 'next')) return undefined
+  if (!isRecord(value) || Object.keys(value).some((key) => key !== 'items' && key !== 'next' && key !== 'initial_only')) return undefined
   const items = parseJqExtractor(value.items)
   const next = parseJqExtractor(value.next)
-  return items && next ? { items, next } : undefined
+  return items && next && (value.initial_only === undefined || value.initial_only === true) ? { items, next, ...(value.initial_only === true ? { initialOnly: true } : {}) } : undefined
 }
 
 function parseForEachMetric(value: unknown): ForEachMetric | undefined {

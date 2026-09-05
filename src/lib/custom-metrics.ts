@@ -23,7 +23,8 @@ export async function collectCustomMetric(key: string, metric: MetricOverride, b
       if (prepared.error || !prepared.request) return unavailable(key, prepared.error ?? 'Could not prepare metric request')
       return collectSocketIoMetric(key, metric, prepared.request.url, prepared.request.headers, cookieJar)
     }
-    const result = await requestMetric(metric, cookieJar, url, true, bootstrap ? { ...metric.source.query, ...metric.source.initialQuery } : undefined)
+    const query = bootstrap ? { ...metric.source.query, ...metric.source.initialQuery } : metric.source.query
+    const result = await requestMetric(metric, cookieJar, url, true, query)
     if (result.error || !result.response) return unavailable(key, result.error ?? 'Could not reach metric source')
     const response = result.response
     if (response.status >= 300 && response.status < 400) throw new Error('source redirected')
@@ -38,11 +39,17 @@ export async function collectCustomMetric(key: string, metric: MetricOverride, b
           return child.response
         })
       : metric.pagination
-        ? await collectPaginatedJq(key, response.text, metric, async (pageUrl) => {
-            const page = await requestMetric(metric, cookieJar, pageUrl, true)
-            if (page.error || !page.response) throw new Error(page.error ?? 'Could not reach metric source')
-            return page.response
-          })
+        ? await collectPaginatedJq(
+            key,
+            response.text,
+            metric,
+            async (pageUrl) => {
+              const page = await requestMetric(metric, cookieJar, pageUrl, true, query)
+              if (page.error || !page.response) throw new Error(page.error ?? 'Could not reach metric source')
+              return page.response
+            },
+            !metric.pagination.initialOnly || bootstrap
+          )
         : metric.valueType === 'uptime'
           ? await extractUptime(key, response.text, metric)
           : metric.text

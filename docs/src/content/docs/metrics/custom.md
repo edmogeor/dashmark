@@ -106,7 +106,7 @@ Define exactly one of these extractors:
 | `extract.text`       | Uses the complete plain-text response.                                                            |
 | `extract.for_each`   | For numeric HTTP metrics, requests each discovered item and combines the values with a reduction. |
 
-`extract.pagination` is available with `jq`. It defines `items` and `next` jq expressions so Dashmark can collect JSON pages before it runs the metric's `jq` expression.
+`extract.pagination` is available with `jq`. It defines `items` and `next` jq expressions so Dashmark can collect JSON pages before it runs the metric's `jq` expression. Set `initial_only: true` to paginate only an uptime-history bootstrap request.
 
 ```yaml
 extract:
