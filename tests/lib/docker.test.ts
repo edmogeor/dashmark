@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { MockDockerServer } from '../mocks/docker-server'
 import { getConfig } from '@/lib/config'
+import { badgeColorIndex } from '@/lib/badge-color'
 import {
   getCards,
   getContainerMetricUsage,
@@ -239,8 +240,8 @@ describe('getCards', () => {
 
     const { cards } = await getCards(config, new Headers())
 
-    expect(cards.find((card) => card.hasContainer)).toMatchObject({ host: 'host', hostColor: 0 })
-    expect(cards.find((card) => !card.hasContainer)).toMatchObject({ host: 'external', hostColor: 1 })
+    expect(cards.find((card) => card.hasContainer)).toMatchObject({ host: 'host', hostColor: badgeColorIndex('host') })
+    expect(cards.find((card) => !card.hasContainer)).toMatchObject({ host: 'external', hostColor: badgeColorIndex('external') })
   })
 
   it('uses a configured Docker host ID for host badges', async () => {
@@ -261,7 +262,7 @@ describe('getCards', () => {
 
     const { cards } = await getCards(config, new Headers())
 
-    expect(cards.find((card) => card.hasContainer)).toMatchObject({ host: 'home', hostColor: 0 })
+    expect(cards.find((card) => card.hasContainer)).toMatchObject({ host: 'home', hostColor: badgeColorIndex('home') })
   })
 
   it('applies host-qualified YAML overrides to matching services only', async () => {
@@ -749,8 +750,8 @@ describe('getCards', () => {
     const { cards } = await getCards(config, new Headers())
 
     expect(cards).toMatchObject([
-      { host: 'external', hostColor: 0 },
-      { host: 'external', hostColor: 0 }
+      { host: 'external', hostColor: badgeColorIndex('external') },
+      { host: 'external', hostColor: badgeColorIndex('external') }
     ])
   })
 

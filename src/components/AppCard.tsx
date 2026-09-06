@@ -79,9 +79,7 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showMetr
           }
         }}
         onPointerDown={(event) => {
-          if (event.pointerType === 'touch' && !event.defaultPrevented) {
-            setTouchGlimmer(true)
-          }
+          if (event.pointerType === 'touch' && !event.defaultPrevented) setTouchGlimmer(true)
         }}
         onClickCapture={(event: ReactMouseEvent<HTMLAnchorElement>) => {
           if (dismissesTooltip.current) {
@@ -91,7 +89,12 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showMetr
           }
         }}
       >
-        <Card className={cn(className, touchGlimmer && 'dashmark-app-card-glimmering')}>
+        <Card
+          className={cn(className, touchGlimmer && 'dashmark-app-card-glimmering')}
+          onTransitionEnd={(event) => {
+            if (event.propertyName === 'transform' && event.target instanceof SVGRectElement) setTouchGlimmer(false)
+          }}
+        >
           <CardContent className="dashmark-app-content relative flex h-24 items-center gap-3 p-3">
             <AppCardIcon icon={card.icon} title={card.title} asCard={asCard} />
             <div className="dashmark-app-details flex min-w-0 flex-1 flex-col gap-2">

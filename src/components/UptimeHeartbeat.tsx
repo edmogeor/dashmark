@@ -53,7 +53,8 @@ export function formatUptimeBucketTime(timestamp: number, locale: Locale = defau
     date,
     {
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      hourCycle: 'h23'
     },
     locale
   )
@@ -100,7 +101,7 @@ function UptimeBucketTooltip({ bucket }: { bucket: UptimeBucket }) {
   return (
     <div className="grid gap-2">
       <div className="flex items-center justify-between gap-4 leading-none">
-        <span className="flex items-center gap-1.5 text-muted-foreground">
+        <span className="flex whitespace-nowrap items-center gap-1.5 text-muted-foreground">
           <Clock className="h-3 w-3" aria-hidden="true" />
           {formatUptimeBucketTime(bucket.start, locale, messages)}
         </span>
@@ -167,7 +168,7 @@ function UptimeCell({
             onBlur={onBlur}
           />
         </TooltipTrigger>
-        <TooltipContent side="top" sideOffset={8} collisionBoundary={collisionBoundary} collisionPadding={8} className="w-48 p-3 text-xs">
+        <TooltipContent side="top" sideOffset={8} collisionBoundary={collisionBoundary} collisionPadding={8} className="w-64 p-3 text-xs">
           <UptimeBucketTooltip bucket={bucket} />
         </TooltipContent>
       </Tooltip>

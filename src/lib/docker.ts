@@ -16,6 +16,7 @@ import { strings } from '@/i18n'
 import type { ContainerResources, ContainerStatus } from './status'
 import { DOCKER_STATUS_CACHE_TTL_MS, DOCKER_EVENT_RECONNECT_DELAY_MS } from './constants'
 import { metricCardFields } from './metric-collection/details'
+import { badgeColorIndex } from './badge-color'
 import { clearMetricCollectionCache, dockerMetricTarget, type MetricCollectionTarget, usageForTarget, yamlMetricTarget } from './metric-collection/target-plan'
 export type { ContainerMetricSample, ContainerMetricUsage } from './metric-collection/types'
 import type { ContainerMetricSample, ContainerMetricUsage } from './metric-collection/types'
@@ -536,7 +537,7 @@ async function buildAllCards(config: AppConfig): Promise<{ cards: Card[]; error?
   const dockerHostName = (hostId: string) => (hostId === 'default' ? 'host' : hostId)
   const yamlHostNames = [...new Set(Object.entries(yamlServices).flatMap(([name, service]) => (!matchedKeys.has(name) && service.host ? [service.host] : [])))]
   const showHost = hostIds.length > 1 || yamlHostNames.length > 0
-  const hostColors = new Map([...new Set([...hostIds.map(dockerHostName), ...yamlHostNames])].map((host, index) => [host, index]))
+  const hostColors = new Map([...new Set([...hostIds.map(dockerHostName), ...yamlHostNames])].map((host) => [host, badgeColorIndex(host)]))
 
   for (const { hostId, container } of containers) {
     const resolved = resolveContainer(yamlServices, hostId, container)

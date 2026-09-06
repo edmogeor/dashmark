@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.11] - 2026-09-06
+
+### Fixed
+
+- Complete touch-triggered service icon glimmers after the active state ends.
+- Keep uptime tooltip timestamps on one line and use 24-hour time.
+- Assign host badge colors deterministically so they remain stable across restarts.
+
 ## [0.6.10] - 2026-09-06
 
 ### Changed
