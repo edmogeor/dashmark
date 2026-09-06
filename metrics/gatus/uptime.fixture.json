@@ -1,0 +1,20 @@
+{
+  "name": "Zerobyte",
+  "group": "Infrastructure",
+  "key": "infrastructure_zerobyte",
+  "results": [
+    {
+      "status": 200,
+      "duration": 40541840,
+      "success": true,
+      "timestamp": "2026-09-06T20:02:16.371481662Z"
+    },
+    {
+      "status": 503,
+      "duration": 90000000,
+      "success": false,
+      "timestamp": "2026-09-06T20:07:16.371481662Z"
+    }
+  ],
+  "events": []
+}
