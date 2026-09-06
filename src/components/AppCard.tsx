@@ -32,8 +32,10 @@ type AppCardProps = {
 export const AppCard = memo(function AppCard({ card, showStatus = true, showMetrics = true, asCard = false, isLoading = false, openInNewTab = false }: AppCardProps) {
   const { activeTooltip, setActiveTooltip } = useTooltipController()
   const dismissesTooltip = useRef(false)
+  const touchStart = useRef<{ pointerId: number; x: number; y: number } | undefined>(undefined)
   const [hovered, setHovered] = useState(false)
   const [touchGlimmer, setTouchGlimmer] = useState(false)
+  const [cancellingTouchGlimmer, setCancellingTouchGlimmer] = useState(false)
   const [detail, setDetail] = useState<MetricDetail | null>(null)
   const [uptimeDetail, setUptimeDetail] = useState<UptimeMetricSummary | null>(null)
   const showResources = shouldShowResources(card, showMetrics)
@@ -79,7 +81,23 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showMetr
           }
         }}
         onPointerDown={(event) => {
-          if (event.pointerType === 'touch' && !event.defaultPrevented) setTouchGlimmer(true)
+          if (event.pointerType !== 'touch' || event.defaultPrevented) return
+          touchStart.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY }
+          setCancellingTouchGlimmer(false)
+          setTouchGlimmer(true)
+        }}
+        onPointerMove={(event) => {
+          const start = touchStart.current
+          if (!start || event.pointerId !== start.pointerId || Math.hypot(event.clientX - start.x, event.clientY - start.y) < 8) return
+          touchStart.current = undefined
+          setCancellingTouchGlimmer(true)
+        }}
+        onPointerUp={(event) => {
+          if (event.pointerId === touchStart.current?.pointerId) touchStart.current = undefined
+        }}
+        onPointerCancel={() => {
+          touchStart.current = undefined
+          setCancellingTouchGlimmer(true)
         }}
         onClickCapture={(event: ReactMouseEvent<HTMLAnchorElement>) => {
           if (dismissesTooltip.current) {
@@ -90,9 +108,15 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showMetr
         }}
       >
         <Card
-          className={cn(className, touchGlimmer && 'dashmark-app-card-glimmering')}
+          className={cn(className, touchGlimmer && 'dashmark-app-card-glimmering', cancellingTouchGlimmer && 'dashmark-app-card-glimmer-cancelling')}
           onAnimationEnd={(event) => {
-            if (event.animationName === 'dashmark-app-icon-glimmer' && event.target instanceof SVGRectElement) setTouchGlimmer(false)
+            if (event.animationName === 'dashmark-app-icon-glimmer' && event.target instanceof SVGRectElement && !cancellingTouchGlimmer) setTouchGlimmer(false)
+          }}
+          onTransitionEnd={(event) => {
+            if (event.propertyName === 'opacity' && event.target instanceof SVGRectElement) {
+              setTouchGlimmer(false)
+              setCancellingTouchGlimmer(false)
+            }
           }}
         >
           <CardContent className="dashmark-app-content relative flex h-24 items-center gap-3 p-3">

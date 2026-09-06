@@ -262,6 +262,12 @@
   .dashmark-app-card-glimmering .dashmark-app-icon-glimmer-sheen {
     animation: dashmark-app-icon-glimmer 450ms ease-out forwards;
   }
+
+  .dashmark-app-card-glimmer-cancelling .dashmark-app-icon-glimmer-sheen {
+    animation-play-state: paused;
+    opacity: 0;
+    transition: opacity 100ms ease-out;
+  }
 }
 
 .dashmark-card-gradient {
