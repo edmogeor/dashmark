@@ -218,54 +218,50 @@
 }
 
 .dashmark-app-icon {
-  position: relative;
   isolation: isolate;
-  corner-shape: squircle;
-  background-image: linear-gradient(to bottom, color-mix(in oklab, var(--foreground) 3%, transparent), transparent 70%);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--foreground) 8%, transparent);
+  --dashmark-app-icon-background: var(--card);
 }
 
+.dashmark-app-icon-as-card {
+  --dashmark-app-icon-background: var(--surface);
+}
+
+.dashmark-app-icon-shape,
 .dashmark-app-icon-glimmer {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  corner-shape: inherit;
-  overflow: hidden;
-  pointer-events: none;
+  color: var(--foreground);
 }
 
-.dashmark-app-icon-glimmer::after {
-  position: absolute;
-  inset: 0;
-  content: '';
-  background-image: linear-gradient(
-    115deg,
-    transparent 18%,
-    color-mix(in srgb, var(--foreground) 2%, transparent) 36%,
-    color-mix(in srgb, var(--foreground) 4%, transparent) 50%,
-    color-mix(in srgb, var(--foreground) 2%, transparent) 64%,
-    transparent 82%
-  );
+.dashmark-app-icon-glimmer-edge {
+  stop-opacity: 0.02;
+}
+
+.dashmark-app-icon-glimmer-center {
+  stop-opacity: 0.04;
+}
+
+.dashmark-app-icon-glimmer-sheen {
+  transform-box: fill-box;
+  transform-origin: center;
   transform: translateX(-130%);
 }
 
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .dashmark-app-icon-glimmer::after {
+  .dashmark-app-icon-glimmer-sheen {
     transition: transform 450ms ease-out;
   }
 
-  .dashmark-app-card:hover .dashmark-app-icon-glimmer::after {
+  .dashmark-app-card:hover .dashmark-app-icon-glimmer-sheen {
     transform: translateX(130%);
   }
 }
 
 @media (hover: none) and (prefers-reduced-motion: no-preference) {
-  .dashmark-app-icon-glimmer::after {
+  .dashmark-app-icon-glimmer-sheen {
     transition: transform 450ms ease-out;
   }
 
-  .dashmark-app-link:active .dashmark-app-icon-glimmer::after,
-  .dashmark-app-card-glimmering .dashmark-app-icon-glimmer::after {
+  .dashmark-app-link:active .dashmark-app-icon-glimmer-sheen,
+  .dashmark-app-card-glimmering .dashmark-app-icon-glimmer-sheen {
     transform: translateX(130%);
   }
 }
@@ -282,15 +278,16 @@
   background-image: linear-gradient(to top, color-mix(in oklab, var(--foreground) 1%, transparent), transparent 70%);
 }
 
-.dark .dashmark-app-icon-glimmer::after {
-  background-image: linear-gradient(
-    115deg,
-    transparent 18%,
-    color-mix(in srgb, var(--foreground) 4%, transparent) 36%,
-    color-mix(in srgb, var(--foreground) 8%, transparent) 50%,
-    color-mix(in srgb, var(--foreground) 4%, transparent) 64%,
-    transparent 82%
-  );
+.dark .dashmark-app-icon-as-card {
+  --dashmark-app-icon-background: var(--background);
+}
+
+.dark .dashmark-app-icon-glimmer-edge {
+  stop-opacity: 0.04;
+}
+
+.dark .dashmark-app-icon-glimmer-center {
+  stop-opacity: 0.08;
 }
 
 .dark .dashmark-category.dashmark-card-gradient {
