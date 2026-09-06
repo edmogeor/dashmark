@@ -86,7 +86,7 @@ body:
         - nginx
         - Caddy
         - Cloudflare Tunnel
-        - None
+        - No reverse proxy
         - Other
     validations:
       required: false
@@ -100,7 +100,7 @@ body:
         - Authelia
         - oauth2-proxy (Keycloak, Pocket ID, Zitadel)
         - Keycloak Gatekeeper
-        - None
+        - No auth provider
         - Other
     validations:
       required: false
