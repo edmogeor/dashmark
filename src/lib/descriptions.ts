@@ -1,9 +1,10 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { AppConfig } from './config'
+import { SELFHST_PREFIX } from './constants'
 import { isRecord } from './errors'
 import { fuzzyMatchReference } from './selfhst'
-import { getServiceCandidates } from './service-candidates'
+import { getServiceCandidates, normalizeServiceCandidate } from './service-candidates'
 
 type ServiceDescription = {
   reference: string
@@ -35,9 +36,13 @@ function loadDescriptions(): ServiceDescription[] {
   return cachedDescriptions
 }
 
-export function resolveDescription(config: AppConfig, options: { imageName?: string; title: string; containerName: string }): string | undefined {
+export function resolveDescription(config: AppConfig, options: { iconLabel?: string; imageName?: string; title: string; containerName: string }): string | undefined {
   if (!config.enableAutomaticDescriptions) return undefined
 
   const descriptions = loadDescriptions()
-  return fuzzyMatchReference(getServiceCandidates(options.imageName, options.containerName, options.title), descriptions)?.description
+  const iconReference = options.iconLabel?.toLowerCase().startsWith(SELFHST_PREFIX) ? normalizeServiceCandidate(options.iconLabel.slice(SELFHST_PREFIX.length)) : undefined
+  const candidates = iconReference
+    ? [iconReference, ...getServiceCandidates(options.imageName, options.containerName, options.title)]
+    : getServiceCandidates(options.imageName, options.containerName, options.title)
+  return fuzzyMatchReference(candidates, descriptions)?.description
 }

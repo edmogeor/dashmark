@@ -14,7 +14,7 @@ function InitialsPlaceholder({ title, asCard }: Pick<AppCardIconProps, 'title' |
   return (
     <div
       className={cn(
-        'dashmark-app-icon dashmark-app-icon-placeholder flex aspect-square shrink-0 self-stretch items-center justify-center rounded-[45%] ps-1 text-xl font-[550] text-foreground/50',
+        'dashmark-app-icon dashmark-app-icon-placeholder flex h-full aspect-square shrink-0 items-center justify-center rounded-[45%] ps-1 text-xl font-[550] text-foreground/50',
         asCard ? 'bg-surface dark:bg-background' : 'bg-card'
       )}
     >
@@ -37,7 +37,7 @@ export function AppCardIcon({ icon, title, asCard }: AppCardIconProps) {
   const [failedSource, setFailedSource] = useState<string>()
   const src = useContrastAwareSrc(icon)
   return icon.type === 'image' && src && failedSource !== src ? (
-    <div className={cn('dashmark-app-icon flex aspect-square shrink-0 self-stretch items-center justify-center rounded-[45%] p-4', asCard ? 'bg-surface dark:bg-background' : 'bg-card')}>
+    <div className={cn('dashmark-app-icon flex h-full aspect-square shrink-0 items-center justify-center rounded-[45%] p-4', asCard ? 'bg-surface dark:bg-background' : 'bg-card')}>
       <img src={src} alt={icon.alt} className="h-full w-full object-contain" loading="lazy" onError={() => setFailedSource(src)} />
       <span aria-hidden="true" className="dashmark-app-icon-glimmer" />
     </div>

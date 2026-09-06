@@ -280,6 +280,7 @@ async function cardFromContainer(config: AppConfig, resolved: ResolvedContainer,
       containerName: name
     }),
     resolveCardDescription(config, labels.description, {
+      iconLabel: labels.icon,
       imageName: container.Image,
       title,
       containerName: name
@@ -321,6 +322,7 @@ async function cardFromYaml(config: AppConfig, name: string, service: ServiceOve
       containerName: name
     }),
     resolveCardDescription(config, service.description, {
+      iconLabel: service.icon,
       title,
       containerName: name
     })

@@ -45,6 +45,16 @@ describe('resolveDescription', () => {
     ).toBe('Home automation focused on privacy')
   })
 
+  it('uses the selfhst icon reference when service names do not match', () => {
+    expect(
+      resolveDescription(config, {
+        iconLabel: 'selfhst:home-assistant',
+        title: 'House control',
+        containerName: 'house-control'
+      })
+    ).toBe('Home automation focused on privacy')
+  })
+
   it('does not use an unrelated partial match', () => {
     expect(
       resolveDescription(config, {
