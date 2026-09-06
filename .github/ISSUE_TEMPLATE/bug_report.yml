@@ -66,6 +66,25 @@ body:
     validations:
       required: true
   - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      options:
+        - Chrome
+        - Firefox
+        - Safari
+        - Microsoft Edge
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: browser-version
+    attributes:
+      label: Browser version
+      placeholder: e.g. 140.0.7339.207
+    validations:
+      required: true
+  - type: dropdown
     id: docker-access
     attributes:
       label: How is Docker accessed?
