@@ -17,6 +17,7 @@ services:
       - ./data:/data
     environment:
       - DOCKER_HOSTS=tcp://dockerproxy:2375
+      - TZ=Etc/UTC # Set an IANA timezone, for example Europe/London.
     depends_on:
       - dockerproxy
     restart: unless-stopped
@@ -99,6 +100,7 @@ docker run -d \
   --publish <bind-address>:4321:4321 \
   --volume "$PWD/data:/data" \
   --env DOCKER_HOSTS=tcp://dockerproxy:2375 \
+  --env TZ=Etc/UTC \
   ghcr.io/edmogeor/dashmark:latest
 ```
 

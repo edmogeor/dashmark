@@ -56,6 +56,8 @@ settings:
 
 `CUSTOM_HEADER` can use `{greeting}`, `{full_name}`, `{first_name}`, `{last_name}`, `{username}`, and `{email}`. Configure the greeting text with `GREETING_MORNING`, `GREETING_AFTERNOON`, and `GREETING_EVENING`.
 
+Dashmark resolves greetings using the container's server time. Set Docker's `TZ` environment variable to an IANA timezone such as `Europe/London`.
+
 Set `USER_NAME_HEADER`, `USER_FIRST_NAME_HEADER`, `USER_LAST_NAME_HEADER`, `USER_USERNAME_HEADER`, or `USER_EMAIL_HEADER` when your proxy uses different identity-header names. These map values into the greeting template. See [Access control](/dashmark/docs/configuration/access-control/#identity-and-group-headers) for the supported automatic headers.
 
 ## Polling and storage

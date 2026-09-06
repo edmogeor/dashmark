@@ -17,6 +17,8 @@ services:
 
       # Optional settings, shown with their defaults. Uncomment one to change it.
       # - PORT=4321
+      # Set an IANA timezone for server-time greetings, for example Europe/London.
+      # - TZ=Etc/UTC
       # - CONFIG_FILE=/data/config.yml
       # - ICONS_DIR=/data/icons
       # - CUSTOM_STYLESHEET=/data/custom.css

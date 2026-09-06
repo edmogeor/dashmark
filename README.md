@@ -57,6 +57,8 @@ Dashmark shows Docker resource usage by default. Browse the available [metric li
        volumes:
          - /var/run/docker.sock:/var/run/docker.sock:ro
          - ./data:/data
+       environment:
+         - TZ=Etc/UTC # Set an IANA timezone, for example Europe/London.
        restart: unless-stopped
 
      plex:
