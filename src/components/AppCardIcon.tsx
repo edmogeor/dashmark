@@ -101,7 +101,7 @@ export function AppCardIcon({ icon, title, asCard }: AppCardIconProps) {
   return icon.type === 'image' && src && failedSource !== src ? (
     <div className={cn('dashmark-app-icon grid h-full aspect-square shrink-0 place-items-center', asCard && 'dashmark-app-icon-as-card')}>
       <IconDecoration />
-      <img src={src} alt={icon.alt} className="relative col-start-1 row-start-1 z-10 h-full w-full p-4 object-contain" loading="lazy" onError={() => setFailedSource(src)} />
+      <img src={src} alt={icon.alt} className="relative col-start-1 row-start-1 z-10 h-full w-full p-4 object-contain" onError={() => setFailedSource(src)} />
     </div>
   ) : (
     <InitialsPlaceholder title={title} asCard={asCard} />

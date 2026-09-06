@@ -91,8 +91,8 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showMetr
       >
         <Card
           className={cn(className, touchGlimmer && 'dashmark-app-card-glimmering')}
-          onTransitionEnd={(event) => {
-            if (event.propertyName === 'transform' && event.target instanceof SVGRectElement) setTouchGlimmer(false)
+          onAnimationEnd={(event) => {
+            if (event.animationName === 'dashmark-app-icon-glimmer' && event.target instanceof SVGRectElement) setTouchGlimmer(false)
           }}
         >
           <CardContent className="dashmark-app-content relative flex h-24 items-center gap-3 p-3">

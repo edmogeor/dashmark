@@ -245,24 +245,22 @@
   transform: translateX(-130%);
 }
 
-@media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .dashmark-app-icon-glimmer-sheen {
-    transition: transform 450ms ease-out;
-  }
-
-  .dashmark-app-card:hover .dashmark-app-icon-glimmer-sheen {
+@keyframes dashmark-app-icon-glimmer {
+  to {
     transform: translateX(130%);
   }
 }
 
-@media (hover: none) and (prefers-reduced-motion: no-preference) {
-  .dashmark-app-icon-glimmer-sheen {
-    transition: transform 450ms ease-out;
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .dashmark-app-card:hover .dashmark-app-icon-glimmer-sheen {
+    animation: dashmark-app-icon-glimmer 450ms ease-out forwards;
   }
+}
 
+@media (hover: none) and (prefers-reduced-motion: no-preference) {
   .dashmark-app-link:active .dashmark-app-icon-glimmer-sheen,
   .dashmark-app-card-glimmering .dashmark-app-icon-glimmer-sheen {
-    transform: translateX(130%);
+    animation: dashmark-app-icon-glimmer 450ms ease-out forwards;
   }
 }
 
