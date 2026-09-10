@@ -53,7 +53,7 @@ jobs:
 
       - name: Extract release notes
         id: extract_release_notes
-        uses: ffurrer2/extract-release-notes@cae32133495112d23e3569ad04fef240ba4e7bc8 # v2
+        uses: ffurrer2/extract-release-notes@273da39a24fb7db106a35526c8162815faffd31d # v3.1.0
 
       - name: Update package.json version and commit
         run: |
