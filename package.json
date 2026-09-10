@@ -59,7 +59,7 @@
     "framer-motion": "^13.1.1",
     "fuse.js": "^7.0.0",
     "got": "^16.0.0",
-    "happy-dom": "^20.11.12",
+    "happy-dom": "^20.14.0",
     "lucide-react": "^1.35.0",
     "oxlint": "^1.80.0",
     "prettier": "^3.9.6",
