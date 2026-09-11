@@ -276,6 +276,6 @@ main .sl-link-button[href*='/guides/quick-start/']:hover {
   padding: 0.75rem;
 }
 
-starlight-menu-button {
+.sl-menu-button {
   border-radius: 0.4rem;
 }
