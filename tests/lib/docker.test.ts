@@ -151,6 +151,31 @@ describe('getCards', () => {
     })
   })
 
+  it('uses Homepage labels when fallback is enabled', async () => {
+    server.containers = [
+      {
+        Id: 'homepage-plex',
+        Names: ['/plex'],
+        Image: 'plexinc/pms-docker',
+        ImageID: 'sha256:homepage-plex',
+        State: 'running',
+        Status: 'Up 2 hours',
+        Labels: {
+          'homepage.href': 'https://plex.home.local',
+          'homepage.name': 'Plex',
+          'homepage.group': 'Media'
+        }
+      }
+    ]
+
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.homepageLabelFallback = true
+    const { cards } = await getCards(config, new Headers())
+
+    expect(cards[0]).toMatchObject({ title: 'Plex', url: 'https://plex.home.local', category: 'Media' })
+  })
+
   it('marks host-networked containers', async () => {
     server.containers = [
       {

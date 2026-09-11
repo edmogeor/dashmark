@@ -2,7 +2,7 @@ import type { ServiceMetricOverrides, ServiceOverrides } from './config-file-typ
 import { loadMetricCatalog } from './config-file-metrics'
 import { COMPOSE_SERVICE_LABEL } from './constants'
 import type { DockerContainer } from './docker-api'
-import { hasDashmarkLabels, isValidUrl, parseLabels, parseResourceStats, traefikUrl, type ParsedLabels } from './labels'
+import { hasCardLabels, isValidUrl, parseLabels, parseResourceStats, traefikUrl, type ParsedLabels } from './labels'
 import { resolveMetricSources } from './metric-source-resolution'
 
 export type ResolvedMetricCard = {
@@ -69,11 +69,11 @@ function selectedCatalogMetrics(keys: string[] | undefined): ServiceMetricOverri
   return Object.fromEntries((keys ?? []).flatMap((key) => (catalog[key] ? [[key, catalog[key]]] : [])))
 }
 
-export function resolveContainer(yamlServices: Record<string, ServiceOverrides>, hostId: string, container: DockerContainer): ResolvedContainer {
+export function resolveContainer(yamlServices: Record<string, ServiceOverrides>, hostId: string, container: DockerContainer, homepageLabelFallback = false): ResolvedContainer {
   const { key: yamlKey, service: yamlService } = lookupYamlService(yamlServices, hostId, container)
   const rawLabels = container.Labels ?? {}
-  const labels = mergeWithYaml(parseLabels(rawLabels), yamlService)
-  const url = resolveCardUrl(labels.url, rawLabels, yamlService !== undefined || hasDashmarkLabels(rawLabels))
+  const labels = mergeWithYaml(parseLabels(rawLabels, homepageLabelFallback), yamlService)
+  const url = resolveCardUrl(labels.url, rawLabels, yamlService !== undefined || hasCardLabels(rawLabels, homepageLabelFallback))
   const metricDefinitions = { ...selectedCatalogMetrics(labels.metrics), ...yamlService?.metrics?.entryOverrides }
   return {
     container,

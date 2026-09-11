@@ -13,6 +13,7 @@ export type AppConfig = DashboardSettings & {
   iconsDir: string
   customStylesheet?: string
   enableAccessControl: boolean
+  homepageLabelFallback: boolean
   accessGroupsHeader: string
   userNameHeader?: string
   userUsernameHeader?: string
@@ -154,6 +155,7 @@ export function getConfig(): AppConfig {
     iconsDir: stringValue('ICONS_DIR', settings.iconsDir) || '/data/icons',
     customStylesheet: stringValue('CUSTOM_STYLESHEET', settings.customStylesheet),
     enableAccessControl,
+    homepageLabelFallback: parseBool(process.env.HOMEPAGE_LABEL_FALLBACK, false),
     accessGroupsHeader,
     userNameHeader: parseUserHeader(stringValue('USER_NAME_HEADER', settings.userNameHeader)),
     userUsernameHeader: parseUserHeader(stringValue('USER_USERNAME_HEADER', settings.userUsernameHeader)),

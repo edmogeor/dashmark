@@ -16,6 +16,7 @@ const trackedVars = [
   'USER_FIRST_NAME_HEADER',
   'USER_LAST_NAME_HEADER',
   'ENABLE_ACCESS_CONTROL',
+  'HOMEPAGE_LABEL_FALLBACK',
   'SHOW_SEARCH',
   'SHOW_STATUS',
   'STATUS_BADGE_ACCESS',
@@ -156,7 +157,8 @@ describe('getConfig feature toggles', () => {
     ['SHOW_HEADER', 'showHeader', true, 'false', false],
     ['SHOW_GROUP_TAGS', 'showGroupTags', true, 'false', false],
     ['SHOW_THEME_TOGGLE', 'showThemeToggle', true, 'false', false],
-    ['NEW_TAB', 'openInNewTab', false, 'true', true]
+    ['NEW_TAB', 'openInNewTab', false, 'true', true],
+    ['HOMEPAGE_LABEL_FALLBACK', 'homepageLabelFallback', false, 'true', true]
   ] as const)('uses %s to configure %s', (environmentVariable, configKey, defaultValue, configuredValue, expectedValue) => {
     delete process.env[environmentVariable]
     expect(getConfig()[configKey]).toBe(defaultValue)

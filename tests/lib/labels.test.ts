@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseLabels, isValidUrl, traefikUrl, hasDashmarkLabels } from '@/lib/labels'
+import { parseLabels, isValidUrl, traefikUrl, hasCardLabels } from '@/lib/labels'
 
 describe('parseLabels', () => {
   it('parses all supported dashmark labels', () => {
@@ -62,6 +62,29 @@ describe('parseLabels', () => {
     expect(parseLabels(labels).title).toBe('Plex')
   })
 
+  it('uses Homepage labels only when fallback is enabled', () => {
+    const labels = {
+      'homepage.href': 'https://plex.home.local',
+      'homepage.name': 'Plex',
+      'homepage.description': 'Media server',
+      'homepage.icon': 'sh-plex.png',
+      'homepage.group': 'Media',
+      'homepage.weight': '1',
+      'dashmark.title': 'Dashmark Plex'
+    }
+
+    expect(parseLabels(labels)).toMatchObject({ title: 'Dashmark Plex' })
+    expect(parseLabels(labels, true)).toMatchObject({
+      url: 'https://plex.home.local',
+      title: 'Dashmark Plex',
+      description: 'Media server',
+      icon: 'selfhst:plex',
+      category: 'Media',
+      order: 1
+    })
+    expect(parseLabels({ 'homepage.icon': '/icons/plex.png' }, true).icon).toBe('plex.png')
+  })
+
   it('parses search_aliases as a comma-separated list', () => {
     const labels = {
       'dashmark.search_aliases': 'movies, watch later'
@@ -90,15 +113,21 @@ describe('parseLabels', () => {
   })
 })
 
-describe('hasDashmarkLabels', () => {
-  it('detects any dashmark.* label', () => {
-    expect(hasDashmarkLabels({ 'dashmark.title': 'Plex' })).toBe(true)
-    expect(hasDashmarkLabels({ 'dashmark.hidden': 'true' })).toBe(true)
+describe('hasCardLabels', () => {
+  it('detects Dashmark labels and enabled Homepage card labels', () => {
+    expect(hasCardLabels({ 'dashmark.title': 'Plex' })).toBe(true)
+    expect(hasCardLabels({ 'dashmark.hidden': 'true' })).toBe(true)
+    expect(hasCardLabels({ 'homepage.href': 'https://plex.home.local' })).toBe(false)
+    expect(hasCardLabels({ 'homepage.href': 'https://plex.home.local' }, true)).toBe(true)
   })
 
-  it('ignores non-dashmark labels', () => {
-    expect(hasDashmarkLabels({ 'traefik.http.routers.app.rule': 'Host(`app.example.com`)' })).toBe(false)
-    expect(hasDashmarkLabels({})).toBe(false)
+  it('ignores unsupported labels', () => {
+    expect(hasCardLabels({ 'traefik.http.routers.app.rule': 'Host(`app.example.com`)' })).toBe(false)
+    expect(hasCardLabels({ 'homepage.icon': 'sh-plex' }, true)).toBe(true)
+    expect(hasCardLabels({ 'homepage.icon': '/icons/plex.png' }, true)).toBe(true)
+    expect(hasCardLabels({ 'homepage.icon': 'si-plex' }, true)).toBe(false)
+    expect(hasCardLabels({ 'homepage.widget.type': 'plex' }, true)).toBe(false)
+    expect(hasCardLabels({})).toBe(false)
   })
 })
 

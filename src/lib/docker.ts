@@ -395,7 +395,7 @@ export async function getContainerStatuses(
   const resolvedContainers = containers.map(({ hostId, container }) => ({
     hostId,
     container,
-    resolved: resolveContainer(yamlServices, hostId, container)
+    resolved: resolveContainer(yamlServices, hostId, container, config.homepageLabelFallback)
   }))
   const accessCards = resolvedContainers.filter(({ resolved }) => !resolved.labels.hidden && resolved.url !== undefined).map(({ resolved }) => ({ access: resolved.labels.access }))
   const accessError = missingAccessIdentity(config, headers, accessCards)
@@ -444,7 +444,7 @@ async function getDockerMetricUsage(config: AppConfig, headers: Headers, cardId:
     const container = containers.find((candidate) => candidate.Id === containerId)
     if (!container || container.State !== 'running') return undefined
 
-    const resolved = resolveContainer(yamlConfig.config.services, host.id, container)
+    const resolved = resolveContainer(yamlConfig.config.services, host.id, container, config.homepageLabelFallback)
     if (!isVisibleContainer(config, headers, resolved) || resolved.labels.showStatus === false) return undefined
     const planned = dockerMetricTarget(config, cardId, host.dockerHost, container, resolved)
     return planned && usageForTarget(planned.target, planned.details, collect)
@@ -471,7 +471,7 @@ export async function collectContainerResourceUsage(config: AppConfig, isDue: (c
         const containers = await getCachedContainers(host.dockerHost, DOCKER_STATUS_CACHE_TTL_MS)
         const results = await Promise.all(
           containers.map(async (container) => {
-            const resolved = resolveContainer(yamlConfig.config.services, host.id, container)
+            const resolved = resolveContainer(yamlConfig.config.services, host.id, container, config.homepageLabelFallback)
             if (resolved.yamlKey) matchedYamlKeys.add(resolved.yamlKey)
             if (container.State !== 'running') return undefined
             if (resolved.labels.hidden || !resolved.url || resolved.labels.showStatus === false) return undefined
@@ -540,7 +540,7 @@ async function buildAllCards(config: AppConfig): Promise<{ cards: Card[]; error?
   const hostColors = new Map([...new Set([...hostIds.map(dockerHostName), ...yamlHostNames])].map((host) => [host, badgeColorIndex(host)]))
 
   for (const { hostId, container } of containers) {
-    const resolved = resolveContainer(yamlServices, hostId, container)
+    const resolved = resolveContainer(yamlServices, hostId, container, config.homepageLabelFallback)
     const host = showHost ? dockerHostName(hostId) : undefined
     const card = await cardFromContainer(config, resolved, hostId, host, hostColors.get(host ?? '') ?? 0)
     if (card) cards.push(card)

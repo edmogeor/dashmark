@@ -43,22 +43,29 @@ function parseInterval(value: string | undefined): number | undefined {
   return Number.isInteger(seconds) && seconds > 0 ? seconds * 1_000 : undefined
 }
 
+function homepageIcon(value: string | undefined): string | undefined {
+  const selfhst = /^sh-(.+)$/i.exec(value ?? '')
+  // selfh.st variants collapse to SVG, retain the requested format if Dashmark adds raster selfh.st support.
+  if (selfhst) return `selfhst:${selfhst[1].replace(/\.(svg|png|webp)$/i, '')}`
+  return /^\/icons\/(.+)$/.exec(value ?? '')?.[1]
+}
+
 export function parseResourceStats(value: string | string[] | undefined): ResourceStat[] | undefined {
   if (value === undefined) return undefined
   const values = (typeof value === 'string' ? value.split(',') : value).map((item) => item.trim().toLowerCase()).filter(Boolean)
   return RESOURCE_STATS.filter((stat) => values.includes(stat))
 }
 
-export function parseLabels(labels: Record<string, string>): ParsedLabels {
-  const get = (key: string): string | undefined => labels[`${LABEL_PREFIX}.${key}`]
+export function parseLabels(labels: Record<string, string>, homepageLabelFallback = false): ParsedLabels {
+  const get = (key: string, homepageKey?: string): string | undefined => labels[`${LABEL_PREFIX}.${key}`] ?? (homepageLabelFallback && homepageKey ? labels[`homepage.${homepageKey}`] : undefined)
 
   const hidden = get('hidden')?.toLowerCase() === 'true'
-  const url = get('url')
-  const title = get('title')
-  const description = get('description')
-  const icon = get('icon')
-  const category = get('category')
-  const orderRaw = get('order')
+  const url = get('url', 'href')
+  const title = get('title', 'name')
+  const description = get('description', 'description')
+  const icon = get('icon') ?? (homepageLabelFallback ? homepageIcon(labels['homepage.icon']) : undefined)
+  const category = get('category', 'group')
+  const orderRaw = get('order', 'weight')
   const order = orderRaw !== undefined ? Number(orderRaw) : undefined
   const showStatus = parseOptionalBool(get('show_status'))
   const requestedMetrics = parseCommaSeparated(get('metrics'))
@@ -99,8 +106,11 @@ export function parseLabels(labels: Record<string, string>): ParsedLabels {
   }
 }
 
-export function hasDashmarkLabels(labels: Record<string, string>): boolean {
-  return Object.keys(labels).some((key) => key.startsWith(`${LABEL_PREFIX}.`))
+export function hasCardLabels(labels: Record<string, string>, homepageLabelFallback = false): boolean {
+  return Object.entries(labels).some(
+    ([key, value]) =>
+      key.startsWith(`${LABEL_PREFIX}.`) || (homepageLabelFallback && (/^homepage\.(href|name|description|group|weight)$/.test(key) || (key === 'homepage.icon' && homepageIcon(value) !== undefined)))
+  )
 }
 
 export function isValidUrl(url: string): boolean {
