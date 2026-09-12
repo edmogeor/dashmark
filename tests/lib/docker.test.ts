@@ -176,6 +176,35 @@ describe('getCards', () => {
     expect(cards[0]).toMatchObject({ title: 'Plex', url: 'https://plex.home.local', category: 'Media' })
   })
 
+  it('does not discover itself from Dashboard or Homepage labels', async () => {
+    const originalHostname = process.env.HOSTNAME
+    process.env.HOSTNAME = '0123456789ab'
+    server.containers = [
+      {
+        Id: '0123456789ab-container',
+        Names: ['/dashmark'],
+        Image: 'ghcr.io/edmogeor/dashmark',
+        ImageID: 'sha256:dashmark',
+        State: 'running',
+        Status: 'Up 2 hours',
+        Labels: {
+          'dashmark.url': 'https://dashmark.home.local',
+          'homepage.href': 'https://homepage.home.local'
+        }
+      }
+    ]
+
+    try {
+      const config = getConfig()
+      config.dockerHost = dockerHost
+      config.homepageLabelFallback = true
+      expect((await getCards(config, new Headers())).cards).toEqual([])
+    } finally {
+      if (originalHostname === undefined) delete process.env.HOSTNAME
+      else process.env.HOSTNAME = originalHostname
+    }
+  })
+
   it('marks host-networked containers', async () => {
     server.containers = [
       {

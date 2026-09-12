@@ -25,6 +25,11 @@ function containerName(container: DockerContainer): string {
   return name.startsWith('/') ? name.slice(1) : name
 }
 
+function isCurrentContainer(container: DockerContainer): boolean {
+  const hostname = process.env.HOSTNAME
+  return hostname !== undefined && /^[a-f0-9]{12,64}$/i.test(hostname) && container.Id.startsWith(hostname)
+}
+
 export function lookupYamlService(yamlServices: Record<string, ServiceOverrides>, hostId: string, container: DockerContainer): { key?: string; service?: ServiceOverrides } {
   const name = containerName(container)
   const composeService = container.Labels?.[COMPOSE_SERVICE_LABEL]
@@ -72,8 +77,11 @@ function selectedCatalogMetrics(keys: string[] | undefined): ServiceMetricOverri
 export function resolveContainer(yamlServices: Record<string, ServiceOverrides>, hostId: string, container: DockerContainer, homepageLabelFallback = false): ResolvedContainer {
   const { key: yamlKey, service: yamlService } = lookupYamlService(yamlServices, hostId, container)
   const rawLabels = container.Labels ?? {}
-  const labels = mergeWithYaml(parseLabels(rawLabels, homepageLabelFallback), yamlService)
-  const url = resolveCardUrl(labels.url, rawLabels, yamlService !== undefined || hasCardLabels(rawLabels, homepageLabelFallback))
+  const currentContainer = isCurrentContainer(container)
+  const homepageFallback = homepageLabelFallback && !currentContainer
+  const parsedLabels = mergeWithYaml(parseLabels(rawLabels, homepageFallback), yamlService)
+  const labels = currentContainer ? { ...parsedLabels, hidden: true } : parsedLabels
+  const url = resolveCardUrl(labels.url, rawLabels, yamlService !== undefined || hasCardLabels(rawLabels, homepageFallback))
   const metricDefinitions = { ...selectedCatalogMetrics(labels.metrics), ...yamlService?.metrics?.entryOverrides }
   return {
     container,
