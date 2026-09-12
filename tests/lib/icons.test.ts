@@ -7,6 +7,18 @@ import { getIconContrast } from '@/lib/icon-contrast'
 import { resolveIcon } from '@/lib/icons'
 
 vi.mock('@/lib/icon-contrast', () => ({ getIconContrast: vi.fn() }))
+vi.mock('@/lib/dashboard-icons', () => ({
+  fetchDashboardIcons: () => [
+    { reference: 'code-server', name: 'code server', url: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/code-server.png' },
+    {
+      reference: 'plex',
+      name: 'plex',
+      url: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/plex.svg',
+      darkUrl: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/plex.svg',
+      lightUrl: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/plex-light.svg'
+    }
+  ]
+}))
 
 describe('resolveIcon', () => {
   const config = getConfig()
