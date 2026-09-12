@@ -20,6 +20,8 @@ export type SelfhstIcon = {
   reference: string
   name: string
   url: string
+  darkUrl?: string
+  lightUrl?: string
 }
 
 type ReferenceMatch = {
@@ -30,7 +32,14 @@ type ReferenceMatch = {
 const cache = new Map<string, SelfhstIcon[]>()
 
 function isSelfhstIcon(value: unknown): value is SelfhstIcon {
-  return isRecord(value) && typeof value.reference === 'string' && typeof value.name === 'string' && typeof value.url === 'string'
+  return (
+    isRecord(value) &&
+    typeof value.reference === 'string' &&
+    typeof value.name === 'string' &&
+    typeof value.url === 'string' &&
+    (value.darkUrl === undefined || typeof value.darkUrl === 'string') &&
+    (value.lightUrl === undefined || typeof value.lightUrl === 'string')
+  )
 }
 
 function isGitHubIconFile(value: unknown): value is { name: string } {

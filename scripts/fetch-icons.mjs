@@ -124,10 +124,12 @@ async function fetchDashboardIcons() {
 
 async function analyzeIcons(iconSets, contrasts) {
   const sources = iconSets.flatMap(({ icons, root }) =>
-    icons.map((icon) => ({
-      icon,
-      path: path.join(root, new URL(icon.url).pathname.split('/').slice(-2).join('/'))
-    }))
+    icons
+      .filter((icon) => (icon.darkUrl && icon.darkUrl !== icon.url) || (icon.lightUrl && icon.lightUrl !== icon.url))
+      .map((icon) => ({
+        icon,
+        path: path.join(root, new URL(icon.url).pathname.split('/').slice(-2).join('/'))
+      }))
   )
   let nextSourceIndex = 0
 
@@ -157,6 +159,8 @@ async function main() {
     const entries = await listTarball(tarballPath)
     await Promise.all([extractTarball(tarballPath, tempDir), extractTarball(dashboardTarballPath, tempDir)])
 
+    const svgFiles = new Set()
+    const pngFiles = new Set()
     const svgRefs = new Set()
     const pngRefs = new Set()
 
@@ -164,6 +168,8 @@ async function main() {
       const match = entry.match(/^icons-main\/(svg|png)\/(.+?)\.(svg|png)$/)
       if (!match) continue
       const [, dir, reference] = match
+      if (dir === 'svg') svgFiles.add(reference)
+      else pngFiles.add(reference)
       if (/-(dark|light)$/.test(reference)) continue
 
       if (dir === 'svg') svgRefs.add(reference)
@@ -172,13 +178,21 @@ async function main() {
 
     const allRefs = new Set([...svgRefs, ...pngRefs])
     const icons = []
+    const iconUrl = (reference) => {
+      const ext = svgFiles.has(reference) ? 'svg' : pngFiles.has(reference) ? 'png' : undefined
+      return ext ? `${CDN_BASE}/${ext}/${reference}.${ext}` : undefined
+    }
 
     for (const reference of allRefs) {
-      const ext = svgRefs.has(reference) ? 'svg' : 'png'
+      const url = iconUrl(reference)
+      const darkUrl = iconUrl(`${reference}-dark`)
+      const lightUrl = iconUrl(`${reference}-light`)
       icons.push({
         reference,
         name: reference.replace(/[-_]/g, ' '),
-        url: `${CDN_BASE}/${ext}/${reference}.${ext}`
+        url,
+        ...(darkUrl && { darkUrl }),
+        ...(lightUrl && { lightUrl })
       })
     }
 
