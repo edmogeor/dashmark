@@ -7,6 +7,7 @@ import sharp from 'sharp'
 
 const DATA_DIR = 'src/data'
 const TARBALL_URL = 'https://github.com/selfhst/icons/archive/refs/heads/main.tar.gz'
+const DASHBOARD_TARBALL_URL = 'https://github.com/homarr-labs/dashboard-icons/archive/refs/heads/main.tar.gz'
 const CDN_BASE = 'https://cdn.jsdelivr.net/gh/selfhst/icons@main'
 const DASHBOARD_TREE_URL = 'https://raw.githubusercontent.com/homarr-labs/dashboard-icons/main/tree.json'
 const DASHBOARD_METADATA_URL = 'https://raw.githubusercontent.com/homarr-labs/dashboard-icons/main/metadata.json'
@@ -121,18 +122,40 @@ async function fetchDashboardIcons() {
     .sort((a, b) => a.reference.localeCompare(b.reference))
 }
 
+async function analyzeIcons(iconSets, contrasts) {
+  const sources = iconSets.flatMap(({ icons, root }) =>
+    icons.map((icon) => ({
+      icon,
+      path: path.join(root, new URL(icon.url).pathname.split('/').slice(-2).join('/'))
+    }))
+  )
+  let nextSourceIndex = 0
+
+  // Match Node's default libuv pool size without creating work for every icon at once.
+  await Promise.all(
+    Array.from({ length: Math.min(ICON_ANALYSIS_CONCURRENCY, sources.length) }, async () => {
+      while (nextSourceIndex < sources.length) {
+        const { icon, path: iconPath } = sources[nextSourceIndex++]
+        const contrast = await analyzeIcon(iconPath)
+        if (contrast) contrasts[icon.url] = contrast
+      }
+    })
+  )
+}
+
 async function main() {
   console.log('Fetching icon index...')
 
   await fs.mkdir(DATA_DIR, { recursive: true })
   const tempDir = path.join(process.cwd(), '.tmp-icons')
   const tarballPath = path.join(tempDir, 'icons.tar.gz')
+  const dashboardTarballPath = path.join(tempDir, 'dashboard-icons.tar.gz')
 
   try {
     await fs.mkdir(tempDir, { recursive: true })
-    await downloadTarball(TARBALL_URL, tarballPath)
+    await Promise.all([downloadTarball(TARBALL_URL, tarballPath), downloadTarball(DASHBOARD_TARBALL_URL, dashboardTarballPath)])
     const entries = await listTarball(tarballPath)
-    await extractTarball(tarballPath, tempDir)
+    await Promise.all([extractTarball(tarballPath, tempDir), extractTarball(dashboardTarballPath, tempDir)])
 
     const svgRefs = new Set()
     const pngRefs = new Set()
@@ -161,21 +184,15 @@ async function main() {
 
     icons.sort((a, b) => a.reference.localeCompare(b.reference))
 
-    const contrasts = {}
-    let nextIconIndex = 0
-    // Match Node's default libuv pool size without creating work for every icon at once.
-    await Promise.all(
-      Array.from({ length: Math.min(ICON_ANALYSIS_CONCURRENCY, icons.length) }, async () => {
-        while (nextIconIndex < icons.length) {
-          const icon = icons[nextIconIndex++]
-          const iconPath = new URL(icon.url).pathname.split('/').slice(-2).join('/')
-          const contrast = await analyzeIcon(path.join(tempDir, 'icons-main', iconPath))
-          if (contrast) contrasts[icon.url] = contrast
-        }
-      })
-    )
-
     const dashboardIcons = await fetchDashboardIcons()
+    const contrasts = {}
+    await analyzeIcons(
+      [
+        { icons, root: path.join(tempDir, 'icons-main') },
+        { icons: dashboardIcons, root: path.join(tempDir, 'dashboard-icons-main') }
+      ],
+      contrasts
+    )
     await fs.writeFile(path.join(DATA_DIR, 'icons.json'), JSON.stringify({ selfhst: icons, dashboard: dashboardIcons }, null, 2))
     await fs.writeFile(path.join(DATA_DIR, 'icon-contrast.json'), JSON.stringify(contrasts, null, 2))
     console.log(`Indexed ${icons.length} selfh.st icons, ${dashboardIcons.length} Dashboard Icons, and ${Object.keys(contrasts).length} contrast values`)

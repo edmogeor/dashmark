@@ -8,7 +8,7 @@ import { fetchSelfhstIcons, fuzzyMatchIcon, type SelfhstIcon } from './selfhst'
 import { fetchDashboardIcons, type DashboardIcon } from './dashboard-icons'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
-import { DASHBOARD_ICONS_PREFIX, SELFHST_CDN, SELFHST_PREFIX } from './constants'
+import { DASHBOARD_ICONS_PREFIX, SELFHST_PREFIX } from './constants'
 import { getIconContrast, type IconContrast } from './icon-contrast'
 import { getServiceCandidates, normalizeServiceCandidate } from './service-candidates'
 import { getSelfhstIconCache } from './selfhst-icon-cache'
@@ -54,7 +54,7 @@ function resolveFileIcon(config: AppConfig, value: string): string | null {
 export type IconResult = { type: 'image'; src: string; alt: string; contrast?: IconContrast; darkSrc?: string; lightSrc?: string } | { type: 'placeholder'; initials: string }
 
 function imageIcon(src: string, alt: string): IconResult {
-  const contrast = src.startsWith(SELFHST_CDN) ? getIconContrast(src) : undefined
+  const contrast = getIconContrast(src)
   if (!contrast || !src.endsWith('.svg')) return { type: 'image', src, alt, contrast }
 
   const variantSrc = src.replace(/\.svg$/, contrast === 'dark' ? '-light.svg' : '-dark.svg')

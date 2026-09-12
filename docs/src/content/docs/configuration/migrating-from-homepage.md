@@ -5,6 +5,8 @@ description: Reuse existing Homepage Docker labels in Dashmark.
 
 Set `HOMEPAGE_LABEL_FALLBACK=true` to use Homepage Docker labels as fallbacks. Dashmark labels and YAML overrides take precedence.
 
+If you no longer use Homepage, migrate to `dashmark.*` labels for future compatibility.
+
 | Homepage label         | Dashmark equivalent    |
 | ---------------------- | ---------------------- |
 | `homepage.href`        | `dashmark.url`         |
