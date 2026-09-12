@@ -11,3 +11,8 @@ Dashmark includes generated icon and description indexes derived from the follow
 
 - Source: <https://github.com/selfhst/cdn/tree/main/directory>
 - License: [MIT](https://github.com/selfhst/cdn/blob/main/LICENSE)
+
+## Dashboard Icons
+
+- Source: <https://github.com/homarr-labs/dashboard-icons>
+- License: [Apache-2.0](https://github.com/homarr-labs/dashboard-icons/blob/main/LICENSE)

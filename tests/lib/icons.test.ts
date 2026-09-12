@@ -82,6 +82,33 @@ describe('resolveIcon', () => {
     })
   })
 
+  it('resolves a Dashboard Icons reference', async () => {
+    const result = await resolveIcon(config, {
+      iconLabel: 'dashboard:code-server',
+      title: 'Code Server',
+      containerName: 'code-server',
+      cacheSelfhst: false
+    })
+
+    expect(result).toMatchObject({ type: 'image', src: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/code-server.png', alt: 'Code Server' })
+  })
+
+  it('includes Dashboard Icons theme variants', async () => {
+    const result = await resolveIcon(config, {
+      iconLabel: 'dashboard:plex',
+      title: 'Plex',
+      containerName: 'plex',
+      cacheSelfhst: false
+    })
+
+    expect(result).toMatchObject({
+      type: 'image',
+      src: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/plex.svg',
+      darkSrc: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/plex.svg',
+      lightSrc: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/plex-light.svg'
+    })
+  })
+
   it('uses a contrasting selfhst SVG variant when one is available', async () => {
     vi.mocked(getIconContrast).mockReturnValue('dark')
 
@@ -174,6 +201,17 @@ describe('resolveIcon', () => {
     })
     expect(result).toMatchObject({ type: 'image', alt: 'Plex' })
     expect(result.type === 'image' && result.src).toMatch(/^\/api\/selfhst-icons\/[a-f0-9]{64}\.svg$/)
+  })
+
+  it('falls back to Dashboard Icons for automatic matching', async () => {
+    const result = await resolveIcon(config, {
+      imageName: 'codercom/code-server',
+      title: 'Code Server',
+      containerName: 'code-server',
+      cacheSelfhst: false
+    })
+
+    expect(result).toMatchObject({ type: 'image', src: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/code-server.png', alt: 'Code Server' })
   })
 
   it('skips automatic matching when enableAutomaticIcons is false', async () => {

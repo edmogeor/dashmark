@@ -67,7 +67,7 @@ describe('parseLabels', () => {
       'homepage.href': 'https://plex.home.local',
       'homepage.name': 'Plex',
       'homepage.description': 'Media server',
-      'homepage.icon': 'sh-plex.png',
+      'homepage.icon': 'https://example.com/plex.svg',
       'homepage.group': 'Media',
       'homepage.weight': '1',
       'dashmark.title': 'Dashmark Plex'
@@ -78,11 +78,14 @@ describe('parseLabels', () => {
       url: 'https://plex.home.local',
       title: 'Dashmark Plex',
       description: 'Media server',
-      icon: 'selfhst:plex',
+      icon: 'https://example.com/plex.svg',
       category: 'Media',
       order: 1
     })
+    expect(parseLabels({ 'homepage.icon': 'sh-plex.png' }, true).icon).toBe('selfhst:plex')
     expect(parseLabels({ 'homepage.icon': '/icons/plex.png' }, true).icon).toBe('plex.png')
+    expect(parseLabels({ 'homepage.icon': 'code-server.png' }, true).icon).toBe('dashboard:code-server')
+    expect(parseLabels({ 'homepage.icon': '//raw.githubusercontent.com/example/icon.svg' }, true).icon).toBe('https://raw.githubusercontent.com/example/icon.svg')
   })
 
   it('parses search_aliases as a comma-separated list', () => {
@@ -125,6 +128,7 @@ describe('hasCardLabels', () => {
     expect(hasCardLabels({ 'traefik.http.routers.app.rule': 'Host(`app.example.com`)' })).toBe(false)
     expect(hasCardLabels({ 'homepage.icon': 'sh-plex' }, true)).toBe(true)
     expect(hasCardLabels({ 'homepage.icon': '/icons/plex.png' }, true)).toBe(true)
+    expect(hasCardLabels({ 'homepage.icon': 'code-server' }, true)).toBe(true)
     expect(hasCardLabels({ 'homepage.icon': 'si-plex' }, true)).toBe(false)
     expect(hasCardLabels({ 'homepage.widget.type': 'plex' }, true)).toBe(false)
     expect(hasCardLabels({})).toBe(false)

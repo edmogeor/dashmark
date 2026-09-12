@@ -89,10 +89,7 @@ function InitialsPlaceholder({ title, asCard }: Pick<AppCardIconProps, 'title' |
 function useContrastAwareSrc(icon: Card['icon']): string | undefined {
   const isDark = useIsDark()
   if (icon.type !== 'image') return undefined
-  if (!icon.contrast) return icon.src
-  if (icon.contrast === 'dark' && isDark) return icon.lightSrc ?? icon.src
-  if (icon.contrast === 'light' && !isDark) return icon.darkSrc ?? icon.src
-  return icon.src
+  return isDark ? (icon.darkSrc ?? icon.src) : (icon.lightSrc ?? icon.src)
 }
 
 export function AppCardIcon({ icon, title, asCard }: AppCardIconProps) {

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { SELFHST_CDN, SELFHST_FETCH_TIMEOUT_MS } from './constants'
+import { DASHBOARD_ICONS_CDN, SELFHST_CDN, SELFHST_FETCH_TIMEOUT_MS } from './constants'
 
 type CachedIcon = { content: Buffer; mimeType: string }
 
@@ -15,8 +15,11 @@ const MIME_TYPES = new Map([
 function allowedIcon(url: string): { key: string; extension: string; url: string } | null {
   try {
     const source = new URL(url)
-    const base = new URL(SELFHST_CDN)
-    if (source.origin !== base.origin || !source.pathname.startsWith(`${base.pathname}/`)) return null
+    const allowed = [SELFHST_CDN, DASHBOARD_ICONS_CDN].some((cdn) => {
+      const base = new URL(cdn)
+      return source.origin === base.origin && source.pathname.startsWith(`${base.pathname}/`)
+    })
+    if (!allowed) return null
     const extension = path.extname(source.pathname).toLowerCase()
     if (!MIME_TYPES.has(extension)) return null
     return { key: `${createHash('sha256').update(source.href).digest('hex')}${extension}`, extension, url: source.href }

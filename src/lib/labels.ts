@@ -1,4 +1,4 @@
-import { LABEL_PREFIX, TRAEFIK_ROUTER_RULE } from './constants'
+import { DASHBOARD_ICONS_PREFIX, LABEL_PREFIX, TRAEFIK_ROUTER_RULE } from './constants'
 
 export type ParsedLabels = {
   hidden: boolean
@@ -44,10 +44,15 @@ function parseInterval(value: string | undefined): number | undefined {
 }
 
 function homepageIcon(value: string | undefined): string | undefined {
+  if (value && isValidUrl(value)) return value
+  if (value?.startsWith('//') && isValidUrl(`https:${value}`)) return `https:${value}`
   const selfhst = /^sh-(.+)$/i.exec(value ?? '')
   // selfh.st variants collapse to SVG, retain the requested format if Dashmark adds raster selfh.st support.
   if (selfhst) return `selfhst:${selfhst[1].replace(/\.(svg|png|webp)$/i, '')}`
-  return /^\/icons\/(.+)$/.exec(value ?? '')?.[1]
+  const file = /^\/icons\/(.+)$/.exec(value ?? '')
+  if (file) return file[1]
+  if (/^(?!mdi-|si-)[a-z0-9][a-z0-9-]*(?:\.(svg|png|webp))?$/i.test(value ?? '')) return `${DASHBOARD_ICONS_PREFIX}${value!.replace(/\.(svg|png|webp)$/i, '').toLowerCase()}`
+  return undefined
 }
 
 export function parseResourceStats(value: string | string[] | undefined): ResourceStat[] | undefined {

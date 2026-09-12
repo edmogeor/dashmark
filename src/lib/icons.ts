@@ -5,9 +5,10 @@ import { getInitials } from './initials'
 import { isValidUrl } from './labels'
 import { isOutsideDirectory } from './paths'
 import { fetchSelfhstIcons, fuzzyMatchIcon, type SelfhstIcon } from './selfhst'
+import { fetchDashboardIcons, type DashboardIcon } from './dashboard-icons'
 import { logger } from './logger'
 import { logMessages } from './log-messages'
-import { SELFHST_CDN, SELFHST_PREFIX } from './constants'
+import { DASHBOARD_ICONS_PREFIX, SELFHST_CDN, SELFHST_PREFIX } from './constants'
 import { getIconContrast, type IconContrast } from './icon-contrast'
 import { getServiceCandidates, normalizeServiceCandidate } from './service-candidates'
 import { getSelfhstIconCache } from './selfhst-icon-cache'
@@ -20,9 +21,18 @@ function isSelfhstReference(value: string): boolean {
   return value.toLowerCase().startsWith(SELFHST_PREFIX)
 }
 
+function isDashboardReference(value: string): boolean {
+  return value.toLowerCase().startsWith(DASHBOARD_ICONS_PREFIX)
+}
+
 function resolveSelfhstReference(value: string, icons: SelfhstIcon[]): string | null {
   const reference = normalizeServiceCandidate(value)
   return icons.find((icon) => icon.reference === reference)?.url ?? null
+}
+
+function resolveDashboardReference(value: string): DashboardIcon | null {
+  const reference = normalizeServiceCandidate(value)
+  return fetchDashboardIcons().find((icon) => icon.reference === reference) ?? null
 }
 
 function resolveFileIcon(config: AppConfig, value: string): string | null {
@@ -51,7 +61,7 @@ function imageIcon(src: string, alt: string): IconResult {
   return contrast === 'dark' ? { type: 'image', src, alt, contrast, lightSrc: variantSrc } : { type: 'image', src, alt, contrast, darkSrc: variantSrc }
 }
 
-function cachedSelfhstIcon(url: string, title: string): IconResult | null {
+function cachedCatalogIcon(url: string, title: string): IconResult | null {
   const cache = getSelfhstIconCache()
   const src = cache.source(url)
   if (!src) return null
@@ -63,8 +73,15 @@ function cachedSelfhstIcon(url: string, title: string): IconResult | null {
   return contrast === 'dark' ? { type: 'image', src, alt: title, contrast, lightSrc: variantSrc ?? undefined } : { type: 'image', src, alt: title, contrast, darkSrc: variantSrc ?? undefined }
 }
 
-function selfhstIcon(url: string, title: string, cacheSelfhst: boolean): IconResult | null {
-  return cacheSelfhst ? cachedSelfhstIcon(url, title) : imageIcon(url, title)
+function catalogIcon(url: string, title: string, cacheSelfhst: boolean): IconResult | null {
+  return cacheSelfhst ? cachedCatalogIcon(url, title) : imageIcon(url, title)
+}
+
+function dashboardIcon(icon: DashboardIcon, title: string, cacheSelfhst: boolean): IconResult | null {
+  const result = catalogIcon(icon.url, title, cacheSelfhst)
+  if (!result || result.type !== 'image') return result
+  const source = (url: string | undefined) => (url ? (cacheSelfhst ? (getSelfhstIconCache().source(url) ?? undefined) : url) : undefined)
+  return { ...result, darkSrc: source(icon.darkUrl), lightSrc: source(icon.lightUrl) }
 }
 
 export async function resolveIcon(
@@ -94,11 +111,22 @@ export async function resolveIcon(
       const icons = await fetchSelfhstIcons()
       const selfhstUrl = resolveSelfhstReference(reference, icons)
       if (selfhstUrl) {
-        const icon = selfhstIcon(selfhstUrl, title, cacheSelfhst)
+        const icon = catalogIcon(selfhstUrl, title, cacheSelfhst)
         if (icon) return icon
       }
 
       logger.warn('icons', logMessages.icons.selfhstReferenceNotFound, { iconLabel })
+      return makePlaceholder(title)
+    }
+
+    if (isDashboardReference(iconLabel)) {
+      const dashboard = resolveDashboardReference(iconLabel.slice(DASHBOARD_ICONS_PREFIX.length))
+      if (dashboard) {
+        const icon = dashboardIcon(dashboard, title, cacheSelfhst)
+        if (icon) return icon
+      }
+
+      logger.warn('icons', 'Dashboard Icons reference not found', { iconLabel })
       return makePlaceholder(title)
     }
 
@@ -117,7 +145,13 @@ export async function resolveIcon(
   const candidates = getServiceCandidates(imageName, containerName, title)
   const match = fuzzyMatchIcon(candidates, icons)
   if (match) {
-    const icon = selfhstIcon(match.url, title, cacheSelfhst)
+    const icon = catalogIcon(match.url, title, cacheSelfhst)
+    if (icon) return icon
+  }
+
+  const dashboardMatch = fuzzyMatchIcon(candidates, fetchDashboardIcons())
+  if (dashboardMatch) {
+    const icon = dashboardIcon(dashboardMatch, title, cacheSelfhst)
     if (icon) return icon
   }
 

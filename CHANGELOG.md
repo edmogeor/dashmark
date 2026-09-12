@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-09-12
+
+### Added
+
+- Add Dashboard Icons for explicit `dashboard:<slug>` references and automatic matching.
+- Support Homepage icon URLs and bare Dashboard Icons names when Homepage label fallback is enabled.
+
 ### Fixed
 
 - Prevent Dashmark from discovering itself as a card.

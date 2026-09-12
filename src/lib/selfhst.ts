@@ -42,7 +42,8 @@ function loadLocalIcons(): SelfhstIcon[] | null {
     const filePath = path.resolve('src/data/icons.json')
     if (!fs.existsSync(filePath)) return null
     const content = fs.readFileSync(filePath, 'utf-8')
-    const icons: unknown = JSON.parse(content)
+    const catalog: unknown = JSON.parse(content)
+    const icons = isRecord(catalog) ? catalog.selfhst : undefined
     if (!Array.isArray(icons) || !icons.every(isSelfhstIcon)) {
       throw new Error('Local icon index had an invalid format')
     }
@@ -155,8 +156,11 @@ function getFuse<T extends ReferenceMatch>(items: T[]): Fuse<T> {
 }
 
 function findExactMatch<T extends ReferenceMatch>(candidates: string[], items: T[]): T | null {
-  const candidateSet = new Set(candidates)
-  return items.find((item) => candidateSet.has(item.reference)) ?? null
+  for (const candidate of candidates) {
+    const item = items.find((item) => item.reference === candidate)
+    if (item) return item
+  }
+  return null
 }
 
 function hasSimilarLength(candidate: string, reference: string): boolean {
@@ -186,6 +190,6 @@ export function fuzzyMatchReference<T extends ReferenceMatch>(candidates: string
   return bestMatch?.item ?? null
 }
 
-export function fuzzyMatchIcon(candidates: string[], icons: SelfhstIcon[]): SelfhstIcon | null {
+export function fuzzyMatchIcon<T extends SelfhstIcon>(candidates: string[], icons: T[]): T | null {
   return fuzzyMatchReference(candidates, icons)
 }

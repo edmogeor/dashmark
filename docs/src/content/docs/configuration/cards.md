@@ -37,7 +37,7 @@ labels:
 | `dashmark.url`                                       | Card URL.                                                                                                                                                                                                                          |
 | `dashmark.title`                                     | Display name, defaulting to the container name.                                                                                                                                                                                    |
 | `dashmark.description`                               | Tooltip text. Use `none` to disable automatic descriptions.                                                                                                                                                                        |
-| `dashmark.icon`                                      | `selfhst:<slug>`, an `http(s)` URL, a path in `ICONS_DIR`, or `placeholder`.                                                                                                                                                       |
+| `dashmark.icon`                                      | `selfhst:<slug>`, `dashboard:<slug>`, an `http(s)` URL, a path in `ICONS_DIR`, or `placeholder`.                                                                                                                                   |
 | `dashmark.category`                                  | Category name. Matching ignores case.                                                                                                                                                                                              |
 | `dashmark.order`                                     | Numeric order within the category.                                                                                                                                                                                                 |
 | `dashmark.search_aliases`                            | Comma-separated additional search terms.                                                                                                                                                                                           |
@@ -62,7 +62,7 @@ Set `HOMEPAGE_LABEL_FALLBACK=true` to opt into Homepage Docker-label fallbacks. 
 | `homepage.group`       | `dashmark.category`    |
 | `homepage.weight`      | `dashmark.order`       |
 
-Homepage `sh-` selfh.st icons are translated, for example `sh-plex.png` becomes `selfhst:plex`; Dashmark always uses its SVG icon. Homepage `/icons/<file>` paths are translated to `<file>` under Dashmark's `ICONS_DIR`, so mount the same files there. Other Homepage icon formats, widgets, status checks, and instance-specific labels are not imported.
+Absolute Homepage HTTP(S) icon URLs are used directly. Homepage `sh-` selfh.st icons are translated, for example `sh-plex.png` becomes `selfhst:plex`; Dashmark always uses its SVG icon. Homepage `/icons/<file>` paths are translated to `<file>` under Dashmark's `ICONS_DIR`, so mount the same files there. Bare Homepage icon names are translated to Dashboard Icons, for example `code-server.png` becomes `dashboard:code-server`. Other Homepage icon formats, widgets, status checks, and instance-specific labels are not imported.
 
 ## Traefik URLs
 
@@ -70,11 +70,11 @@ When `dashmark.url` is not set, Dashmark can derive a card URL from a Traefik ro
 
 ## Automatic icons and descriptions
 
-`ENABLE_AUTOMATIC_DESCRIPTIONS` and `ENABLE_AUTOMATIC_ICONS` both default to `true`. Set either to `false` to disable matching cards against bundled selfh.st data.
+`ENABLE_AUTOMATIC_DESCRIPTIONS` and `ENABLE_AUTOMATIC_ICONS` both default to `true`. Set either to `false` to disable matching cards against bundled selfh.st and Dashboard Icons data.
 
 ## Icons
 
-Dashmark resolves icons in this order: `placeholder`, an HTTP(S) URL, a `selfhst:` icon, a file under `ICONS_DIR`, automatic image-name matching, then title initials.
+Dashmark tries placeholders, URLs, catalog icons, local files, then automatic matching, with [selfh.st](https://selfh.st/icons/) before [Dashboard Icons](https://dashboardicons.com/). Otherwise it uses title initials. Dashboard Icons use theme variants when available.
 
 ```yaml
 labels:

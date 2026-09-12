@@ -8,6 +8,9 @@ import sharp from 'sharp'
 const DATA_DIR = 'src/data'
 const TARBALL_URL = 'https://github.com/selfhst/icons/archive/refs/heads/main.tar.gz'
 const CDN_BASE = 'https://cdn.jsdelivr.net/gh/selfhst/icons@main'
+const DASHBOARD_TREE_URL = 'https://raw.githubusercontent.com/homarr-labs/dashboard-icons/main/tree.json'
+const DASHBOARD_METADATA_URL = 'https://raw.githubusercontent.com/homarr-labs/dashboard-icons/main/metadata.json'
+const DASHBOARD_CDN_BASE = 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons'
 const ANALYSIS_SIZE = 32
 const BLUR_SIGMA = 4
 const DARK_LUMINANCE_THRESHOLD = 0.2
@@ -86,8 +89,40 @@ async function analyzeIcon(filePath) {
   }
 }
 
+async function fetchDashboardIcons() {
+  const [treeResponse, metadataResponse] = await Promise.all([fetch(DASHBOARD_TREE_URL), fetch(DASHBOARD_METADATA_URL)])
+  if (!treeResponse.ok) throw new Error(`Dashboard Icons index request failed with ${treeResponse.status}`)
+  if (!metadataResponse.ok) throw new Error(`Dashboard Icons metadata request failed with ${metadataResponse.status}`)
+
+  const [tree, metadata] = await Promise.all([treeResponse.json(), metadataResponse.json()])
+  const svgRefs = new Set((Array.isArray(tree.svg) ? tree.svg : []).flatMap((file) => /^(.+)\.svg$/.exec(file)?.[1] ?? []))
+  const pngRefs = new Set((Array.isArray(tree.png) ? tree.png : []).flatMap((file) => /^(.+)\.png$/.exec(file)?.[1] ?? []))
+  const references = new Set([...svgRefs, ...pngRefs])
+  const iconUrl = (reference, preferredExtension) => {
+    const ext =
+      preferredExtension && (preferredExtension === 'svg' ? svgRefs : pngRefs).has(reference) ? preferredExtension : svgRefs.has(reference) ? 'svg' : pngRefs.has(reference) ? 'png' : undefined
+    return ext ? `${DASHBOARD_CDN_BASE}/${ext}/${reference}.${ext}` : undefined
+  }
+
+  return [...references]
+    .filter((reference) => !/-(dark|light)$/.test(reference))
+    .map((reference) => {
+      const colors = metadata[reference]?.colors
+      const url = iconUrl(reference, metadata[reference]?.base)
+      return {
+        reference,
+        name: reference.replace(/[-_]/g, ' '),
+        url,
+        ...(typeof colors?.dark === 'string' && { darkUrl: iconUrl(colors.dark) }),
+        ...(typeof colors?.light === 'string' && { lightUrl: iconUrl(colors.light) })
+      }
+    })
+    .filter((icon) => Boolean(icon.url))
+    .sort((a, b) => a.reference.localeCompare(b.reference))
+}
+
 async function main() {
-  console.log('Fetching selfhst icon index...')
+  console.log('Fetching icon index...')
 
   await fs.mkdir(DATA_DIR, { recursive: true })
   const tempDir = path.join(process.cwd(), '.tmp-icons')
@@ -140,9 +175,10 @@ async function main() {
       })
     )
 
-    await fs.writeFile(path.join(DATA_DIR, 'icons.json'), JSON.stringify(icons, null, 2))
+    const dashboardIcons = await fetchDashboardIcons()
+    await fs.writeFile(path.join(DATA_DIR, 'icons.json'), JSON.stringify({ selfhst: icons, dashboard: dashboardIcons }, null, 2))
     await fs.writeFile(path.join(DATA_DIR, 'icon-contrast.json'), JSON.stringify(contrasts, null, 2))
-    console.log(`Indexed ${icons.length} icons and ${Object.keys(contrasts).length} contrast values`)
+    console.log(`Indexed ${icons.length} selfh.st icons, ${dashboardIcons.length} Dashboard Icons, and ${Object.keys(contrasts).length} contrast values`)
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true })
   }
