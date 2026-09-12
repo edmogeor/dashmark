@@ -45,7 +45,7 @@ ci: publish Docker image on release
 - Releases are tagged as `vX.Y.Z` or `X.Y.Z`.
 - Keep `CHANGELOG.md` updated under `[Unreleased]`; move it to a dated
   version heading when tagging a release.
-- `package.json` version is bumped by the release workflow automatically.
+- Bump and commit the `package.json` version before tagging a release.
 
 ### Prereleases
 
