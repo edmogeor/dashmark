@@ -49,21 +49,6 @@ labels:
 | `dashmark.metrics_access.<metric>`                   | Comma-separated access entries for one metric. Replace `/` with `.` in a library metric key.                                                                                                                                       |
 | `dashmark.metric_*`                                  | Credential for a library metric. Prefer YAML environment-variable or secret-file references because Docker labels are visible through Docker APIs.                                                                                 |
 
-## Homepage compatibility
-
-Set `HOMEPAGE_LABEL_FALLBACK=true` to opt into Homepage Docker-label fallbacks. Dashmark labels and YAML overrides still take precedence.
-
-| Homepage label         | Dashmark equivalent    |
-| ---------------------- | ---------------------- |
-| `homepage.href`        | `dashmark.url`         |
-| `homepage.name`        | `dashmark.title`       |
-| `homepage.description` | `dashmark.description` |
-| `homepage.icon`        | `dashmark.icon`        |
-| `homepage.group`       | `dashmark.category`    |
-| `homepage.weight`      | `dashmark.order`       |
-
-Absolute Homepage HTTP(S) icon URLs are used directly. Homepage `sh-` selfh.st icons are translated, for example `sh-plex.png` becomes `selfhst:plex`; Dashmark always uses its SVG icon. Homepage `/icons/<file>` paths are translated to `<file>` under Dashmark's `ICONS_DIR`, so mount the same files there. Bare Homepage icon names are translated to Dashboard Icons, for example `code-server.png` becomes `dashboard:code-server`. Other Homepage icon formats, widgets, status checks, and instance-specific labels are not imported.
-
 ## Traefik URLs
 
 When `dashmark.url` is not set, Dashmark can derive a card URL from a Traefik router rule containing `Host(...)`. It uses `https://` by default. The container still needs at least one `dashmark.*` label or a matching YAML entry, Traefik labels alone do not create a card.

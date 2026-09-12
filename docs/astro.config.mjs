@@ -41,6 +41,7 @@ export default defineConfig({
           label: 'Configuration',
           items: [
             { label: 'Card configuration', link: '/configuration/cards/' },
+            { label: 'Migrating from Homepage', link: '/configuration/migrating-from-homepage/' },
             { label: 'YAML configuration', link: '/configuration/yaml/' },
             { label: 'Dashboard settings', link: '/configuration/settings/' },
             { label: 'Access control', link: '/configuration/access-control/' }
