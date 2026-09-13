@@ -41,7 +41,7 @@ export function StatusBadge({ state, health, loading, asCard = false }: StatusBa
     )
   }
 
-  const display = health === 'starting' || health === 'unhealthy' ? health : state
+  const display = health ?? state
 
   if (!display) return null
 
