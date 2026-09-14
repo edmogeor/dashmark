@@ -252,13 +252,13 @@
 }
 
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .dashmark-app-card:hover .dashmark-app-icon-glimmer-sheen {
+  .dashmark-app-card-glimmering .dashmark-app-icon-glimmer-sheen {
     animation: dashmark-app-icon-glimmer 450ms ease-out forwards;
   }
 }
 
 @media (hover: none) and (prefers-reduced-motion: no-preference) {
-  .dashmark-app-link:active .dashmark-app-icon-glimmer-sheen,
+  .dashmark-app-link:not(:has(.card-action-button:active)):active .dashmark-app-icon-glimmer-sheen,
   .dashmark-app-card-glimmering .dashmark-app-icon-glimmer-sheen {
     animation: dashmark-app-icon-glimmer 450ms ease-out forwards;
   }

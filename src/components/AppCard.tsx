@@ -71,7 +71,16 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showMetr
         target={openInNewTab ? '_blank' : undefined}
         rel={openInNewTab ? 'noopener noreferrer' : undefined}
         className="dashmark-app-link block h-full rounded-lg"
-        onPointerEnter={showResources ? () => setHovered(true) : undefined}
+        onPointerEnter={(event) => {
+          if (showResources) setHovered(true)
+          if (event.pointerType !== 'mouse') return
+          const link = event.currentTarget
+          requestAnimationFrame(() => {
+            if (!link.matches(':hover') || link.matches(':has(.card-action-button:hover)')) return
+            setCancellingTouchGlimmer(false)
+            setTouchGlimmer(true)
+          })
+        }}
         onPointerLeave={showResources ? () => setHovered(false) : undefined}
         onPointerDownCapture={(event) => {
           if (activeTooltip && !(event.target instanceof Element && event.target.closest('.card-action-button, .dashmark-app-resources'))) {

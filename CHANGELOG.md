@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-09-14
+
+### Fixed
+
+- Prevent service icon glimmers from starting on metric and information controls while allowing active glimmers to finish.
+
 ## [0.7.3] - 2026-09-13
 
 ### Fixed
