@@ -53,6 +53,12 @@ settings:
 | `GREETING_AFTERNOON` | `Good afternoon` | `greeting_afternoon` | Afternoon greeting text.                                       |
 | `GREETING_EVENING`   | `Good evening`   | `greeting_evening`   | Evening greeting text.                                         |
 
+## Container status
+
+When `SHOW_STATUS` is enabled, Docker-backed cards show the container state: `created`, `restarting`, `running`, `removing`, `paused`, `exited`, or `dead`. Docker reports a stopped container as `exited`.
+
+For containers with health checks, Dashmark shows the health status instead: `starting`, `healthy`, or `unhealthy`.
+
 ![Dashmark's category filter menu, alongside the service-card dashboard.](../../../assets/category-filter.png)
 
 `CUSTOM_HEADER` can use `{greeting}`, `{full_name}`, `{first_name}`, `{last_name}`, `{username}`, and `{email}`. Configure the greeting text with `GREETING_MORNING`, `GREETING_AFTERNOON`, and `GREETING_EVENING`.
