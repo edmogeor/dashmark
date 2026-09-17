@@ -55,7 +55,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "esbuild": "^0.28.2",
-    "fallow": "3.17.0",
+    "fallow": "3.25.0",
     "framer-motion": "^13.1.1",
     "fuse.js": "^7.0.0",
     "got": "^16.0.0",
