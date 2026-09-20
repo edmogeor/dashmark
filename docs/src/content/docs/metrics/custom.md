@@ -83,7 +83,7 @@ Use one body type per request: `form` or `json`. `GET` requests cannot have a bo
 
 Use `source.initial.query` for history sources that need an initial backfill followed by lightweight incremental requests. Dashmark stores uptime observations per card and metric in its metrics SQLite database, so the initial request runs only when no retained history exists.
 
-For token authentication, use a header or query parameter and a secret reference:
+For token authentication, use a header or query parameter, a secret reference, and optional prefix or suffix text:
 
 ```yaml
 source:

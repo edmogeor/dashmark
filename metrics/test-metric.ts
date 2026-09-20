@@ -47,6 +47,7 @@ export function loadMetric(definitionUrl: URL, baseUrl: string): MetricOverride 
           ...(source.authentication.optional ? { optional: true } : {}),
           ...('header' in source.authentication ? { header: source.authentication.header } : { query: source.authentication.query }),
           ...(source.authentication.prefix ? { prefix: source.authentication.prefix } : {}),
+          ...(source.authentication.suffix ? { suffix: source.authentication.suffix } : {}),
           value: { value: 'test-token' }
         }
       : undefined

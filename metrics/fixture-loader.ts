@@ -27,7 +27,7 @@ export type MetricDefinition = {
     json?: Record<string, unknown>
     authentication?:
       | { kind: 'basic'; optional?: boolean; username: unknown; password: unknown }
-      | ({ kind: 'token'; optional?: boolean; prefix?: string; value: unknown } & ({ header: string; query?: never } | { header?: never; query: string }))
+      | ({ kind: 'token'; optional?: boolean; prefix?: string; suffix?: string; value: unknown } & ({ header: string; query?: never } | { header?: never; query: string }))
       | {
           kind: 'cookie_session'
           optional?: boolean

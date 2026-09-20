@@ -93,6 +93,7 @@ type TokenMetricAuth = ({ header: string; query?: never } | { header?: never; qu
   type: 'token'
   optional?: boolean
   prefix?: string
+  suffix?: string
   value: MetricSecretReference
 }
 

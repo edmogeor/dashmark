@@ -110,6 +110,7 @@ shared_metric_sources:
       kind: token
       header: Authorization
       prefix: "Bearer "
+      suffix: "!"
       value: { env: HOME_ASSISTANT_TOKEN }
 service:
   metrics:
@@ -127,7 +128,7 @@ service:
 
     expect(metric?.source).toMatchObject({
       url: 'http://homeassistant:8123/api/states/sensor.office_temperature',
-      auth: { type: 'token', header: 'Authorization', prefix: 'Bearer ', value: { env: 'HOME_ASSISTANT_TOKEN' } }
+      auth: { type: 'token', header: 'Authorization', prefix: 'Bearer ', suffix: '!', value: { env: 'HOME_ASSISTANT_TOKEN' } }
     })
   })
 

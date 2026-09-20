@@ -122,7 +122,7 @@ beforeAll(async () => {
       return
     }
     if (path === '/token') {
-      response.statusCode = request.headers.authorization === 'Bearer metric-token' && request.headers.accept === 'application/json' ? 200 : 401
+      response.statusCode = request.headers.authorization === 'MediaBrowser Token="metric-token"' && request.headers.accept === 'application/json' ? 200 : 401
       response.end(JSON.stringify({ value: 14 }))
       return
     }
@@ -471,14 +471,14 @@ describe('collectCustomMetric', () => {
     ).resolves.toMatchObject({ error: 'collection_failed' })
   })
 
-  it('sends static headers and prefixed token authentication', async () => {
+  it('sends static headers and wrapped token authentication', async () => {
     await expect(
       collectCustomMetric('token', {
         ...metric({ jq: { expression: '.value' } }),
         source: {
           url: `${baseUrl}/token`,
           headers: { Accept: 'application/json' },
-          auth: { type: 'token', header: 'Authorization', prefix: 'Bearer ', value: { value: 'metric-token' } }
+          auth: { type: 'token', header: 'Authorization', prefix: 'MediaBrowser Token="', suffix: '"', value: { value: 'metric-token' } }
         }
       })
     ).resolves.toEqual({ value: 14 })

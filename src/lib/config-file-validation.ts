@@ -485,17 +485,21 @@ function parseTokenMetricHttpAuth(value: Record<string, unknown>): MetricHttpAut
   const validHeader = header !== undefined && /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(header)
   const validQuery = query !== undefined && query.length > 0
   if (
-    Object.keys(value).some((key) => !['type', 'optional', 'header', 'query', 'prefix', 'value'].includes(key)) ||
+    Object.keys(value).some((key) => !['type', 'optional', 'header', 'query', 'prefix', 'suffix', 'value'].includes(key)) ||
     Number(validHeader) + Number(validQuery) !== 1 ||
     (value.optional !== undefined && typeof value.optional !== 'boolean') ||
-    (value.prefix !== undefined && typeof value.prefix !== 'string')
+    (value.prefix !== undefined && typeof value.prefix !== 'string') ||
+    (value.suffix !== undefined && typeof value.suffix !== 'string')
   )
-    return { error: 'source.auth type token requires one valid header or query target and an optional string prefix' }
+    return { error: 'source.auth type token requires one valid header or query target and optional string prefix and suffix values' }
   const token = parseSecretReference(value.value)
   if (!token) return { error: 'source.auth type token requires a secret value reference' }
   const optional = value.optional === undefined ? {} : { optional: value.optional }
   const prefix = value.prefix === undefined ? {} : { prefix: value.prefix }
-  return validHeader && header ? { auth: { type: 'token', ...optional, header, ...prefix, value: token } } : { auth: { type: 'token', ...optional, query: query!, ...prefix, value: token } }
+  const suffix = value.suffix === undefined ? {} : { suffix: value.suffix }
+  return validHeader && header
+    ? { auth: { type: 'token', ...optional, header, ...prefix, ...suffix, value: token } }
+    : { auth: { type: 'token', ...optional, query: query!, ...prefix, ...suffix, value: token } }
 }
 
 function parseCookieSessionMetricHttpAuth(value: Record<string, unknown>): MetricHttpAuthResult {
@@ -666,7 +670,7 @@ function normalizeSharedMetricSource(value: Record<string, unknown>, sourceProfi
 function normalizeLegacyMetricAuthentication(authentication: unknown): { auth?: unknown; error?: string } {
   if (authentication === undefined) return {}
   if (!isRecord(authentication)) return { error: 'source.authentication must be a mapping' }
-  if (Object.keys(authentication).some((key) => !['kind', 'optional', 'username', 'password', 'header', 'query', 'prefix', 'value', 'requests'].includes(key)))
+  if (Object.keys(authentication).some((key) => !['kind', 'optional', 'username', 'password', 'header', 'query', 'prefix', 'suffix', 'value', 'requests'].includes(key)))
     return { error: 'source.authentication contains an unknown configuration key' }
   const kind = string(authentication.kind)
   if (kind === 'basic')
@@ -686,6 +690,7 @@ function normalizeLegacyMetricAuthentication(authentication: unknown): { auth?: 
         ...(authentication.header === undefined ? {} : { header: authentication.header }),
         ...(authentication.query === undefined ? {} : { query: authentication.query }),
         ...(authentication.prefix === undefined ? {} : { prefix: authentication.prefix }),
+        ...(authentication.suffix === undefined ? {} : { suffix: authentication.suffix }),
         value: authentication.value
       }
     }

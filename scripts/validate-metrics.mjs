@@ -284,13 +284,14 @@ function validateHttpAuth(authentication) {
     return
   }
   if (value.kind === 'token') {
-    allowed(value, new Set(['kind', 'optional', 'header', 'query', 'prefix', 'value']), 'source.authentication')
+    allowed(value, new Set(['kind', 'optional', 'header', 'query', 'prefix', 'suffix', 'value']), 'source.authentication')
     if (value.optional !== undefined && typeof value.optional !== 'boolean') throw new Error('source.authentication.optional must be a boolean')
     if (
       Number(typeof value.header === 'string' && Boolean(value.header)) + Number(typeof value.query === 'string' && Boolean(value.query)) !== 1 ||
-      (value.prefix !== undefined && typeof value.prefix !== 'string')
+      (value.prefix !== undefined && typeof value.prefix !== 'string') ||
+      (value.suffix !== undefined && typeof value.suffix !== 'string')
     )
-      throw new Error('source.authentication token requires one header or query target and an optional string prefix')
+      throw new Error('source.authentication token requires one header or query target and optional string prefix and suffix values')
     validateSecretReference('value', value.value, 'source.authentication', 'token')
     return
   }

@@ -70,7 +70,7 @@ export function applyTokenAuth(metric: MetricOverride, headers: Headers, url: UR
   if (!auth || auth.type !== 'token') return undefined
   const { values, error } = resolveReferences(metric, { value: auth.value }, 'token authentication')
   if (error || !values) return error ?? 'Could not resolve token authentication credentials'
-  const value = `${auth.prefix ?? ''}${values.value!}`
+  const value = `${auth.prefix ?? ''}${values.value!}${auth.suffix ?? ''}`
   if (typeof auth.header === 'string') headers.set(auth.header, value)
   else url.searchParams.set(auth.query, value)
   return undefined

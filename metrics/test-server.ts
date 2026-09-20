@@ -12,14 +12,16 @@ type TestServerOptions = {
 }
 
 export async function startMetricTestServer({ definition, source, parameters, fixture }: TestServerOptions): Promise<{ baseUrl: string; close: () => Promise<void> }> {
+  const tokenPrefix = source.authentication?.kind === 'token' ? (source.authentication.prefix ?? '') : ''
+  const tokenSuffix = source.authentication?.kind === 'token' ? (source.authentication.suffix ?? '') : ''
+  const tokenValue = `${tokenPrefix}test-token${tokenSuffix}`
   const expectedUrl = new URL(resolveUrl(source.url, 'http://metrics.test', parameters))
   for (const name of Object.keys(source.query ?? {})) expectedUrl.searchParams.set(name, 'test-secret')
-  if (source.authentication?.kind === 'token' && typeof source.authentication.query === 'string') expectedUrl.searchParams.set(source.authentication.query, 'test-token')
+  if (source.authentication?.kind === 'token' && typeof source.authentication.query === 'string') expectedUrl.searchParams.set(source.authentication.query, tokenValue)
   const expectedPath = `${expectedUrl.pathname}${expectedUrl.search}`
   const requiresCookieSession = source.authentication?.kind === 'cookie_session'
   const requiresBasicAuth = source.authentication?.kind === 'basic'
   const requiresTokenAuth = source.authentication?.kind === 'token'
-  const tokenPrefix = source.authentication?.kind === 'token' ? (source.authentication.prefix ?? '') : ''
   const tokenHeader = source.authentication?.kind === 'token' && 'header' in source.authentication ? source.authentication.header : undefined
   const tokenQuery = source.authentication?.kind === 'token' && 'query' in source.authentication ? source.authentication.query : undefined
   const optionalAuthentication = source.authentication?.optional === true
@@ -62,8 +64,7 @@ export async function startMetricTestServer({ definition, source, parameters, fi
     const hasAuthentication =
       (requiresCookieSession && request.headers.cookie?.includes('metric-session=active')) ||
       (requiresBasicAuth && request.headers.authorization === `Basic ${Buffer.from('test-username:test-password').toString('base64')}`) ||
-      (requiresTokenAuth &&
-        (tokenQuery ? new URL(request.url ?? '/', 'http://metrics.test').searchParams.get(tokenQuery) === 'test-token' : request.headers[tokenHeader!.toLowerCase()] === `${tokenPrefix}test-token`))
+      (requiresTokenAuth && (tokenQuery ? new URL(request.url ?? '/', 'http://metrics.test').searchParams.get(tokenQuery) === tokenValue : request.headers[tokenHeader!.toLowerCase()] === tokenValue))
     if (optionalAuthentication && !hasAuthentication) {
       response.statusCode = 401
       response.end()
@@ -73,7 +74,7 @@ export async function startMetricTestServer({ definition, source, parameters, fi
     if (requiresCookieSession) expect(request.headers.cookie).toContain('metric-session=active')
     if (requiresBasicAuth) expect(request.headers.authorization).toBe(`Basic ${Buffer.from('test-username:test-password').toString('base64')}`)
     if (requiresTokenAuth && tokenQuery) expect(new URL(request.url ?? '/', 'http://metrics.test').searchParams.get(tokenQuery)).toBe('test-token')
-    if (requiresTokenAuth && !tokenQuery) expect(request.headers[tokenHeader!.toLowerCase()]).toBe(`${tokenPrefix}test-token`)
+    if (requiresTokenAuth && !tokenQuery) expect(request.headers[tokenHeader!.toLowerCase()]).toBe(tokenValue)
     for (const name of headerNames) {
       if (name === 'Authorization' && sessionTokenPrefix !== undefined) continue
       expect(request.headers[name.toLowerCase()]).toBe('test-secret')
