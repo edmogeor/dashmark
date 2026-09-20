@@ -7,5 +7,6 @@ source:
     value:
       env: DASHMARK_JELLYFIN_API_KEY
       label: dashmark.metric_api_key
+notes: Requires Jellyfin 12 or later.
 charts:
   library: step

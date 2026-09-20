@@ -21,12 +21,12 @@ Credential options list the environment variables, secret files, or Docker label
 | homeassistant | entities | Entities | None | DASHMARK_HOMEASSISTANT_TOKEN or dashmark.metric_token | None |
 | homeassistant | entity-state | Entity State | entity_id (Entity ID) | DASHMARK_HOMEASSISTANT_TOKEN or dashmark.metric_token | None |
 | homeassistant | template-state | Template State | template (Template) | DASHMARK_HOMEASSISTANT_TOKEN or dashmark.metric_token | None |
-| jellyfin | active-streams | Active streams | None | DASHMARK_JELLYFIN_API_KEY or dashmark.metric_api_key | None |
-| jellyfin | albums | Albums | None | DASHMARK_JELLYFIN_API_KEY or dashmark.metric_api_key | None |
-| jellyfin | episodes | Episodes | None | DASHMARK_JELLYFIN_API_KEY or dashmark.metric_api_key | None |
-| jellyfin | movies | Movies | None | DASHMARK_JELLYFIN_API_KEY or dashmark.metric_api_key | None |
-| jellyfin | series | Series | None | DASHMARK_JELLYFIN_API_KEY or dashmark.metric_api_key | None |
-| jellyfin | songs | Songs | None | DASHMARK_JELLYFIN_API_KEY or dashmark.metric_api_key | None |
+| jellyfin | active-streams | Active streams | None | DASHMARK_JELLYFIN_API_KEY or dashmark.metric_api_key | Requires Jellyfin 12 or later. |
+| jellyfin | albums | Albums | None | DASHMARK_JELLYFIN_API_KEY or dashmark.metric_api_key | Requires Jellyfin 12 or later. |
+| jellyfin | episodes | Episodes | None | DASHMARK_JELLYFIN_API_KEY or dashmark.metric_api_key | Requires Jellyfin 12 or later. |
+| jellyfin | movies | Movies | None | DASHMARK_JELLYFIN_API_KEY or dashmark.metric_api_key | Requires Jellyfin 12 or later. |
+| jellyfin | series | Series | None | DASHMARK_JELLYFIN_API_KEY or dashmark.metric_api_key | Requires Jellyfin 12 or later. |
+| jellyfin | songs | Songs | None | DASHMARK_JELLYFIN_API_KEY or dashmark.metric_api_key | Requires Jellyfin 12 or later. |
 | nzbget | download-rate | Download | None | DASHMARK_NZBGET_PASSWORD or dashmark.metric_password (optional), DASHMARK_NZBGET_USERNAME or dashmark.metric_username (optional) | None |
 | nzbget | downloaded | Downloaded | None | DASHMARK_NZBGET_PASSWORD or dashmark.metric_password (optional), DASHMARK_NZBGET_USERNAME or dashmark.metric_username (optional) | None |
 | nzbget | remaining | Remaining | None | DASHMARK_NZBGET_PASSWORD or dashmark.metric_password (optional), DASHMARK_NZBGET_USERNAME or dashmark.metric_username (optional) | None |
