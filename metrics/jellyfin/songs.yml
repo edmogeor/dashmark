@@ -1,0 +1,9 @@
+display:
+  label: Songs
+  chart: library
+value:
+  unit: count
+source:
+  url: '{metric_source}/Items/Counts'
+extract:
+  jq: .SongCount

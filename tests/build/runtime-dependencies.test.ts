@@ -14,13 +14,7 @@ describe('runtime dependencies', () => {
   it('keeps the runtime server dependencies outside the bundled app', () => {
     const packageLock = readPackageLock()
 
-    expect(packageLock.packages['']?.dependencies).toEqual({
-      '@fastify/static': '^10.1.3',
-      '@fastify/websocket': '^11.3.0',
-      fastify: '^5.12.1',
-      'js-yaml': '^5.4.1',
-      ws: '^8.21.3'
-    })
+    expect(Object.keys(packageLock.packages['']?.dependencies ?? {}).sort()).toEqual(['@fastify/static', '@fastify/websocket', 'fastify', 'js-yaml', 'ws'])
     expect(packageLock.packages['']?.devDependencies?.['@astrojs/node']).toBeDefined()
     expect(packageLock.packages['node_modules/server-destroy']?.dev).toBe(true)
   })

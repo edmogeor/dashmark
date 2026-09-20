@@ -1,0 +1,9 @@
+display:
+  label: Series
+  chart: library
+value:
+  unit: count
+source:
+  url: '{metric_source}/Items/Counts'
+extract:
+  jq: .SeriesCount

@@ -1,0 +1,8 @@
+display:
+  label: Active streams
+value:
+  unit: count
+source:
+  url: '{metric_source}/Sessions'
+extract:
+  jq: '[.[] | select(.NowPlayingItem != null)] | length'

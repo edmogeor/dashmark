@@ -1,0 +1,9 @@
+source:
+  authentication:
+    kind: token
+    header: X-Emby-Token
+    value:
+      env: DASHMARK_JELLYFIN_API_KEY
+      label: dashmark.metric_api_key
+charts:
+  library: step
