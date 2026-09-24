@@ -46,7 +46,7 @@
     "@radix-ui/react-tooltip": "^1.1.0",
     "@tailwindcss/vite": "^4.0.0",
     "@tanstack/react-virtual": "^3.14.9",
-    "@tanstack/virtual-core": "^3.17.7",
+    "@tanstack/virtual-core": "^3.17.11",
     "@types/js-yaml": "^4.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.2.7",
