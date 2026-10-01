@@ -70,7 +70,7 @@
     "shadcn": "^4.21.0",
     "sharp": "^0.35.3",
     "simple-git-hooks": "^2.13.1",
-    "socket.io": "^4.8.3",
+    "socket.io": "^4.8.4",
     "socket.io-client": "^4.8.3",
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.7.0",
