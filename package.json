@@ -61,7 +61,7 @@
     "got": "^16.0.0",
     "happy-dom": "^20.14.0",
     "lucide-react": "^1.35.0",
-    "oxlint": "^1.81.0",
+    "oxlint": "^1.85.0",
     "prettier": "^3.9.6",
     "radix-ui": "^1.6.7",
     "react": "^19.3.0",
