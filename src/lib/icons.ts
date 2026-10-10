@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { AppConfig } from './config'
+import type { ServiceIcon } from './config-file-types'
 import { getInitials } from './initials'
 import { isValidUrl } from './labels'
 import { isOutsideDirectory } from './paths'
@@ -51,7 +52,7 @@ function resolveFileIcon(config: AppConfig, value: string): string | null {
   return null
 }
 
-export type IconResult = { type: 'image'; src: string; alt: string; contrast?: IconContrast; darkSrc?: string; lightSrc?: string } | { type: 'placeholder'; initials: string }
+export type IconResult = { type: 'image'; src: string; alt: string; contrast?: IconContrast; darkSrc?: string; lightSrc?: string; explicitTheme?: boolean } | { type: 'placeholder'; initials: string }
 
 function imageIcon(src: string, alt: string): IconResult {
   const contrast = getIconContrast(src)
@@ -87,7 +88,7 @@ function dashboardIcon(icon: DashboardIcon, title: string, cacheSelfhst: boolean
 export async function resolveIcon(
   config: AppConfig,
   options: {
-    iconLabel?: string
+    iconLabel?: ServiceIcon
     imageName?: string
     title: string
     containerName: string
@@ -95,6 +96,16 @@ export async function resolveIcon(
   }
 ): Promise<IconResult> {
   const { iconLabel, imageName, title, containerName, cacheSelfhst = true } = options
+  if (iconLabel && typeof iconLabel !== 'string') {
+    const [light, dark] = await Promise.all([
+      resolveIcon(config, { ...options, iconLabel: iconLabel.light ?? iconLabel.dark }),
+      resolveIcon(config, { ...options, iconLabel: iconLabel.dark ?? iconLabel.light })
+    ])
+    const lightSrc = light.type === 'image' ? light.src : undefined
+    const darkSrc = dark.type === 'image' ? dark.src : undefined
+    const src = lightSrc ?? darkSrc
+    return src ? { type: 'image', src, alt: title, lightSrc: lightSrc ?? src, darkSrc: darkSrc ?? src, explicitTheme: true } : makePlaceholder(title)
+  }
   const normalizedLabel = iconLabel?.toLowerCase()
 
   if (normalizedLabel === 'placeholder') {
