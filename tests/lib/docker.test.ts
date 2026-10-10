@@ -1296,7 +1296,8 @@ backup:
         }
       }
     ]
-    mockGotResponse('{"results":[{"timestamp":"2026-08-27T18:00:00Z","success":true,"duration":12000000}]}')
+    const timestamp = new Date().toISOString()
+    mockGotResponse(`{"results":[{"timestamp":"${timestamp}","success":true,"duration":12000000}]}`)
     const config = getConfig()
     config.dockerHost = dockerHost
 
@@ -1306,7 +1307,7 @@ backup:
           key: 'test/uptime',
           label: 'Uptime',
           current: 'up',
-          observations: [{ timestamp: Date.parse('2026-08-27T18:00:00Z'), status: 'up', responseTimeMs: 12 }]
+          observations: [{ timestamp: Date.parse(timestamp), status: 'up', responseTimeMs: 12 }]
         }
       ]
     })
