@@ -22,6 +22,37 @@ afterEach(() => {
 })
 
 describe('loadYamlConfig', () => {
+  it('accepts string icons and light/dark icon mappings', () => {
+    const configPath = writeConfig(`
+single:
+  icon: https://example.com/paseo.svg
+themed:
+  icon:
+    light: paseo-light.svg
+    dark: https://example.com/paseo-dark.svg
+light_only:
+  icon: { light: paseo-light.svg }
+dark_only:
+  icon: { dark: paseo-dark.svg }
+`)
+    const result = loadYamlConfig(configPath)
+
+    expect(result.error).toBeUndefined()
+    expect(result.config.services).toMatchObject({
+      single: { icon: 'https://example.com/paseo.svg' },
+      themed: { icon: { light: 'paseo-light.svg', dark: 'https://example.com/paseo-dark.svg' } },
+      light_only: { icon: { light: 'paseo-light.svg' } },
+      dark_only: { icon: { dark: 'paseo-dark.svg' } }
+    })
+  })
+
+  it.each(['{}', '{ light: 42 }', '{ dark: null }', '{ light: "" }', '{ dark: " " }', '{ light: icon.svg, typo: other.svg }', '[icon.svg]'])('rejects an invalid icon mapping: %s', (icon) => {
+    const result = loadYamlConfig(writeConfig(`service:\n  icon: ${icon}\n`))
+
+    expect(result.error?.code).toBe('CONFIG_INVALID')
+    expect(result.error?.detail).toContain('service.icon')
+  })
+
   it('parses nested service metric configuration', () => {
     const config = getConfig()
     config.configFile = writeConfig(`

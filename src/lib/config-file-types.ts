@@ -11,12 +11,14 @@ export type ServiceMetrics = {
   entryErrors?: Record<string, string>
 }
 
+export type ServiceIcon = string | { light?: string; dark?: string }
+
 export type ServiceOverrides = {
   host?: string
   title?: string
   description?: string
   url?: string
-  icon?: string
+  icon?: ServiceIcon
   category?: string
   order?: number
   hidden?: boolean

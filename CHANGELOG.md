@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-10-10
+
+### Added
+
+- Support light and dark icon variants in YAML, with a single variant used in both themes.
+
 ## [0.8.3] - 2026-10-10
 
 ### Fixed

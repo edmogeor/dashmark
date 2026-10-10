@@ -196,6 +196,58 @@ describe('resolveIcon', () => {
     })
   })
 
+  it('resolves separate light and dark icons from custom files and URLs', async () => {
+    fs.writeFileSync(path.join(iconsDirectory, 'paseo-light.svg'), '')
+    vi.mocked(getIconContrast).mockReturnValue('dark')
+
+    const result = await resolveIcon(config, {
+      iconLabel: { light: 'paseo-light.svg', dark: 'https://example.com/paseo-dark.svg' },
+      title: 'Paseo',
+      containerName: 'paseo'
+    })
+
+    expect(result).toEqual({
+      type: 'image',
+      src: '/icons/paseo-light.svg',
+      alt: 'Paseo',
+      lightSrc: '/icons/paseo-light.svg',
+      darkSrc: 'https://example.com/paseo-dark.svg',
+      explicitTheme: true
+    })
+  })
+
+  it.each(['light', 'dark'] as const)('uses a single %s icon for both themes', async (theme) => {
+    const src = 'https://example.com/paseo.svg'
+    const result = await resolveIcon(config, {
+      iconLabel: { [theme]: src },
+      title: 'Paseo',
+      containerName: 'paseo'
+    })
+
+    expect(result).toEqual({ type: 'image', src, alt: 'Paseo', lightSrc: src, darkSrc: src, explicitTheme: true })
+  })
+
+  it('uses the available icon when a custom variant is missing', async () => {
+    const src = 'https://example.com/paseo.svg'
+    const result = await resolveIcon(config, {
+      iconLabel: { light: 'missing.svg', dark: src },
+      title: 'Paseo',
+      containerName: 'paseo'
+    })
+
+    expect(result).toEqual({ type: 'image', src, alt: 'Paseo', lightSrc: src, darkSrc: src, explicitTheme: true })
+  })
+
+  it('uses initials when neither custom icon variant can be resolved', async () => {
+    const result = await resolveIcon(config, {
+      iconLabel: { light: '../outside.svg', dark: 'missing.svg' },
+      title: 'Paseo',
+      containerName: 'paseo'
+    })
+
+    expect(result).toEqual({ type: 'placeholder', initials: 'P' })
+  })
+
   it('falls back to placeholder for missing custom file', async () => {
     const result = await resolveIcon(config, {
       iconLabel: 'missing.png',

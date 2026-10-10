@@ -795,6 +795,31 @@ describe('getCards', () => {
     })
   })
 
+  it('passes themed YAML icons through for Docker overrides and standalone cards', async () => {
+    server.containers = [{ Id: 'paseo', Names: ['/paseo'], Image: 'paseo', ImageID: 'sha256:paseo', State: 'running', Status: 'Up 1 hour', Labels: { 'dashmark.url': 'https://paseo.example.com' } }]
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    config.dockerHosts = undefined
+    config.configFile = writeTempConfig(`
+paseo:
+  icon: &paseo_icon
+    light: paseo-light.svg
+    dark: https://example.com/paseo-dark.svg
+external:
+  url: https://external.example.com
+  icon: *paseo_icon
+`)
+
+    const { cards, error } = await getCards(config, new Headers())
+    const { resolveIcon } = await import('@/lib/icons')
+
+    expect(error).toBeUndefined()
+    expect(cards).toHaveLength(2)
+    for (const containerName of ['paseo', 'external']) {
+      expect(resolveIcon).toHaveBeenCalledWith(config, expect.objectContaining({ containerName, iconLabel: { light: 'paseo-light.svg', dark: 'https://example.com/paseo-dark.svg' } }))
+    }
+  })
+
   it('shows a configured host badge on standalone YAML cards', async () => {
     const config = getConfig()
     config.dockerHost = dockerHost

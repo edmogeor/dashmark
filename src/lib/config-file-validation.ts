@@ -1248,10 +1248,22 @@ function parseServiceMetrics(value: unknown, path: string, catalog: Record<strin
   }
 }
 
+function parseServiceIcon(value: unknown, path: string): ServiceOverrides['icon'] {
+  if (value === undefined || typeof value === 'string') return value
+  if (!isRecord(value)) invalid(path, 'a string or a mapping with light and/or dark icons')
+  validateKnownFields(value, new Set(['light', 'dark']), path)
+  for (const key of ['light', 'dark'] as const) {
+    validateString(value[key], `${path}.${key}`)
+    if (typeof value[key] === 'string' && !value[key].trim()) invalid(`${path}.${key}`, 'a non-empty string')
+  }
+  if (value.light === undefined && value.dark === undefined) invalid(path, 'a mapping with at least one light or dark icon')
+  return { light: string(value.light), dark: string(value.dark) }
+}
+
 function parseService(value: unknown, path: string, catalog: Record<string, Record<string, unknown>>, sharedSources?: Record<string, Record<string, unknown>>): ServiceOverrides {
   if (!isRecord(value)) invalid(path, 'a mapping')
   validateKnownFields(value, SERVICE_FIELDS, path)
-  for (const key of ['title', 'description', 'url', 'icon', 'category', 'host'] as const) validateString(value[key], `${path}.${key}`)
+  for (const key of ['title', 'description', 'url', 'category', 'host'] as const) validateString(value[key], `${path}.${key}`)
   for (const key of ['hidden', 'show_status'] as const) validateBoolean(value[key], `${path}.${key}`)
   validateNumber(value.order, `${path}.order`)
   for (const key of ['access', 'search_aliases'] as const) validateStringList(value[key], `${path}.${key}`)
@@ -1262,7 +1274,7 @@ function parseService(value: unknown, path: string, catalog: Record<string, Reco
     title: string(value.title),
     description: string(value.description),
     url: string(value.url),
-    icon: string(value.icon),
+    icon: parseServiceIcon(value.icon, `${path}.icon`),
     category: string(value.category),
     host: string(value.host),
     order,

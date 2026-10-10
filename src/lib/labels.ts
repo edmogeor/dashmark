@@ -1,4 +1,5 @@
 import { DASHBOARD_ICONS_PREFIX, LABEL_PREFIX, TRAEFIK_ROUTER_RULE } from './constants'
+import type { ServiceIcon } from './config-file-types'
 
 export type ParsedLabels = {
   hidden: boolean
@@ -6,7 +7,7 @@ export type ParsedLabels = {
   metricSources?: Record<string, string>
   title?: string
   description?: string
-  icon?: string
+  icon?: ServiceIcon
   category?: string
   order?: number
   showStatus?: boolean

@@ -64,6 +64,28 @@ Use these fields under a service name: `title`, `description`, `url`, `icon`, `c
 
 Dashmark rejects unknown or invalid YAML keys and writes a configuration error to its logs. Start with the shipped [`data/config.yml`](https://github.com/edmogeor/dashmark/blob/main/data/config.yml) example for the complete metrics structure.
 
+## Icon themes
+
+Set `icon` to a string to use one custom file, URL, or catalog reference in both themes:
+
+```yaml
+paseo:
+  url: https://paseo.example.com
+  icon: https://example.com/paseo.svg
+```
+
+To choose an icon for each dashboard theme, use a mapping with `light` and `dark`:
+
+```yaml
+paseo:
+  url: https://paseo.example.com
+  icon:
+    light: paseo-light.svg
+    dark: https://example.com/paseo-dark.svg
+```
+
+`light` is used in light mode and `dark` in dark mode. Each accepts the same values as a string icon, including paths relative to `ICONS_DIR`, HTTP(S) URLs, and `selfhst:` or `dashboard:` references. If only one is provided, Dashmark uses it in both themes. This works for standalone cards and YAML overrides of Docker cards.
+
 ## Secrets
 
 Never put a literal token in `config.yml`. Point `auth_token` at an environment variable or Docker secret file:
