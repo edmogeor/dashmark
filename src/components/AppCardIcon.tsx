@@ -76,12 +76,12 @@ function InitialsPlaceholder({ title, asCard }: Pick<AppCardIconProps, 'title' |
   return (
     <div
       className={cn(
-        'dashmark-app-icon dashmark-app-icon-placeholder grid h-full aspect-square shrink-0 place-items-center ps-1 text-xl font-[550] text-foreground/50',
+        'dashmark-app-icon dashmark-app-icon-placeholder grid h-full aspect-square shrink-0 place-items-center text-xl font-[550] text-foreground/50',
         asCard && 'dashmark-app-icon-as-card'
       )}
     >
       <IconDecoration />
-      <span className="relative z-10">{getInitials(title)}</span>
+      <span className="relative col-start-1 row-start-1 z-10">{getInitials(title)}</span>
     </div>
   )
 }

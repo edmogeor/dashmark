@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-10-10
+
 ### Fixed
 
-- Keep the provider-label uptime test sample within the history retention window.
+- Center placeholder initials within service icons.
+
+### Changed
+
+- Update dashboard rendering dependencies to React 19.3.
 
 ## [0.8.2] - 2026-09-24
 
