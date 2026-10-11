@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-10-11
+
 ### Changed
 
 - Keep background uptime history in SQLite instead of retaining raw observations in memory, load chart summaries on demand, and use indexed uptime pruning.
@@ -17,10 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reuse the browser search index and avoid dashboard rerenders for unchanged container statuses.
 - Check resource visibility once per chart response, share unrestricted cached histories, and index card lookups for metric subscriptions.
 - Send full numeric chart histories on subscription and reconnect, then deliver incremental samples with retention-safe merging and compatibility for older clients.
+- Simplify metric collection and source resolution, reuse shared validation, and centralize runtime limits and timing constants.
 
 ### Fixed
 
 - Prevent overdue metric timers from busy-looping while a slow collection is still running.
+- Keep SQLite test cleanup out of browser-environment tests to restore CI compatibility.
 
 ## [0.8.4] - 2026-10-10
 
