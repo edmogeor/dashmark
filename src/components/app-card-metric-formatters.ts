@@ -32,20 +32,12 @@ function formatScaledUnit(value: number, units: readonly Intl.NumberFormatOption
   }).format(amount)
 }
 
-function formatBytesWithPrecision(value: number, significantDigits: number, locale: Locale): string {
-  return formatScaledUnit(value, byteUnits, significantDigits, locale)
-}
-
-function formatBitsWithPrecision(value: number, significantDigits: number, locale: Locale): string {
-  return formatScaledUnit(value, bitUnits, significantDigits, locale)
-}
-
 export function formatBytes(value: number, locale: Locale = defaultLocale): string {
-  return formatBytesWithPrecision(value, 3, locale)
+  return formatScaledUnit(value, byteUnits, 3, locale)
 }
 
 export function formatDetailedBytes(value: number, locale: Locale = defaultLocale): string {
-  return formatBytesWithPrecision(value, 4, locale)
+  return formatScaledUnit(value, byteUnits, 4, locale)
 }
 
 export function formatPercent(value: number, locale: Locale = defaultLocale): string {
@@ -60,9 +52,10 @@ export const formatAxisPercent = formatPercent
 export const formatAxisBytes = formatBytes
 
 function formatDuration(value: number, significantDigits: number, locale: Locale): string {
-  const [amount, unit]: [number, Intl.NumberFormatOptions['unit']] =
-    value < 1 ? [value * 1_000, 'millisecond'] : value < 60 ? [value, 'second'] : value < 3_600 ? [value / 60, 'minute'] : [value / 3_600, 'hour']
-  return new Intl.NumberFormat(locale, { style: 'unit', unit, unitDisplay: 'narrow', maximumSignificantDigits: significantDigits }).format(amount)
+  if (value < 1) return formatUnit(value * 1_000, 'millisecond', significantDigits, locale)
+  if (value < 60) return formatUnit(value, 'second', significantDigits, locale)
+  if (value < 3_600) return formatUnit(value / 60, 'minute', significantDigits, locale)
+  return formatUnit(value / 3_600, 'hour', significantDigits, locale)
 }
 
 function formatUnit(value: number, unit: Intl.NumberFormatOptions['unit'], significantDigits: number, locale: Locale): string {
@@ -71,9 +64,9 @@ function formatUnit(value: number, unit: Intl.NumberFormatOptions['unit'], signi
 
 function formatCustomMetricWithPrecision(value: number, unit: CustomMetricUnit, significantDigits: number, locale: Locale): string {
   if (typeof unit === 'object') return `${formatNumber(value, significantDigits, locale)} ${unit.suffix}`
-  if (unit === 'bytes') return formatBytesWithPrecision(value, significantDigits, locale)
+  if (unit === 'bytes') return formatScaledUnit(value, byteUnits, significantDigits, locale)
   if (unit === 'bytes_per_second') return formatScaledUnit(value, bytePerSecondUnits, significantDigits, locale)
-  if (unit === 'bits') return formatBitsWithPrecision(value, significantDigits, locale)
+  if (unit === 'bits') return formatScaledUnit(value, bitUnits, significantDigits, locale)
   if (unit === 'bits_per_second') return formatScaledUnit(value, bitPerSecondUnits, significantDigits, locale)
   if (unit === 'percent') return formatPercent(value, locale)
   if (unit === 'ratio') return formatPercent(value * 100, locale)

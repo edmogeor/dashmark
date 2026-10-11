@@ -15,4 +15,16 @@ describe('metric formatting', () => {
     expect(formatDetailedBytes(12.49 * 1_024 * 1_024)).toBe('12.49MB')
     expect(formatDetailedPercent(12.49)).toBe('12.49%')
   })
+
+  it.each([
+    [0, '0ms'],
+    [0.5, '500ms'],
+    [1, '1s'],
+    [59, '59s'],
+    [60, '1m'],
+    [3_599, '60m'],
+    [3_600, '1h']
+  ])('formats duration %s at the appropriate scale', (value, expected) => {
+    expect(formatCustomMetric(value, 'duration')).toBe(expected)
+  })
 })

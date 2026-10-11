@@ -8,6 +8,7 @@ import { tickerConfig, type MetricDetail } from './app-card-metrics'
 export function resourceMetricDetail(label: string, history: ResourceMetricSample[], historyPeriodMs: number, key: 'cpu' | 'memory', resources: ContainerResources, locale: Locale): MetricDetail {
   const memory = key === 'memory'
   const limit = resources.memoryLimit
+  const useBytes = memory && !limit
   return {
     label,
     history: resourceMetricHistory(history),
@@ -20,9 +21,9 @@ export function resourceMetricDetail(label: string, history: ResourceMetricSampl
         value: (sample) => (memory && limit && sample.memory !== undefined ? (sample.memory / limit) * 100 : sample[key])
       }
     ],
-    formatValue: (value) => (memory && limit ? formatDetailedPercent(value, locale) : memory ? formatDetailedBytes(value, locale) : formatDetailedPercent(value, locale)),
+    formatValue: (value) => (useBytes ? formatDetailedBytes(value, locale) : formatDetailedPercent(value, locale)),
     formatTooltipValue: memory && limit ? (value) => `${formatDetailedBytes((value / 100) * limit, locale)} (${formatDetailedPercent(value, locale)})` : undefined,
-    formatAxisValue: memory && limit ? (value) => formatAxisPercent(value, locale) : memory ? (value) => formatAxisBytes(value, locale) : (value) => formatAxisPercent(value, locale),
+    formatAxisValue: (value) => (useBytes ? formatAxisBytes(value, locale) : formatAxisPercent(value, locale)),
     chart: 'line'
   }
 }

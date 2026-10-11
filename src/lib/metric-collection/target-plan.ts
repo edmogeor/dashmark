@@ -98,28 +98,23 @@ async function collectCustomMetrics(
   const uptimeMetrics: NonNullable<ContainerMetricUsage['uptimeMetrics']> = []
   const metricErrors = [...details.metricErrors]
   for (const { key, metric, result } of results) {
-    if ('observations' in result && metric.valueType === 'uptime') {
-      const previous = getLatestUptimeObservation(config, cardId, key, uptimeHistoryPeriodMs)
-      queuePaginatedUptimeRecovery(config, cardId, key, metric, result.observations, result.nextPage, previous?.timestamp, uptimeHistoryPeriodMs)
-      saveUptimeObservationHistory(config, cardId, key, result.observations, uptimeHistoryPeriodMs)
-      const latest = getLatestUptimeObservation(config, cardId, key, uptimeHistoryPeriodMs)
-      uptimeMetrics.push({
-        key,
-        label: localizeMetricLabel(config.locale, key, metric.label),
-        current: latest?.status ?? 'unknown',
-        ...(includeUptimeHistory ? { observations: getUptimeObservationHistory(config, cardId, key, uptimeHistoryPeriodMs) } : {})
-      })
-    } else if ('error' in result && metric.valueType === 'uptime') {
-      const latest = getLatestUptimeObservation(config, cardId, key, uptimeHistoryPeriodMs)
-      queuePaginatedUptimeRecovery(config, cardId, key, metric, [], undefined, latest?.timestamp, uptimeHistoryPeriodMs)
-      if (latest)
+    if (metric.valueType === 'uptime' && ('observations' in result || 'error' in result)) {
+      let latest = getLatestUptimeObservation(config, cardId, key, uptimeHistoryPeriodMs)
+      if ('observations' in result) {
+        queuePaginatedUptimeRecovery(config, cardId, key, metric, result.observations, result.nextPage, latest?.timestamp, uptimeHistoryPeriodMs)
+        saveUptimeObservationHistory(config, cardId, key, result.observations, uptimeHistoryPeriodMs)
+        latest = getLatestUptimeObservation(config, cardId, key, uptimeHistoryPeriodMs)
+      } else {
+        queuePaginatedUptimeRecovery(config, cardId, key, metric, [], undefined, latest?.timestamp, uptimeHistoryPeriodMs)
+        metricErrors.push({ key, code: result.error })
+      }
+      if ('observations' in result || latest)
         uptimeMetrics.push({
           key,
           label: localizeMetricLabel(config.locale, key, metric.label),
-          current: latest.status,
+          current: latest?.status ?? 'unknown',
           ...(includeUptimeHistory ? { observations: getUptimeObservationHistory(config, cardId, key, uptimeHistoryPeriodMs) } : {})
         })
-      metricErrors.push({ key, code: result.error })
     } else if ('value' in result) {
       const collected = normalizeCustomMetric(config.locale, key, metric, result.value)
       if (collected) customMetrics.push(collected)

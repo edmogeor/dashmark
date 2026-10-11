@@ -129,18 +129,17 @@ function parseDockerHosts(value: string | undefined): DockerHostConfig[] | undef
 export function getConfig(): AppConfig {
   const configFile = process.env.CONFIG_FILE || '/data/config.yml'
   const settings = loadYamlConfig(configFile).config.settings
-  const yamlOrEnv = <T>(name: string, value: T | undefined): string | T | undefined => value ?? process.env[name]
-  const stringValue = (name: string, value: string | undefined) => optionalString(yamlOrEnv(name, value) as string | undefined)
+  const stringValue = (name: string, value: string | undefined) => optionalString(value ?? process.env[name])
   const boolValue = (name: string, value: boolean | undefined, defaultValue: boolean) => {
-    const configured = yamlOrEnv(name, value)
+    const configured = value ?? process.env[name]
     return typeof configured === 'boolean' ? configured : parseBool(configured, defaultValue)
   }
   const intervalValue = (name: string, value: number | undefined, defaultValue: number) => {
-    const configured = yamlOrEnv(name, value)
+    const configured = value ?? process.env[name]
     return parseInterval(configured === undefined ? undefined : String(configured), defaultValue)
   }
   const accessValue = (name: string, value: string[] | undefined) => {
-    const configured = yamlOrEnv(name, value)
+    const configured = value ?? process.env[name]
     return Array.isArray(configured) ? parseAccess(configured.join(',')) : parseAccess(configured)
   }
   const categoryOrder = accessValue('CATEGORY_ORDER', settings.categoryOrder)
