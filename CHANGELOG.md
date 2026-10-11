@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.7] - 2026-10-11
+
 ### Changed
 
 - Make historical metric backfill opt-in through `ENABLE_METRIC_BACKFILL=true`, disabled by default while normal polling continues.

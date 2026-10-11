@@ -105,6 +105,11 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
     metricSnapshots.delete(cardId)
     for (const key of publishedUptimeBuckets.keys()) if (key.startsWith(`${cardId}\0`)) publishedUptimeBuckets.delete(key)
   }
+  function unsubscribeMetrics(client: RealtimeSocket, cardId: string): void {
+    client.metrics.get(cardId)?.releasePriority?.()
+    client.metrics.delete(cardId)
+    releaseUnusedMetrics(cardId)
+  }
   const sendStatusSnapshot = async (client: RealtimeSocket): Promise<void> => {
     await coordinator.ready()
     if (client.closed) return
@@ -155,9 +160,7 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
       return
     }
     if (message.type === 'unsubscribe_metrics') {
-      client.metrics.get(message.cardId)?.releasePriority?.()
-      client.metrics.delete(message.cardId)
-      releaseUnusedMetrics(message.cardId)
+      unsubscribeMetrics(client, message.cardId)
       return
     }
     if (message.type === 'set_metric_priority') {
@@ -179,9 +182,7 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
     const subscription = { incremental: message.incremental === true, ready: false }
     client.metrics.set(message.cardId, subscription)
     if (!(await sendMetricsSnapshot(client, message.cardId)) && client.metrics.get(message.cardId) === subscription) {
-      client.metrics.get(message.cardId)?.releasePriority?.()
-      client.metrics.delete(message.cardId)
-      releaseUnusedMetrics(message.cardId)
+      unsubscribeMetrics(client, message.cardId)
     }
   }
   const {
@@ -194,10 +195,7 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
     onMessage: (client, value) => void handleMessage(client, value).catch(() => closeClient(client, 1011)),
     onConnect: (client) => void sendStatusSnapshot(client),
     onClose: (client) => {
-      for (const [cardId, subscription] of client.metrics) {
-        subscription.releasePriority?.()
-        releaseUnusedMetrics(cardId)
-      }
+      for (const cardId of client.metrics.keys()) unsubscribeMetrics(client, cardId)
     }
   })
   coordinator.onStatusChange((cardId, status) => {

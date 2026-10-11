@@ -199,14 +199,15 @@ function resolveMetric(
 
   const source = resolveSource(resolvedMetric, resolution)
   if (!source) return undefined
-  const bulk = resolvedMetric.pagination?.bulk
-  if (!bulk) return { ...resolvedMetric, source }
+  const pagination = resolvedMetric.pagination
+  if (!pagination?.bulk) return { ...resolvedMetric, source }
+  const bulk = pagination.bulk
   const bulkUrl = resolveUrl(bulk.url, cardUrl, resolution.metricApiUrl, metric.parameters, values)
   const bulkKey = bulk.key.replace(/\{([a-z][a-z0-9_]*)\}/g, (match, name: string) =>
     metric.parameters?.[name] && values[name] !== undefined ? formatParameter(values[name], metric.parameters[name]) : match
   )
   if (!bulkUrl || /\{[^}]+\}/.test(bulkKey)) return undefined
-  return { ...resolvedMetric, source, pagination: { ...resolvedMetric.pagination!, bulk: { ...bulk, url: bulkUrl, key: bulkKey } } }
+  return { ...resolvedMetric, source, pagination: { ...pagination, bulk: { ...bulk, url: bulkUrl, key: bulkKey } } }
 }
 
 function resolveSecretReference(reference: SecretReference, labels: Record<string, string>): SecretReference {

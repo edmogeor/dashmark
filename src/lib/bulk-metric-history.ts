@@ -19,8 +19,7 @@ export function clearBulkHistoryCache(): void {
 
 async function fetchBulkPage(metric: UptimeMetricOverride, sourceKey: string, page: number, logicalSize: number, cache: CachedPage): Promise<BulkPage> {
   const bulk = metric.pagination!.bulk!
-  const source = { ...metric.source, url: bulk.url }
-  const bulkMetric = { ...metric, source }
+  const source = metric.source
   const jar = getMetricCookieJar(sourceKey, bulk.url)
   while (true) {
     try {
@@ -32,9 +31,9 @@ async function fetchBulkPage(metric: UptimeMetricOverride, sourceKey: string, pa
           [metric.pagination!.pageParameter ?? 'page']: (page - 1) * count + offset + 1,
           [bulk.pageSizeParameter]: cache.pageSize
         }
-        const response = await requestMetric(bulkMetric, jar, new URL(source.url), true, query, BULK_HISTORY_MAX_RESPONSE_BYTES)
-        if (response.error || !response.response || response.response.status < 200 || response.response.status >= 300) throw new Error('Bulk history page unavailable')
-        const extracted = await runJq(`${cache.pageSize} as $pageSize | (${bulk.jq.expression})`, JSON.parse(response.response.text))
+        const { response, error } = await requestMetric(metric, jar, new URL(source.url), true, query, BULK_HISTORY_MAX_RESPONSE_BYTES)
+        if (error || !response || response.status < 200 || response.status >= 300) throw new Error('Bulk history page unavailable')
+        const extracted = await runJq(`${cache.pageSize} as $pageSize | (${bulk.jq.expression})`, JSON.parse(response.text))
         if (!isRecord(extracted)) throw new Error('Bulk history extractor must return a mapping of keys to observations')
         for (const [key, items] of Object.entries(extracted)) {
           if (!Array.isArray(items) || items.length > cache.pageSize) throw new Error('Bulk history observations exceed the page size')
@@ -58,14 +57,14 @@ export async function collectBulkHistory(metric: UptimeMetricOverride, page: num
   if (!bulk) throw new Error('Bulk history is not configured')
   const pageSize = Number(metric.source.query?.[bulk.pageSizeParameter])
   if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > METRIC_RECOVERY_MAX_OBSERVATIONS) throw new Error('Invalid bulk history page size')
+  const bulkMetric = { ...metric, source: { ...metric.source, url: bulk.url } }
   const sourceKey = createHash('sha256')
-    .update(JSON.stringify({ source: { ...metric.source, url: bulk.url }, jq: bulk.jq, pageParameter: metric.pagination?.pageParameter }))
+    .update(JSON.stringify({ source: bulkMetric.source, jq: bulk.jq, pageParameter: metric.pagination?.pageParameter }))
     .digest('hex')
-  const previous = pages.get(sourceKey)
-  let cached = previous
+  let cached = pages.get(sourceKey)
   if (!cached || cached.page !== page || Date.now() - cached.createdAt > 60_000) {
-    cached = { page, pageSize: previous?.pageSize ?? pageSize, createdAt: Date.now(), result: Promise.resolve({}) }
-    cached.result = fetchBulkPage(metric, sourceKey, page, pageSize, cached)
+    cached = { page, pageSize: cached?.pageSize ?? pageSize, createdAt: Date.now(), result: Promise.resolve({}) }
+    cached.result = fetchBulkPage(bulkMetric, sourceKey, page, pageSize, cached)
     pages.delete(sourceKey)
     pages.set(sourceKey, cached)
     if (pages.size > 4) pages.delete(pages.keys().next().value!)

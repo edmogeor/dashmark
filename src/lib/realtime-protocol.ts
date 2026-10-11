@@ -16,12 +16,10 @@ export type ClientMessage =
 export function parseClientMessage(value: unknown): ClientMessage | undefined {
   if (!isRecord(value)) return undefined
   if (value.type === 'subscribe_status' && Object.keys(value).length === 1) return { type: value.type }
+  if (typeof value.cardId !== 'string' || !value.cardId || value.cardId.length > 256) return undefined
   if (value.type === 'set_metric_priority') {
     if (
       Object.keys(value).some((key) => !['type', 'cardId', 'priority', 'metricKey'].includes(key)) ||
-      typeof value.cardId !== 'string' ||
-      !value.cardId ||
-      value.cardId.length > 256 ||
       typeof value.priority !== 'boolean' ||
       (value.metricKey !== undefined && (typeof value.metricKey !== 'string' || !value.metricKey || value.metricKey.length > 256))
     )
@@ -30,9 +28,6 @@ export function parseClientMessage(value: unknown): ClientMessage | undefined {
   }
   if (
     (value.type === 'subscribe_metrics' || value.type === 'unsubscribe_metrics') &&
-    typeof value.cardId === 'string' &&
-    value.cardId.length > 0 &&
-    value.cardId.length <= 256 &&
     (Object.keys(value).length === 2 || (value.type === 'subscribe_metrics' && Object.keys(value).length === 3 && typeof value.incremental === 'boolean'))
   ) {
     return value.type === 'subscribe_metrics' && typeof value.incremental === 'boolean'
