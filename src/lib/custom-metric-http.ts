@@ -1,4 +1,3 @@
-import * as cheerio from 'cheerio'
 import got from 'got'
 import { CookieJar } from 'tough-cookie'
 import type { MetricOverride } from './config-file-types'
@@ -19,14 +18,13 @@ async function queueRequest<T>(origin: string, request: () => Promise<T>): Promi
   const semaphore = requestSemaphores.get(origin) ?? { active: 0, waiting: [] }
   requestSemaphores.set(origin, semaphore)
   if (semaphore.active >= REQUESTS_PER_ORIGIN) await new Promise<void>((resolve) => semaphore.waiting.push(resolve))
-  semaphore.active++
+  else semaphore.active++
   try {
     return await request()
   } finally {
-    semaphore.active--
     const next = semaphore.waiting.shift()
     if (next) next()
-    else if (semaphore.active === 0) requestSemaphores.delete(origin)
+    else if (--semaphore.active === 0) requestSemaphores.delete(origin)
   }
 }
 
@@ -35,6 +33,11 @@ export function getMetricCookieJar(key: string, url: string): CookieJar {
   const cookieJar = cookieJars.get(jarKey) ?? new CookieJar()
   cookieJars.set(jarKey, cookieJar)
   return cookieJar
+}
+
+export function pruneMetricCookieJars(sources: Iterable<readonly [string, string]>): void {
+  const active = new Set(Array.from(sources, ([key, url]) => `${key}\0${url}`))
+  for (const key of cookieJars.keys()) if (!active.has(key)) cookieJars.delete(key)
 }
 
 async function requestText(url: URL, headers: Headers, cookieJar: CookieJar, method: 'GET' | 'POST', body?: RequestBody): Promise<HttpResponse> {
@@ -63,7 +66,7 @@ async function requestText(url: URL, headers: Headers, cookieJar: CookieJar, met
     })
     try {
       const response = await request
-      return { status: response.statusCode, text: Buffer.from(response.body).toString() }
+      return { status: response.statusCode, text: Buffer.from(response.body.buffer, response.body.byteOffset, response.body.byteLength).toString() }
     } catch (error) {
       if (responseTooLarge) throw new Error(`response exceeds ${MAX_RESPONSE_BYTES} bytes`)
       throw error
@@ -76,17 +79,20 @@ async function extractTokens(
   extract: NonNullable<Extract<NonNullable<MetricOverride['source']['auth']>, { type: 'cookie_session' }>['steps'][number]['extract']>
 ): Promise<{ tokens?: Record<string, string>; error?: string }> {
   const tokens: Record<string, string> = {}
+  let document: unknown
+  let html: ReturnType<typeof import('cheerio').load> | undefined
   for (const [name, extractor] of Object.entries(extract)) {
     if ('jq' in extractor) {
       try {
-        const value = await runJq(extractor.jq, JSON.parse(text))
+        const value = await runJq(extractor.jq, (document ??= JSON.parse(text)))
         if (typeof value !== 'string' || !value) return { error: `Token ${name} was not found` }
         tokens[name] = value
       } catch {
         return { error: `Token ${name} could not be extracted from JSON` }
       }
     } else {
-      const element = cheerio.load(text)(extractor.cheerio.selector).first()
+      html ??= (await import('cheerio')).load(text)
+      const element = html(extractor.cheerio.selector).first()
       const value = extractor.cheerio.attribute === undefined ? element.text() : element.attr(extractor.cheerio.attribute)
       if (!value) return { error: `Token ${name} was not found` }
       tokens[name] = value

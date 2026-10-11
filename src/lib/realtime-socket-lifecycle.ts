@@ -4,13 +4,16 @@ const MAX_OUTBOUND_EVENTS = 64
 const MAX_OUTBOUND_BYTES = 1024 * 1024
 const SOCKET_LIFETIME_MS = 60 * 60 * 1000
 
+export type MetricSubscription = { incremental: boolean; ready: boolean; cursor?: { timestamp: number; signature: string } }
+
 export type RealtimeSocket = {
   socket: WebSocket
   headers: Headers
-  metrics: Set<string>
+  metrics: Map<string, MetricSubscription>
   statusSubscribed: boolean
   pendingEvents: number
   pendingBytes: number
+  outboundByteLimit: number
   closed: boolean
   lifetime: ReturnType<typeof setTimeout>
 }
@@ -18,41 +21,52 @@ export type RealtimeSocket = {
 type SocketLifecycleOptions = {
   onMessage(client: RealtimeSocket, value: string): void
   onConnect(client: RealtimeSocket): void
+  onClose?(client: RealtimeSocket): void
 }
 
-export function createSocketLifecycle({ onMessage, onConnect }: SocketLifecycleOptions) {
+export function createSocketLifecycle({ onMessage, onConnect, onClose }: SocketLifecycleOptions) {
   const clients = new Set<RealtimeSocket>()
   const closeClient = (client: RealtimeSocket, code = 1000): void => {
     if (client.closed) return
     client.closed = true
     clearTimeout(client.lifetime)
     clients.delete(client)
+    onClose?.(client)
     client.socket.close(code)
   }
-  const send = (client: RealtimeSocket, message: object): boolean => {
+  const send = (client: RealtimeSocket, message: object, allowLargeSnapshot = false, onSent?: (success: boolean) => void): boolean => {
     if (client.closed || client.socket.readyState !== WebSocket.OPEN) return false
     const data = JSON.stringify(message)
     const bytes = Buffer.byteLength(data)
-    if (client.pendingEvents >= MAX_OUTBOUND_EVENTS || client.pendingBytes + bytes > MAX_OUTBOUND_BYTES) {
+    // Allow one full history plus the normal update budget, never multiple queued large snapshots.
+    if (allowLargeSnapshot && bytes > MAX_OUTBOUND_BYTES && client.pendingBytes <= MAX_OUTBOUND_BYTES) client.outboundByteLimit = bytes + MAX_OUTBOUND_BYTES
+    if (client.pendingEvents >= MAX_OUTBOUND_EVENTS || client.pendingBytes + bytes > client.outboundByteLimit) {
       closeClient(client, 1008)
       return false
     }
     client.pendingEvents++
     client.pendingBytes += bytes
-    client.socket.send(data, () => {
+    client.socket.send(data, (error) => {
       client.pendingEvents--
       client.pendingBytes -= bytes
+      if (client.pendingEvents === 0) client.outboundByteLimit = MAX_OUTBOUND_BYTES
+      onSent?.(!error && !client.closed)
     })
     return true
   }
+  const sendSnapshot = (client: RealtimeSocket, message: object): Promise<boolean> =>
+    new Promise((resolve) => {
+      if (!send(client, message, true, resolve)) resolve(false)
+    })
   const connect = (socket: WebSocket, headers: Headers): void => {
     const client: RealtimeSocket = {
       socket,
       headers,
-      metrics: new Set(),
+      metrics: new Map(),
       statusSubscribed: true,
       pendingEvents: 0,
       pendingBytes: 0,
+      outboundByteLimit: MAX_OUTBOUND_BYTES,
       closed: false,
       lifetime: setTimeout(() => closeClient(client, 1001), SOCKET_LIFETIME_MS)
     }
@@ -67,5 +81,5 @@ export function createSocketLifecycle({ onMessage, onConnect }: SocketLifecycleO
     onConnect(client)
   }
 
-  return { clients, closeClient, send, connect }
+  return { clients, closeClient, send, sendSnapshot, connect }
 }

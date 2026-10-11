@@ -6,7 +6,7 @@ import type { DockerContainer, DockerStats } from '../docker-api'
 import { dockerRequest, parseDockerStats } from '../docker-api'
 import type { ResolvedContainer, ResolvedMetricCard } from '../docker-card-resolution'
 import { isValidUrl, type ResourceStat } from '../labels'
-import { getUptimeObservationHistory, mergeUptimeObservationHistory } from '../metrics-storage'
+import { getLatestUptimeObservation, getUptimeObservationHistory, hasUptimeObservationHistory, saveUptimeObservationHistory } from '../metrics-storage'
 import { localizeMetricLabel } from '../metric-translations'
 import type { ContainerResources } from '../status'
 import { metricCollectionDetails } from './details'
@@ -16,7 +16,8 @@ export type MetricCollectionTarget = {
   cardId: string
   metricsPollIntervalMs: number
   hasContainerResource: boolean
-  collect: () => Promise<ContainerMetricSample | undefined>
+  metricSources: readonly (readonly [string, string])[]
+  collect: (includeUptimeHistory?: boolean) => Promise<ContainerMetricSample | undefined>
 }
 
 const networkUsageCache = new Map<string, { receivedBytes: number; sentBytes: number; timestamp: number }>()
@@ -25,19 +26,22 @@ export function clearMetricCollectionCache(): void {
   networkUsageCache.clear()
 }
 
-function networkRates(dockerHost: string, containerId: string, stats: DockerStats): Pick<ContainerResources, 'receivedBytesPerSecond' | 'sentBytesPerSecond' | 'networkRatePending'> {
-  const cacheKey = `${dockerHost}:${containerId}`
-  const previous = networkUsageCache.get(cacheKey)
+export function pruneMetricCollectionCache(activeCardIds: ReadonlySet<string>): void {
+  for (const cardId of networkUsageCache.keys()) if (!activeCardIds.has(cardId)) networkUsageCache.delete(cardId)
+}
+
+function networkRates(cardId: string, stats: DockerStats): Pick<ContainerResources, 'receivedBytesPerSecond' | 'sentBytesPerSecond' | 'networkRatePending'> {
+  const previous = networkUsageCache.get(cardId)
   const timestamp = Date.now()
   const elapsedSeconds = previous ? (timestamp - previous.timestamp) / 1_000 : 0
   const hasNetworkCounters = stats.receivedBytes !== undefined && stats.sentBytes !== undefined
   const receivedBytesPerSecond = previous && elapsedSeconds > 0 && stats.receivedBytes !== undefined ? Math.max(0, (stats.receivedBytes - previous.receivedBytes) / elapsedSeconds) : undefined
   const sentBytesPerSecond = previous && elapsedSeconds > 0 && stats.sentBytes !== undefined ? Math.max(0, (stats.sentBytes - previous.sentBytes) / elapsedSeconds) : undefined
-  if (hasNetworkCounters) networkUsageCache.set(cacheKey, { receivedBytes: stats.receivedBytes!, sentBytes: stats.sentBytes!, timestamp })
+  if (hasNetworkCounters) networkUsageCache.set(cardId, { receivedBytes: stats.receivedBytes!, sentBytes: stats.sentBytes!, timestamp })
   return { receivedBytesPerSecond, sentBytesPerSecond, networkRatePending: hasNetworkCounters && previous === undefined }
 }
 
-async function collectDockerResources(dockerHost: string, containerId: string, resourceStats: readonly ResourceStat[]): Promise<ContainerResources | undefined> {
+async function collectDockerResources(cardId: string, dockerHost: string, containerId: string, resourceStats: readonly ResourceStat[]): Promise<ContainerResources | undefined> {
   try {
     const stats = parseDockerStats(await dockerRequest(dockerHost, `/containers/${encodeURIComponent(containerId)}/stats?stream=false`))
     if (!stats) return undefined
@@ -45,7 +49,7 @@ async function collectDockerResources(dockerHost: string, containerId: string, r
     const systemDelta = stats.cpuStats.systemUsage - stats.previousCpuStats.systemUsage
     const cpuCount = stats.cpuStats.onlineCpus || stats.cpuStats.cpuCount
     const cpuPercent = systemDelta > 0 && cpuDelta >= 0 ? (cpuDelta / systemDelta) * cpuCount * 100 : undefined
-    const network = networkRates(dockerHost, containerId, stats)
+    const network = networkRates(cardId, stats)
     return {
       cpuPercent: resourceStats.includes('cpu') ? cpuPercent : undefined,
       memoryUsage: resourceStats.includes('memory') ? stats.memoryUsage : undefined,
@@ -72,24 +76,42 @@ function normalizeCustomMetric(locale: AppConfig['locale'], key: string, metric:
   return undefined
 }
 
-async function collectCustomMetrics(config: AppConfig, cardId: string, details: MetricCollectionDetails): Promise<Pick<ContainerMetricUsage, 'customMetrics' | 'uptimeMetrics' | 'metricErrors'>> {
+async function collectCustomMetrics(
+  config: AppConfig,
+  cardId: string,
+  details: MetricCollectionDetails,
+  includeUptimeHistory: boolean
+): Promise<Pick<ContainerMetricUsage, 'customMetrics' | 'uptimeMetrics' | 'metricErrors'>> {
   const uptimeHistoryPeriodMs = Math.max(details.historyPeriodMs, UPTIME_HISTORY_PERIOD_MS)
   const results = await Promise.all(
     details.selectedMetrics.map(async ([key, metric]) => {
-      const uptimeHistory = metric.valueType === 'uptime' ? getUptimeObservationHistory(config, cardId, key, uptimeHistoryPeriodMs) : []
-      const result = await collectCustomMetric(key, metric, metric.valueType === 'uptime' && metric.source.initialQuery !== undefined && uptimeHistory.length === 0)
-      return { key, metric, uptimeHistory, result }
+      const bootstrap = metric.valueType === 'uptime' && metric.source.initialQuery !== undefined && !hasUptimeObservationHistory(config, cardId, key, uptimeHistoryPeriodMs)
+      const result = await collectCustomMetric(key, metric, bootstrap)
+      return { key, metric, result }
     })
   )
   const customMetrics: ContainerMetricUsage['customMetrics'] = []
   const uptimeMetrics: NonNullable<ContainerMetricUsage['uptimeMetrics']> = []
   const metricErrors = [...details.metricErrors]
-  for (const { key, metric, uptimeHistory, result } of results) {
+  for (const { key, metric, result } of results) {
     if ('observations' in result && metric.valueType === 'uptime') {
-      const observations = mergeUptimeObservationHistory(config, cardId, key, result.observations, uptimeHistoryPeriodMs)
-      uptimeMetrics.push({ key, label: localizeMetricLabel(config.locale, key, metric.label), current: observations.at(-1)?.status ?? 'unknown', observations })
-    } else if ('error' in result && metric.valueType === 'uptime' && uptimeHistory.length > 0) {
-      uptimeMetrics.push({ key, label: localizeMetricLabel(config.locale, key, metric.label), current: uptimeHistory.at(-1)?.status ?? 'unknown', observations: uptimeHistory })
+      saveUptimeObservationHistory(config, cardId, key, result.observations, uptimeHistoryPeriodMs)
+      const latest = getLatestUptimeObservation(config, cardId, key, uptimeHistoryPeriodMs)
+      uptimeMetrics.push({
+        key,
+        label: localizeMetricLabel(config.locale, key, metric.label),
+        current: latest?.status ?? 'unknown',
+        ...(includeUptimeHistory ? { observations: getUptimeObservationHistory(config, cardId, key, uptimeHistoryPeriodMs) } : {})
+      })
+    } else if ('error' in result && metric.valueType === 'uptime') {
+      const latest = getLatestUptimeObservation(config, cardId, key, uptimeHistoryPeriodMs)
+      if (latest)
+        uptimeMetrics.push({
+          key,
+          label: localizeMetricLabel(config.locale, key, metric.label),
+          current: latest.status,
+          ...(includeUptimeHistory ? { observations: getUptimeObservationHistory(config, cardId, key, uptimeHistoryPeriodMs) } : {})
+        })
       metricErrors.push({ key, code: result.error })
     } else if ('value' in result) {
       const collected = normalizeCustomMetric(config.locale, key, metric, result.value)
@@ -128,8 +150,9 @@ function target(
     cardId,
     metricsPollIntervalMs: details.metricsPollIntervalMs,
     hasContainerResource,
-    collect: async () => {
-      const [resource, collected] = await Promise.all([collectResource?.(), collectCustomMetrics(config, cardId, details)])
+    metricSources: details.selectedMetrics.map(([key, metric]) => [key, metric.source.url] as const),
+    collect: async (includeUptimeHistory = true) => {
+      const [resource, collected] = await Promise.all([collectResource?.(), collectCustomMetrics(config, cardId, details, includeUptimeHistory)])
       return sample(cardId, resource, collected, details)
     }
   }
@@ -167,7 +190,10 @@ export function dockerMetricTarget(
   if (container.State !== 'running' || resolved.labels.hidden || !resolved.url || resolved.labels.showStatus === false) return undefined
   const details = metricCollectionDetails(resolved, config)
   if (details.resourceStats.length === 0 && details.selectedMetrics.length === 0 && details.metricErrors.length === 0) return undefined
-  return { target: target(config, cardId, details, true, details.resourceStats.length > 0 ? () => collectDockerResources(dockerHost, container.Id, details.resourceStats) : undefined), details }
+  return {
+    target: target(config, cardId, details, true, details.resourceStats.length > 0 ? () => collectDockerResources(cardId, dockerHost, container.Id, details.resourceStats) : undefined),
+    details
+  }
 }
 
 export function yamlMetricTarget(

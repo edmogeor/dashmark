@@ -26,48 +26,67 @@ function statusesFor(cards: readonly Card[], showStatus: boolean): Record<string
 
 function createDiscoveryCoordinator(config: AppConfig): DiscoveryCoordinator {
   let cards: Card[] = []
+  const cardsById = new Map<string, Card>()
   let statuses: Record<string, ContainerStatus> = {}
   let error: DashmarkError | undefined
   let refreshTimer: ReturnType<typeof setTimeout> | undefined
   let stopWatching: (() => void) | undefined
   let started = false
+  let refreshing = false
+  let refreshPending = false
   let initialRefresh = Promise.resolve()
   const listeners = new Set<(cardId: string, status: ContainerStatus) => void>()
   const cardListeners = new Set<(cardIds: ReadonlySet<string>, cards: readonly Card[]) => void>()
   const metricListeners = new Set<(cardId: string) => void>()
 
   const refresh = async (): Promise<void> => {
-    const discovered = await getDiscoveredCards(config)
-    if (discovered.error) {
-      error = discovered.error
-      return
-    }
-    error = undefined
-    cards = discovered.cards
-    const cardIds = new Set(cards.map((card) => card.id))
-    for (const listener of cardListeners) listener(cardIds, cards)
-    refreshMetricRetention(
-      config,
-      cards
-        .filter((card) => card.showStatus !== false)
-        .map((card) => ({
-          cardId: card.id,
-          historyPeriodMs: card.metricsHistoryPeriodMs ?? config.metricsHistoryPeriodMs,
-          hasResourceMetrics: (card.resourceStats?.length ?? 0) > 0,
-          customMetricKeys: card.customMetricKeys ?? [],
-          uptimeMetricKeys: card.uptimeMetricKeys ?? []
-        }))
-    )
-    const next = statusesFor(cards, config.showStatus)
-    for (const [cardId, status] of Object.entries(next)) {
-      if (JSON.stringify(statuses[cardId]) !== JSON.stringify(status)) {
-        for (const listener of listeners) listener(cardId, status)
+    refreshing = true
+    try {
+      const discovered = await getDiscoveredCards(config)
+      if (discovered.error) {
+        error = discovered.error
+        return
+      }
+      error = undefined
+      cards = discovered.cards
+      cardsById.clear()
+      for (const card of cards) cardsById.set(card.id, card)
+      const cardIds = new Set(cards.map((card) => card.id))
+      for (const listener of cardListeners) listener(cardIds, cards)
+      refreshMetricRetention(
+        config,
+        cards
+          .filter((card) => card.showStatus !== false)
+          .map((card) => ({
+            cardId: card.id,
+            historyPeriodMs: card.metricsHistoryPeriodMs ?? config.metricsHistoryPeriodMs,
+            hasResourceMetrics: (card.resourceStats?.length ?? 0) > 0,
+            customMetricKeys: card.customMetricKeys ?? [],
+            uptimeMetricKeys: card.uptimeMetricKeys ?? []
+          }))
+      )
+      const next = statusesFor(cards, config.showStatus)
+      const previous = statuses
+      statuses = next
+      for (const [cardId, status] of Object.entries(next)) {
+        if (previous[cardId]?.state !== status.state || previous[cardId]?.health !== status.health || !Object.hasOwn(previous, cardId)) {
+          for (const listener of listeners) listener(cardId, status)
+        }
+      }
+    } finally {
+      refreshing = false
+      if (refreshPending) {
+        refreshPending = false
+        scheduleRefresh()
       }
     }
-    statuses = next
   }
   const scheduleRefresh = (): void => {
     if (!started) return
+    if (refreshing) {
+      refreshPending = true
+      return
+    }
     if (refreshTimer) return
     refreshTimer = setTimeout(() => {
       refreshTimer = undefined
@@ -93,7 +112,8 @@ function createDiscoveryCoordinator(config: AppConfig): DiscoveryCoordinator {
     },
     getMetricAccess: (headers, cardId) => {
       if (!canViewMetric(config, headers, undefined, '')) return undefined
-      const card = filterCardsByAccess(cards, config, headers).find((candidate) => candidate.id === cardId)
+      const candidate = cardsById.get(cardId)
+      const card = candidate ? filterCardsByAccess([candidate], config, headers)[0] : undefined
       if (!card || card.showStatus === false || !config.showMetrics) return undefined
       const hasMetrics = (card.resourceStats?.length ?? 0) > 0 || (card.customMetricLabels?.length ?? 0) > 0 || (card.metricErrors?.length ?? 0) > 0
       if (!hasMetrics) return undefined
@@ -122,11 +142,13 @@ function createDiscoveryCoordinator(config: AppConfig): DiscoveryCoordinator {
     },
     clear: () => {
       started = false
+      refreshPending = false
       if (refreshTimer) clearTimeout(refreshTimer)
       refreshTimer = undefined
       stopWatching?.()
       stopWatching = undefined
       cards = []
+      cardsById.clear()
       statuses = {}
       error = undefined
       listeners.clear()

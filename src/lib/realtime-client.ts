@@ -1,5 +1,5 @@
-import type { ContainerStatus, UptimeStatus } from './status'
-import type { RealtimeMetricsResponse } from './realtime-protocol'
+import { isMetricsResponse, type ContainerStatus, type UptimeStatus } from './status'
+import type { ClientMessage, RealtimeMetricsResponse } from './realtime-protocol'
 import type { UptimeBucket } from './uptime-buckets'
 import { UPTIME_RANGES, type UptimeRange } from './uptime-ranges'
 
@@ -17,10 +17,11 @@ type MetricsListener = (metrics: RealtimeMetricsResponse) => void
 type ConnectionListener = (unavailable: boolean) => void
 
 type ServerMessage =
-  | { type: 'status_snapshot'; version: number; statuses: Record<string, ContainerStatus> }
+  | { type: 'status_snapshot'; version: number; statuses: Record<string, ContainerStatus>; capabilities?: { incrementalMetricHistory?: boolean } }
   | { type: 'status_delta'; version: number; cardId: string; status: ContainerStatus }
   | { type: 'metrics_snapshot'; version: number; cardId: string; metrics: RealtimeMetricsResponse }
   | { type: 'metrics_delta'; version: number; cardId: string; metrics: RealtimeMetricsResponse }
+  | { type: 'metrics_history_delta'; version: number; cardId: string; metrics: RealtimeMetricsResponse; replaceFrom: number; cutoff: number }
   | { type: 'uptime_bucket_delta'; version: number; cardId: string; key: string; range: UptimeRange; bucket: UptimeBucket }
 
 const INITIAL_RECONNECT_DELAY_MS = 1_000
@@ -47,7 +48,18 @@ function isServerMessage(value: unknown): value is ServerMessage {
   if (!isRecord(value) || typeof value.type !== 'string' || typeof value.version !== 'number') return false
   if (value.type === 'status_snapshot') return isRecord(value.statuses)
   if (value.type === 'status_delta') return typeof value.cardId === 'string' && isRecord(value.status)
-  if (value.type === 'metrics_snapshot' || value.type === 'metrics_delta') return typeof value.cardId === 'string' && isRecord(value.metrics)
+  if (value.type === 'metrics_snapshot' || value.type === 'metrics_delta')
+    return typeof value.cardId === 'string' && isRecord(value.metrics) && isMetricsResponse({ ...value.metrics, uptimeMetrics: [] })
+  if (value.type === 'metrics_history_delta')
+    return (
+      typeof value.cardId === 'string' &&
+      typeof value.replaceFrom === 'number' &&
+      Number.isFinite(value.replaceFrom) &&
+      typeof value.cutoff === 'number' &&
+      Number.isFinite(value.cutoff) &&
+      isRecord(value.metrics) &&
+      isMetricsResponse({ ...value.metrics, uptimeMetrics: [] })
+    )
   return (
     value.type === 'uptime_bucket_delta' &&
     typeof value.cardId === 'string' &&
@@ -55,6 +67,11 @@ function isServerMessage(value: unknown): value is ServerMessage {
     UPTIME_RANGES.some(({ range }) => value.range === range) &&
     isUptimeBucket(value.bucket)
   )
+}
+
+function mergeHistory<T extends { timestamp: number }>(previous: T[], updates: T[], replaceFrom: number, cutoff: number): T[] {
+  // Replace the inclusive boundary so distinct samples sharing a timestamp are neither lost nor duplicated.
+  return previous.filter((sample) => sample.timestamp >= cutoff && sample.timestamp < replaceFrom).concat(updates.filter((sample) => sample.timestamp >= Math.max(replaceFrom, cutoff)))
 }
 
 function realtimeUrl(): string {
@@ -69,6 +86,7 @@ export class RealtimeClient {
   private reconnectAttempts = 0
   private unavailable = false
   private latestVersion = 0
+  private incrementalHistory: boolean | undefined
   private statuses: Record<string, ContainerStatus> = {}
   private statusListeners = new Set<StatusListener>()
   private connectionListeners = new Set<ConnectionListener>()
@@ -96,7 +114,7 @@ export class RealtimeClient {
     if (metrics) listener(metrics)
     if (this.unavailable) connectionListener(true)
     this.start()
-    if (wasUnused) this.send({ type: 'subscribe_metrics', cardId })
+    if (wasUnused) this.subscribeMetrics(cardId)
     return () => {
       const current = this.metricListeners.get(cardId)
       if (current) {
@@ -113,7 +131,6 @@ export class RealtimeClient {
   }
 
   private start() {
-    if (document.visibilityState !== 'visible') return
     document.addEventListener('visibilitychange', this.handleVisibilityChange)
     if (!this.socket && !this.reconnectTimer) this.connect()
   }
@@ -122,6 +139,8 @@ export class RealtimeClient {
     if (this.statusListeners.size || this.metricListeners.size) return
     document.removeEventListener('visibilitychange', this.handleVisibilityChange)
     this.close()
+    this.statuses = {}
+    this.metrics.clear()
   }
 
   private handleVisibilityChange = () => {
@@ -138,11 +157,12 @@ export class RealtimeClient {
       this.reconnectAttempts = 0
       this.unavailable = false
       this.latestVersion = 0
+      this.incrementalHistory = undefined
       this.connectionListeners.forEach((listener) => listener(false))
-      this.send({ type: 'subscribe_status' })
-      for (const cardId of this.metricListeners.keys()) this.send({ type: 'subscribe_metrics', cardId })
     })
-    socket.addEventListener('message', (event) => this.handleMessage(event))
+    socket.addEventListener('message', (event) => {
+      if (this.socket === socket) this.handleMessage(event)
+    })
     socket.addEventListener('close', () => {
       if (this.socket !== socket) return
       this.socket = null
@@ -173,7 +193,12 @@ export class RealtimeClient {
     }, delay)
   }
 
-  private send(message: { type: string; cardId?: string }) {
+  private subscribeMetrics(cardId: string) {
+    if (this.incrementalHistory === undefined) return
+    this.send({ type: 'subscribe_metrics', cardId, ...(this.incrementalHistory ? { incremental: true } : {}) })
+  }
+
+  private send(message: ClientMessage) {
     if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(message))
   }
 
@@ -189,6 +214,10 @@ export class RealtimeClient {
     this.latestVersion = value.version
     if (value.type === 'status_snapshot') {
       this.statuses = value.statuses
+      if (this.incrementalHistory === undefined) {
+        this.incrementalHistory = value.capabilities?.incrementalMetricHistory === true
+        for (const cardId of this.metricListeners.keys()) this.subscribeMetrics(cardId)
+      }
       this.statusListeners.forEach((listener) => listener(this.statuses))
     } else if (value.type === 'status_delta') {
       this.statuses = { ...this.statuses, [value.cardId]: value.status }
@@ -197,6 +226,22 @@ export class RealtimeClient {
       this.publishMetrics(value.cardId, value.metrics)
     } else if (value.type === 'metrics_delta') {
       this.publishMetrics(value.cardId, { ...this.metrics.get(value.cardId), ...value.metrics })
+    } else if (value.type === 'metrics_history_delta') {
+      if (!this.metricListeners.has(value.cardId)) return
+      const previous = this.metrics.get(value.cardId)
+      if (!previous) {
+        this.subscribeMetrics(value.cardId)
+        return
+      }
+      const histories = new Map(previous.customMetrics.flatMap((metric) => ('unit' in metric ? [[metric.key, metric.history] as const] : [])))
+      this.publishMetrics(value.cardId, {
+        ...previous,
+        ...value.metrics,
+        history: mergeHistory(previous.history ?? [], value.metrics.history ?? [], value.replaceFrom, value.cutoff),
+        customMetrics: value.metrics.customMetrics.map((metric) =>
+          'unit' in metric ? { ...metric, history: mergeHistory(histories.get(metric.key) ?? [], metric.history, value.replaceFrom, value.cutoff) } : metric
+        )
+      })
     } else {
       const metrics = this.metrics.get(value.cardId)
       const uptimeMetrics = metrics?.uptimeMetrics
@@ -217,6 +262,7 @@ export class RealtimeClient {
   }
 
   private publishMetrics(cardId: string, metrics: RealtimeMetricsResponse) {
+    if (!this.metricListeners.has(cardId)) return
     this.metrics.set(cardId, metrics)
     this.metricListeners.get(cardId)?.forEach((listener) => listener(metrics))
   }

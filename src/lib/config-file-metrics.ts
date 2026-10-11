@@ -6,7 +6,7 @@ import { logger } from './logger'
 import { normalizeMetricDefinition, parseMetricCatalog } from './config-file-validation'
 import type { ServiceMetricOverrides } from './config-file-types'
 
-let cachedCatalog: { signature: string; metrics: Record<string, Record<string, unknown>> } | undefined
+let cachedCatalog: { signature: string; metrics: Record<string, Record<string, unknown>>; parsed?: ServiceMetricOverrides } | undefined
 
 function mergedSource(defaults: unknown, source: unknown): unknown {
   if (!isRecord(defaults)) return source
@@ -56,5 +56,7 @@ export function loadMetricDefinitions(): Record<string, Record<string, unknown>>
 }
 
 export function loadMetricCatalog(): ServiceMetricOverrides {
-  return parseMetricCatalog(loadMetricDefinitions())
+  const definitions = loadMetricDefinitions()
+  if (cachedCatalog?.metrics !== definitions) return parseMetricCatalog(definitions)
+  return (cachedCatalog.parsed ??= parseMetricCatalog(definitions))
 }

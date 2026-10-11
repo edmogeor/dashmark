@@ -5,12 +5,15 @@ import type { RealtimeMetricsResponse } from '@/lib/realtime-protocol'
 import type { ContainerStatus } from '@/lib/status'
 
 export function mergeStatuses(cards: Card[], statuses: Record<string, ContainerStatus>): Card[] {
-  return cards.map((card) => {
+  let changed = false
+  const updated = cards.map((card) => {
     if (!card.hasContainer) return card
     const status = statuses[card.id]
-    if (!status) return card.state === undefined && card.health === undefined ? card : { ...card, state: undefined, health: undefined }
-    return card.state === status.state && card.health === status.health ? card : { ...card, ...status }
+    if (card.state === status?.state && card.health === status?.health) return card
+    changed = true
+    return { ...card, state: status?.state, health: status?.health }
   })
+  return changed ? updated : cards
 }
 
 export function useRealtimeStatus({

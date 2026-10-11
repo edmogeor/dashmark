@@ -80,21 +80,25 @@ type DashboardViewModel = {
 }
 
 export function useDashboardViewModel(cards: Card[], search: string, selectedCategory: string | null, hasError: boolean, categoryOrder: string[], uncategorisedLabel: string): DashboardViewModel {
-  const filtered = useMemo(() => {
+  const categoryFiltered = useMemo(() => {
     const selected = selectedCategory === null ? null : selectedCategoryKey(selectedCategory, uncategorisedLabel)
-    const categoryFiltered = selected !== null ? cards.filter((card) => categoryKey(card.category) === selected) : cards
-
-    const query = normalizeUrlSearch(search.trim())
-    if (!query) return categoryFiltered
-
-    const fuse = new Fuse(categoryFiltered, {
-      keys: ['title', 'url', 'category', 'searchAliases'],
-      threshold: SEARCH_FUZZY_THRESHOLD,
-      ignoreLocation: true,
-      shouldSort: false
-    })
-    return fuse.search(query).map((result) => result.item)
-  }, [cards, search, selectedCategory, uncategorisedLabel])
+    return selected !== null ? cards.filter((card) => categoryKey(card.category) === selected) : cards
+  }, [cards, selectedCategory, uncategorisedLabel])
+  const query = normalizeUrlSearch(search.trim())
+  const hasQuery = query.length > 0
+  const fuse = useMemo(
+    () =>
+      hasQuery
+        ? new Fuse(categoryFiltered, {
+            keys: ['title', 'url', 'category', 'searchAliases'],
+            threshold: SEARCH_FUZZY_THRESHOLD,
+            ignoreLocation: true,
+            shouldSort: false
+          })
+        : undefined,
+    [categoryFiltered, hasQuery]
+  )
+  const filtered = useMemo(() => (fuse ? fuse.search(query).map((result) => result.item) : categoryFiltered), [categoryFiltered, fuse, query])
 
   const categoryItems = useMemo(() => buildCategoryItems(filtered, categoryOrder, uncategorisedLabel), [filtered, categoryOrder, uncategorisedLabel])
   const uncategorised = categoryItems.find((item) => item.key === UNCATEGORISED_KEY)?.cards ?? []

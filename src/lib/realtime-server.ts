@@ -3,13 +3,13 @@ import type { Duplex } from 'node:stream'
 import WebSocket, { WebSocketServer } from 'ws'
 import { isAuthorized } from './auth'
 import type { AppConfig } from './config'
-import { canViewMetric } from './docker'
+import { canViewMetric, type ContainerMetricUsage } from './docker'
 import { getDiscoveryCoordinator } from './discovery-coordinator'
 import { getLatestMetricUsage } from './metrics'
 import type { UptimeBucket } from './uptime-buckets'
 import { UPTIME_RANGES, type UptimeRange } from './uptime-ranges'
 import { metricsSnapshot, uptimeBucketsByRange, type MetricsSnapshots } from './realtime-metrics-snapshot'
-import { parseClientMessage } from './realtime-protocol'
+import { parseClientMessage, type RealtimeMetricsResponse } from './realtime-protocol'
 import { createSocketLifecycle, type RealtimeSocket } from './realtime-socket-lifecycle'
 
 const PATHNAME = '/api/realtime'
@@ -88,20 +88,54 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
   coordinator.start()
   const publishedUptimeBuckets = new Map<string, Record<UptimeRange, UptimeBucket[]>>()
   const metricSnapshots: MetricsSnapshots = new Map()
+  const snapshotQueues = new WeakMap<RealtimeSocket, Promise<boolean>>()
+  let visibleStatusCards = new WeakMap<RealtimeSocket, Set<string>>()
   let version = 0
 
   const nextVersion = () => ++version
+  const historySignature = (metrics: RealtimeMetricsResponse, access: ContainerMetricUsage | undefined): string =>
+    JSON.stringify([
+      metrics.historyPeriodMs ?? config.metricsHistoryPeriodMs,
+      config.metricsAccess,
+      access?.metricsAccess,
+      metrics.customMetrics.flatMap((metric) => ('unit' in metric ? [metric.key] : []))
+    ])
+  const releaseUnusedMetrics = (cardId: string): void => {
+    for (const client of clients) if (client.metrics.has(cardId)) return
+    metricSnapshots.delete(cardId)
+    for (const key of publishedUptimeBuckets.keys()) if (key.startsWith(`${cardId}\0`)) publishedUptimeBuckets.delete(key)
+  }
   const sendStatusSnapshot = async (client: RealtimeSocket): Promise<void> => {
     await coordinator.ready()
+    if (client.closed) return
     const result = coordinator.getStatusSnapshot(client.headers)
-    if (!client.closed) send(client, { type: 'status_snapshot', version: nextVersion(), statuses: result.statuses })
+    visibleStatusCards.set(client, new Set(Object.keys(result.statuses)))
+    if (!client.closed) send(client, { type: 'status_snapshot', version: nextVersion(), statuses: result.statuses, capabilities: { incrementalMetricHistory: true } })
   }
-  const sendMetricsSnapshot = async (client: RealtimeSocket, cardId: string): Promise<boolean> => {
-    await coordinator.ready()
-    const metrics = metricsSnapshot(config, client.headers, cardId, metricSnapshots)
-    if (!metrics || client.closed) return false
-    send(client, { type: 'metrics_snapshot', version: nextVersion(), cardId, metrics })
-    return true
+  const sendMetricsSnapshot = (client: RealtimeSocket, cardId: string): Promise<boolean> => {
+    const subscription = client.metrics.get(cardId)
+    if (subscription) subscription.ready = false
+    const pending = (snapshotQueues.get(client) ?? Promise.resolve(false))
+      .catch(() => false)
+      .then(async () => {
+        await coordinator.ready()
+        if (client.closed || !subscription || client.metrics.get(cardId) !== subscription) return false
+        const now = Date.now()
+        const metrics = metricsSnapshot(config, client.headers, cardId, metricSnapshots, true, undefined, now)
+        if (!metrics || client.closed) return false
+        const signature = historySignature(metrics, coordinator.getMetricAccess(client.headers, cardId))
+        const sent = sendSnapshot(client, { type: 'metrics_snapshot', version: nextVersion(), cardId, metrics })
+        if (subscription.incremental) metricSnapshots.delete(cardId)
+        if (!(await sent)) return false
+        if (client.metrics.get(cardId) !== subscription) return false
+        subscription.ready = true
+        if (subscription.incremental) {
+          subscription.cursor = { timestamp: now, signature }
+        }
+        return true
+      })
+    snapshotQueues.set(client, pending)
+    return pending
   }
   const handleMessage = async (client: RealtimeSocket, value: string): Promise<void> => {
     let message
@@ -116,19 +150,29 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
     }
     if (message.type === 'unsubscribe_metrics') {
       client.metrics.delete(message.cardId)
+      releaseUnusedMetrics(message.cardId)
       return
     }
     if (!client.metrics.has(message.cardId) && client.metrics.size >= MAX_METRIC_SUBSCRIPTIONS) return closeClient(client, 1008)
-    if (await sendMetricsSnapshot(client, message.cardId)) client.metrics.add(message.cardId)
+    const subscription = { incremental: message.incremental === true, ready: false }
+    client.metrics.set(message.cardId, subscription)
+    if (!(await sendMetricsSnapshot(client, message.cardId)) && client.metrics.get(message.cardId) === subscription) {
+      client.metrics.delete(message.cardId)
+      releaseUnusedMetrics(message.cardId)
+    }
   }
   const {
     clients,
     closeClient,
     connect: connectSocket,
-    send
+    send,
+    sendSnapshot
   } = createSocketLifecycle({
-    onMessage: (client, value) => void handleMessage(client, value),
-    onConnect: (client) => void sendStatusSnapshot(client)
+    onMessage: (client, value) => void handleMessage(client, value).catch(() => closeClient(client, 1011)),
+    onConnect: (client) => void sendStatusSnapshot(client),
+    onClose: (client) => {
+      for (const cardId of client.metrics.keys()) releaseUnusedMetrics(cardId)
+    }
   })
   coordinator.onStatusChange((cardId, status) => {
     void publishStatusDelta(cardId, status)
@@ -137,23 +181,34 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
     void publishMetricsDelta(cardId)
   })
   coordinator.onCardsChange((cardIds) => {
+    visibleStatusCards = new WeakMap()
     for (const cardId of metricSnapshots.keys()) if (!cardIds.has(cardId)) metricSnapshots.delete(cardId)
     for (const key of publishedUptimeBuckets.keys()) if (!cardIds.has(key.slice(0, key.indexOf('\0')))) publishedUptimeBuckets.delete(key)
   })
   const publishStatusDelta = async (cardId: string, status: unknown): Promise<void> => {
-    for (const client of [...clients].filter((candidate) => candidate.statusSubscribed)) {
-      const visible = coordinator.getStatusSnapshot(client.headers)
-      if (Object.hasOwn(visible.statuses, cardId)) send(client, { type: 'status_delta', version: nextVersion(), cardId, status })
+    for (const client of clients) {
+      if (!client.statusSubscribed) continue
+      let visible = visibleStatusCards.get(client)
+      if (!visible) {
+        visible = new Set(Object.keys(coordinator.getStatusSnapshot(client.headers).statuses))
+        visibleStatusCards.set(client, visible)
+      }
+      if (visible.has(cardId)) send(client, { type: 'status_delta', version: nextVersion(), cardId, status })
     }
   }
   const publishMetricsDelta = async (cardId: string): Promise<void> => {
     metricSnapshots.delete(cardId)
+    const subscribers = [...clients].filter((client) => client.metrics.get(cardId)?.ready)
+    if (subscribers.length === 0) {
+      for (const key of publishedUptimeBuckets.keys()) if (key.startsWith(`${cardId}\0`)) publishedUptimeBuckets.delete(key)
+      return
+    }
     const usage = getLatestMetricUsage(cardId)
     const changedBuckets: { key: string; range: UptimeRange; bucket: UptimeBucket }[] = []
     let bucketWindowRolled = false
     for (const metric of usage?.uptimeMetrics ?? []) {
       const bucketKey = `${cardId}\0${metric.key}`
-      const buckets = uptimeBucketsByRange(metric)
+      const buckets = uptimeBucketsByRange(config, cardId, metric)
       const previous = publishedUptimeBuckets.get(bucketKey)
       for (const { range } of UPTIME_RANGES) {
         const previousRange = previous?.[range]
@@ -162,23 +217,36 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
           for (let index = 0; index < currentRange.length; index++) {
             if (JSON.stringify(previousRange[index]) !== JSON.stringify(currentRange[index])) changedBuckets.push({ key: metric.key, range, bucket: currentRange[index]! })
           }
-        } else if (previousRange) {
+        } else {
           bucketWindowRolled = true
         }
       }
       publishedUptimeBuckets.set(bucketKey, buckets)
     }
     await Promise.all(
-      [...clients]
-        .filter((client) => client.metrics.has(cardId))
-        .map(async (client) => {
-          const metrics = metricsSnapshot(config, client.headers, cardId, metricSnapshots, bucketWindowRolled)
-          if (metrics) send(client, { type: 'metrics_delta', version: nextVersion(), cardId, metrics })
-          const access = coordinator.getMetricAccess(client.headers, cardId)
-          for (const { key, range, bucket } of changedBuckets) {
-            if (access && canViewMetric(config, client.headers, access.metricsAccess, key)) send(client, { type: 'uptime_bucket_delta', version: nextVersion(), cardId, key, range, bucket })
+      subscribers.map(async (client) => {
+        const subscription = client.metrics.get(cardId)
+        if (!subscription) return
+        const now = Date.now()
+        const cursor = subscription.cursor
+        const since = subscription.incremental && cursor && now >= cursor.timestamp ? cursor.timestamp : undefined
+        const metrics = metricsSnapshot(config, client.headers, cardId, metricSnapshots, bucketWindowRolled, since, now)
+        const access = coordinator.getMetricAccess(client.headers, cardId)
+        if (!metrics) return
+        if (subscription.incremental) {
+          const signature = historySignature(metrics, access)
+          if (!cursor || since === undefined || cursor.signature !== signature) {
+            await sendMetricsSnapshot(client, cardId)
+            return
           }
-        })
+          const cutoff = now - (metrics.historyPeriodMs ?? config.metricsHistoryPeriodMs)
+          if (!send(client, { type: 'metrics_history_delta', version: nextVersion(), cardId, metrics, replaceFrom: since, cutoff })) return
+          subscription.cursor = { timestamp: now, signature }
+        } else if (!send(client, { type: 'metrics_delta', version: nextVersion(), cardId, metrics }, true)) return
+        for (const { key, range, bucket } of changedBuckets) {
+          if (access && canViewMetric(config, client.headers, access.metricsAccess, key)) send(client, { type: 'uptime_bucket_delta', version: nextVersion(), cardId, key, range, bucket })
+        }
+      })
     )
   }
   const authorize = (request: IncomingMessage): number | undefined => {

@@ -116,7 +116,7 @@ export function parseDockerHost(dockerHost: string): DockerHost {
   return { socketPath: dockerHost }
 }
 
-const apiVersionCache = new Map<string, string>()
+const apiVersionCache = new Map<string, Promise<string>>()
 
 async function rawDockerRequest(dockerHost: string, path: string, apiVersion?: string): Promise<unknown> {
   const host = parseDockerHost(dockerHost)
@@ -159,17 +159,18 @@ async function rawDockerRequest(dockerHost: string, path: string, apiVersion?: s
 export async function getDockerApiVersion(dockerHost: string): Promise<string> {
   const cachedVersion = apiVersionCache.get(dockerHost)
   if (cachedVersion) return cachedVersion
-  try {
-    const data = await rawDockerRequest(dockerHost, '/version')
-    if (!isRecord(data) || typeof data.ApiVersion !== 'string') throw new Error('Docker API version response had an invalid format')
-    apiVersionCache.set(dockerHost, data.ApiVersion)
-    return data.ApiVersion
-  } catch (error) {
-    const fallback = DOCKER_API_FALLBACK_VERSION
-    logger.warn('docker', logMessages.docker.apiVersionFallback, { dockerHost, fallback, error: errorMessage(error) })
-    apiVersionCache.set(dockerHost, fallback)
-    return fallback
-  }
+  const version = rawDockerRequest(dockerHost, '/version')
+    .then((data) => {
+      if (!isRecord(data) || typeof data.ApiVersion !== 'string') throw new Error('Docker API version response had an invalid format')
+      return data.ApiVersion
+    })
+    .catch((error) => {
+      const fallback = DOCKER_API_FALLBACK_VERSION
+      logger.warn('docker', logMessages.docker.apiVersionFallback, { dockerHost, fallback, error: errorMessage(error) })
+      return fallback
+    })
+  apiVersionCache.set(dockerHost, version)
+  return version
 }
 
 export async function dockerRequest(dockerHost: string, path: string): Promise<unknown> {

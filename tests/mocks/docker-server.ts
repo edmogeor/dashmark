@@ -25,6 +25,8 @@ export class MockDockerServer {
   public activeStatsRequests: number = 0
   public maxConcurrentStatsRequests: number = 0
   public eventConnections: number = 0
+  public versionRequests = 0
+  public containerListRequests = 0
   private eventResponses = new Set<http.ServerResponse>()
 
   constructor() {
@@ -32,12 +34,14 @@ export class MockDockerServer {
       res.setHeader('Content-Type', 'application/json')
 
       if (req.url === '/version') {
+        this.versionRequests++
         res.writeHead(200)
         res.end(JSON.stringify({ ApiVersion: this.apiVersion }))
         return
       }
 
       if (req.url === '/v1.41/containers/json?all=1') {
+        this.containerListRequests++
         res.writeHead(200)
         res.end(JSON.stringify(this.containers))
         return
@@ -105,7 +109,7 @@ export class MockDockerServer {
     })
   }
 
-  emitContainerEvent(): void {
-    for (const response of this.eventResponses) response.write(`${JSON.stringify({ Type: 'container' })}\n`)
+  emitContainerEvent(action = 'start'): void {
+    for (const response of this.eventResponses) response.write(`${JSON.stringify({ Type: 'container', Action: action })}\n`)
   }
 }

@@ -16,6 +16,12 @@ function containerCard(id: string, state?: string): Card {
 }
 
 describe('realtime status updates', () => {
+  it('preserves the cards array when statuses have not changed', () => {
+    const cards = [containerCard('home:service', 'running')]
+    expect(mergeStatuses(cards, { 'home:service': { state: 'running' } })).toBe(cards)
+    expect(mergeStatuses(cards, {})).toMatchObject([{ state: undefined, health: undefined }])
+  })
+
   it('updates same-ID containers from different Docker hosts independently', () => {
     const cards = [containerCard('home:shared-id', 'exited'), containerCard('vps:shared-id', 'exited')]
 

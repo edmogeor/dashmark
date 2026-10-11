@@ -7,7 +7,7 @@ export type RealtimeMetricsResponse = Omit<MetricsResponse, 'uptimeMetrics'> & {
   uptimeMetrics?: (Omit<UptimeMetric, 'observations'> & { buckets: Record<UptimeRange, UptimeBucket[]> })[]
 }
 
-export type ClientMessage = { type: 'subscribe_status' } | { type: 'subscribe_metrics'; cardId: string } | { type: 'unsubscribe_metrics'; cardId: string }
+export type ClientMessage = { type: 'subscribe_status' } | { type: 'subscribe_metrics'; cardId: string; incremental?: boolean } | { type: 'unsubscribe_metrics'; cardId: string }
 
 export function parseClientMessage(value: unknown): ClientMessage | undefined {
   if (!isRecord(value)) return undefined
@@ -17,9 +17,11 @@ export function parseClientMessage(value: unknown): ClientMessage | undefined {
     typeof value.cardId === 'string' &&
     value.cardId.length > 0 &&
     value.cardId.length <= 256 &&
-    Object.keys(value).length === 2
+    (Object.keys(value).length === 2 || (value.type === 'subscribe_metrics' && Object.keys(value).length === 3 && typeof value.incremental === 'boolean'))
   ) {
-    return { type: value.type, cardId: value.cardId }
+    return value.type === 'subscribe_metrics' && typeof value.incremental === 'boolean'
+      ? { type: value.type, cardId: value.cardId, incremental: value.incremental }
+      : { type: value.type, cardId: value.cardId }
   }
   return undefined
 }

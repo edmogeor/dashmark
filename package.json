@@ -19,6 +19,8 @@
     "generate:metrics-library": "node scripts/generate-metrics-library.mjs",
     "validate:metrics": "npm run generate:metrics-library -- --check && node scripts/validate-metrics.mjs",
     "test": "vitest run",
+    "test:unit": "vitest run tests/unit metrics/",
+    "test:e2e": "vitest run tests/e2e",
     "test:watch": "vitest"
   },
   "simple-git-hooks": {

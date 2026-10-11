@@ -24,6 +24,13 @@ export function useMetrics(cardId: string, enabled: boolean, active: boolean, in
   const [uptimeMetrics, setUptimeMetrics] = useState<UptimeMetricSummary[]>([])
   const [loading, setLoading] = useState(false)
   useEffect(() => {
+    if (active) return
+    setHistory((previous) => (previous.length > 0 ? [] : previous))
+    setCustomMetrics((previous) =>
+      previous.some((metric) => 'unit' in metric && metric.history.length > 0) ? previous.map((metric) => ('unit' in metric ? { ...metric, history: [] } : metric)) : previous
+    )
+  }, [active])
+  useEffect(() => {
     if (!initialResources || demo) return
     setResources(initialResources)
     setHistory([])

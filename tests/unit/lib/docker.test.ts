@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { MockDockerServer } from '../mocks/docker-server'
+import { MockDockerServer } from '../../mocks/docker-server'
 import { getConfig } from '@/lib/config'
 import { badgeColorIndex } from '@/lib/badge-color'
 import {
@@ -1367,6 +1367,16 @@ service:
 
     expect(String(got.mock.calls[0]?.[0])).toBe('https://metrics.example.test/history?limit=10000')
     expect(String(got.mock.calls[1]?.[0])).toBe('https://metrics.example.test/history?limit=100')
+
+    await getCards(config, new Headers())
+    const samples = await collectDiscoveredMetricUsage(new Set(['yaml-service']))
+    expect(samples[0]?.uptimeMetrics?.[0]).toMatchObject({ key: 'uptime', current: 'up' })
+    expect(samples[0]?.uptimeMetrics?.[0]).not.toHaveProperty('observations')
+    mockGotResponse('invalid json')
+    const failedSamples = await collectDiscoveredMetricUsage(new Set(['yaml-service']))
+    expect(failedSamples[0]?.uptimeMetrics?.[0]).toMatchObject({ key: 'uptime', current: 'up' })
+    expect(failedSamples[0]?.uptimeMetrics?.[0]).not.toHaveProperty('observations')
+    expect(failedSamples[0]?.metricErrors).toEqual([{ key: 'uptime', code: 'collection_failed' }])
   })
 
   it('falls back to the card URL for {metric_source} custom metric sources', async () => {
@@ -1687,6 +1697,29 @@ describe('metric collection planning', () => {
     await getCards(config, new Headers())
     expect(discoveredMetricSchedules()).toEqual([])
     stop()
+  })
+
+  it('shares simultaneous container-list and API-version requests', async () => {
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    await Promise.all(Array.from({ length: 8 }, () => getContainerStatuses(config, new Headers())))
+    expect(server.versionRequests).toBe(1)
+    expect(server.containerListRequests).toBe(1)
+  })
+
+  it('ignores exec and terminal events while still refreshing health changes', async () => {
+    const config = getConfig()
+    config.dockerHost = dockerHost
+    const onChange = vi.fn()
+    const stop = watchContainerEvents(config, onChange)
+    try {
+      await vi.waitFor(() => expect(server.eventConnections).toBe(1))
+      for (const action of ['exec_create: /bin/sh', 'exec_start', 'exec_die', 'attach', 'detach', 'top', 'resize', 'export']) server.emitContainerEvent(action)
+      server.emitContainerEvent('health_status: unhealthy')
+      await vi.waitFor(() => expect(onChange).toHaveBeenCalledOnce())
+    } finally {
+      stop()
+    }
   })
 
   it('limits scheduled collection to eight Docker workers', async () => {

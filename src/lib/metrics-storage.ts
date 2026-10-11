@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite'
 import type { AppConfig } from './config'
 import { UPTIME_HISTORY_PERIOD_MS } from './constants'
 import type { ContainerResources, ResourceMetricSample, UptimeObservation } from './status'
+import { aggregateUptimeBuckets, type UptimeBucket } from './uptime-buckets'
 
 type DatabaseState = { path: string; database: DatabaseSync }
 type DatabaseMetricRow = {
@@ -56,10 +57,6 @@ function isMetricTargetRow(row: Record<string, unknown>): row is MetricTargetRow
   return typeof row.cardId === 'string' && typeof row.metricKey === 'string'
 }
 
-function observationKey(observation: UptimeObservation): string {
-  return `${observation.timestamp}\0${observation.status}\0${observation.responseTimeMs ?? ''}`
-}
-
 export function metricsDatabase(path: string): DatabaseSync {
   if (state?.path === path) return state.database
   state?.database.close()
@@ -86,6 +83,8 @@ export function metricsDatabase(path: string): DatabaseSync {
     );
     CREATE INDEX IF NOT EXISTS metric_samples_card_key_timestamp
       ON metric_samples (card_id, metric_key, timestamp);
+    CREATE INDEX IF NOT EXISTS metric_samples_card_timestamp
+      ON metric_samples (card_id, timestamp);
     CREATE TABLE IF NOT EXISTS uptime_observations (
       card_id TEXT NOT NULL,
       metric_key TEXT NOT NULL,
@@ -125,12 +124,18 @@ export function saveResourceMetric(config: AppConfig, cardId: string, resource: 
   db.prepare('DELETE FROM resource_metrics WHERE card_id = ? AND timestamp < ?').run(cardId, timestamp - historyPeriodMs)
 }
 
-export function getResourceMetricHistory(config: AppConfig, cardId: string, historyPeriodMs = config.metricsHistoryPeriodMs, now = Date.now()): ResourceMetricSample[] {
+export function getResourceMetricHistory(
+  config: AppConfig,
+  cardId: string,
+  historyPeriodMs = config.metricsHistoryPeriodMs,
+  now = Date.now(),
+  since = Number.NEGATIVE_INFINITY
+): ResourceMetricSample[] {
   const rows = metricsDatabase(config.metricsDatabasePath)
     .prepare(
       `SELECT timestamp, cpu_percent AS cpuPercent, memory_usage AS memoryUsage, memory_limit AS memoryLimit, received_bytes_per_second AS receivedBytesPerSecond, sent_bytes_per_second AS sentBytesPerSecond FROM resource_metrics WHERE card_id = ? AND timestamp >= ? ORDER BY timestamp`
     )
-    .all(cardId, now - historyPeriodMs)
+    .all(cardId, Math.max(now - historyPeriodMs, since))
     .filter(isDatabaseMetricRow)
   return rows.map((row) => ({
     timestamp: row.timestamp,
@@ -150,10 +155,17 @@ export function saveMetricSample(config: AppConfig, cardId: string, metricKey: s
   db.prepare('DELETE FROM metric_samples WHERE card_id = ? AND metric_key = ? AND timestamp < ?').run(cardId, metricKey, timestamp - historyPeriodMs)
 }
 
-export function getMetricHistory(config: AppConfig, cardId: string, metricKey: string, historyPeriodMs = config.metricsHistoryPeriodMs, now = Date.now()): GenericMetricRow[] {
+export function getMetricHistory(
+  config: AppConfig,
+  cardId: string,
+  metricKey: string,
+  historyPeriodMs = config.metricsHistoryPeriodMs,
+  now = Date.now(),
+  since = Number.NEGATIVE_INFINITY
+): GenericMetricRow[] {
   return metricsDatabase(config.metricsDatabasePath)
     .prepare('SELECT timestamp, value FROM metric_samples WHERE card_id = ? AND metric_key = ? AND timestamp >= ? ORDER BY timestamp')
-    .all(cardId, metricKey, now - historyPeriodMs)
+    .all(cardId, metricKey, Math.max(now - historyPeriodMs, since))
     .filter(isGenericMetricRow)
 }
 
@@ -165,10 +177,53 @@ export function getUptimeObservationHistory(config: AppConfig, cardId: string, m
   return rows.map(({ timestamp, status, responseTimeMs }) => ({ timestamp, status, ...(responseTimeMs < 0 ? {} : { responseTimeMs }) }))
 }
 
-export function mergeUptimeObservationHistory(config: AppConfig, cardId: string, metricKey: string, observations: UptimeObservation[], historyPeriodMs: number, now = Date.now()): UptimeObservation[] {
-  const stored = getUptimeObservationHistory(config, cardId, metricKey, historyPeriodMs, now)
-  const merged = new Map(stored.map((observation) => [observationKey(observation), observation]))
-  for (const observation of observations) merged.set(observationKey(observation), observation)
+export function hasUptimeObservationHistory(config: AppConfig, cardId: string, metricKey: string, historyPeriodMs: number, now = Date.now()): boolean {
+  return (
+    metricsDatabase(config.metricsDatabasePath)
+      .prepare('SELECT 1 FROM uptime_observations WHERE card_id = ? AND metric_key = ? AND timestamp >= ? LIMIT 1')
+      .get(cardId, metricKey, now - historyPeriodMs) !== undefined
+  )
+}
+
+export function getLatestUptimeObservation(config: AppConfig, cardId: string, metricKey: string, historyPeriodMs: number, now = Date.now()): UptimeObservation | undefined {
+  const row = metricsDatabase(config.metricsDatabasePath)
+    .prepare(
+      'SELECT timestamp, status, response_time_ms AS responseTimeMs FROM uptime_observations WHERE card_id = ? AND metric_key = ? AND timestamp >= ? ORDER BY timestamp DESC, status DESC, response_time_ms DESC LIMIT 1'
+    )
+    .get(cardId, metricKey, now - historyPeriodMs)
+  return row && isDatabaseUptimeObservation(row) ? { timestamp: row.timestamp, status: row.status, ...(row.responseTimeMs < 0 ? {} : { responseTimeMs: row.responseTimeMs }) } : undefined
+}
+
+export function getUptimeBucketHistory(config: AppConfig, cardId: string, metricKey: string, durationMs: number, bucketCount: number, now = Date.now()): UptimeBucket[] {
+  const buckets = aggregateUptimeBuckets([], durationMs, bucketCount, { includeCurrentBucket: true, now })
+  if (buckets.length === 0) return buckets
+  const start = buckets[0]!.start
+  const end = buckets.at(-1)!.end
+  const rows = metricsDatabase(config.metricsDatabasePath)
+    .prepare(
+      `
+    SELECT CAST((timestamp - ?) / ? AS INTEGER) AS bucketIndex,
+      SUM(status = 'up') AS successes, SUM(status = 'down') AS failures,
+      MAX(response_time_ms) AS slowestResponseTimeMs
+    FROM uptime_observations
+    WHERE card_id = ? AND metric_key = ? AND timestamp >= ? AND timestamp < ?
+    GROUP BY bucketIndex
+  `
+    )
+    .all(start, durationMs / bucketCount, cardId, metricKey, start, end)
+  for (const row of rows) {
+    if (typeof row.bucketIndex !== 'number' || typeof row.successes !== 'number' || typeof row.failures !== 'number') continue
+    const bucket = buckets[row.bucketIndex]
+    if (!bucket) continue
+    bucket.successes = row.successes
+    bucket.failures = row.failures
+    bucket.status = row.failures > 0 && row.successes > 0 ? 'mixed' : row.failures > 0 ? 'down' : row.successes > 0 ? 'up' : 'unknown'
+    if (typeof row.slowestResponseTimeMs === 'number' && row.slowestResponseTimeMs >= 0) bucket.slowestResponseTimeMs = row.slowestResponseTimeMs
+  }
+  return buckets
+}
+
+export function saveUptimeObservationHistory(config: AppConfig, cardId: string, metricKey: string, observations: UptimeObservation[], historyPeriodMs: number, now = Date.now()): void {
   const db = metricsDatabase(config.metricsDatabasePath)
   const retentionMs = Math.max(historyPeriodMs, UPTIME_HISTORY_PERIOD_MS)
   db.prepare('INSERT INTO uptime_metric_retention (card_id, metric_key, retention_ms) VALUES (?, ?, ?) ON CONFLICT(card_id, metric_key) DO UPDATE SET retention_ms = excluded.retention_ms').run(
@@ -187,16 +242,28 @@ export function mergeUptimeObservationHistory(config: AppConfig, cardId: string,
     db.exec('ROLLBACK')
     throw error
   }
-  return [...merged.values()].filter((observation) => observation.timestamp >= cutoff).sort((a, b) => a.timestamp - b.timestamp)
+}
+
+export function mergeUptimeObservationHistory(config: AppConfig, cardId: string, metricKey: string, observations: UptimeObservation[], historyPeriodMs: number, now = Date.now()): UptimeObservation[] {
+  saveUptimeObservationHistory(config, cardId, metricKey, observations, historyPeriodMs, now)
+  return getUptimeObservationHistory(config, cardId, metricKey, Math.max(historyPeriodMs, UPTIME_HISTORY_PERIOD_MS), now)
 }
 
 export function pruneMetricHistory(config: AppConfig, timestamp: number): void {
   const db = metricsDatabase(config.metricsDatabasePath)
-  db.prepare('DELETE FROM resource_metrics WHERE timestamp < ? - (SELECT retention_ms FROM card_metric_retention WHERE card_id = resource_metrics.card_id)').run(timestamp)
-  db.prepare('DELETE FROM metric_samples WHERE timestamp < ? - (SELECT retention_ms FROM card_metric_retention WHERE card_id = metric_samples.card_id)').run(timestamp)
-  db.prepare(
-    'DELETE FROM uptime_observations WHERE timestamp < ? - (SELECT retention_ms FROM uptime_metric_retention WHERE card_id = uptime_observations.card_id AND metric_key = uptime_observations.metric_key)'
-  ).run(timestamp)
+  const deleteResource = db.prepare('DELETE FROM resource_metrics WHERE card_id = ? AND timestamp < ?')
+  const deleteSamples = db.prepare('DELETE FROM metric_samples WHERE card_id = ? AND timestamp < ?')
+  for (const row of db.prepare('SELECT card_id AS cardId, retention_ms AS retentionMs FROM card_metric_retention').all()) {
+    const retentionMs = row.retentionMs
+    if (!isCardTargetRow(row) || typeof retentionMs !== 'number') continue
+    deleteResource.run(row.cardId, timestamp - retentionMs)
+    deleteSamples.run(row.cardId, timestamp - retentionMs)
+  }
+  const deleteUptime = db.prepare('DELETE FROM uptime_observations WHERE card_id = ? AND metric_key = ? AND timestamp < ?')
+  for (const row of db.prepare('SELECT card_id AS cardId, metric_key AS metricKey, retention_ms AS retentionMs FROM uptime_metric_retention').all()) {
+    const retentionMs = row.retentionMs
+    if (isMetricTargetRow(row) && typeof retentionMs === 'number') deleteUptime.run(row.cardId, row.metricKey, timestamp - retentionMs)
+  }
 }
 
 export function refreshMetricRetention(config: AppConfig, targets: readonly MetricRetentionTarget[], timestamp = Date.now()): void {

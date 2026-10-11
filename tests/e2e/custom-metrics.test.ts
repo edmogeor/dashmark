@@ -2,6 +2,7 @@ import { createServer, type Server } from 'node:http'
 import { Server as SocketIoServer } from 'socket.io'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { collectCustomMetric } from '@/lib/custom-metrics'
+import { getMetricCookieJar, pruneMetricCookieJars } from '@/lib/custom-metric-http'
 import type { JqMetricExtractor, MetricOverride, NumericMetricOverride, PrometheusMetricExtractor } from '@/lib/config-file-types'
 
 let server: Server
@@ -214,6 +215,18 @@ function metric(extractor: { jq: JqMetricExtractor } | { prometheus: PrometheusM
 }
 
 describe('collectCustomMetric', () => {
+  it('discards removed metric sessions while retaining active cookies', async () => {
+    const active = getMetricCookieJar('keep', baseUrl)
+    const removed = getMetricCookieJar('remove', baseUrl)
+    await active.setCookie('session=active; Path=/', baseUrl)
+    await removed.setCookie('session=removed; Path=/', baseUrl)
+    pruneMetricCookieJars([['keep', baseUrl]])
+    expect(getMetricCookieJar('keep', baseUrl)).toBe(active)
+    expect(await getMetricCookieJar('keep', baseUrl).getCookieString(baseUrl)).toBe('session=active')
+    expect(getMetricCookieJar('remove', baseUrl)).not.toBe(removed)
+    expect(await getMetricCookieJar('remove', baseUrl).getCookieString(baseUrl)).toBe('')
+  })
+
   it('extracts scalar and aggregated JSON values with jq', async () => {
     await expect(collectCustomMetric('scalar', metric({ jq: { expression: '.stats.value' } }))).resolves.toEqual({ value: 12.5 })
     await expect(collectCustomMetric('sum', { ...metric({ jq: { expression: '[.items[].value] | add' } }), source: { url: `${baseUrl}/sum` } })).resolves.toEqual({ value: 5 })

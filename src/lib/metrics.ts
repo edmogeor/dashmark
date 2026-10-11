@@ -1,23 +1,24 @@
 import type { AppConfig } from './config'
 import { collectDiscoveredMetricUsage, discoveredMetricSchedules } from './docker'
-import type { ContainerMetricUsage } from './docker'
+import type { Card, ContainerMetricUsage } from './docker'
 import { clearMetricsStorage, metricsDatabase, pruneMetricHistory, saveMetricSample, saveResourceMetric } from './metrics-storage'
 import { getDiscoveryCoordinator } from './discovery-coordinator'
 
 let collectionStarted = false
-let collectionInProgress = false
+let collectionInProgress: Promise<void> | undefined
 let collectionTimer: ReturnType<typeof setTimeout> | undefined
 const lastMetricCollection = new Map<string, number>()
 const latestMetricUsage = new Map<string, ContainerMetricUsage>()
 const customMetricCounterCache = new Map<string, { value: number; timestamp: number }>()
 const NETWORK_RATE_PRIME_DELAY_MS = 1_000
 
-function discardRemovedMetricState(cardIds: ReadonlySet<string>): void {
+function discardRemovedMetricState(cardIds: ReadonlySet<string>, cards: readonly Card[]): void {
   for (const cardId of latestMetricUsage.keys()) if (!cardIds.has(cardId)) latestMetricUsage.delete(cardId)
   for (const cardId of lastMetricCollection.keys()) if (!cardIds.has(cardId)) lastMetricCollection.delete(cardId)
+  const metricKeys = new Map(cards.map((card) => [card.id, new Set(card.customMetricKeys)]))
   for (const key of customMetricCounterCache.keys()) {
     const cardId = key.slice(0, key.indexOf('\0'))
-    if (!cardIds.has(cardId)) customMetricCounterCache.delete(key)
+    if (!metricKeys.get(cardId)?.has(key.slice(key.indexOf('\0') + 1))) customMetricCounterCache.delete(key)
   }
 }
 
@@ -78,14 +79,14 @@ async function collectAndSave(config: AppConfig, force = false): Promise<void> {
   for (const cardId of due) lastMetricCollection.set(cardId, timestamp)
 }
 
-function collectInBackground(config: AppConfig, force = false): Promise<void> | undefined {
-  if (collectionInProgress) return undefined
-  collectionInProgress = true
-  return collectAndSave(config, force)
+function collectInBackground(config: AppConfig, force = false): Promise<void> {
+  if (collectionInProgress) return collectionInProgress
+  collectionInProgress = collectAndSave(config, force)
     .catch(() => undefined)
     .finally(() => {
-      collectionInProgress = false
+      collectionInProgress = undefined
     })
+  return collectionInProgress
 }
 
 function scheduleCollection(config: AppConfig): void {
@@ -103,9 +104,7 @@ function scheduleCollection(config: AppConfig): void {
   }
   const timer = setTimeout(
     () => {
-      const collection = collectInBackground(config)
-      if (collection) void collection.finally(() => scheduleCollection(config))
-      else scheduleCollection(config)
+      void collectInBackground(config).finally(() => scheduleCollection(config))
     },
     Math.max(0, nextDue - Date.now())
   )
@@ -125,7 +124,6 @@ export function startMetricsCollection(config: AppConfig): void {
   coordinator.onCardsChange(() => scheduleCollection(config))
   void coordinator.ready().then(() => {
     const initialCollection = collectInBackground(config)
-    if (!initialCollection) return
     void initialCollection.then(() => {
       const timer = setTimeout(() => collectInBackground(config, true), NETWORK_RATE_PRIME_DELAY_MS)
       timer.unref()
@@ -137,7 +135,7 @@ export function startMetricsCollection(config: AppConfig): void {
 export function clearMetricsDatabase(): void {
   clearMetricsStorage()
   collectionStarted = false
-  collectionInProgress = false
+  collectionInProgress = undefined
   if (collectionTimer) clearTimeout(collectionTimer)
   collectionTimer = undefined
   lastMetricCollection.clear()

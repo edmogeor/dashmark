@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Keep background uptime history in SQLite instead of retaining raw observations in memory, load chart summaries on demand, and use indexed uptime pruning.
+- Aggregate in-memory uptime chart buckets in a single pass and skip live chart calculations when metrics have no realtime subscribers.
+- Serialize discovery refreshes, ignore non-status Docker events, and share concurrent Docker discovery requests.
+- Reuse metric catalog parsing across services, limit concurrent jq processes, and use indexed resource and numeric history pruning.
+- Release removed metric sessions and network counters, defer optional metric parsers, and discard inactive browser chart history and stale WebSocket messages.
+- Reuse the browser search index and avoid dashboard rerenders for unchanged container statuses.
+- Check resource visibility once per chart response, share unrestricted cached histories, and index card lookups for metric subscriptions.
+- Send full numeric chart histories on subscription and reconnect, then deliver incremental samples with retention-safe merging and compatibility for older clients.
+
+### Fixed
+
+- Prevent overdue metric timers from busy-looping while a slow collection is still running.
+
 ## [0.8.4] - 2026-10-10
 
 ### Added

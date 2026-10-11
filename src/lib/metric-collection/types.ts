@@ -22,7 +22,7 @@ export type CollectedCustomMetric =
       value: string
     }
 
-export type CollectedUptimeMetric = UptimeMetric
+export type CollectedUptimeMetric = Omit<UptimeMetric, 'observations'> & { observations?: UptimeMetric['observations'] }
 
 export type ContainerMetricUsage = {
   resource?: ContainerResources

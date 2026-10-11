@@ -17,23 +17,28 @@ export function aggregateUptimeBuckets(
 ): UptimeBucket[] {
   const bucketMs = durationMs / bucketCount
   const currentBucketStart = Math.floor(now / bucketMs) * bucketMs
-  const hasCurrentObservation = observations.some((observation) => observation.timestamp >= currentBucketStart && observation.timestamp <= now)
+  const hasCurrentObservation = !includeCurrentBucket && observations.some((observation) => observation.timestamp >= currentBucketStart && observation.timestamp <= now)
   const end = includeCurrentBucket || hasCurrentObservation ? currentBucketStart + bucketMs : currentBucketStart
   const start = end - durationMs
-  return Array.from({ length: bucketCount }, (_, index) => {
+  const buckets: UptimeBucket[] = Array.from({ length: bucketCount }, (_, index) => {
     const bucketStart = start + index * bucketMs
     const bucketEnd = bucketStart + bucketMs
-    const entries = observations.filter((entry) => entry.timestamp >= bucketStart && entry.timestamp < bucketEnd)
-    const successes = entries.filter((entry) => entry.status === 'up').length
-    const failures = entries.filter((entry) => entry.status === 'down').length
-    const responseTimes = entries.flatMap((entry) => (entry.responseTimeMs === undefined ? [] : [entry.responseTimeMs]))
     return {
       start: bucketStart,
       end: bucketEnd,
-      status: failures > 0 && successes > 0 ? 'mixed' : failures > 0 ? 'down' : successes > 0 ? 'up' : 'unknown',
-      successes,
-      failures,
-      ...(responseTimes.length > 0 ? { slowestResponseTimeMs: Math.max(...responseTimes) } : {})
+      status: 'unknown',
+      successes: 0,
+      failures: 0
     }
   })
+  for (const observation of observations) {
+    if (observation.timestamp < start || observation.timestamp >= end) continue
+    const bucket = buckets[Math.floor((observation.timestamp - start) / bucketMs)]
+    if (!bucket) continue
+    if (observation.status === 'up') bucket.successes++
+    if (observation.status === 'down') bucket.failures++
+    if (observation.responseTimeMs !== undefined) bucket.slowestResponseTimeMs = Math.max(bucket.slowestResponseTimeMs ?? observation.responseTimeMs, observation.responseTimeMs)
+  }
+  for (const bucket of buckets) bucket.status = bucket.failures > 0 && bucket.successes > 0 ? 'mixed' : bucket.failures > 0 ? 'down' : bucket.successes > 0 ? 'up' : 'unknown'
+  return buckets
 }

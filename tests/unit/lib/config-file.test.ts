@@ -1,9 +1,10 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getConfig } from '@/lib/config'
 import { loadYamlConfig } from '@/lib/config-file'
+import { loadMetricCatalog } from '@/lib/config-file-metrics'
 
 const tempDirectories: string[] = []
 
@@ -16,9 +17,28 @@ function writeConfig(content: string): string {
 }
 
 afterEach(() => {
+  vi.unstubAllEnvs()
   for (const directory of tempDirectories.splice(0)) {
     fs.rmSync(directory, { recursive: true, force: true })
   }
+})
+
+it('reuses parsed metric definitions and invalidates them when a catalog file changes', () => {
+  const configPath = writeConfig('')
+  const directory = path.join(path.dirname(configPath), 'provider')
+  fs.mkdirSync(directory)
+  const metricPath = path.join(directory, 'count.yml')
+  const definition = 'display: { label: Count }\nvalue: { unit: count }\nsource: { url: "{url}/count" }\nextract: { jq: .count }\n'
+  fs.writeFileSync(metricPath, definition)
+  vi.stubEnv('DASHMARK_METRICS_DIR', path.dirname(configPath))
+
+  const first = loadMetricCatalog()
+  expect(first['provider/count']?.label).toBe('Count')
+  expect(loadMetricCatalog()).toBe(first)
+  fs.writeFileSync(metricPath, definition.replace('label: Count', 'label: Updated count'))
+  const updated = loadMetricCatalog()
+  expect(updated).not.toBe(first)
+  expect(updated['provider/count']?.label).toBe('Updated count')
 })
 
 describe('loadYamlConfig', () => {

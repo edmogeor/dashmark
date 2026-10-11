@@ -40,4 +40,31 @@ describe('aggregateUptimeBuckets', () => {
 
     expect(buckets.at(-1)).toMatchObject({ start: Date.parse('2026-08-27T22:00:00Z'), status: 'unknown' })
   })
+
+  it('handles unsorted observations, window boundaries, and unknown response times', () => {
+    const start = Date.parse('2026-08-27T20:00:00Z')
+    const buckets = aggregateUptimeBuckets(
+      [
+        { timestamp: start + hour, status: 'down', responseTimeMs: 20 },
+        { timestamp: start - 1, status: 'down', responseTimeMs: 999 },
+        { timestamp: start, status: 'up', responseTimeMs: 10 },
+        { timestamp: start + 3 * hour, status: 'down', responseTimeMs: 999 },
+        { timestamp: start + 1, status: 'unknown', responseTimeMs: 30 }
+      ],
+      3 * hour,
+      3,
+      { includeCurrentBucket: true, now }
+    )
+
+    expect(buckets.map(({ status, successes, failures, slowestResponseTimeMs }) => ({ status, successes, failures, slowestResponseTimeMs }))).toEqual([
+      { status: 'up', successes: 1, failures: 0, slowestResponseTimeMs: 30 },
+      { status: 'down', successes: 0, failures: 1, slowestResponseTimeMs: 20 },
+      { status: 'unknown', successes: 0, failures: 0, slowestResponseTimeMs: undefined }
+    ])
+  })
+
+  it('aggregates large histories without spreading observations onto the call stack', () => {
+    const observations = Array.from({ length: 150_000 }, (_, index) => ({ timestamp: now, status: 'up' as const, responseTimeMs: index }))
+    expect(aggregateUptimeBuckets(observations, hour, 1, { includeCurrentBucket: true, now })[0]).toMatchObject({ successes: 150_000, slowestResponseTimeMs: 149_999 })
+  })
 })

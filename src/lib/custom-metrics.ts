@@ -2,7 +2,6 @@ import type { MetricOverride } from './config-file-types'
 import { getMetricCookieJar, prepareMetricRequest, requestMetric } from './custom-metric-http'
 import { collectForEachMetric, collectPaginatedJq, extractJq, extractPrometheus, extractText, extractUptime } from './custom-metric-parsing'
 import { transformMetricResult, unavailable, type MetricResult } from './custom-metric-result'
-import { collectSocketIoMetric } from './custom-metric-socketio'
 import { logger } from './logger'
 
 export type { MetricResult } from './custom-metric-result'
@@ -19,6 +18,7 @@ export async function collectCustomMetric(key: string, metric: MetricOverride, b
   try {
     const cookieJar = getMetricCookieJar(key, metric.source.url)
     if (metric.source.transport === 'socketio') {
+      const { collectSocketIoMetric } = await import('./custom-metric-socketio')
       const prepared = await prepareMetricRequest(metric, cookieJar, url, true, true)
       if (prepared.error || !prepared.request) return unavailable(key, prepared.error ?? 'Could not prepare metric request')
       return collectSocketIoMetric(key, metric, prepared.request.url, prepared.request.headers, cookieJar)

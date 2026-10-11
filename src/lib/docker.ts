@@ -2,10 +2,11 @@ import http from 'node:http'
 import https from 'node:https'
 import type { AppConfig, DockerHostConfig } from './config'
 import { loadYamlConfig } from './config-file'
+import { loadMetricCatalog } from './config-file-metrics'
 import type { ServiceOverrides } from './config-file-types'
 import { isValidUrl, RESOURCE_STATS, type ResourceStat } from './labels'
 import { clearDockerApiCache, dockerRequest, getDockerApiVersion, isDockerContainer, parseDockerHost, type DockerContainer } from './docker-api'
-import { lookupYamlService, resolveContainer, resolveYamlMetrics, type ResolvedContainer } from './docker-card-resolution'
+import { lookupYamlService, resolveContainer, resolveYamlMetrics, type ResolvedContainer, type ResolvedMetricCard } from './docker-card-resolution'
 import { resolveIcon, type IconResult } from './icons'
 import { resolveDescription } from './descriptions'
 import { getUser, hasAllowedAccess } from './auth'
@@ -17,7 +18,8 @@ import type { ContainerResources, ContainerStatus } from './status'
 import { DOCKER_STATUS_CACHE_TTL_MS, DOCKER_EVENT_RECONNECT_DELAY_MS } from './constants'
 import { metricCardFields } from './metric-collection/details'
 import { badgeColorIndex } from './badge-color'
-import { clearMetricCollectionCache, dockerMetricTarget, type MetricCollectionTarget, usageForTarget, yamlMetricTarget } from './metric-collection/target-plan'
+import { clearMetricCollectionCache, pruneMetricCollectionCache, dockerMetricTarget, type MetricCollectionTarget, usageForTarget, yamlMetricTarget } from './metric-collection/target-plan'
+import { pruneMetricCookieJars } from './custom-metric-http'
 export type { ContainerMetricSample, ContainerMetricUsage } from './metric-collection/types'
 import type { ContainerMetricSample, ContainerMetricUsage } from './metric-collection/types'
 
@@ -58,6 +60,7 @@ type DiscoveredContainer = {
 
 type Timestamped<T> = { data: T; timestamp: number }
 const containerListCache = new Map<string, Timestamped<DockerContainer[]>>()
+const containerListRequests = new Map<string, Promise<DockerContainer[]>>()
 
 export function watchContainerEvents(config: AppConfig, onChange: () => void): () => void {
   let stopped = false
@@ -115,7 +118,10 @@ export function watchContainerEvents(config: AppConfig, onChange: () => void): (
               try {
                 const event = JSON.parse(line)
                 if (isRecord(event) && event.Type === 'container') {
+                  const action = typeof event.Action === 'string' ? event.Action : typeof event.status === 'string' ? event.status : ''
+                  if (action.startsWith('exec_') || ['attach', 'detach', 'top', 'resize', 'export'].includes(action)) continue
                   containerListCache.delete(hostConfig.dockerHost)
+                  containerListRequests.delete(hostConfig.dockerHost)
                   onChange()
                 }
               } catch {
@@ -159,12 +165,18 @@ async function getCachedContainers(dockerHost: string, ttlMs: number): Promise<D
     return cached.data
   }
 
-  const containers = await listContainers(dockerHost)
-  containerListCache.set(dockerHost, {
-    data: containers,
-    timestamp: Date.now()
-  })
-  return containers
+  const pending = containerListRequests.get(dockerHost)
+  if (pending) return pending
+  const request = listContainers(dockerHost)
+    .then((containers) => {
+      if (containerListRequests.get(dockerHost) === request) containerListCache.set(dockerHost, { data: containers, timestamp: Date.now() })
+      return containers
+    })
+    .finally(() => {
+      if (containerListRequests.get(dockerHost) === request) containerListRequests.delete(dockerHost)
+    })
+  containerListRequests.set(dockerHost, request)
+  return request
 }
 
 function configuredDockerHosts(config: AppConfig): DockerHostConfig[] {
@@ -215,6 +227,7 @@ async function fetchContainers(config: AppConfig): Promise<{ containers: Discove
 export function clearDockerCache() {
   clearDockerApiCache()
   containerListCache.clear()
+  containerListRequests.clear()
   clearMetricCollectionCache()
   discoveredMetricTargets.clear()
 }
@@ -310,7 +323,7 @@ async function cardFromContainer(config: AppConfig, resolved: ResolvedContainer,
   }
 }
 
-async function cardFromYaml(config: AppConfig, name: string, service: ServiceOverrides, hostColor: number): Promise<Card | null> {
+async function cardFromYaml(config: AppConfig, name: string, service: ServiceOverrides, hostColor: number, metrics?: ResolvedMetricCard): Promise<Card | null> {
   if (service.hidden || !service.url || !isValidUrl(service.url)) {
     return null
   }
@@ -328,7 +341,7 @@ async function cardFromYaml(config: AppConfig, name: string, service: ServiceOve
       containerName: name
     })
   ])
-  const resolved = resolveYamlMetrics(service, service.url)
+  const resolved = metrics ?? resolveYamlMetrics(service, service.url)
   return {
     id: `yaml-${name}`,
     title,
@@ -392,10 +405,11 @@ export async function getContainerStatuses(
 
   const { yamlServices, containers, error: loadError } = await loadServicesAndContainers(config)
   if (loadError) return { statuses: {}, error: loadError }
+  const catalog = loadMetricCatalog()
   const resolvedContainers = containers.map(({ hostId, container }) => ({
     hostId,
     container,
-    resolved: resolveContainer(yamlServices, hostId, container, config.homepageLabelFallback)
+    resolved: resolveContainer(yamlServices, hostId, container, config.homepageLabelFallback, catalog)
   }))
   const accessCards = resolvedContainers.filter(({ resolved }) => !resolved.labels.hidden && resolved.url !== undefined).map(({ resolved }) => ({ access: resolved.labels.access }))
   const accessError = missingAccessIdentity(config, headers, accessCards)
@@ -464,6 +478,7 @@ export async function collectContainerResourceUsage(config: AppConfig, isDue: (c
   if (yamlConfig.error) return []
   const samples: ContainerMetricSample[] = []
   const matchedYamlKeys = new Set<string>()
+  const catalog = loadMetricCatalog()
 
   await Promise.all(
     configuredDockerHosts(config).map(async (host) => {
@@ -471,7 +486,7 @@ export async function collectContainerResourceUsage(config: AppConfig, isDue: (c
         const containers = await getCachedContainers(host.dockerHost, DOCKER_STATUS_CACHE_TTL_MS)
         const results = await Promise.all(
           containers.map(async (container) => {
-            const resolved = resolveContainer(yamlConfig.config.services, host.id, container, config.homepageLabelFallback)
+            const resolved = resolveContainer(yamlConfig.config.services, host.id, container, config.homepageLabelFallback, catalog)
             if (resolved.yamlKey) matchedYamlKeys.add(resolved.yamlKey)
             if (container.State !== 'running') return undefined
             if (resolved.labels.hidden || !resolved.url || resolved.labels.showStatus === false) return undefined
@@ -490,7 +505,7 @@ export async function collectContainerResourceUsage(config: AppConfig, isDue: (c
   const standaloneSamples = await Promise.all(
     Object.entries(yamlConfig.config.services).map(async ([name, service]): Promise<ContainerMetricSample | undefined> => {
       if (matchedYamlKeys.has(name) || service.hidden || !service.url || !isValidUrl(service.url) || service.showStatus === false) return undefined
-      const planned = yamlMetricTarget(config, name, service, resolveYamlMetrics(service, service.url))
+      const planned = yamlMetricTarget(config, name, service, resolveYamlMetrics(service, service.url, catalog))
       return planned && isDue(planned.target.cardId, planned.target.metricsPollIntervalMs) ? planned.target.collect() : undefined
     })
   )
@@ -513,7 +528,7 @@ export async function collectDiscoveredMetricUsage(cardIds: ReadonlySet<string>)
   const worker = async () => {
     while (next < targets.length) {
       const target = targets[next++]
-      const sample = await target.collect()
+      const sample = await target.collect(false)
       if (sample) samples.push(sample)
     }
   }
@@ -524,6 +539,7 @@ export async function collectDiscoveredMetricUsage(cardIds: ReadonlySet<string>)
 async function buildAllCards(config: AppConfig): Promise<{ cards: Card[]; error?: DashmarkError }> {
   const { yamlServices, containers, error } = await loadServicesAndContainers(config)
   if (error) return { cards: [], error }
+  const catalog = loadMetricCatalog()
 
   const cards: Card[] = []
   const metricTargets = new Map<string, MetricCollectionTarget>()
@@ -540,7 +556,7 @@ async function buildAllCards(config: AppConfig): Promise<{ cards: Card[]; error?
   const hostColors = new Map([...new Set([...hostIds.map(dockerHostName), ...yamlHostNames])].map((host) => [host, badgeColorIndex(host)]))
 
   for (const { hostId, container } of containers) {
-    const resolved = resolveContainer(yamlServices, hostId, container, config.homepageLabelFallback)
+    const resolved = resolveContainer(yamlServices, hostId, container, config.homepageLabelFallback, catalog)
     const host = showHost ? dockerHostName(hostId) : undefined
     const card = await cardFromContainer(config, resolved, hostId, host, hostColors.get(host ?? '') ?? 0)
     if (card) cards.push(card)
@@ -558,14 +574,17 @@ async function buildAllCards(config: AppConfig): Promise<{ cards: Card[]; error?
 
   for (const [name, yamlService] of Object.entries(yamlServices)) {
     if (matchedKeys.has(name)) continue
-    const card = await cardFromYaml(config, name, yamlService, hostColors.get(yamlService.host ?? '') ?? 0)
+    const resolved = yamlService.url ? resolveYamlMetrics(yamlService, yamlService.url, catalog) : undefined
+    const card = await cardFromYaml(config, name, yamlService, hostColors.get(yamlService.host ?? '') ?? 0, resolved)
     if (card) cards.push(card)
-    const planned = yamlService.url ? yamlMetricTarget(config, name, yamlService, resolveYamlMetrics(yamlService, yamlService.url)) : undefined
+    const planned = resolved ? yamlMetricTarget(config, name, yamlService, resolved) : undefined
     if (planned) metricTargets.set(planned.target.cardId, planned.target)
   }
 
   discoveredMetricTargets.clear()
   for (const [cardId, target] of metricTargets) discoveredMetricTargets.set(cardId, target)
+  pruneMetricCollectionCache(new Set(metricTargets.keys()))
+  pruneMetricCookieJars([...metricTargets.values()].flatMap((target) => target.metricSources))
   return { cards: sortCards(cards) }
 }
 

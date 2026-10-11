@@ -69,12 +69,19 @@ function resolveCardUrl(primaryUrl: string | undefined, labels: Record<string, s
   return derived && isValidUrl(derived) ? derived : undefined
 }
 
-function selectedCatalogMetrics(keys: string[] | undefined): ServiceMetricOverrides {
-  const catalog = loadMetricCatalog()
+function selectedCatalogMetrics(keys: string[] | undefined, sharedCatalog?: ServiceMetricOverrides): ServiceMetricOverrides {
+  if (!keys?.some((key) => key.includes('/'))) return {}
+  const catalog = sharedCatalog ?? loadMetricCatalog()
   return Object.fromEntries((keys ?? []).flatMap((key) => (catalog[key] ? [[key, catalog[key]]] : [])))
 }
 
-export function resolveContainer(yamlServices: Record<string, ServiceOverrides>, hostId: string, container: DockerContainer, homepageLabelFallback = false): ResolvedContainer {
+export function resolveContainer(
+  yamlServices: Record<string, ServiceOverrides>,
+  hostId: string,
+  container: DockerContainer,
+  homepageLabelFallback = false,
+  catalog?: ServiceMetricOverrides
+): ResolvedContainer {
   const { key: yamlKey, service: yamlService } = lookupYamlService(yamlServices, hostId, container)
   const rawLabels = container.Labels ?? {}
   const currentContainer = isCurrentContainer(container)
@@ -82,7 +89,7 @@ export function resolveContainer(yamlServices: Record<string, ServiceOverrides>,
   const parsedLabels = mergeWithYaml(parseLabels(rawLabels, homepageFallback), yamlService)
   const labels = currentContainer ? { ...parsedLabels, hidden: true } : parsedLabels
   const url = resolveCardUrl(labels.url, rawLabels, yamlService !== undefined || hasCardLabels(rawLabels, homepageFallback))
-  const metricDefinitions = { ...selectedCatalogMetrics(labels.metrics), ...yamlService?.metrics?.entryOverrides }
+  const metricDefinitions = { ...selectedCatalogMetrics(labels.metrics, catalog), ...yamlService?.metrics?.entryOverrides }
   return {
     container,
     name: containerName(container),
@@ -95,9 +102,9 @@ export function resolveContainer(yamlServices: Record<string, ServiceOverrides>,
   }
 }
 
-export function resolveYamlMetrics(service: ServiceOverrides, url: string): ResolvedMetricCard {
+export function resolveYamlMetrics(service: ServiceOverrides, url: string, catalog?: ServiceMetricOverrides): ResolvedMetricCard {
   const labels = mergeWithYaml(parseLabels({}), service)
-  const metricDefinitions = { ...selectedCatalogMetrics(labels.metrics), ...service.metrics?.entryOverrides }
+  const metricDefinitions = { ...selectedCatalogMetrics(labels.metrics, catalog), ...service.metrics?.entryOverrides }
   return {
     labels,
     metricDefinitions,
