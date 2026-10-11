@@ -6,6 +6,7 @@ import type { UptimeMetricSummary } from '@/lib/realtime-client'
 import { UPTIME_RANGES, type UptimeRange } from '@/lib/uptime-ranges'
 import { UptimeHeartbeat, uptimeBucketsForRange, uptimePercent } from './UptimeHeartbeat'
 import { useLocalization } from './localization'
+import { MetricRecoveryIndicator } from './MetricRecoveryIndicator'
 
 export function UptimeDetailDialog({ metric, onOpenChange }: { metric: UptimeMetricSummary | null; onOpenChange: (open: boolean) => void }) {
   const { locale, messages } = useLocalization()
@@ -43,6 +44,7 @@ export function UptimeDetailDialog({ metric, onOpenChange }: { metric: UptimeMet
               <DialogTitle className="flex items-center gap-2 text-sm font-medium tracking-[0.18em] text-muted-foreground uppercase">
                 <Gauge className="h-4 w-4 shrink-0" aria-hidden="true" />
                 {currentMetric.label}
+                <MetricRecoveryIndicator state={currentMetric.recovery} />
               </DialogTitle>
               <div className="flex items-center gap-2">
                 <ToggleGroup

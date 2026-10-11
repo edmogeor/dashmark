@@ -1,7 +1,9 @@
 import type { AppConfig } from '../config'
 import type { ServiceOverrides } from '../config-file-types'
-import { UPTIME_HISTORY_PERIOD_MS } from '../constants'
+import { UPTIME_HISTORY_PERIOD_MS, PAGINATED_UPTIME_RECOVERY_SOURCE_PREFIX } from '../constants'
 import { collectCustomMetric } from '../custom-metrics'
+import { queuePaginatedUptimeRecovery } from '../paginated-uptime-recovery'
+import { cancelMetricRecovery, hasMetricRecovery } from '../metric-recovery'
 import type { DockerContainer, DockerStats } from '../docker-api'
 import { dockerRequest, parseDockerStats } from '../docker-api'
 import type { ResolvedContainer, ResolvedMetricCard } from '../docker-card-resolution'
@@ -85,7 +87,9 @@ async function collectCustomMetrics(
   const uptimeHistoryPeriodMs = Math.max(details.historyPeriodMs, UPTIME_HISTORY_PERIOD_MS)
   const results = await Promise.all(
     details.selectedMetrics.map(async ([key, metric]) => {
-      const bootstrap = metric.valueType === 'uptime' && metric.source.initialQuery !== undefined && !hasUptimeObservationHistory(config, cardId, key, uptimeHistoryPeriodMs)
+      if (metric.valueType !== 'uptime' && hasMetricRecovery(cardId, key)) cancelMetricRecovery(config, cardId, key, PAGINATED_UPTIME_RECOVERY_SOURCE_PREFIX)
+      const bootstrap =
+        metric.valueType === 'uptime' && !metric.pagination?.recover && metric.source.initialQuery !== undefined && !hasUptimeObservationHistory(config, cardId, key, uptimeHistoryPeriodMs)
       const result = await collectCustomMetric(key, metric, bootstrap)
       return { key, metric, result }
     })
@@ -95,6 +99,8 @@ async function collectCustomMetrics(
   const metricErrors = [...details.metricErrors]
   for (const { key, metric, result } of results) {
     if ('observations' in result && metric.valueType === 'uptime') {
+      const previous = getLatestUptimeObservation(config, cardId, key, uptimeHistoryPeriodMs)
+      queuePaginatedUptimeRecovery(config, cardId, key, metric, result.observations, result.nextPage, previous?.timestamp, uptimeHistoryPeriodMs)
       saveUptimeObservationHistory(config, cardId, key, result.observations, uptimeHistoryPeriodMs)
       const latest = getLatestUptimeObservation(config, cardId, key, uptimeHistoryPeriodMs)
       uptimeMetrics.push({
@@ -105,6 +111,7 @@ async function collectCustomMetrics(
       })
     } else if ('error' in result && metric.valueType === 'uptime') {
       const latest = getLatestUptimeObservation(config, cardId, key, uptimeHistoryPeriodMs)
+      queuePaginatedUptimeRecovery(config, cardId, key, metric, [], undefined, latest?.timestamp, uptimeHistoryPeriodMs)
       if (latest)
         uptimeMetrics.push({
           key,

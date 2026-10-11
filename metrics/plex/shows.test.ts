@@ -1,4 +1,5 @@
 import { expectFixtureMetric } from '../test-utils'
+import { plexLibraryResponse } from './library-response'
 
 it('counts Plex shows across show libraries', async () => {
   await expectFixtureMetric(
@@ -12,6 +13,12 @@ it('counts Plex shows across show libraries', async () => {
         ]
       }
     },
-    4
+    5,
+    {
+      responses: {
+        '/library/sections/2/all': (request) => plexLibraryResponse(request, 2),
+        '/library/sections/3/all': (request) => plexLibraryResponse(request, 3)
+      }
+    }
   )
 })

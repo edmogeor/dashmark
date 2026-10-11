@@ -1,5 +1,5 @@
 import type { CustomMetricReduction, MetricOverride } from './config-file-types'
-import { MAX_FOR_EACH_ITEMS, FOR_EACH_CONCURRENCY, MAX_PAGINATION_PAGES } from './constants'
+import { MAX_FOR_EACH_ITEMS, FOR_EACH_CONCURRENCY, MAX_PAGINATION_PAGES, METRIC_RECOVERY_MAX_OBSERVATIONS } from './constants'
 import { isRecord } from './errors'
 import { runJq } from './jq'
 import { unavailable, type MetricResult } from './custom-metric-result'
@@ -63,28 +63,49 @@ export async function extractUptime(key: string, text: string, metric: Extract<M
   }
 }
 
-async function extractUptimeDocument(key: string, document: unknown, metric: Extract<MetricOverride, { valueType: 'uptime' }>): Promise<MetricResult> {
+export async function extractUptimeDocument(key: string, document: unknown, metric: Extract<MetricOverride, { valueType: 'uptime' }>, maxObservations = Infinity): Promise<MetricResult> {
   try {
     const items = await runJq(metric.jq.expression, document)
-    if (!Array.isArray(items)) return unavailable(key, 'uptime observation extraction did not produce an array')
-    const observations: UptimeObservation[] = []
-    for (const item of items) {
-      if (!isRecord(item)) return unavailable(key, 'uptime observation extraction produced an invalid item')
-      const timestamp = uptimeTimestamp(item.timestamp)
-      const status = uptimeStatus(item.status)
-      if (timestamp === undefined || !status) return unavailable(key, 'uptime observation timestamp or status is invalid')
-      const responseTime = item.responseTimeMs
-      if (responseTime !== undefined && (typeof responseTime !== 'number' || !Number.isFinite(responseTime))) return unavailable(key, 'uptime observation response time is invalid')
-      observations.push({ timestamp, status, ...(responseTime === undefined ? {} : { responseTimeMs: responseTime }) })
-    }
-    return { observations: observations.sort((a, b) => a.timestamp - b.timestamp) }
+    if (Array.isArray(items) && items.length > maxObservations) return unavailable(key, 'uptime response exceeds the observation limit')
+    return parseUptimeObservations(key, items)
   } catch {
     return unavailable(key, 'uptime extraction failed')
   }
 }
 
-export async function collectPaginatedJq(key: string, text: string, metric: MetricOverride, request: Request, collectAllPages = true): Promise<MetricResult> {
+function parseUptimeObservations(key: string, items: unknown): MetricResult {
+  if (!Array.isArray(items)) return unavailable(key, 'uptime observation extraction did not produce an array')
+  const observations: UptimeObservation[] = []
+  for (const item of items) {
+    if (!isRecord(item)) return unavailable(key, 'uptime observation extraction produced an invalid item')
+    const timestamp = uptimeTimestamp(item.timestamp)
+    const status = uptimeStatus(item.status)
+    if (timestamp === undefined || !status) return unavailable(key, 'uptime observation timestamp or status is invalid')
+    const responseTime = item.responseTimeMs
+    if (responseTime !== undefined && (typeof responseTime !== 'number' || !Number.isFinite(responseTime))) return unavailable(key, 'uptime observation response time is invalid')
+    observations.push({ timestamp, status, ...(responseTime === undefined ? {} : { responseTimeMs: responseTime }) })
+  }
+  return { observations: observations.sort((a, b) => a.timestamp - b.timestamp) }
+}
+
+export async function collectPaginatedJq(key: string, text: string, metric: MetricOverride, request: Request, collectAllPages = true, currentPage = 1): Promise<MetricResult> {
   if (!metric.pagination || !('jq' in metric)) return unavailable(key, 'pagination requires a jq extractor')
+  if (metric.pagination.recover && metric.valueType === 'uptime') {
+    try {
+      if (!Number.isSafeInteger(currentPage) || currentPage < 1) return unavailable(key, 'invalid history page number')
+      const page = await runJq(
+        `${currentPage} as $page | {observations: ({items: (${metric.pagination.items.expression})} | (${metric.jq.expression})), next: (${metric.pagination.next.expression})}`,
+        JSON.parse(text)
+      )
+      if (!isRecord(page) || !Array.isArray(page.observations) || page.observations.length > METRIC_RECOVERY_MAX_OBSERVATIONS)
+        return unavailable(key, 'history page exceeds the observation limit or is invalid')
+      if (page.next !== null && page.next !== 0 && (!Number.isSafeInteger(page.next) || Number(page.next) <= currentPage)) return unavailable(key, 'history pagination must advance')
+      const result = parseUptimeObservations(key, page.observations)
+      return 'observations' in result && typeof page.next === 'number' && page.next > 0 ? { ...result, nextPage: page.next } : result
+    } catch {
+      return unavailable(key, 'history page extraction failed')
+    }
+  }
   try {
     const items: unknown[] = []
     let document = JSON.parse(text)
@@ -97,7 +118,7 @@ export async function collectPaginatedJq(key: string, text: string, metric: Metr
       if (next === 0 || next === null) return metric.valueType === 'uptime' ? extractUptimeDocument(key, { items }, metric) : extractJqValue(key, { items }, metric)
       if (typeof next !== 'number' || !Number.isInteger(next) || next < 1) return unavailable(key, 'pagination next extraction did not produce a page number')
       const url = new URL(metric.source.url)
-      url.searchParams.set('page', String(next))
+      url.searchParams.set(metric.pagination.pageParameter ?? 'page', String(next))
       const response = await request(url)
       if (response.status < 200 || response.status >= 300) return unavailable(key, `pagination request returned HTTP ${response.status}`)
       document = JSON.parse(response.text)

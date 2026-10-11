@@ -2,7 +2,7 @@ import type { MetricOverride } from './config-file-types'
 import { logger } from './logger'
 import type { UptimeObservation } from './status'
 
-export type MetricResult = { value: number | string } | { observations: UptimeObservation[] } | { error: 'collection_failed' }
+export type MetricResult = { value: number | string } | { observations: UptimeObservation[]; nextPage?: number } | { error: 'collection_failed' }
 
 export function unavailable(key: string, detail: string): MetricResult {
   logger.error('metrics', 'custom metric collection failed', { key, detail })

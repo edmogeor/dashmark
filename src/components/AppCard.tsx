@@ -168,7 +168,7 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showMetr
         </Suspense>
       )}
       <UptimeDetailDialog
-        metric={uptimeDetail}
+        metric={uptimeDetail ? (usage.uptimeMetrics.find((metric) => metric.key === uptimeDetail.key) ?? uptimeDetail) : null}
         onOpenChange={(open) => {
           if (!open) setUptimeDetail(null)
         }}

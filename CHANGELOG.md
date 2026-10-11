@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Recover missed uptime history through a provider-agnostic, paced background queue with persistent SQLite checkpoints and bounded pages. Gatus uptime opts in through metric pagination metadata.
+- Show history recovery state in metrics tooltips and live uptime chart modals without hiding saved history.
+- Separate uptime persistence from HTTP pagination with opaque recovery checkpoints, and support bounded Socket.IO uptime extraction for future provider integrations.
+
+### Changed
+
+- Make metric fixture tests use production parsing and resolution, preserve literal request values, and support provider-owned HTTP response sequences, authentication steps, and Socket.IO acknowledgements.
+
 ## [0.8.5] - 2026-10-11
 
 ### Changed

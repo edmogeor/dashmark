@@ -105,6 +105,15 @@ export function metricsDatabase(path: string): DatabaseSync {
       retention_ms INTEGER NOT NULL,
       PRIMARY KEY (card_id, metric_key)
     );
+    CREATE TABLE IF NOT EXISTS metric_recovery (
+      card_id TEXT NOT NULL,
+      metric_key TEXT NOT NULL,
+      source TEXT NOT NULL,
+      checkpoint TEXT NOT NULL,
+      retry_at INTEGER NOT NULL DEFAULT 0,
+      failures INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (card_id, metric_key)
+    );
   `)
   state = { path, database: db }
   return db
@@ -306,6 +315,10 @@ export function refreshMetricRetention(config: AppConfig, targets: readonly Metr
     const deleteUptime = db.prepare('DELETE FROM uptime_observations WHERE card_id = ? AND metric_key = ?')
     for (const row of db.prepare('SELECT DISTINCT card_id AS cardId, metric_key AS metricKey FROM uptime_observations').all().filter(isMetricTargetRow)) {
       if (!uptimeTargets.has(`${row.cardId}\0${row.metricKey}`)) deleteUptime.run(row.cardId, row.metricKey)
+    }
+    const deleteRecovery = db.prepare('DELETE FROM metric_recovery WHERE card_id = ? AND metric_key = ?')
+    for (const row of db.prepare('SELECT card_id AS cardId, metric_key AS metricKey FROM metric_recovery').all().filter(isMetricTargetRow)) {
+      if (!uptimeTargets.has(`${row.cardId}\0${row.metricKey}`) && !customMetricKeys.get(row.cardId)?.has(row.metricKey)) deleteRecovery.run(row.cardId, row.metricKey)
     }
 
     pruneMetricHistory(config, timestamp)

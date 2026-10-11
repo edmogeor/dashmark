@@ -272,10 +272,25 @@ function parseJqExtractor(value: unknown): JqMetricExtractor | undefined {
 }
 
 function parseMetricPagination(value: unknown): MetricPagination | undefined {
-  if (!isRecord(value) || Object.keys(value).some((key) => key !== 'items' && key !== 'next' && key !== 'initial_only')) return undefined
+  if (!isRecord(value) || Object.keys(value).some((key) => !['items', 'next', 'initial_only', 'recover', 'page_parameter'].includes(key))) return undefined
   const items = parseJqExtractor(value.items)
   const next = parseJqExtractor(value.next)
-  return items && next && (value.initial_only === undefined || value.initial_only === true) ? { items, next, ...(value.initial_only === true ? { initialOnly: true } : {}) } : undefined
+  if (
+    !items ||
+    !next ||
+    (value.initial_only !== undefined && value.initial_only !== true) ||
+    (value.recover !== undefined && value.recover !== true) ||
+    (value.recover && value.initial_only) ||
+    (value.page_parameter !== undefined && (typeof value.page_parameter !== 'string' || !value.page_parameter.trim()))
+  )
+    return undefined
+  return {
+    items,
+    next,
+    ...(value.initial_only === true ? { initialOnly: true } : {}),
+    ...(value.recover === true ? { recover: true } : {}),
+    ...(typeof value.page_parameter === 'string' ? { pageParameter: value.page_parameter } : {})
+  }
 }
 
 function parseForEachMetric(value: unknown): ForEachMetric | undefined {
@@ -930,6 +945,7 @@ function validateNumericMetric(fields: ParsedCustomMetricFields): string | undef
   if (rate && valueType !== 'number') return 'rate requires value_type number'
   if (forEach && (valueType !== 'number' || transport === 'socketio')) return 'for_each requires a numeric HTTP metric'
   if (pagination && transport === 'socketio') return 'pagination requires an HTTP metric'
+  if (pagination?.recover && valueType !== 'uptime') return 'pagination.recover requires timestamped uptime observations'
 }
 
 function validateCustomMetricValueType(metric: Record<string, unknown>, fields: ParsedCustomMetricFields): string | undefined {
@@ -961,7 +977,7 @@ function parseCustomMetricSource(fields: ParsedCustomMetricFields): { source?: M
 }
 
 function buildCustomMetric(metric: Record<string, unknown>, fields: ParsedCustomMetricFields, source: MetricSourceOverride): { metric?: MetricOverride; error?: string } {
-  const { label, valueType, unit, rate, chart, chartGroup, transform, color, stateColors, stateLabels, parameters, text, forEach, pagination, transport, jq, prometheus } = fields
+  const { label, valueType, unit, rate, chart, chartGroup, transform, color, stateColors, stateLabels, parameters, text, forEach, pagination, jq, prometheus } = fields
   if (!label) return { error: 'label must be a non-empty string' }
   const common = { label, ...(parameters ? { parameters } : {}), ...(pagination ? { pagination } : {}), source }
   if (valueType === 'uptime') {
@@ -974,10 +990,9 @@ function buildCustomMetric(metric: Record<string, unknown>, fields: ParsedCustom
       metric.transform !== undefined ||
       metric.color !== undefined ||
       metric.state_colors !== undefined ||
-      metric.state_labels !== undefined ||
-      transport !== undefined
+      metric.state_labels !== undefined
     ) {
-      return { error: 'uptime metrics cannot use units, charts, transforms, state colors, or Socket.IO' }
+      return { error: 'uptime metrics cannot use units, charts, transforms, or state colors' }
     }
     return { metric: { ...common, valueType, jq } }
   }

@@ -197,6 +197,16 @@ beforeAll(async () => {
       socketEvents.push({ event: 'metric', args })
       callback({ value: 42 })
     })
+    socket.on('history', (callback) => {
+      callback({
+        history: [
+          { at: '2026-10-11T12:00:00Z', state: 'up', latency: 12 },
+          { at: '2026-10-11T12:01:00Z', state: 'unknown', latency: null }
+        ]
+      })
+    })
+    socket.on('history-many', (callback) => callback({ history: Array.from({ length: 101 }, () => ({ timestamp: Date.now(), status: 'up' })) }))
+    socket.on('history-large', (callback) => callback({ history: 'x'.repeat(1_048_577) }))
   })
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   const address = server.address()
@@ -615,6 +625,35 @@ describe('collectCustomMetric', () => {
     await expect(collectCustomMetric('socket-session', socketMetric)).resolves.toEqual({ value: 42 })
     expect(socketHeaders).toContainEqual(expect.objectContaining({ cookie: expect.stringContaining('metric-session=authenticated'), 'x-metric-client': 'dashmark' }))
   })
+
+  it('extracts normalized uptime observations over a bounded Socket.IO transport', async () => {
+    await expect(
+      collectCustomMetric('socket-history', {
+        label: 'Socket history',
+        valueType: 'uptime',
+        source: { url: baseUrl, transport: 'socketio', socketio: { auth: { token: { value: 'socket-token' } }, request: { event: 'history' } } },
+        jq: { expression: '[.history[] | {timestamp: .at, status: .state} + (if .latency == null then {} else {responseTimeMs: .latency} end)]' }
+      })
+    ).resolves.toEqual({
+      observations: [
+        { timestamp: Date.parse('2026-10-11T12:00:00Z'), status: 'up', responseTimeMs: 12 },
+        { timestamp: Date.parse('2026-10-11T12:01:00Z'), status: 'unknown' }
+      ]
+    })
+  })
+
+  it('rejects oversized Socket.IO frames and uptime batches', async () => {
+    for (const event of ['history-large', 'history-many']) {
+      await expect(
+        collectCustomMetric(`socket-${event}`, {
+          label: 'Socket history',
+          valueType: 'uptime',
+          source: { url: baseUrl, transport: 'socketio', socketio: { auth: { token: { value: 'socket-token' } }, request: { event } } },
+          jq: { expression: '.history' }
+        })
+      ).resolves.toEqual({ error: 'collection_failed' })
+    }
+  }, 10_000)
 
   it('rejects responses larger than one megabyte', async () => {
     await expect(collectCustomMetric('large', { ...metric({ jq: { expression: '.value' } }), source: { url: `${baseUrl}/large` } })).resolves.toEqual({ error: 'collection_failed' })

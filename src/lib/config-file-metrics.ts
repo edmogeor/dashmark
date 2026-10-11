@@ -8,7 +8,7 @@ import type { ServiceMetricOverrides } from './config-file-types'
 
 let cachedCatalog: { signature: string; metrics: Record<string, Record<string, unknown>>; parsed?: ServiceMetricOverrides } | undefined
 
-function mergedSource(defaults: unknown, source: unknown): unknown {
+export function mergeMetricSource(defaults: unknown, source: unknown): unknown {
   if (!isRecord(defaults)) return source
   if (!isRecord(source)) return defaults
   return {
@@ -44,7 +44,7 @@ export function loadMetricDefinitions(): Record<string, Record<string, unknown>>
       const providerFile = path.join(path.dirname(file.path), 'provider.yml')
       const provider = fs.existsSync(providerFile) ? yaml.load(fs.readFileSync(providerFile, 'utf8')) : {}
       if (!isRecord(definition) || !isRecord(provider)) continue
-      const normalized = normalizeMetricDefinition({ ...definition, source: mergedSource(provider.source, definition.source) }, provider.charts, false, undefined, provider.transforms)
+      const normalized = normalizeMetricDefinition({ ...definition, source: mergeMetricSource(provider.source, definition.source) }, provider.charts, false, undefined, provider.transforms)
       if (normalized.definition) metrics[file.key] = normalized.definition
     }
     cachedCatalog = { signature, metrics }

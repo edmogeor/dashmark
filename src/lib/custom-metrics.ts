@@ -49,7 +49,8 @@ export async function collectCustomMetric(key: string, metric: MetricOverride, b
           if (page.error || !page.response) throw new Error(page.error ?? 'Could not reach metric source')
           return page.response
         },
-        !metric.pagination.initialOnly || bootstrap
+        !metric.pagination.initialOnly || bootstrap,
+        Number(query?.[metric.pagination.pageParameter ?? 'page'] ?? url.searchParams.get(metric.pagination.pageParameter ?? 'page') ?? 1)
       )
     } else if (metric.valueType === 'uptime') {
       extracted = await extractUptime(key, response.text, metric)

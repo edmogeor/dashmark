@@ -58,6 +58,7 @@ export type TextCustomMetric = { key: string; label: string; value: string }
 export type StateCustomMetric = TextCustomMetric & { color: CustomMetricStateColor; valueLabel?: string }
 export type CustomMetric = NumericCustomMetric | TextCustomMetric | StateCustomMetric
 export type MetricError = { key: string; code: 'collection_failed' | 'configuration_invalid' }
+export type MetricRecoveryState = 'recovering' | 'retrying'
 
 export type UptimeStatus = 'up' | 'down' | 'unknown'
 export type UptimeObservation = { timestamp: number; status: UptimeStatus; responseTimeMs?: number }
@@ -71,6 +72,7 @@ export type UptimeMetric = {
 export type StatusResponse = { statuses: Record<string, ContainerStatus> } | { error: DashmarkError }
 
 export type MetricsResponse = {
+  metricRecovery?: Record<string, MetricRecoveryState>
   resource: ContainerResources | null
   history?: ResourceMetricSample[]
   historyPeriodMs?: number
@@ -117,6 +119,7 @@ export function isMetricsResponse(value: unknown): value is MetricsResponse {
     (value.history === undefined || (Array.isArray(value.history) && value.history.every(isResourceMetricSample))) &&
     (value.historyPeriodMs === undefined || (typeof value.historyPeriodMs === 'number' && value.historyPeriodMs > 0)) &&
     (value.pending === undefined || typeof value.pending === 'boolean') &&
+    (value.metricRecovery === undefined || (isRecord(value.metricRecovery) && Object.values(value.metricRecovery).every((state) => state === 'recovering' || state === 'retrying'))) &&
     Array.isArray(value.customMetrics) &&
     value.customMetrics.every(isCustomMetric) &&
     (value.uptimeMetrics === undefined || (Array.isArray(value.uptimeMetrics) && value.uptimeMetrics.every(isUptimeMetric))) &&
@@ -136,7 +139,7 @@ function isUptimeMetric(value: unknown): value is UptimeMetric {
   )
 }
 
-function isUptimeObservation(value: unknown): value is UptimeObservation {
+export function isUptimeObservation(value: unknown): value is UptimeObservation {
   return (
     isRecord(value) &&
     typeof value.timestamp === 'number' &&

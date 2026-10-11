@@ -15,6 +15,7 @@ import type { MetricDetail } from './app-card-metrics'
 import { formatUptimeBucketTime, UptimeHeartbeat, uptimeBucketStatusLabel, uptimeBucketsForRange, uptimePercent } from './UptimeHeartbeat'
 import type { UptimeBucket } from '@/lib/uptime-buckets'
 import { useLocalization } from './localization'
+import { MetricRecoveryIndicator } from './MetricRecoveryIndicator'
 
 type Props = {
   card: CardType
@@ -260,7 +261,10 @@ function UptimeMetricRow({ metric, onSelect }: { metric: UptimeMetricSummary; on
     >
       <div className="grid gap-0.5 text-xs">
         <div className="flex items-center justify-between gap-3">
-          <span className="min-w-0 truncate text-muted-foreground">{summary.label}</span>
+          <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+            <span className="truncate">{summary.label}</span>
+            <MetricRecoveryIndicator state={metric.recovery} />
+          </span>
           <span className="font-medium tabular-nums">{summary.value}</span>
         </div>
       </div>

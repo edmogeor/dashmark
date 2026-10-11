@@ -1,4 +1,4 @@
-import { isMetricsResponse, type ContainerStatus, type UptimeStatus } from './status'
+import { isMetricsResponse, type ContainerStatus, type UptimeStatus, type MetricRecoveryState } from './status'
 import type { ClientMessage, RealtimeMetricsResponse } from './realtime-protocol'
 import { isRecord } from './errors'
 import { REALTIME_INITIAL_RECONNECT_DELAY_MS, REALTIME_MAX_RECONNECT_DELAY_MS, REALTIME_UNAVAILABLE_AFTER_ATTEMPTS } from './constants'
@@ -11,6 +11,7 @@ export type UptimeMetricSummary = {
   key: string
   label: string
   current: UptimeStatus
+  recovery?: MetricRecoveryState
   buckets: Record<UptimeRange, UptimeBucket[]>
 }
 

@@ -130,11 +130,14 @@ function validateForEach(forEach) {
 
 function validatePagination(pagination) {
   const value = record(pagination, 'pagination must be a mapping')
-  allowed(value, new Set(['items', 'next', 'initial_only']), 'pagination')
+  allowed(value, new Set(['items', 'next', 'initial_only', 'recover', 'page_parameter']), 'pagination')
   if (typeof value.items !== 'string' || !value.items.trim() || typeof value.next !== 'string' || !value.next.trim()) {
     throw new Error('pagination must define non-empty items and next jq expressions')
   }
   if (value.initial_only !== undefined && value.initial_only !== true) throw new Error('pagination.initial_only must be true')
+  if (value.recover !== undefined && value.recover !== true) throw new Error('pagination.recover must be true')
+  if (value.recover && value.initial_only) throw new Error('pagination.recover cannot use initial_only')
+  if (value.page_parameter !== undefined && (typeof value.page_parameter !== 'string' || !value.page_parameter.trim())) throw new Error('pagination.page_parameter must be a non-empty string')
 }
 
 function validateSource(source) {
@@ -398,7 +401,10 @@ function validateMetricValueRules(value, valueType, display, hasJq) {
 
 function validateMetricExtract(extract, valueType, hasJq, hasPrometheus, hasForEach, definition) {
   if (hasJq && (typeof extract.jq !== 'string' || !extract.jq.trim())) throw new Error('extract.jq must be a non-empty expression')
-  if (extract.pagination !== undefined) validatePagination(extract.pagination)
+  if (extract.pagination !== undefined) {
+    validatePagination(extract.pagination)
+    if (extract.pagination.recover && valueType !== 'uptime') throw new Error('pagination.recover requires timestamped uptime observations')
+  }
   if (hasPrometheus) {
     const extractor = record(extract.prometheus, 'extract.prometheus must be a mapping')
     validatePrometheus(extractor, valueType)

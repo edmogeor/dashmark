@@ -143,6 +143,8 @@ export type MetricPagination = {
   items: JqMetricExtractor
   next: JqMetricExtractor
   initialOnly?: true
+  recover?: true
+  pageParameter?: string
 }
 
 export type ForEachMetric = {

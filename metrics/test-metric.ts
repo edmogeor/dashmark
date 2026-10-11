@@ -1,105 +1,52 @@
-import type { MetricOverride } from '@/lib/config-file-types'
-import { loadDefinition, parameterValues, sourceFor } from './fixture-loader'
+import { basename, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { mergeMetricSource } from '@/lib/config-file-metrics'
+import { normalizeMetricDefinition, parseMetricCatalog } from '@/lib/config-file-validation'
+import type { MetricLiteral, MetricOverride } from '@/lib/config-file-types'
+import { isRecord } from '@/lib/errors'
+import { isSecretReference } from '@/lib/metric-references'
+import { resolveMetricSources } from '@/lib/metric-source-resolution'
+import { loadDefinition } from './fixture-loader'
 
-function resolveParameterValues(value: unknown, values: Record<string, string>): unknown {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return value
-  if (Object.keys(value).length === 1 && typeof (value as { parameter?: unknown }).parameter === 'string') return values[(value as { parameter: string }).parameter]
-  return Object.fromEntries(Object.entries(value).map(([name, item]) => [name, resolveParameterValues(item, values)]))
+export type TestMetricOptions = {
+  inputs?: Record<string, MetricLiteral>
+  secrets?: Record<string, string>
 }
 
-export function resolveUrl(url: string, baseUrl: string, values: Record<string, string>): string {
-  return url
-    .replace('{url}', baseUrl)
-    .replace('{metric_source}', baseUrl)
-    .replace(/\{([a-z][a-z0-9_]*)\}/g, (_, name: string) => (values[name] === undefined ? `{${name}}` : encodeURIComponent(values[name])))
+function bindFixtureSecrets(value: unknown, labels: Record<string, string>, secrets: Record<string, string>): void {
+  if (Array.isArray(value)) {
+    for (const item of value) bindFixtureSecrets(item, labels, secrets)
+    return
+  }
+  if (!isRecord(value)) return
+  if (isSecretReference(value) && (value.env !== undefined || value.file !== undefined || value.label !== undefined)) {
+    const name = [value.env, value.file, value.label].find((name) => name !== undefined && secrets[name] !== undefined)
+    const secret = name === undefined ? 'test-secret' : secrets[name]
+    delete value.env
+    delete value.file
+    value.label = `fixture-secret-${Object.keys(labels).length}`
+    labels[value.label] = secret
+    return
+  }
+  for (const item of Object.values(value)) bindFixtureSecrets(item, labels, secrets)
 }
 
-function requestValues(values: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
-  return values && Object.fromEntries(Object.entries(values).map(([name, value]) => [name, value !== null && typeof value === 'object' && 'token' in value ? value : { value: 'test-secret' }]))
-}
-
-function replaceJsonSecretReferences(value: unknown, replacement: unknown): unknown {
-  if (Array.isArray(value)) return value.map((item) => replaceJsonSecretReferences(item, replacement))
-  if (value === null || typeof value !== 'object') return value
-  if ('env' in value || 'file' in value || 'label' in value) return replacement
-  return Object.fromEntries(Object.entries(value).map(([name, item]) => [name, replaceJsonSecretReferences(item, replacement)]))
-}
-
-export function resolvedJsonRequestValues(value: unknown): unknown {
-  return replaceJsonSecretReferences(value, 'test-secret')
-}
-
-export function loadMetric(definitionUrl: URL, baseUrl: string): MetricOverride {
+export function loadMetric(definitionUrl: URL, baseUrl: string, { inputs = {}, secrets = {} }: TestMetricOptions = {}): MetricOverride {
   const [definition, provider] = loadDefinition(definitionUrl)
-  const source = sourceFor(definition, provider)
-  const parameters = parameterValues(definition)
-  const headers = requestValues(source.headers)
-  const query = requestValues(source.query)
-  const form = requestValues(source.form)
-  const basic =
-    source.authentication?.kind === 'basic'
-      ? { type: 'basic' as const, ...(source.authentication.optional ? { optional: true } : {}), username: { value: 'test-username' }, password: { value: 'test-password' } }
-      : undefined
-  const token =
-    source.authentication?.kind === 'token'
-      ? {
-          type: 'token' as const,
-          ...(source.authentication.optional ? { optional: true } : {}),
-          ...('header' in source.authentication ? { header: source.authentication.header } : { query: source.authentication.query }),
-          ...(source.authentication.prefix ? { prefix: source.authentication.prefix } : {}),
-          ...(source.authentication.suffix ? { suffix: source.authentication.suffix } : {}),
-          value: { value: 'test-token' }
-        }
-      : undefined
-  const loginSteps = source.authentication?.kind === 'cookie_session' ? source.authentication.requests : []
-
-  return {
-    label: definition.display.label,
-    valueType: definition.value.kind ?? 'number',
-    unit: definition.value.unit ?? 'number',
-    chart: provider.charts?.[definition.display.chart ?? ''] ?? definition.display.chart ?? 'step',
-    ...(definition.display.chart && provider.charts?.[definition.display.chart] ? { chartGroup: definition.display.chart } : {}),
-    ...(definition.value.transform ? { transform: definition.value.transform } : {}),
-    source: {
-      url: resolveUrl(source.url, baseUrl, parameters),
-      ...(source.method ? { method: source.method } : {}),
-      ...(headers ? { headers } : {}),
-      ...(query ? { query } : {}),
-      ...(form ? { form } : {}),
-      ...(source.json ? { json: resolveParameterValues(source.json, parameters) } : {}),
-      ...(basic ? { auth: basic } : {}),
-      ...(token ? { auth: token } : {}),
-      ...(loginSteps.length > 0
-        ? {
-            auth: {
-              type: 'cookie_session',
-              ...(source.authentication?.optional ? { optional: true } : {}),
-              steps: loginSteps.map((step) => ({
-                url: resolveUrl(step.url, baseUrl, parameters),
-                ...(step.method ? { method: step.method } : {}),
-                ...(step.form ? { form: Object.fromEntries(Object.keys(step.form).map((name) => [name, { value: `test-${name}` }])) } : {}),
-                ...(step.json ? { json: replaceJsonSecretReferences(step.json, { value: 'test-secret' }) as Record<string, unknown> } : {}),
-                ...(step.extract ? { extract: step.extract } : {})
-              }))
-            }
-          }
-        : {})
-    },
-    ...(definition.extract.for_each
-      ? {
-          forEach: {
-            items: { expression: definition.extract.for_each.items },
-            requestUrl: resolveUrl(definition.extract.for_each.request.url, baseUrl, parameters),
-            value: { expression: definition.extract.for_each.value },
-            reduce: definition.extract.for_each.reduce
-          }
-        }
-      : definition.extract.text
-        ? { text: true }
-        : { jq: { expression: definition.extract.jq! } }),
-    ...(definition.extract.pagination ? { pagination: { items: { expression: definition.extract.pagination.items }, next: { expression: definition.extract.pagination.next } } } : {}),
-    ...(definition.value.default_color ? { color: definition.value.default_color } : {}),
-    ...(definition.value.colors ? { stateColors: definition.value.colors } : {}),
-    ...(definition.value.labels ? { stateLabels: definition.value.labels } : {})
-  } as MetricOverride
+  const filePath = fileURLToPath(definitionUrl)
+  const key = `${basename(dirname(filePath))}/${basename(filePath, '.yml')}`
+  const normalized = normalizeMetricDefinition({ ...definition, source: mergeMetricSource(provider.source, definition.source) }, provider.charts, false, undefined, provider.transforms)
+  if (!normalized.definition) throw new Error(`${key}: ${normalized.error ?? 'invalid metric definition'}`)
+  const parsed = parseMetricCatalog({ [key]: normalized.definition })[key]
+  if (!parsed) throw new Error(`${key}: metric rejected by production validation`)
+  const metric = structuredClone(parsed)
+  for (const name of Object.keys(inputs)) {
+    if (!metric.parameters?.[name]) throw new Error(`${key}: unknown fixture input ${name}`)
+  }
+  const labels: Record<string, string> = {}
+  bindFixtureSecrets(metric.source, labels, secrets)
+  const parameters = { ...Object.fromEntries(Object.keys(metric.parameters ?? {}).map((name) => [name, `test-${name}`])), ...inputs }
+  const resolved = resolveMetricSources({ [key]: metric }, baseUrl, { [key.split('/')[0]]: baseUrl }, labels, { [key]: parameters })?.[key]
+  if (!resolved) throw new Error(`${key}: fixture metric source could not be resolved`)
+  return resolved
 }

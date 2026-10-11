@@ -3,39 +3,22 @@ title: Contribute a library metric
 description: Add a reusable service metric to Dashmark's bundled library.
 ---
 
-Contribute a library metric when it can work for other Dashmark users. The definition must not contain personal hostnames, API keys, tokens, or other secrets.
+Contribute reusable definitions without personal hostnames or literal credentials. See [custom metrics](/dashmark/docs/metrics/custom/) for the configuration reference.
 
-## 1. Create the metric file
+## Definition and provider defaults
 
-Create `metrics/<provider>/<metric-name>.yml`. Its path becomes the metric key, for example `radarr/queue`.
-
-Use `{url}` or `{metric_source}` in source URLs. Dashmark replaces `{url}` with the card URL and `{metric_source}` with the configured source for the metric provider, falling back to the card URL.
+Create `metrics/<provider>/<metric-name>.yml`; its path becomes the key, such as `radarr/queue`. Use `{url}` for the card URL or `{metric_source}` for the provider's configured API URL, falling back to the card URL.
 
 ```yaml
-display:
-  label: Queued
-value:
-  unit: count
-source:
-  url: '{metric_source}/api/v3/queue/status'
-extract:
-  jq: .totalCount
+display: { label: Queued }
+value: { unit: count }
+source: { url: '{metric_source}/api/v3/queue/status' }
+extract: { jq: .totalCount }
 ```
 
-### Add translations
+Put shared source settings, authentication, charts, and transforms in `metrics/<provider>/provider.yml`. Keep paths, extractors, and labels in each metric. Optional non-empty `notes` in either file appear in `metrics/LIBRARY.md`.
 
-Keep translated labels beside the metric they describe. Create an optional `metrics/<provider>/<metric-name>.translations.yml` companion file, with a locale key and visible label:
-
-```yaml
-en-US:
-  label: Queued
-```
-
-Dashmark falls back to `display.label` when a locale file or label is unavailable. Do not translate metric keys, extractor fields, parameter names, or other collection configuration.
-
-## 2. Add authentication when needed
-
-Declare reusable credential references in `metrics/<provider>/provider.yml`. Use environment variables, secret files, or labels, never literal credentials.
+Credentials use `env`, `file`, or Docker `label` references. Set `optional: true` only for APIs that allow anonymous access and should retry with credentials after HTTP 401/403:
 
 ```yaml
 source:
@@ -43,52 +26,27 @@ source:
     kind: token
     optional: true
     header: X-Api-Key
-    value:
-      env: DASHMARK_RADARR_API_KEY
-      label: dashmark.metric_api_key
+    value: { env: DASHMARK_SERVICE_API_KEY, label: dashmark.metric_api_key }
 ```
 
-Set `optional: true` only when the metric can be requested anonymously and should retry with credentials after a `401` or `403` response.
-
-## 3. Declare inputs and provider defaults
-
-If a metric needs a value from the user, declare it in the metric file. Use `url_component` when the value appears in a URL, or `json_value` when it appears in a JSON request body.
+Declare user inputs with a label and type: `url_component` for URLs or `json_value` for JSON bodies. URL inputs can reference provider transforms before encoding:
 
 ```yaml
-parameters:
-  entity_id:
-    label: Entity ID
-    type: url_component
-source:
-  url: '{metric_source}/api/states/{entity_id}'
-```
-
-Keep source settings shared by a provider, such as authentication, headers, query parameters, chart groups, and URL value transforms, in `metrics/<provider>/provider.yml`. Keep service-specific paths, extractors, and labels in each metric file. Add an optional non-empty `notes` string to either file for usage requirements or caveats; it appears in the generated metric library table.
-
-Provider transforms let a metric safely normalize a `url_component` input before it is URL encoded. They can trim, lowercase, and apply literal string replacements:
-
-```yaml
-# metrics/<provider>/provider.yml
+# provider.yml
 transforms:
-  endpoint_key:
-    trim: true
-    lowercase: true
-    replace:
-      ' ': '-'
+  endpoint_key: { trim: true, lowercase: true, replace: { ' ': '-' } }
 
-# metrics/<provider>/<metric-name>.yml
+# metric.yml
 parameters:
-  endpoint:
-    label: Endpoint name
-    type: url_component
-    transform: endpoint_key
+  endpoint: { label: Endpoint, type: url_component, transform: endpoint_key }
+source: { url: '{metric_source}/api/{endpoint}' }
 ```
 
-## 4. Add tests
+Optional `<metric-name>.translations.yml` files contain locale labels, for example `en-US: { label: Queued }`. Missing translations fall back to `display.label`; do not translate keys, parameters, or extractor configuration.
 
-Test the metric against your own service instance before submitting it. Add `metrics/<provider>/<metric-name>.test.ts`, and include a sanitized fixture when it helps cover the API response or extractor. Cover missing values, arrays, authentication, and reductions where they apply.
+## Tests and fixtures
 
-For a JSON metric, pair a fixture with a focused extraction test:
+Test against your service before submitting. Add `<metric-name>.test.ts` and sanitized response fixtures; cover relevant missing values, arrays, authentication, and reductions.
 
 ```ts
 import { readFileSync } from 'node:fs'
@@ -97,18 +55,52 @@ import { expectFixtureMetric } from '../test-utils'
 it('extracts queued items', async () => {
   const definition = new URL('./queue.yml', import.meta.url)
   const fixture = JSON.parse(readFileSync(new URL('./queue.fixture.json', import.meta.url), 'utf8'))
-
   await expectFixtureMetric(definition, fixture, 3)
 })
 ```
 
-`queue.fixture.json` contains a sanitized response such as `{ "totalCount": 3 }`. The final argument is the value expected from the metric's extractor.
+For this definition, the fixture might be `{ "totalCount": 3 }`. The helper uses production parsing/resolution, preserves literal values, and replaces only secret references with `test-secret`, without reading real credentials.
 
-## 5. Automatic checks
+The optional fourth argument supports:
 
-The pre-commit hook updates `metrics/LIBRARY.md` when staged metric definitions change. Pull requests automatically run metric validation, linting, type checks, tests, and builds.
+| Option                     | Purpose                                                                                                                                                           |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `inputs`                   | Declared string/number/boolean inputs; omitted inputs default to `test-<name>`, unknown names fail.                                                               |
+| `secrets`                  | Dummy overrides keyed by environment name, file path, or label.                                                                                                   |
+| `tokens`                   | Expected extracted-token values; supply matching login response fixtures.                                                                                         |
+| `onRequest(request, body)` | Sync/async inspection of every HTTP request, including optional-auth attempts; body is a raw string.                                                              |
+| `responses`                | Path/query → `{body, status, headers}`, an ordered response array, or an async-capable `(request, body)` callback. Exact query matches win over pathname matches. |
+| `socketEvents`             | Event → `{body}`, an ordered acknowledgement array, or an async-capable `(args)` callback returning the acknowledgement.                                          |
 
-Run these commands locally when you want to check your work before opening a pull request:
+```ts
+await expectFixtureMetric(definition, fixture, expected, {
+  responses: {
+    '/history': [{ body: firstPage }, { body: secondPage }],
+    '/unavailable': { status: 503 },
+    '/empty': { body: [] }
+  },
+  socketEvents: { 'read-value': [{ body: { value: 0 } }, { body: { value: 3 } }] }
+})
+```
+
+- Default HTTP responses validate declared authentication and serve the configured metric request. Supply child/page responses explicitly. Login steps default to success and may be overridden; explicit responses own their status/authentication policy.
+- String overrides are plain text unless `Content-Type` specifies JSON; other bodies are JSON encoded. Default fixtures follow the extractor's format.
+- Socket.IO fixtures use the configured path/auth/events, validate handshake values and argument types, and default to the supplied fixture for requests or `{ok: true}` for login.
+- Callback assertions fail the test. Simulate HTTP failures with response statuses, not thrown errors. Keep provider-specific payloads in provider fixtures.
+
+## History adapters
+
+`src/lib/uptime-recovery.ts` exposes `enqueueUptimeRecovery` for bounded fetchers with this interface:
+
+```ts
+fetchBatch(checkpoint, retentionCutoff) // → { observations, nextCheckpoint? }
+```
+
+Checkpoints are opaque strings, so adapters can use cursors or time windows without HTTP/page-order assumptions. Omit `nextCheckpoint` to finish; resume with `savedMetricRecovery`. Use an adapter-prefixed, credential-safe source fingerprint to invalidate changed configuration.
+
+Fetchers own traversal, gap boundaries, and progress detection, and must cap responses **before decoding**. Shared methods enforce 100-observation batches and 4 KiB checkpoints, validate/filter/persist observations, and provide pacing, retries, cancellation, and UI state. HTTP paging is implemented separately in `src/lib/paginated-uptime-recovery.ts`; Socket.IO uptime extraction is also supported.
+
+## Checks and pull request
 
 ```bash
 npm run generate:metrics-library
@@ -118,8 +110,6 @@ npm run typecheck
 npm run lint
 ```
 
-Include the generated `metrics/LIBRARY.md` change and add a user-facing entry under `[Unreleased]` in `CHANGELOG.md`.
+The pre-commit hook updates `metrics/LIBRARY.md`; CI also runs builds. Include library changes and a user-facing `[Unreleased]` changelog entry.
 
-## 6. Open a pull request
-
-Use the [metric pull request template](https://github.com/edmogeor/dashmark/blob/main/.github/PULL_REQUEST_TEMPLATE/metric.md). Include the metric key, display label, value type, unit, extractor, and a sanitized sample response when needed.
+Use the [metric PR template](https://github.com/edmogeor/dashmark/blob/main/.github/PULL_REQUEST_TEMPLATE/metric.md) with the key, label, value type, unit, extractor, and sanitized sample response.

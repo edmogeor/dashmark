@@ -1,13 +1,9 @@
 ---
 title: Custom metrics
-description: Read values from an HTTP API when no library metric fits.
+description: Read values and uptime from HTTP APIs or Socket.IO sources.
 ---
 
-Custom metrics live under a service's `metrics.entries` mapping. Use them when your service has an HTTP API but no matching metric library definition.
-
-## Build a custom metric
-
-Start with a numeric metric. This example reads the number of active downloads from Radarr's API. Store the API key in an environment variable rather than in `config.yml`.
+Define custom metrics under a service's `metrics.entries` when no library metric fits. Keys use lowercase letters, numbers, `_`, `-`, and `/`.
 
 ```yaml
 radarr:
@@ -15,79 +11,63 @@ radarr:
   metrics:
     entries:
       active_downloads:
-        display:
-          label: Active downloads
-        value:
-          kind: number
-          unit: count
+        display: { label: Active downloads }
+        value: { kind: number, unit: count }
         source:
           url: http://radarr:7878/api/v3/queue/status
-          headers:
-            X-Api-Key: { env: RADARR_API_KEY }
-        extract:
-          jq: .totalRecords
+          headers: { X-Api-Key: { env: RADARR_API_KEY } }
+        extract: { jq: .totalRecords }
 ```
 
-### 1. Name the metric
+## Display and value
 
-The key under `metrics.entries` is the metric name. Use lowercase letters, numbers, `_`, `-`, and `/`. The example uses `active_downloads`.
+| Field                          | Purpose                                                                                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `display.label`                | Required card label.                                                                                                                        |
+| `display.chart`                | Numeric chart: `step` (default, discrete values), `line` (continuous), `area` (filled), `none`, or a chart-group name.                      |
+| `value.kind`                   | `number` (default), `string`, `state`, or `uptime`.                                                                                         |
+| `value.unit`                   | Numeric unit, default `number`. Examples: `count`, `bytes`, `bytes_per_second`, `percent`, `seconds`, `celsius`, or `{ suffix: requests }`. |
+| `value.rate`                   | `true` for increasing counters; shows a per-second rate after the first sample.                                                             |
+| `value.transform`              | Numeric adjustment: `{ multiply: 0.001, add: 2 }`; either field may be omitted.                                                             |
+| `value.default_color`          | Required for states: `success`, `info`, `warning`, `error`, or `disabled`.                                                                  |
+| `value.colors`, `value.labels` | State-value mappings to badge colors and readable labels.                                                                                   |
 
-### 2. Set the display
+String and state metrics have no units or history charts. Uptime uses its own history view and requires jq observations with `timestamp`, `status` (`up`, `down`, or `unknown`), and optional `responseTimeMs`. Timestamps may be ISO strings or Unix seconds/milliseconds.
 
-| Option          | Required | Purpose                                                                        |
-| --------------- | -------- | ------------------------------------------------------------------------------ |
-| `display.label` | Yes      | Text shown on the card.                                                        |
-| `display.chart` | No       | A graph type (`step`, `line`, `area`, or `none`) or the name of a chart group. |
-
-### 3. Define the value
-
-| Option                | Required        | Purpose                                                                                                                                  |
-| --------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `value.kind`          | No              | `number` (default), `string`, or `state`.                                                                                                |
-| `value.unit`          | Numeric metrics | Unit such as `count`, `bytes`, `bytes_per_second`, `percent`, `seconds`, or `celsius`. A custom suffix can use `{ suffix: "requests" }`. |
-| `value.rate`          | No              | Set to `true` for an increasing counter. Dashmark shows the per-second rate after the first sample.                                      |
-| `value.transform`     | No              | Change a numeric value after extraction with `multiply` and/or `add`.                                                                    |
-| `value.default_color` | State metrics   | Default state badge color: `success`, `info`, `warning`, `error`, or `disabled`.                                                         |
-| `value.colors`        | No              | Map response values to state badge colors.                                                                                               |
-| `value.labels`        | No              | Map response values to readable labels.                                                                                                  |
-
-`string` and `state` metrics do not have units or history charts. State metrics require `value.default_color`.
+A state metric entry:
 
 ```yaml
+display: { label: Backup status }
 value:
-  kind: number
-  unit: bytes
-  rate: true
-  transform: { multiply: 0.001 }
+  kind: state
+  default_color: disabled
+  colors: { healthy: success, failed: error }
+  labels: { healthy: Healthy, failed: Failed }
+source: { url: http://backup:8080/status }
+extract: { jq: .status }
 ```
 
-### 4. Request the source
+## Source and authentication
 
-`source.url` is required. It must be an HTTP(S) URL, or begin with `{url}` or `{metric_source}`. Use the card URL for `{url}`. For `{metric_source}`, configure `metrics.sources.<metric-name>` with a private API address.
+`source.url` is required: use HTTP(S), `{url}` for the card URL, or `{metric_source}` for `metrics.sources.<key-prefix>`, falling back to the card URL. The prefix is the part before the first `/`, or the whole key when there is no `/`.
 
-| Option                  | Purpose                                                                                                                       |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `source.method`         | `GET` (default) or `POST`.                                                                                                    |
-| `source.headers`        | Request headers. Values can be strings, numbers, booleans, or `{ env: VARIABLE }` and `{ file: /path/to/secret }` references. |
-| `source.query`          | Query-string parameters, using the same values as `headers`.                                                                  |
-| `source.initial.query`  | Query-string parameters used only for the initial collection, before subsequent polls use `source.query`.                     |
-| `source.form`           | Form body for a `POST` request.                                                                                               |
-| `source.json`           | JSON body for a `POST` request. Values can be nested objects, arrays, scalars, or secret references.                          |
-| `source.authentication` | A `basic`, `token`, or `cookie_session` login flow.                                                                           |
-| `source.type`           | Set to `socket_io` for a Socket.IO source.                                                                                    |
-| `source.socket`         | Socket.IO path, auth, optional login event, and required request event.                                                       |
-| `source.use`            | Name of a top-level `shared_metric_sources` entry to reuse its base URL and authentication.                                   |
-| `source.path`           | Required path beginning with `/` when using `source.use`.                                                                     |
+| Field                            | Purpose                                                                                                                                          |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `source.method`                  | `GET` (default) or `POST`.                                                                                                                       |
+| `source.headers`, `source.query` | Header/query mappings with string, number, boolean, secret, or extracted-token values.                                                           |
+| `source.form`, `source.json`     | POST body; choose one. JSON supports nested objects, arrays, scalars, and references. GET cannot have a body.                                    |
+| `source.initial.query`           | Uptime bootstrap query when no retained SQLite history exists; later polls use `source.query`. Background recovery uses regular queries instead. |
+| `source.authentication`          | `basic`, `token`, or `cookie_session` login flow.                                                                                                |
+| `source.type`, `source.socket`   | Use `type: socket_io`; `socket` contains `path`, `auth`, optional `login: {event, args}`, and required `request: {event, args}`.                 |
+| `source.use`, `source.path`      | Reuse a `shared_metric_sources` entry with a path beginning with `/`.                                                                            |
 
-Use one body type per request: `form` or `json`. `GET` requests cannot have a body.
+Secrets use `{ env: VARIABLE }`, `{ file: /path/to/secret }`, or `{ label: dashmark.metric_api_key }` for Docker labels. Extracted tokens use `{ token: name, prefix: 'Bearer ' }`. Keep credentials out of literal config values.
 
-Use `source.initial.query` for history sources that need an initial backfill followed by lightweight incremental requests. Dashmark stores uptime observations per card and metric in its metrics SQLite database, so the initial request runs only when no retained history exists.
-
-For token authentication, use a header or query parameter, a secret reference, and optional prefix or suffix text:
+Token authentication requires one `header` or `query` target, a secret `value`, and optional `prefix`/`suffix`:
 
 ```yaml
 source:
-  url: http://service:8080/status
+  url: '{url}/status'
   authentication:
     kind: token
     header: Authorization
@@ -95,111 +75,89 @@ source:
     value: { env: SERVICE_TOKEN }
 ```
 
-### 5. Extract the value
+Basic authentication uses `username`/`password` secret references. Cookie sessions use `requests` with HTTP request fields and optional token `extract` mappings (`jq` or `cheerio`). Set `optional: true` for anonymous-first requests that retry with credentials after HTTP 401/403.
 
-Define exactly one of these extractors:
+## Extraction
 
-| Option               | Response type and purpose                                                                         |
-| -------------------- | ------------------------------------------------------------------------------------------------- |
-| `extract.jq`         | Reads one value from a JSON response.                                                             |
-| `extract.prometheus` | Reads a Prometheus sample by metric name, with optional labels, reduction, and value label.       |
-| `extract.text`       | Uses the complete plain-text response.                                                            |
-| `extract.for_each`   | For numeric HTTP metrics, requests each discovered item and combines the values with a reduction. |
+Choose exactly one extractor:
 
-`extract.pagination` is available with `jq`. It defines `items` and `next` jq expressions so Dashmark can collect JSON pages before it runs the metric's `jq` expression. Set `initial_only: true` to paginate only an uptime-history bootstrap request.
+| Field                | Purpose                                                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `extract.jq`         | Extract a value or uptime observations from JSON.                                                                   |
+| `extract.prometheus` | Select a series by `name` and optional `labels`; use `reduce` for numbers or `value_label` for string/state values. |
+| `extract.text`       | `true` to use the complete plain-text response.                                                                     |
+| `extract.for_each`   | Numeric HTTP metrics: `items` jq, `request.url` containing `{item}`, `value` jq, and `reduce`.                      |
+
+Reductions are `count`, `sum`, `average`, `minimum`, or `maximum`:
 
 ```yaml
 extract:
-  prometheus:
-    name: http_requests_total
-    labels: { method: GET }
-    reduce: sum
+  prometheus: { name: http_requests_total, labels: { method: GET }, reduce: sum }
 ```
 
-## Charts and chart groups
+With jq, `extract.pagination` defines `items` and `next` expressions. The metric's jq receives `{items: [...]}`; `next` returns a page number or `null`/`0` to finish. `page_parameter` defaults to `page`. Use `initial_only: true` to paginate only an uptime bootstrap.
 
-Numeric metrics can show a history graph. Set `display.chart` to one of these graph types:
+## Uptime recovery
 
-| Type   | Use it for                                                         |
-| ------ | ------------------------------------------------------------------ |
-| `step` | Values that change in discrete steps, such as queue size.          |
-| `line` | Continuous values, such as a temperature.                          |
-| `area` | Values where a filled graph is easier to read, such as throughput. |
-| `none` | A current value without a history graph.                           |
+HTTP history sources can set `extract.pagination.recover: true` to recover gaps and initial history gradually. Pages must be newest-first and observations immutable; records within a page may be in either order. `$page` is the current page number. Do not combine `recover` with `initial_only`.
 
-Use a named chart group when several metrics should share one graph. Define the group under `metrics.charts`, then reference its name in each metric's `display.chart`. Metrics in the same group must use the same graph type and unit.
+```yaml
+display: { label: Uptime }
+value: { kind: uptime }
+source: { url: '{metric_source}/history', query: { pageSize: 100 } }
+extract:
+  pagination:
+    recover: true
+    items: .results
+    next: 'if (.results | length) == 100 then $page + 1 else null end'
+  jq: '[.items[] | {timestamp, status: (if .success then "up" else "down" end)}]'
+```
+
+- Configure the provider's page-size query parameter yourself. Batches are limited to **100 observations** and HTTP responses to **1 MiB**.
+- The shared queue processes one batch globally, at least **10 seconds** apart, after current collection. It saves directly to SQLite; **4 KiB** checkpoints survive restarts. Failures back off up to five minutes, and stalled recovery pauses.
+- Recovery stops at stored-history overlap, retention, or upstream exhaustion. Closing views does not cancel it. Saved charts stay visible with a loading/error indicator; updates follow normal polling and chart calculations require active subscribers.
+- Unrecoverable gaps remain unknown. Docker stats and current-value endpoints cannot supply missed history.
+
+Socket.IO uptime uses the same observation validation, with a dedicated Node WebSocket, a **1 MiB frame limit**, at most **100 observations per acknowledgement**, and no automatic reconnection. Other history protocols use their own fetchers; see [history adapters](/dashmark/docs/metrics/contributing/#history-adapters).
+
+## Chart groups
+
+Define groups under `metrics.charts` and reference their names in `display.chart`. Members must share a unit and visible chart style (`step`, `line`, or `area`).
 
 ```yaml
 service:
+  url: https://service.example.com
   metrics:
     charts:
-      throughput:
-        label: Network throughput
-        unit: bytes_per_second
-        style: area
+      throughput: { unit: bytes_per_second, style: area }
     entries:
-      download_rate:
+      download:
         display: { label: Download, chart: throughput }
-        value: { kind: number, unit: bytes_per_second }
-        source: { url: http://service:8080/metrics }
+        source: { url: '{url}/stats' }
         extract: { jq: .download_bytes_per_second }
-      upload_rate:
+      upload:
         display: { label: Upload, chart: throughput }
-        value: { kind: number, unit: bytes_per_second }
-        source: { url: http://service:8080/metrics }
+        source: { url: '{url}/stats' }
         extract: { jq: .upload_bytes_per_second }
 ```
 
-## Add a state metric
+## Shared API connections
 
-Use a state metric for a status badge. It needs a default color, and can map response values to specific labels and colors.
-
-```yaml
-backup:
-  metrics:
-    entries:
-      health:
-        display:
-          label: Backup status
-        value:
-          kind: state
-          default_color: disabled
-          colors:
-            healthy: success
-            failed: error
-          labels:
-            healthy: Healthy
-            failed: Failed
-        source:
-          url: http://backup:8080/status
-        extract:
-          jq: .status
-```
-
-## Reuse an API connection
-
-Use `shared_metric_sources` when multiple cards connect to the same API with the same credentials:
+Use `shared_metric_sources` for cards sharing a base URL and credentials. Each metric supplies its own `/`-prefixed path and extractor:
 
 ```yaml
 shared_metric_sources:
   home_assistant:
     base_url: http://homeassistant:8123
-    authentication:
-      kind: token
-      header: Authorization
-      prefix: 'Bearer '
-      value: { env: HOME_ASSISTANT_TOKEN }
+    authentication: { kind: token, header: Authorization, prefix: 'Bearer ', value: { env: HOME_ASSISTANT_TOKEN } }
 
 office:
+  url: https://homeassistant.example.com
   metrics:
     entries:
       temperature:
         display: { label: Office temperature }
-        value: { kind: number, unit: celsius }
-        source:
-          use: home_assistant
-          path: /api/states/sensor.office_temperature
+        value: { unit: celsius }
+        source: { use: home_assistant, path: /api/states/sensor.office_temperature }
         extract: { jq: '.state | tonumber' }
 ```
-
-The shared source holds the base URL and authentication. Each metric supplies a path beginning with `/` and its own extractor.

@@ -41,6 +41,51 @@ it('reuses parsed metric definitions and invalidates them when a catalog file ch
   expect(updated['provider/count']?.label).toBe('Updated count')
 })
 
+it('accepts provider-independent recovery pagination and rejects incompatible recovery settings', () => {
+  const definition = (options: string, kind = 'uptime') =>
+    writeConfig(`
+app:
+  url: https://example.test
+  metrics:
+    entries:
+      history:
+        display: { label: History }
+        value: { kind: ${kind} }
+        source: { url: "{url}/history", query: { limit: 100 } }
+        extract:
+          jq: .items
+          pagination: { items: .checks, next: .next, ${options} }
+`)
+  const valid = loadYamlConfig(definition('recover: true, page_parameter: cursor'))
+  expect(valid.config.services.app.metrics?.entryOverrides?.history?.pagination).toMatchObject({ recover: true, pageParameter: 'cursor' })
+  for (const options of ['recover: false', 'recover: true, initial_only: true', 'recover: true, page_parameter: ""']) {
+    expect(loadYamlConfig(definition(options)).config.services.app.metrics?.entryErrors?.history).toBeDefined()
+  }
+  expect(loadYamlConfig(definition('recover: true', 'number')).config.services.app.metrics?.entryErrors?.history).toBeDefined()
+})
+
+it('accepts Socket.IO uptime sources without requiring HTTP pagination', () => {
+  const result = loadYamlConfig(
+    writeConfig(`
+app:
+  url: https://example.test
+  metrics:
+    entries:
+      history:
+        display: { label: History }
+        value: { kind: uptime }
+        source:
+          url: "{url}"
+          type: socket_io
+          socket:
+            request: { event: history, args: [42] }
+        extract: { jq: .history }
+`)
+  )
+  expect(result.config.services.app.metrics?.entryErrors).toBeUndefined()
+  expect(result.config.services.app.metrics?.entryOverrides?.history).toMatchObject({ valueType: 'uptime', source: { transport: 'socketio', socketio: { request: { event: 'history', args: [42] } } } })
+})
+
 describe('loadYamlConfig', () => {
   it('accepts string icons and light/dark icon mappings', () => {
     const configPath = writeConfig(`

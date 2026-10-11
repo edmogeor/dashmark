@@ -4,6 +4,7 @@ import { collectDiscoveredMetricUsage, discoveredMetricSchedules } from './docke
 import type { Card, ContainerMetricUsage } from './docker'
 import { clearMetricsStorage, metricsDatabase, pruneMetricHistory, saveMetricSample, saveResourceMetric } from './metrics-storage'
 import { getDiscoveryCoordinator } from './discovery-coordinator'
+import { clearMetricRecoveryQueue, nextMetricRecoveryAt, pruneMetricRecoveryQueue, recoverNextMetric } from './metric-recovery'
 
 let collectionStarted = false
 let collectionInProgress: Promise<void> | undefined
@@ -12,7 +13,8 @@ const lastMetricCollection = new Map<string, number>()
 const latestMetricUsage = new Map<string, ContainerMetricUsage>()
 const customMetricCounterCache = new Map<string, { value: number; timestamp: number }>()
 
-function discardRemovedMetricState(cardIds: ReadonlySet<string>, cards: readonly Card[]): void {
+function discardRemovedMetricState(config: AppConfig, cardIds: ReadonlySet<string>, cards: readonly Card[]): void {
+  pruneMetricRecoveryQueue(config, new Set(cards.flatMap((card) => (card.customMetricLabels ?? []).map((metric) => `${card.id}\0${metric.key}`))))
   for (const cardId of latestMetricUsage.keys()) if (!cardIds.has(cardId)) latestMetricUsage.delete(cardId)
   for (const cardId of lastMetricCollection.keys()) if (!cardIds.has(cardId)) lastMetricCollection.delete(cardId)
   const metricKeys = new Map(cards.map((card) => [card.id, new Set(card.customMetricKeys)]))
@@ -81,7 +83,15 @@ async function collectAndSave(config: AppConfig, force = false): Promise<void> {
 
 function collectInBackground(config: AppConfig, force = false): Promise<void> {
   if (collectionInProgress) return collectionInProgress
-  collectionInProgress = collectAndSave(config, force)
+  collectionInProgress = (async () => {
+    await collectAndSave(config, force)
+    const recovered = await recoverNextMetric(config)
+    if (!recovered) return
+    const usage = latestMetricUsage.get(recovered.cardId)
+    if (usage?.uptimeMetrics) {
+      usage.uptimeMetrics = usage.uptimeMetrics.map((metric) => (metric.key === recovered.metricKey ? { key: metric.key, label: metric.label, current: metric.current } : metric))
+    }
+  })()
     .catch(() => undefined)
     .finally(() => {
       collectionInProgress = undefined
@@ -97,7 +107,7 @@ function scheduleCollection(config: AppConfig): void {
   const nextDue = schedules.reduce((earliest, { cardId, metricsPollIntervalMs }) => {
     const lastCollected = lastMetricCollection.get(cardId)
     return Math.min(earliest, lastCollected === undefined ? now : lastCollected + metricsPollIntervalMs)
-  }, Number.POSITIVE_INFINITY)
+  }, nextMetricRecoveryAt())
   if (!Number.isFinite(nextDue)) {
     collectionTimer = undefined
     return
@@ -120,7 +130,7 @@ export function startMetricsCollection(config: AppConfig): void {
   if (collectionStarted || !config.showMetrics) return
   collectionStarted = true
   const coordinator = getDiscoveryCoordinator(config)
-  coordinator.onCardsChange(discardRemovedMetricState)
+  coordinator.onCardsChange((cardIds, cards) => discardRemovedMetricState(config, cardIds, cards))
   coordinator.onCardsChange(() => scheduleCollection(config))
   void coordinator.ready().then(() => {
     const initialCollection = collectInBackground(config)
@@ -133,6 +143,7 @@ export function startMetricsCollection(config: AppConfig): void {
 }
 
 export function clearMetricsDatabase(): void {
+  clearMetricRecoveryQueue()
   clearMetricsStorage()
   collectionStarted = false
   collectionInProgress = undefined

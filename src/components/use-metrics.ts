@@ -68,7 +68,7 @@ export function useMetrics(cardId: string, enabled: boolean, active: boolean, in
       setResources(metrics.resource)
       setHistory(metrics.history ?? [])
       setCustomMetrics(metrics.customMetrics)
-      setUptimeMetrics(metrics.uptimeMetrics ?? [])
+      setUptimeMetrics((metrics.uptimeMetrics ?? []).map((metric) => ({ ...metric, recovery: metrics.metricRecovery?.[metric.key] })))
       setMetricErrors(metrics.metricErrors)
       if (metrics.historyPeriodMs) setHistoryPeriodMs(metrics.historyPeriodMs)
       setLoading(metrics.pending === true)

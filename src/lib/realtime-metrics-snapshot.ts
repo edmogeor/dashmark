@@ -2,6 +2,7 @@ import type { AppConfig } from './config'
 import { canViewMetric } from './docker'
 import { getDiscoveryCoordinator } from './discovery-coordinator'
 import { getLatestMetricUsage } from './metrics'
+import { metricRecoveryStates } from './metric-recovery'
 import { getMetricHistory, getResourceMetricHistory, getUptimeBucketHistory } from './metrics-storage'
 import type { CollectedUptimeMetric } from './metric-collection/types'
 import type { RealtimeMetricsResponse } from './realtime-protocol'
@@ -98,6 +99,7 @@ export function metricsSnapshot(
     historyPeriodMs,
     pending: snapshot.pending,
     customMetrics,
+    metricRecovery: Object.fromEntries(Object.entries(metricRecoveryStates(cardId)).filter(([key]) => visible(key))),
     ...(includeUptime ? { uptimeMetrics: snapshot.uptimeMetrics?.filter((metric) => visible(metric.key)) } : {}),
     metricErrors: (snapshot.metricErrors ?? access.metricErrors ?? []).filter((error) => visible(error.key))
   }
