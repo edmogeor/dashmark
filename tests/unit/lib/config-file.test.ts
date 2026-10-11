@@ -62,6 +62,21 @@ app:
     expect(loadYamlConfig(definition(options)).config.services.app.metrics?.entryErrors?.history).toBeDefined()
   }
   expect(loadYamlConfig(definition('recover: true', 'number')).config.services.app.metrics?.entryErrors?.history).toBeDefined()
+  const bulk = '{ url: "{url}/all", key: endpoint, jq: ".", page_size_parameter: limit }'
+  expect(loadYamlConfig(definition(`recover: true, bulk: ${bulk}`)).config.services.app.metrics?.entryOverrides?.history?.pagination?.bulk).toMatchObject({
+    url: '{url}/all',
+    key: 'endpoint',
+    jq: { expression: '.' },
+    pageSizeParameter: 'limit'
+  })
+  for (const options of [
+    `bulk: ${bulk}`,
+    'recover: true, bulk: { url: "{url}/all", key: endpoint, jq: ".", page_size_parameter: page }',
+    'recover: true, bulk: { url: "file:///data/db", key: endpoint, jq: ".", page_size_parameter: limit }',
+    'recover: true, bulk: { url: "{url}/all", key: endpoint }'
+  ]) {
+    expect(loadYamlConfig(definition(options)).config.services.app.metrics?.entryErrors?.history).toBeDefined()
+  }
 })
 
 it('accepts Socket.IO uptime sources without requiring HTTP pagination', () => {

@@ -40,7 +40,13 @@ export function useRealtimeStatus({
   }, [enabled, setCards, setLoading, setUnavailable])
 }
 
-export function useRealtimeMetrics(cardId: string, active: boolean, onMetrics: (metrics: RealtimeMetricsResponse) => void, onUnavailable: (unavailable: boolean) => void): void {
+export function useRealtimeMetrics(
+  cardId: string,
+  active: boolean,
+  onMetrics: (metrics: RealtimeMetricsResponse) => void,
+  onUnavailable: (unavailable: boolean) => void,
+  priority?: string | true
+): void {
   const handleMetrics = useEffectEvent(onMetrics)
   const handleUnavailable = useEffectEvent(onUnavailable)
 
@@ -48,4 +54,8 @@ export function useRealtimeMetrics(cardId: string, active: boolean, onMetrics: (
     if (!active) return
     return realtimeClient.retainMetrics(cardId, handleMetrics, handleUnavailable)
   }, [active, cardId])
+  useEffect(() => {
+    if (!active || priority === undefined) return
+    return realtimeClient.retainMetricPriority(cardId, priority)
+  }, [active, cardId, priority])
 }

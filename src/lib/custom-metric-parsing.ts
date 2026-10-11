@@ -73,7 +73,7 @@ export async function extractUptimeDocument(key: string, document: unknown, metr
   }
 }
 
-function parseUptimeObservations(key: string, items: unknown): MetricResult {
+export function parseUptimeObservations(key: string, items: unknown): MetricResult {
   if (!Array.isArray(items)) return unavailable(key, 'uptime observation extraction did not produce an array')
   const observations: UptimeObservation[] = []
   for (const item of items) {

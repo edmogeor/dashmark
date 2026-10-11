@@ -145,6 +145,7 @@ export type MetricPagination = {
   initialOnly?: true
   recover?: true
   pageParameter?: string
+  bulk?: { url: string; key: string; jq: JqMetricExtractor; pageSizeParameter: string }
 }
 
 export type ForEachMetric = {

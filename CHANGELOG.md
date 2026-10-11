@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Make historical metric backfill opt-in through `ENABLE_METRIC_BACKFILL=true`, disabled by default while normal polling continues.
+- Speed up uptime history recovery by processing successful pages without a fixed delay, while retaining bounded batches and retry backoff.
+- Increase Gatus history pages to 500 observations and share bulk history responses across endpoints, with bounded responses and smaller-page fallback.
+- Prioritize history recovery for open metric tooltips and modals, resuming background recovery when views close.
+
 ## [0.8.6] - 2026-10-11
 
 ### Added

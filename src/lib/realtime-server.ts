@@ -12,6 +12,7 @@ import { UPTIME_RANGES, type UptimeRange } from './uptime-ranges'
 import { metricsSnapshot, uptimeBucketsByRange, type MetricsSnapshots } from './realtime-metrics-snapshot'
 import { parseClientMessage, type RealtimeMetricsResponse } from './realtime-protocol'
 import { createSocketLifecycle, type RealtimeSocket } from './realtime-socket-lifecycle'
+import { retainMetricRecoveryPriority } from './metric-recovery'
 
 const PATHNAME = '/api/realtime'
 
@@ -109,7 +110,13 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
     if (client.closed) return
     const result = coordinator.getStatusSnapshot(client.headers)
     visibleStatusCards.set(client, new Set(Object.keys(result.statuses)))
-    if (!client.closed) send(client, { type: 'status_snapshot', version: nextVersion(), statuses: result.statuses, capabilities: { incrementalMetricHistory: true } })
+    if (!client.closed)
+      send(client, {
+        type: 'status_snapshot',
+        version: nextVersion(),
+        statuses: result.statuses,
+        capabilities: { incrementalMetricHistory: true, ...(config.enableMetricBackfill ? { metricRecoveryPriority: true } : {}) }
+      })
   }
   const sendMetricsSnapshot = (client: RealtimeSocket, cardId: string): Promise<boolean> => {
     const subscription = client.metrics.get(cardId)
@@ -148,14 +155,31 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
       return
     }
     if (message.type === 'unsubscribe_metrics') {
+      client.metrics.get(message.cardId)?.releasePriority?.()
       client.metrics.delete(message.cardId)
       releaseUnusedMetrics(message.cardId)
       return
     }
+    if (message.type === 'set_metric_priority') {
+      await coordinator.ready()
+      const subscription = client.metrics.get(message.cardId)
+      if (client.closed || !subscription) return
+      subscription.releasePriority?.()
+      subscription.releasePriority = undefined
+      if (config.enableMetricBackfill && message.priority && coordinator.getMetricAccess(client.headers, message.cardId)) {
+        subscription.releasePriority = retainMetricRecoveryPriority(message.cardId, (key) => {
+          const access = coordinator.getMetricAccess(client.headers, message.cardId)
+          return Boolean(access) && (message.metricKey === undefined || key === message.metricKey) && canViewMetric(config, client.headers, access?.metricsAccess, key)
+        })
+      }
+      return
+    }
     if (!client.metrics.has(message.cardId) && client.metrics.size >= REALTIME_MAX_METRIC_SUBSCRIPTIONS) return closeClient(client, 1008)
+    client.metrics.get(message.cardId)?.releasePriority?.()
     const subscription = { incremental: message.incremental === true, ready: false }
     client.metrics.set(message.cardId, subscription)
     if (!(await sendMetricsSnapshot(client, message.cardId)) && client.metrics.get(message.cardId) === subscription) {
+      client.metrics.get(message.cardId)?.releasePriority?.()
       client.metrics.delete(message.cardId)
       releaseUnusedMetrics(message.cardId)
     }
@@ -170,7 +194,10 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
     onMessage: (client, value) => void handleMessage(client, value).catch(() => closeClient(client, 1011)),
     onConnect: (client) => void sendStatusSnapshot(client),
     onClose: (client) => {
-      for (const cardId of client.metrics.keys()) releaseUnusedMetrics(cardId)
+      for (const [cardId, subscription] of client.metrics) {
+        subscription.releasePriority?.()
+        releaseUnusedMetrics(cardId)
+      }
     }
   })
   coordinator.onStatusChange((cardId, status) => {

@@ -107,7 +107,7 @@ function scheduleCollection(config: AppConfig): void {
   const nextDue = schedules.reduce((earliest, { cardId, metricsPollIntervalMs }) => {
     const lastCollected = lastMetricCollection.get(cardId)
     return Math.min(earliest, lastCollected === undefined ? now : lastCollected + metricsPollIntervalMs)
-  }, nextMetricRecoveryAt())
+  }, nextMetricRecoveryAt(config))
   if (!Number.isFinite(nextDue)) {
     collectionTimer = undefined
     return

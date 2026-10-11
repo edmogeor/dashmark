@@ -205,7 +205,7 @@ beforeAll(async () => {
         ]
       })
     })
-    socket.on('history-many', (callback) => callback({ history: Array.from({ length: 101 }, () => ({ timestamp: Date.now(), status: 'up' })) }))
+    socket.on('history-many', (callback) => callback({ history: Array.from({ length: 501 }, () => ({ timestamp: Date.now(), status: 'up' })) }))
     socket.on('history-large', (callback) => callback({ history: 'x'.repeat(1_048_577) }))
   })
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))

@@ -21,6 +21,7 @@ const trackedVars = [
   'SHOW_STATUS',
   'STATUS_BADGE_ACCESS',
   'SHOW_METRICS',
+  'ENABLE_METRIC_BACKFILL',
   'METRICS_ACCESS',
   'METRICS_DATABASE_PATH',
   'METRICS_POLL_INTERVAL',
@@ -65,6 +66,15 @@ describe('getConfig accessGroupsHeader', () => {
     process.env.ACCESS_GROUPS_HEADER = 'X Bad Header'
     expect(getConfig().accessGroupsHeader).toBe('auto')
   })
+})
+
+it('requires an explicit environment opt-in for metric backfill', () => {
+  delete process.env.ENABLE_METRIC_BACKFILL
+  expect(getConfig().enableMetricBackfill).toBe(false)
+  process.env.ENABLE_METRIC_BACKFILL = 'true'
+  expect(getConfig().enableMetricBackfill).toBe(true)
+  process.env.ENABLE_METRIC_BACKFILL = 'false'
+  expect(getConfig().enableMetricBackfill).toBe(false)
 })
 
 describe('getConfig Docker hosts', () => {

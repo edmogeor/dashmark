@@ -4,7 +4,8 @@ import type { UptimeMetricOverride } from './config-file-types'
 import { METRIC_RECOVERY_MAX_STALLED_PAGES, PAGINATED_UPTIME_RECOVERY_SOURCE_PREFIX } from './constants'
 import { collectCustomMetric } from './custom-metrics'
 import { isRecord } from './errors'
-import { cancelMetricRecovery, savedMetricRecovery } from './metric-recovery'
+import { cancelMetricRecovery, isMetricRecoveryPrioritized, savedMetricRecovery } from './metric-recovery'
+import { collectBulkHistory } from './bulk-metric-history'
 import { enqueueUptimeRecovery } from './uptime-recovery'
 import type { UptimeObservation } from './status'
 
@@ -37,6 +38,7 @@ export function queuePaginatedUptimeRecovery(
   latestTimestamp: number | undefined,
   retentionMs: number
 ): void {
+  if (!config.enableMetricBackfill) return
   if (!metric.pagination?.recover) return cancelMetricRecovery(config, cardId, key, PAGINATED_UPTIME_RECOVERY_SOURCE_PREFIX)
   const source = `${PAGINATED_UPTIME_RECOVERY_SOURCE_PREFIX}${createHash('sha256')
     .update(JSON.stringify({ source: metric.source, jq: metric.jq, pagination: metric.pagination }))
@@ -53,7 +55,10 @@ export function queuePaginatedUptimeRecovery(
     const cutoff = Math.max(current.boundary, retentionCutoff)
     if (current.oldest <= cutoff) return { observations: [] }
     const pageMetric = { ...metric, source: { ...metric.source, query: { ...metric.source.query, [metric.pagination?.pageParameter ?? 'page']: current.page } } }
-    const result = await collectCustomMetric(key, pageMetric)
+    const result =
+      metric.pagination?.bulk && !isMetricRecoveryPrioritized(cardId, key)
+        ? await collectBulkHistory(metric, current.page).catch(() => collectCustomMetric(key, pageMetric))
+        : await collectCustomMetric(key, pageMetric)
     if (!('observations' in result)) throw new Error('History page unavailable')
     const page = result.observations
     const first = page[0]?.timestamp

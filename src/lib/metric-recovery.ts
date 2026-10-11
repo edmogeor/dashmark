@@ -1,8 +1,9 @@
 import type { AppConfig } from './config'
-import { METRIC_RECOVERY_INTERVAL_MS, METRIC_RECOVERY_MAX_RETRY_MS, METRIC_RECOVERY_MAX_CHECKPOINT_BYTES } from './constants'
+import { METRIC_RECOVERY_RETRY_BASE_MS, METRIC_RECOVERY_MAX_RETRY_MS, METRIC_RECOVERY_MAX_CHECKPOINT_BYTES } from './constants'
 import { metricsDatabase } from './metrics-storage'
 import { logger } from './logger'
 import type { MetricRecoveryState } from './status'
+import { clearBulkHistoryCache } from './bulk-metric-history'
 
 type RecoveryStep = (checkpoint: string) => Promise<{ checkpoint?: string; save: () => void }>
 type RecoveryJob = {
@@ -16,8 +17,8 @@ type RecoveryJob = {
 }
 
 const jobs = new Map<string, RecoveryJob>()
+const priorities = new Map<string, Set<(metricKey: string) => boolean>>()
 let databasePath: string | undefined
-let nextAttemptAt = 0
 let running = false
 
 function isRecoveryCheckpoint(value: unknown): value is string {
@@ -26,7 +27,7 @@ function isRecoveryCheckpoint(value: unknown): value is string {
 
 function useDatabase(config: AppConfig): void {
   if (databasePath === config.metricsDatabasePath) return
-  clearMetricRecoveryQueue()
+  if (databasePath !== undefined) clearMetricRecoveryQueue()
   databasePath = config.metricsDatabasePath
 }
 
@@ -56,7 +57,23 @@ export function hasMetricRecovery(cardId: string, metricKey: string): boolean {
   return jobs.has(`${cardId}\0${metricKey}`)
 }
 
+export function retainMetricRecoveryPriority(cardId: string, visible: (metricKey: string) => boolean): () => void {
+  const viewers = priorities.get(cardId) ?? new Set()
+  viewers.add(visible)
+  priorities.set(cardId, viewers)
+  return () => {
+    viewers.delete(visible)
+    if (viewers.size === 0 && priorities.get(cardId) === viewers) priorities.delete(cardId)
+  }
+}
+
+export function isMetricRecoveryPrioritized(cardId: string, metricKey: string): boolean {
+  for (const visible of priorities.get(cardId) ?? []) if (visible(metricKey)) return true
+  return false
+}
+
 export function enqueueMetricRecovery(config: AppConfig, cardId: string, metricKey: string, source: string, checkpoint: string, recover: RecoveryStep): void {
+  if (!config.enableMetricBackfill) return
   if (!isRecoveryCheckpoint(checkpoint)) throw new Error('Invalid or oversized recovery checkpoint')
   useDatabase(config)
   const key = `${cardId}\0${metricKey}`
@@ -92,21 +109,25 @@ export function pruneMetricRecoveryQueue(config: AppConfig, active: ReadonlySet<
   }
 }
 
-export function nextMetricRecoveryAt(): number {
-  if (running || jobs.size === 0) return Infinity
+export function nextMetricRecoveryAt(config?: AppConfig): number {
+  if ((config && !config.enableMetricBackfill) || running || jobs.size === 0) return Infinity
   let earliest = Infinity
   for (const job of jobs.values()) earliest = Math.min(earliest, job.retryAt)
-  return Math.max(nextAttemptAt, earliest)
+  return earliest
 }
 
 export async function recoverNextMetric(config: AppConfig): Promise<{ cardId: string; metricKey: string } | undefined> {
+  if (!config.enableMetricBackfill) return undefined
   useDatabase(config)
   if (Date.now() < nextMetricRecoveryAt()) return undefined
   let entry: [string, RecoveryJob] | undefined
   for (const candidate of jobs) {
     if (candidate[1].retryAt <= Date.now()) {
-      entry = candidate
-      break
+      entry ??= candidate
+      if (isMetricRecoveryPrioritized(candidate[1].cardId, candidate[1].metricKey)) {
+        entry = candidate
+        break
+      }
     }
   }
   if (!entry) return undefined
@@ -132,7 +153,7 @@ export async function recoverNextMetric(config: AppConfig): Promise<{ cardId: st
   } catch {
     if (jobs.get(key) !== job) return undefined
     job.failures = Math.min(job.failures + 1, 10)
-    job.retryAt = Date.now() + Math.min(METRIC_RECOVERY_INTERVAL_MS * 2 ** job.failures, METRIC_RECOVERY_MAX_RETRY_MS)
+    job.retryAt = Date.now() + Math.min(METRIC_RECOVERY_RETRY_BASE_MS * 2 ** job.failures, METRIC_RECOVERY_MAX_RETRY_MS)
     metricsDatabase(config.metricsDatabasePath)
       .prepare('UPDATE metric_recovery SET failures = ?, retry_at = ? WHERE card_id = ? AND metric_key = ?')
       .run(job.failures, job.retryAt, job.cardId, job.metricKey)
@@ -141,14 +162,14 @@ export async function recoverNextMetric(config: AppConfig): Promise<{ cardId: st
     logger.warn('metrics', 'history recovery deferred', { cardId: job.cardId, key: job.metricKey, retryAt: job.retryAt })
   } finally {
     running = false
-    nextAttemptAt = Date.now() + METRIC_RECOVERY_INTERVAL_MS
   }
   return { cardId: job.cardId, metricKey: job.metricKey }
 }
 
 export function clearMetricRecoveryQueue(): void {
   jobs.clear()
+  priorities.clear()
+  clearBulkHistoryCache()
   databasePath = undefined
-  nextAttemptAt = 0
   running = false
 }

@@ -1,7 +1,7 @@
 import WebSocket from 'ws'
 import { REALTIME_MAX_OUTBOUND_EVENTS, REALTIME_MAX_OUTBOUND_BYTES, REALTIME_SOCKET_LIFETIME_MS } from './constants'
 
-export type MetricSubscription = { incremental: boolean; ready: boolean; cursor?: { timestamp: number; signature: string } }
+export type MetricSubscription = { incremental: boolean; ready: boolean; cursor?: { timestamp: number; signature: string }; releasePriority?: () => void }
 
 export type RealtimeSocket = {
   socket: WebSocket

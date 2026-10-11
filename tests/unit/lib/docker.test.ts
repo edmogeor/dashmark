@@ -1339,8 +1339,9 @@ backup:
     expect(String(got.mock.calls[0]?.[0])).toBe('http://metrics.example.test/api/endpoints/media-servers_plex---main/statuses')
   })
 
-  it('uses persisted uptime history before choosing an incremental query', async () => {
+  it.each([true, false])('uses uptime bootstrap only when backfill is enabled and history is missing: %s', async (enabled) => {
     const config = getConfig()
+    config.enableMetricBackfill = enabled
     config.dockerHost = dockerHost
     config.dockerHosts = undefined
     config.configFile = writeTempConfig(`
@@ -1365,7 +1366,7 @@ service:
     mockGotResponse(`{"results":[{"timestamp":"${new Date().toISOString()}","success":true}]}`)
     await getContainerMetricUsage(config, new Headers(), 'yaml-service')
 
-    expect(String(got.mock.calls[0]?.[0])).toBe('https://metrics.example.test/history?limit=10000')
+    expect(String(got.mock.calls[0]?.[0])).toBe(`https://metrics.example.test/history?limit=${enabled ? 10000 : 100}`)
     expect(String(got.mock.calls[1]?.[0])).toBe('https://metrics.example.test/history?limit=100')
 
     await getCards(config, new Headers())

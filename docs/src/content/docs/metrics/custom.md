@@ -99,26 +99,51 @@ With jq, `extract.pagination` defines `items` and `next` expressions. The metric
 
 ## Uptime recovery
 
-HTTP history sources can set `extract.pagination.recover: true` to recover gaps and initial history gradually. Pages must be newest-first and observations immutable; records within a page may be in either order. `$page` is the current page number. Do not combine `recover` with `initial_only`.
+Historical recovery is disabled by default. Set the environment variable `ENABLE_METRIC_BACKFILL=true` to enable it; normal current-page collection continues when disabled, and saved checkpoints are preserved.
+
+HTTP history sources can set `extract.pagination.recover: true` to recover gaps and initial history gradually when backfill is enabled. Pages must be newest-first and observations immutable; records within a page may be in either order. `$page` is the current page number. Do not combine `recover` with `initial_only`.
 
 ```yaml
 display: { label: Uptime }
 value: { kind: uptime }
-source: { url: '{metric_source}/history', query: { pageSize: 100 } }
+source: { url: '{metric_source}/history', query: { pageSize: 500 } }
 extract:
   pagination:
     recover: true
     items: .results
-    next: 'if (.results | length) == 100 then $page + 1 else null end'
+    next: 'if (.results | length) == 500 then $page + 1 else null end'
   jq: '[.items[] | {timestamp, status: (if .success then "up" else "down" end)}]'
 ```
 
-- Configure the provider's page-size query parameter yourself. Batches are limited to **100 observations** and HTTP responses to **1 MiB**.
-- The shared queue processes one batch globally, at least **10 seconds** apart, after current collection. It saves directly to SQLite; **4 KiB** checkpoints survive restarts. Failures back off up to five minutes, and stalled recovery pauses.
+- Configure the provider's page-size query parameter yourself. Batches are limited to **500 observations** and individual HTTP responses to **1 MiB**.
+- The shared queue processes one batch globally after current collection, with no fixed delay after successful pages. It saves directly to SQLite; **4 KiB** checkpoints survive restarts. Failures back off up to five minutes, and stalled recovery pauses.
+- Open tooltips prioritize their visible metrics; an uptime modal prioritizes its selected metric. Priority uses individual requests and ends when the view closes or disconnects. Other jobs then resume background recovery. Hover prefetch alone does not receive priority.
 - Recovery stops at stored-history overlap, retention, or upstream exhaustion. Closing views does not cancel it. Saved charts stay visible with a loading/error indicator; updates follow normal polling and chart calculations require active subscribers.
 - Unrecoverable gaps remain unknown. Docker stats and current-value endpoints cannot supply missed history.
 
-Socket.IO uptime uses the same observation validation, with a dedicated Node WebSocket, a **1 MiB frame limit**, at most **100 observations per acknowledgement**, and no automatic reconnection. Other history protocols use their own fetchers; see [history adapters](/dashmark/docs/metrics/contributing/#history-adapters).
+### Shared bulk history
+
+Providers with a numbered bulk endpoint can opt into `extract.pagination.bulk`. The endpoint must use the same page-number parameter as individual history, consecutive pages starting at 1, and a configurable page-size parameter. Each full page must contain that many observations per endpoint; shorter pages indicate exhaustion.
+
+```yaml
+extract:
+  pagination:
+    recover: true
+    items: .results
+    next: 'if (.results | length) == 500 then $page + 1 else null end'
+    bulk:
+      url: '{metric_source}/all-history'
+      key: '{endpoint}'
+      page_size_parameter: pageSize
+      jq: 'map({key: .id, value: [.results[] | {timestamp, status}]}) | from_entries'
+  jq: '[.items[] | {timestamp, status}]'
+```
+
+Declare `endpoint` in `parameters` and set `source.query.pageSize: 500`. Bulk URLs resolve like ordinary source URLs; keys substitute provider-transformed parameter values without URL encoding. The bulk jq expression receives the JSON response and `$pageSize`, and must return a mapping from endpoint keys to canonical uptime observations (`timestamp`, `status`, optional `responseTimeMs`). Credentials and other request settings are inherited from the individual source.
+
+Bulk responses are limited to **4 MiB**. An oversized response halves the requested size when divisible by two, fetching the smaller pages needed to cover the same logical page without changing saved offsets. Invalid, unavailable, or still-oversized bulk responses fall back to individual recovery. Matching metrics reuse the extracted page, with one cached page per source, at most four sources, and a 60-second reuse window. Request settings and credentials isolate caches; each metric retains its own persistent recovery checkpoint. Gatus opts into this through its library definition; other providers can use the same metadata.
+
+Socket.IO uptime uses the same observation validation, with a dedicated Node WebSocket, a **1 MiB frame limit**, at most **500 observations per acknowledgement**, and no automatic reconnection. Other history protocols use their own fetchers; see [history adapters](/dashmark/docs/metrics/contributing/#history-adapters).
 
 ## Chart groups
 

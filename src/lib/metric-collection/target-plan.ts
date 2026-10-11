@@ -89,7 +89,11 @@ async function collectCustomMetrics(
     details.selectedMetrics.map(async ([key, metric]) => {
       if (metric.valueType !== 'uptime' && hasMetricRecovery(cardId, key)) cancelMetricRecovery(config, cardId, key, PAGINATED_UPTIME_RECOVERY_SOURCE_PREFIX)
       const bootstrap =
-        metric.valueType === 'uptime' && !metric.pagination?.recover && metric.source.initialQuery !== undefined && !hasUptimeObservationHistory(config, cardId, key, uptimeHistoryPeriodMs)
+        config.enableMetricBackfill &&
+        metric.valueType === 'uptime' &&
+        !metric.pagination?.recover &&
+        metric.source.initialQuery !== undefined &&
+        !hasUptimeObservationHistory(config, cardId, key, uptimeHistoryPeriodMs)
       const result = await collectCustomMetric(key, metric, bootstrap)
       return { key, metric, result }
     })

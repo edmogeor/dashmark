@@ -185,6 +185,38 @@ describe('realtime metrics', () => {
     release()
   })
 
+  it('updates view priority without resubscribing, retains other viewers, and restores priority after reconnect', () => {
+    vi.useFakeTimers()
+    const client = new RealtimeClient()
+    const release = client.retainMetrics(
+      'app',
+      () => {},
+      () => {}
+    )
+    const releaseView = client.retainMetricPriority('app', 'uptime')
+    const socket = FakeWebSocket.latest()
+    socket.open()
+    socket.receive({ type: 'status_snapshot', version: 1, statuses: {}, capabilities: { incrementalMetricHistory: true, metricRecoveryPriority: true } })
+    const frames = () => socket.sent.map((value) => JSON.parse(value))
+    expect(frames()).toEqual([
+      { type: 'subscribe_metrics', cardId: 'app', incremental: true },
+      { type: 'set_metric_priority', cardId: 'app', priority: true, metricKey: 'uptime' }
+    ])
+    const releaseTooltip = client.retainMetricPriority('app', true)
+    releaseView()
+    expect(frames().at(-1)).toEqual({ type: 'set_metric_priority', cardId: 'app', priority: true })
+    expect(frames().filter((frame) => frame.type === 'subscribe_metrics')).toHaveLength(1)
+    socket.close()
+    vi.advanceTimersByTime(1000)
+    const reconnected = FakeWebSocket.latest()
+    reconnected.open()
+    reconnected.receive({ type: 'status_snapshot', version: 1, statuses: {}, capabilities: { metricRecoveryPriority: true } })
+    expect(JSON.parse(reconnected.sent.at(-1)!)).toEqual({ type: 'set_metric_priority', cardId: 'app', priority: true })
+    releaseTooltip()
+    expect(JSON.parse(reconnected.sent.at(-1)!)).toEqual({ type: 'set_metric_priority', cardId: 'app', priority: false })
+    release()
+  })
+
   it('requests a full snapshot when a history delta has no baseline', () => {
     const client = new RealtimeClient()
     const listener = vi.fn()

@@ -17,7 +17,7 @@ Credential options list the environment variables, secret files, or Docker label
 | crowdsec-web-ui | alerts | Alerts | None | DASHMARK_CROWDSEC_WEB_UI_PASSWORD or dashmark.metric_password (optional), DASHMARK_CROWDSEC_WEB_UI_USERNAME or dashmark.metric_username (optional) | None |
 | crowdsec-web-ui | decisions | Active decisions | None | DASHMARK_CROWDSEC_WEB_UI_PASSWORD or dashmark.metric_password (optional), DASHMARK_CROWDSEC_WEB_UI_USERNAME or dashmark.metric_username (optional) | None |
 | crowdsec-web-ui | lapi-status | LAPI status | None | DASHMARK_CROWDSEC_WEB_UI_PASSWORD or dashmark.metric_password (optional), DASHMARK_CROWDSEC_WEB_UI_USERNAME or dashmark.metric_username (optional) | None |
-| gatus | uptime | Uptime | group (Gatus group), name (Gatus endpoint name) | None | Dashmark polls the newest 100 Gatus history results and recovers missed history in paced background pages. Use persistent SQLite or Postgres storage and increase storage.maximum-number-of-results to retain the uptime history you want Dashmark to display. |
+| gatus | uptime | Uptime | group (Gatus group), name (Gatus endpoint name) | None | Dashmark polls the newest 500 Gatus results. Enable ENABLE_METRIC_BACKFILL=true for shared bulk history recovery. Use persistent SQLite or Postgres storage and increase storage.maximum-number-of-results to retain the desired history. |
 | homeassistant | entities | Entities | None | DASHMARK_HOMEASSISTANT_TOKEN or dashmark.metric_token | None |
 | homeassistant | entity-state | Entity State | entity_id (Entity ID) | DASHMARK_HOMEASSISTANT_TOKEN or dashmark.metric_token | None |
 | homeassistant | template-state | Template State | template (Template) | DASHMARK_HOMEASSISTANT_TOKEN or dashmark.metric_token | None |

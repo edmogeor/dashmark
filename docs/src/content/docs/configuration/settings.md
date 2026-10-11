@@ -3,7 +3,7 @@ title: Dashboard settings
 description: Configure Dashmark-wide behavior with environment variables or YAML.
 ---
 
-Set options with environment variables in Compose, or use their snake_case names in `config.yml` under `settings`. YAML takes precedence. `CONFIG_FILE`, `HOMEPAGE_LABEL_FALLBACK`, and `LOCALE` are environment-only options.
+Set options with environment variables in Compose, or use their snake_case names in `config.yml` under `settings`. YAML takes precedence. `CONFIG_FILE`, `HOMEPAGE_LABEL_FALLBACK`, `ENABLE_METRIC_BACKFILL`, and `LOCALE` are environment-only options.
 
 Before upgrading, review the [release notes](https://github.com/edmogeor/dashmark/releases) for breaking configuration changes.
 
@@ -74,8 +74,11 @@ Set `USER_NAME_HEADER`, `USER_FIRST_NAME_HEADER`, `USER_LAST_NAME_HEADER`, `USER
 | `METRICS_POLL_INTERVAL`  | `10` seconds               | `metrics_poll_interval`  |
 | `METRICS_HISTORY_PERIOD` | `300` seconds              | `metrics_history_period` |
 | `METRICS_DATABASE_PATH`  | `/tmp/dashmark/metrics.db` | `metrics_database_path`  |
+| `ENABLE_METRIC_BACKFILL` | `false`                    | None                     |
 
 Set `METRICS_DATABASE_PATH` to a mounted path such as `/data/metrics.db` if history must survive container replacement.
+
+Set `ENABLE_METRIC_BACKFILL=true` to recover historical uptime. Disabled by default.
 
 ## Custom CSS
 

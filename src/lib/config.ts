@@ -25,6 +25,7 @@ export type AppConfig = DashboardSettings & {
   showStatus: boolean
   statusBadgeAccess: string[]
   showMetrics: boolean
+  enableMetricBackfill: boolean
   metricsAccess: string[]
   metricsDatabasePath: string
   metricsPollIntervalMs: number
@@ -166,6 +167,7 @@ export function getConfig(): AppConfig {
     showStatus: boolValue('SHOW_STATUS', settings.showStatus, true),
     statusBadgeAccess: accessValue('STATUS_BADGE_ACCESS', settings.statusBadgeAccess),
     showMetrics: boolValue('SHOW_METRICS', settings.showMetrics, true),
+    enableMetricBackfill: parseBool(process.env.ENABLE_METRIC_BACKFILL, false),
     metricsAccess: accessValue('METRICS_ACCESS', settings.metricsAccess),
     metricsDatabasePath: stringValue('METRICS_DATABASE_PATH', settings.metricsDatabasePath) || (process.env.NODE_ENV === 'production' ? '/tmp/dashmark/metrics.db' : '.astro/metrics.db'),
     metricsPollIntervalMs: intervalValue('METRICS_POLL_INTERVAL', settings.metricsPollInterval, DEFAULT_METRICS_POLL_INTERVAL_MS),

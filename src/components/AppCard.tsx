@@ -42,7 +42,14 @@ export const AppCard = memo(function AppCard({ card, showStatus = true, showMetr
   const resourceId = `resource-${card.id}`
   const descriptionId = `description-${card.id}`
   const resourceOpen = activeTooltip === resourceId
-  const usage = useMetrics(card.id, showResources && !card.isDemo, isMetricUsageActive(resourceOpen, hovered, detail, uptimeDetail), card.resourceUsage, card.isDemo)
+  const usage = useMetrics(
+    card.id,
+    showResources && !card.isDemo,
+    isMetricUsageActive(resourceOpen, hovered, detail, uptimeDetail),
+    card.resourceUsage,
+    card.isDemo,
+    uptimeDetail?.key ?? (resourceOpen ? true : detail?.customMetricKeys?.[0])
+  )
   useMetricErrorToasts(card, usage.metricErrors)
   useLiveMetricDetail(setDetail, usage.history, usage.customMetrics)
   const setTooltip = (id: string, open: boolean) => (open ? setActiveTooltip(id) : activeTooltip === id ? setActiveTooltip(null) : undefined)

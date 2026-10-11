@@ -28,6 +28,7 @@ services:
       # - SHOW_STATUS=true
       # - STATUS_BADGE_ACCESS=admins,operators
       # - SHOW_METRICS=true
+      # - ENABLE_METRIC_BACKFILL=false # opt in to historical uptime recovery with true
       # - METRICS_ACCESS=admins,operators
       # Set an explicit mounted path to retain history across container restarts.
       # - METRICS_DATABASE_PATH=/data/metrics.db

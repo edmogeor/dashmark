@@ -21,6 +21,7 @@ import { saveMetricSample, saveResourceMetric } from '@/lib/metrics-storage'
 import type { RealtimeMetricsResponse } from '@/lib/realtime-protocol'
 import type { Card, ContainerMetricUsage } from '@/lib/docker'
 import * as protocol from '@/lib/realtime-protocol'
+import { isMetricRecoveryPrioritized } from '@/lib/metric-recovery'
 
 const httpServers = new Set<Server>()
 const sockets = new Set<WebSocket>()
@@ -63,6 +64,45 @@ afterEach(async () => {
 })
 
 describe('realtime client protocol', () => {
+  it('authorizes view priority per metric and releases it on unsubscribe and disconnect', async () => {
+    getDiscoveredCards.mockResolvedValue({
+      cards: [
+        {
+          id: 'app',
+          title: 'App',
+          url: 'https://example.test',
+          icon: { type: 'placeholder', initials: 'A' },
+          searchAliases: [],
+          hasContainer: false,
+          access: [],
+          customMetricLabels: [
+            { key: 'public', label: 'Public' },
+            { key: 'secret', label: 'Secret' }
+          ],
+          metricsAccess: { secret: ['admins'] }
+        }
+      ]
+    })
+    getRealtimeServer({ ...getConfig(), metricsDatabasePath: ':memory:', enableMetricBackfill: true, enableAccessControl: true, accessGroupsHeader: 'X-Test-Groups' })
+    const guest = await connect({ 'X-Test-Groups': 'guests' })
+    const admin = await connect({ 'X-Test-Groups': 'admins' })
+    for (const client of [guest, admin]) {
+      await nextMessage(client.messages)
+      client.socket.send(JSON.stringify({ type: 'subscribe_metrics', cardId: 'app' }))
+      await nextMessage(client.messages)
+    }
+    guest.socket.send(JSON.stringify({ type: 'set_metric_priority', cardId: 'app', priority: true }))
+    await vi.waitFor(() => expect(isMetricRecoveryPrioritized('app', 'public')).toBe(true))
+    expect(isMetricRecoveryPrioritized('app', 'secret')).toBe(false)
+    admin.socket.send(JSON.stringify({ type: 'set_metric_priority', cardId: 'app', priority: true, metricKey: 'secret' }))
+    await vi.waitFor(() => expect(isMetricRecoveryPrioritized('app', 'secret')).toBe(true))
+    guest.socket.send(JSON.stringify({ type: 'unsubscribe_metrics', cardId: 'app' }))
+    await vi.waitFor(() => expect(isMetricRecoveryPrioritized('app', 'public')).toBe(false))
+    expect(isMetricRecoveryPrioritized('app', 'secret')).toBe(true)
+    admin.socket.close()
+    await vi.waitFor(() => expect(isMetricRecoveryPrioritized('app', 'secret')).toBe(false))
+  })
+
   it('delivers complete histories, incremental boundary samples, retention expiry, and reconnect snapshots end to end', async () => {
     const clock = vi.spyOn(Date, 'now').mockReturnValue(5_000)
     const config = { ...getConfig(), metricsDatabasePath: ':memory:', metricsHistoryPeriodMs: 5_000, accessGroupsHeader: 'X-Test-Groups' }

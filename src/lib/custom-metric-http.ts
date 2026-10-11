@@ -12,6 +12,12 @@ type RequestBody = { form?: Record<string, string>; json?: Record<string, JsonVa
 type PreparedMetricRequest = { url: URL; headers: Headers; body?: RequestBody }
 type HttpResponse = { status: number; text: string }
 
+export class MetricResponseTooLargeError extends Error {
+  constructor(limit: number) {
+    super(`response exceeds ${limit} bytes`)
+  }
+}
+
 async function queueRequest<T>(origin: string, request: () => Promise<T>): Promise<T> {
   const semaphore = requestSemaphores.get(origin) ?? { active: 0, waiting: [] }
   requestSemaphores.set(origin, semaphore)
@@ -38,7 +44,7 @@ export function pruneMetricCookieJars(sources: Iterable<readonly [string, string
   for (const key of cookieJars.keys()) if (!active.has(key)) cookieJars.delete(key)
 }
 
-async function requestText(url: URL, headers: Headers, cookieJar: CookieJar, method: 'GET' | 'POST', body?: RequestBody): Promise<HttpResponse> {
+async function requestText(url: URL, headers: Headers, cookieJar: CookieJar, method: 'GET' | 'POST', body?: RequestBody, maxResponseBytes = CUSTOM_METRIC_MAX_RESPONSE_BYTES): Promise<HttpResponse> {
   return queueRequest(url.origin, async () => {
     const controller = new AbortController()
     let responseTooLarge = false
@@ -57,16 +63,17 @@ async function requestText(url: URL, headers: Headers, cookieJar: CookieJar, met
       ...(body?.json ? { json: body.json } : {})
     })
     request.on('downloadProgress', ({ total, transferred }) => {
-      if ((total !== undefined && total > CUSTOM_METRIC_MAX_RESPONSE_BYTES) || transferred > CUSTOM_METRIC_MAX_RESPONSE_BYTES) {
+      if ((total !== undefined && total > maxResponseBytes) || transferred > maxResponseBytes) {
         responseTooLarge = true
         controller.abort()
       }
     })
     try {
       const response = await request
+      if (response.body.byteLength > maxResponseBytes) throw new MetricResponseTooLargeError(maxResponseBytes)
       return { status: response.statusCode, text: Buffer.from(response.body.buffer, response.body.byteOffset, response.body.byteLength).toString() }
     } catch (error) {
-      if (responseTooLarge) throw new Error(`response exceeds ${CUSTOM_METRIC_MAX_RESPONSE_BYTES} bytes`)
+      if (responseTooLarge) throw new MetricResponseTooLargeError(maxResponseBytes)
       throw error
     }
   })
@@ -154,15 +161,16 @@ export async function requestMetric(
   cookieJar: CookieJar,
   targetUrl: URL,
   includeSourceValues: boolean,
-  query = metric.source.query
+  query = metric.source.query,
+  maxResponseBytes = CUSTOM_METRIC_MAX_RESPONSE_BYTES
 ): Promise<{ response?: HttpResponse; error?: string }> {
   const optional = metric.source.auth?.optional === true
   let prepared = await prepareMetricRequest(metric, cookieJar, targetUrl, !optional, includeSourceValues, query)
   if (prepared.error || !prepared.request) return { error: prepared.error ?? 'Could not prepare metric request' }
-  let response = await requestText(prepared.request.url, prepared.request.headers, cookieJar, includeSourceValues ? (metric.source.method ?? 'GET') : 'GET', prepared.request.body)
+  let response = await requestText(prepared.request.url, prepared.request.headers, cookieJar, includeSourceValues ? (metric.source.method ?? 'GET') : 'GET', prepared.request.body, maxResponseBytes)
   if (!optional || (response.status !== 401 && response.status !== 403)) return { response }
   prepared = await prepareMetricRequest(metric, cookieJar, targetUrl, true, includeSourceValues, query)
   if (prepared.error || !prepared.request) return { error: `Authentication is required, but ${prepared.error ?? 'credentials are unavailable'}` }
-  response = await requestText(prepared.request.url, prepared.request.headers, cookieJar, includeSourceValues ? (metric.source.method ?? 'GET') : 'GET', prepared.request.body)
+  response = await requestText(prepared.request.url, prepared.request.headers, cookieJar, includeSourceValues ? (metric.source.method ?? 'GET') : 'GET', prepared.request.body, maxResponseBytes)
   return { response }
 }

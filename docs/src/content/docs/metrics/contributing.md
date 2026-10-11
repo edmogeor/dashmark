@@ -98,7 +98,9 @@ fetchBatch(checkpoint, retentionCutoff) // → { observations, nextCheckpoint? }
 
 Checkpoints are opaque strings, so adapters can use cursors or time windows without HTTP/page-order assumptions. Omit `nextCheckpoint` to finish; resume with `savedMetricRecovery`. Use an adapter-prefixed, credential-safe source fingerprint to invalidate changed configuration.
 
-Fetchers own traversal, gap boundaries, and progress detection, and must cap responses **before decoding**. Shared methods enforce 100-observation batches and 4 KiB checkpoints, validate/filter/persist observations, and provide pacing, retries, cancellation, and UI state. HTTP paging is implemented separately in `src/lib/paginated-uptime-recovery.ts`; Socket.IO uptime extraction is also supported.
+Fetchers own traversal, gap boundaries, and progress detection, and must cap responses **before decoding**. Shared methods enforce 500-observation batches and 4 KiB checkpoints, validate/filter/persist observations, and provide view priority, retries, cancellation, and UI state. Successful pages have no fixed pacing delay. HTTP paging is implemented separately in `src/lib/paginated-uptime-recovery.ts`; Socket.IO uptime extraction is also supported.
+
+Numbered bulk HTTP sources can declare `extract.pagination.bulk` to share bounded responses across metrics without provider-specific queue code. See [shared bulk history](/dashmark/docs/metrics/custom/#shared-bulk-history). Cursor/time-window transports continue to use their own bounded adapters through the same queue; bulk HTTP metadata does not imply bulk Socket.IO support.
 
 ## Checks and pull request
 

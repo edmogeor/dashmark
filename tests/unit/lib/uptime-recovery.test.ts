@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { getConfig } from '@/lib/config'
 import { METRIC_RECOVERY_MAX_OBSERVATIONS } from '@/lib/constants'
 import { clearMetricsDatabase } from '@/lib/metrics'
@@ -7,9 +7,12 @@ import { clearMetricRecoveryQueue, metricRecoveryStates, recoverNextMetric, save
 import { enqueueUptimeRecovery } from '@/lib/uptime-recovery'
 import { queuePaginatedUptimeRecovery } from '@/lib/paginated-uptime-recovery'
 
+beforeEach(() => vi.stubEnv('ENABLE_METRIC_BACKFILL', 'true'))
+
 afterEach(() => {
   clearMetricsDatabase()
   vi.restoreAllMocks()
+  vi.unstubAllEnvs()
 })
 
 it('persists bounded batches with opaque time-window checkpoints independent of pagination and ordering', async () => {

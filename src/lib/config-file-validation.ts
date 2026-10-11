@@ -1,5 +1,5 @@
 import fs from 'node:fs'
-import { MAX_CUSTOM_METRIC_STATE_LABEL_LENGTH, MAX_AUTH_STEPS, MAX_EXTRACTED_TOKENS } from './constants'
+import { MAX_CUSTOM_METRIC_STATE_LABEL_LENGTH, MAX_AUTH_STEPS, MAX_EXTRACTED_TOKENS, METRIC_RECOVERY_MAX_OBSERVATIONS } from './constants'
 import { RESOURCE_STATS } from './labels'
 import { logger } from './logger'
 import { isRecord } from './errors'
@@ -272,12 +272,14 @@ function parseJqExtractor(value: unknown): JqMetricExtractor | undefined {
 }
 
 function parseMetricPagination(value: unknown): MetricPagination | undefined {
-  if (!isRecord(value) || Object.keys(value).some((key) => !['items', 'next', 'initial_only', 'recover', 'page_parameter'].includes(key))) return undefined
+  if (!isRecord(value) || Object.keys(value).some((key) => !['items', 'next', 'initial_only', 'recover', 'page_parameter', 'bulk'].includes(key))) return undefined
   const items = parseJqExtractor(value.items)
   const next = parseJqExtractor(value.next)
+  const bulk = value.bulk === undefined ? undefined : parseBulkHistory(value.bulk)
   if (
     !items ||
     !next ||
+    (value.bulk !== undefined && (!bulk || !value.recover || bulk.pageSizeParameter === (value.page_parameter ?? 'page'))) ||
     (value.initial_only !== undefined && value.initial_only !== true) ||
     (value.recover !== undefined && value.recover !== true) ||
     (value.recover && value.initial_only) ||
@@ -289,8 +291,19 @@ function parseMetricPagination(value: unknown): MetricPagination | undefined {
     next,
     ...(value.initial_only === true ? { initialOnly: true } : {}),
     ...(value.recover === true ? { recover: true } : {}),
-    ...(typeof value.page_parameter === 'string' ? { pageParameter: value.page_parameter } : {})
+    ...(typeof value.page_parameter === 'string' ? { pageParameter: value.page_parameter } : {}),
+    ...(bulk ? { bulk } : {})
   }
+}
+
+function parseBulkHistory(value: unknown): MetricPagination['bulk'] | undefined {
+  if (!isRecord(value) || Object.keys(value).some((key) => !['url', 'key', 'jq', 'page_size_parameter'].includes(key))) return undefined
+  const url = string(value.url)
+  const key = string(value.key)
+  const jq = parseJqExtractor(value.jq)
+  const pageSizeParameter = string(value.page_size_parameter)
+  if (!url || !isMetricUrl(url) || !key || key.length > 256 || !jq || !pageSizeParameter) return undefined
+  return { url, key, jq, pageSizeParameter }
 }
 
 function parseForEachMetric(value: unknown): ForEachMetric | undefined {
@@ -960,6 +973,12 @@ function validateCustomMetricFields(metric: Record<string, unknown>, fields: Par
   if (transport !== undefined && transport !== 'socketio') return 'source.transport must be socketio when specified'
   const extractorError = validateCustomMetricExtractor(metric, fields)
   if (extractorError) return extractorError
+  const bulk = fields.pagination?.bulk
+  if (bulk) {
+    const size = isRecord(source.query) ? source.query[bulk.pageSizeParameter] : undefined
+    if ((typeof size !== 'number' && typeof size !== 'string') || !Number.isSafeInteger(Number(size)) || Number(size) < 1 || Number(size) > METRIC_RECOVERY_MAX_OBSERVATIONS)
+      return `bulk history requires a literal page size between 1 and ${METRIC_RECOVERY_MAX_OBSERVATIONS} in source.query`
+  }
   if (valueType !== 'number' && valueType !== 'string' && valueType !== 'state' && valueType !== 'uptime') return 'value_type must be number, string, state, or uptime'
   if (metric.rate !== undefined && metric.rate !== true) return 'rate must be true when specified'
   const formattingError = validateCustomMetricFormatting(metric, fields)

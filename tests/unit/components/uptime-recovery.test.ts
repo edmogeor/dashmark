@@ -4,10 +4,11 @@ import { createRoot } from 'react-dom/client'
 import { expect, it, vi } from 'vitest'
 import type { RealtimeMetricsResponse } from '@/lib/realtime-protocol'
 
-const subscription = vi.hoisted(() => ({ receive: undefined as ((metrics: RealtimeMetricsResponse) => void) | undefined }))
+const subscription = vi.hoisted(() => ({ receive: undefined as ((metrics: RealtimeMetricsResponse) => void) | undefined, priority: undefined as string | true | undefined }))
 vi.mock('@/components/use-realtime', () => ({
-  useRealtimeMetrics: (_id: string, _active: boolean, receive: typeof subscription.receive) => {
+  useRealtimeMetrics: (_id: string, _active: boolean, receive: typeof subscription.receive, _unavailable: unknown, priority: typeof subscription.priority) => {
     subscription.receive = receive
+    subscription.priority = priority
   }
 }))
 vi.mock('@/components/tooltip-controller', () => ({ useTooltipController: () => ({ activeTooltip: 'resource-app', setActiveTooltip: vi.fn() }) }))
@@ -49,10 +50,12 @@ it('keeps saved uptime visible and updates recovery state and buckets in the ope
       )
     )
     await act(async () => subscription.receive?.(metrics))
+    expect(subscription.priority).toBe(true)
     const row = document.querySelector<HTMLButtonElement>('.dashmark-uptime-metric')!
     expect(row.querySelector('.animate-spin')).not.toBeNull()
     expect(row.querySelector('.dashmark-uptime-heartbeat-cell')).not.toBeNull()
     await act(async () => row.click())
+    expect(subscription.priority).toBe('uptime')
     expect(document.querySelector('[role="dialog"] .animate-spin')).not.toBeNull()
     const down = { ...bucket, status: 'down' as const, successes: 0, failures: 1 }
     await act(async () =>

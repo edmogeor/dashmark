@@ -130,7 +130,7 @@ function validateForEach(forEach) {
 
 function validatePagination(pagination) {
   const value = record(pagination, 'pagination must be a mapping')
-  allowed(value, new Set(['items', 'next', 'initial_only', 'recover', 'page_parameter']), 'pagination')
+  allowed(value, new Set(['items', 'next', 'initial_only', 'recover', 'page_parameter', 'bulk']), 'pagination')
   if (typeof value.items !== 'string' || !value.items.trim() || typeof value.next !== 'string' || !value.next.trim()) {
     throw new Error('pagination must define non-empty items and next jq expressions')
   }
@@ -138,6 +138,16 @@ function validatePagination(pagination) {
   if (value.recover !== undefined && value.recover !== true) throw new Error('pagination.recover must be true')
   if (value.recover && value.initial_only) throw new Error('pagination.recover cannot use initial_only')
   if (value.page_parameter !== undefined && (typeof value.page_parameter !== 'string' || !value.page_parameter.trim())) throw new Error('pagination.page_parameter must be a non-empty string')
+  if (value.bulk !== undefined) {
+    const bulk = record(value.bulk, 'pagination.bulk must be a mapping')
+    allowed(bulk, new Set(['url', 'key', 'jq', 'page_size_parameter']), 'pagination.bulk')
+    if (!value.recover || typeof bulk.url !== 'string' || !sourceBase.test(bulk.url)) throw new Error('pagination.bulk requires recovery and a URL beginning with {url} or {metric_source}')
+    for (const name of ['key', 'jq', 'page_size_parameter']) {
+      if (typeof bulk[name] !== 'string' || !bulk[name].trim()) throw new Error(`pagination.bulk.${name} must be a non-empty string`)
+    }
+    if (bulk.key.length > 256) throw new Error('pagination.bulk.key must be at most 256 characters')
+    if (bulk.page_size_parameter === (value.page_parameter ?? 'page')) throw new Error('bulk page-size and page-number parameters must differ')
+  }
 }
 
 function validateSource(source) {

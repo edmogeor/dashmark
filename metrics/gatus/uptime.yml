@@ -14,10 +14,15 @@ parameters:
 source:
   url: '{metric_source}/api/v1/endpoints/{group}_{name}/statuses'
   query:
-    pageSize: 100
+    pageSize: 500
 extract:
   pagination:
     recover: true
     items: '.results'
-    next: 'if (.results | length) == 100 then $page + 1 else null end'
+    next: 'if (.results | length) == 500 then $page + 1 else null end'
+    bulk:
+      url: '{metric_source}/api/v1/endpoints/statuses'
+      key: '{group}_{name}'
+      page_size_parameter: pageSize
+      jq: 'map({key: .key, value: [.results[] | {timestamp, status: (if .success then "up" else "down" end), responseTimeMs: (.duration / 1000000)}]}) | from_entries'
   jq: '[.items[] | { timestamp, status: (if .success then "up" else "down" end), responseTimeMs: (.duration / 1000000) }]'

@@ -20,7 +20,7 @@ type MetricsListener = (metrics: RealtimeMetricsResponse) => void
 type ConnectionListener = (unavailable: boolean) => void
 
 type ServerMessage =
-  | { type: 'status_snapshot'; version: number; statuses: Record<string, ContainerStatus>; capabilities?: { incrementalMetricHistory?: boolean } }
+  | { type: 'status_snapshot'; version: number; statuses: Record<string, ContainerStatus>; capabilities?: { incrementalMetricHistory?: boolean; metricRecoveryPriority?: boolean } }
   | { type: 'status_delta'; version: number; cardId: string; status: ContainerStatus }
   | { type: 'metrics_snapshot'; version: number; cardId: string; metrics: RealtimeMetricsResponse }
   | { type: 'metrics_delta'; version: number; cardId: string; metrics: RealtimeMetricsResponse }
@@ -87,6 +87,21 @@ export class RealtimeClient {
   private connectionListeners = new Set<ConnectionListener>()
   private metricListeners = new Map<string, Set<MetricsListener>>()
   private metrics = new Map<string, RealtimeMetricsResponse>()
+  private metricPriorities = new Map<string, Map<symbol, string | true>>()
+  private recoveryPrioritySupported = false
+
+  retainMetricPriority(cardId: string, priority: string | true): () => void {
+    const viewers = this.metricPriorities.get(cardId) ?? new Map<symbol, string | true>()
+    const viewer = Symbol()
+    viewers.set(viewer, priority)
+    this.metricPriorities.set(cardId, viewers)
+    this.sendMetricPriority(cardId)
+    return () => {
+      viewers.delete(viewer)
+      if (viewers.size === 0) this.metricPriorities.delete(cardId)
+      this.sendMetricPriority(cardId)
+    }
+  }
 
   retainStatus(listener: StatusListener, connectionListener: ConnectionListener): () => void {
     this.statusListeners.add(listener)
@@ -153,6 +168,7 @@ export class RealtimeClient {
       this.unavailable = false
       this.latestVersion = 0
       this.incrementalHistory = undefined
+      this.recoveryPrioritySupported = false
       this.connectionListeners.forEach((listener) => listener(false))
     })
     socket.addEventListener('message', (event) => {
@@ -191,6 +207,14 @@ export class RealtimeClient {
   private subscribeMetrics(cardId: string) {
     if (this.incrementalHistory === undefined) return
     this.send({ type: 'subscribe_metrics', cardId, ...(this.incrementalHistory ? { incremental: true } : {}) })
+    if (this.metricPriorities.has(cardId)) this.sendMetricPriority(cardId)
+  }
+
+  private sendMetricPriority(cardId: string): void {
+    if (!this.recoveryPrioritySupported || !this.metricListeners.has(cardId)) return
+    const priorities = new Set(this.metricPriorities.get(cardId)?.values())
+    const metricKey = priorities.size === 1 ? [...priorities][0] : undefined
+    this.send({ type: 'set_metric_priority', cardId, priority: priorities.size > 0, ...(typeof metricKey === 'string' ? { metricKey } : {}) })
   }
 
   private send(message: ClientMessage) {
@@ -211,6 +235,7 @@ export class RealtimeClient {
       this.statuses = value.statuses
       if (this.incrementalHistory === undefined) {
         this.incrementalHistory = value.capabilities?.incrementalMetricHistory === true
+        this.recoveryPrioritySupported = value.capabilities?.metricRecoveryPriority === true
         for (const cardId of this.metricListeners.keys()) this.subscribeMetrics(cardId)
       }
       this.statusListeners.forEach((listener) => listener(this.statuses))

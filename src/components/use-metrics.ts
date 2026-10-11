@@ -15,7 +15,7 @@ type MetricUsage = {
   loading: boolean
 }
 
-export function useMetrics(cardId: string, enabled: boolean, active: boolean, initialResources?: ContainerResources, demo = false): MetricUsage {
+export function useMetrics(cardId: string, enabled: boolean, active: boolean, initialResources?: ContainerResources, demo = false, priority?: string | true): MetricUsage {
   const [resources, setResources] = useState<ContainerResources | null>(initialResources ?? null)
   const [history, setHistory] = useState<ResourceMetricSample[]>([])
   const [historyPeriodMs, setHistoryPeriodMs] = useState(METRICS_HISTORY_PERIOD_MS)
@@ -82,7 +82,8 @@ export function useMetrics(cardId: string, enabled: boolean, active: boolean, in
       setMetricErrors([])
       setUptimeMetrics([])
       setLoading(false)
-    }
+    },
+    priority
   )
   return {
     resources,
