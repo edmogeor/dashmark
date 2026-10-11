@@ -3,6 +3,7 @@ import type { Duplex } from 'node:stream'
 import WebSocket, { WebSocketServer } from 'ws'
 import { isAuthorized } from './auth'
 import type { AppConfig } from './config'
+import { REALTIME_MAX_CLIENT_MESSAGE_BYTES, REALTIME_MAX_METRIC_SUBSCRIPTIONS } from './constants'
 import { canViewMetric, type ContainerMetricUsage } from './docker'
 import { getDiscoveryCoordinator } from './discovery-coordinator'
 import { getLatestMetricUsage } from './metrics'
@@ -13,8 +14,6 @@ import { parseClientMessage, type RealtimeMetricsResponse } from './realtime-pro
 import { createSocketLifecycle, type RealtimeSocket } from './realtime-socket-lifecycle'
 
 const PATHNAME = '/api/realtime'
-const MAX_CLIENT_MESSAGE_BYTES = 16 * 1024
-const MAX_METRIC_SUBSCRIPTIONS = 32
 
 export type RealtimePublisher = {
   publishStatusDelta(cardId: string, status: unknown): Promise<void>
@@ -83,7 +82,7 @@ function reject(socket: Duplex, status: number, reason: string): void {
 }
 
 function createRealtimeServer(config: AppConfig): RealtimeServer {
-  const devWebSockets = new WebSocketServer({ noServer: true, maxPayload: MAX_CLIENT_MESSAGE_BYTES })
+  const devWebSockets = new WebSocketServer({ noServer: true, maxPayload: REALTIME_MAX_CLIENT_MESSAGE_BYTES })
   const coordinator = getDiscoveryCoordinator(config)
   coordinator.start()
   const publishedUptimeBuckets = new Map<string, Record<UptimeRange, UptimeBucket[]>>()
@@ -153,7 +152,7 @@ function createRealtimeServer(config: AppConfig): RealtimeServer {
       releaseUnusedMetrics(message.cardId)
       return
     }
-    if (!client.metrics.has(message.cardId) && client.metrics.size >= MAX_METRIC_SUBSCRIPTIONS) return closeClient(client, 1008)
+    if (!client.metrics.has(message.cardId) && client.metrics.size >= REALTIME_MAX_METRIC_SUBSCRIPTIONS) return closeClient(client, 1008)
     const subscription = { incremental: message.incremental === true, ready: false }
     client.metrics.set(message.cardId, subscription)
     if (!(await sendMetricsSnapshot(client, message.cardId)) && client.metrics.get(message.cardId) === subscription) {

@@ -15,7 +15,7 @@ import { logMessages } from './log-messages'
 import { dashmarkError, errorMessage, isRecord, type DashmarkError } from './errors'
 import { strings } from '@/i18n'
 import type { ContainerResources, ContainerStatus } from './status'
-import { DOCKER_STATUS_CACHE_TTL_MS, DOCKER_EVENT_RECONNECT_DELAY_MS } from './constants'
+import { DOCKER_STATUS_CACHE_TTL_MS, DOCKER_EVENT_RECONNECT_DELAY_MS, MAX_DUE_CARD_COLLECTIONS } from './constants'
 import { metricCardFields } from './metric-collection/details'
 import { badgeColorIndex } from './badge-color'
 import { clearMetricCollectionCache, pruneMetricCollectionCache, dockerMetricTarget, type MetricCollectionTarget, usageForTarget, yamlMetricTarget } from './metric-collection/target-plan'
@@ -425,7 +425,6 @@ export async function getContainerStatuses(
 }
 
 const discoveredMetricTargets = new Map<string, MetricCollectionTarget>()
-const MAX_DUE_CARD_COLLECTIONS = 8
 
 export async function getContainerMetricUsage(config: AppConfig, headers: Headers, cardId: string, collect = true): Promise<ContainerMetricUsage | undefined> {
   if (!config.showMetrics || !hasAllowedAccess(getUser(config, headers), config.metricsAccess)) return undefined

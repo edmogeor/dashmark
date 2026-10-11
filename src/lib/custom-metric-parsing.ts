@@ -1,12 +1,9 @@
 import type { CustomMetricReduction, MetricOverride } from './config-file-types'
+import { MAX_FOR_EACH_ITEMS, FOR_EACH_CONCURRENCY, MAX_PAGINATION_PAGES } from './constants'
 import { isRecord } from './errors'
 import { runJq } from './jq'
 import { unavailable, type MetricResult } from './custom-metric-result'
 import type { UptimeObservation, UptimeStatus } from './status'
-
-const MAX_FOR_EACH_ITEMS = 32
-const FOR_EACH_CONCURRENCY = 4
-const MAX_PAGINATION_PAGES = 32
 
 type TextResponse = { status: number; text: string }
 type Request = (url: URL) => Promise<TextResponse>

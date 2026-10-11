@@ -1,4 +1,5 @@
 import type { AppConfig } from './config'
+import { NETWORK_RATE_PRIME_DELAY_MS } from './constants'
 import { collectDiscoveredMetricUsage, discoveredMetricSchedules } from './docker'
 import type { Card, ContainerMetricUsage } from './docker'
 import { clearMetricsStorage, metricsDatabase, pruneMetricHistory, saveMetricSample, saveResourceMetric } from './metrics-storage'
@@ -10,7 +11,6 @@ let collectionTimer: ReturnType<typeof setTimeout> | undefined
 const lastMetricCollection = new Map<string, number>()
 const latestMetricUsage = new Map<string, ContainerMetricUsage>()
 const customMetricCounterCache = new Map<string, { value: number; timestamp: number }>()
-const NETWORK_RATE_PRIME_DELAY_MS = 1_000
 
 function discardRemovedMetricState(cardIds: ReadonlySet<string>, cards: readonly Card[]): void {
   for (const cardId of latestMetricUsage.keys()) if (!cardIds.has(cardId)) latestMetricUsage.delete(cardId)
@@ -23,13 +23,13 @@ function discardRemovedMetricState(cardIds: ReadonlySet<string>, cards: readonly
 }
 
 export function counterRates(cardId: string, metrics: ContainerMetricUsage['customMetrics'], timestamp: number): ContainerMetricUsage['customMetrics'] {
-  return metrics.flatMap((metric) => {
-    if (!('rate' in metric) || metric.rate !== true) return [metric]
+  return metrics.map((metric) => {
+    if (!('rate' in metric) || metric.rate !== true) return metric
     const key = `${cardId}\0${metric.key}`
     const previous = customMetricCounterCache.get(key)
     customMetricCounterCache.set(key, { value: metric.value, timestamp })
-    if (!previous || timestamp <= previous.timestamp) return [{ ...metric, value: 0, pending: true }]
-    return [{ ...metric, value: Math.max(0, (metric.value - previous.value) / ((timestamp - previous.timestamp) / 1_000)) }]
+    if (!previous || timestamp <= previous.timestamp) return { ...metric, value: 0, pending: true }
+    return { ...metric, value: Math.max(0, (metric.value - previous.value) / ((timestamp - previous.timestamp) / 1_000)) }
   })
 }
 

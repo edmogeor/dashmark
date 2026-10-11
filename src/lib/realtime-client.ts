@@ -1,5 +1,7 @@
 import { isMetricsResponse, type ContainerStatus, type UptimeStatus } from './status'
 import type { ClientMessage, RealtimeMetricsResponse } from './realtime-protocol'
+import { isRecord } from './errors'
+import { REALTIME_INITIAL_RECONNECT_DELAY_MS, REALTIME_MAX_RECONNECT_DELAY_MS, REALTIME_UNAVAILABLE_AFTER_ATTEMPTS } from './constants'
 import type { UptimeBucket } from './uptime-buckets'
 import { UPTIME_RANGES, type UptimeRange } from './uptime-ranges'
 
@@ -23,14 +25,6 @@ type ServerMessage =
   | { type: 'metrics_delta'; version: number; cardId: string; metrics: RealtimeMetricsResponse }
   | { type: 'metrics_history_delta'; version: number; cardId: string; metrics: RealtimeMetricsResponse; replaceFrom: number; cutoff: number }
   | { type: 'uptime_bucket_delta'; version: number; cardId: string; key: string; range: UptimeRange; bucket: UptimeBucket }
-
-const INITIAL_RECONNECT_DELAY_MS = 1_000
-const MAX_RECONNECT_DELAY_MS = 30_000
-const UNAVAILABLE_AFTER_ATTEMPTS = 5
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
 
 function isUptimeBucket(value: unknown): value is UptimeBucket {
   return (
@@ -182,11 +176,11 @@ export class RealtimeClient {
   private scheduleReconnect() {
     if (document.visibilityState !== 'visible' || (!this.statusListeners.size && !this.metricListeners.size)) return
     this.reconnectAttempts += 1
-    if (this.reconnectAttempts >= UNAVAILABLE_AFTER_ATTEMPTS) {
+    if (this.reconnectAttempts >= REALTIME_UNAVAILABLE_AFTER_ATTEMPTS) {
       this.unavailable = true
       this.connectionListeners.forEach((listener) => listener(true))
     }
-    const delay = Math.min(INITIAL_RECONNECT_DELAY_MS * 2 ** (this.reconnectAttempts - 1), MAX_RECONNECT_DELAY_MS)
+    const delay = Math.min(REALTIME_INITIAL_RECONNECT_DELAY_MS * 2 ** (this.reconnectAttempts - 1), REALTIME_MAX_RECONNECT_DELAY_MS)
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null
       this.connect()

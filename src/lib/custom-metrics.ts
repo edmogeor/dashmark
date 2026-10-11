@@ -32,31 +32,34 @@ export async function collectCustomMetric(key: string, metric: MetricOverride, b
       logger.error('metrics', 'custom metric source returned an error', { key, url: url.origin + url.pathname, status: response.status })
       return { error: 'collection_failed' }
     }
-    const extracted = metric.forEach
-      ? await collectForEachMetric(key, response.text, metric, async (childUrl) => {
-          const child = await requestMetric(metric, cookieJar, childUrl, false)
-          if (child.error || !child.response) throw new Error(child.error ?? 'Could not reach metric source')
-          return child.response
-        })
-      : metric.pagination
-        ? await collectPaginatedJq(
-            key,
-            response.text,
-            metric,
-            async (pageUrl) => {
-              const page = await requestMetric(metric, cookieJar, pageUrl, true, query)
-              if (page.error || !page.response) throw new Error(page.error ?? 'Could not reach metric source')
-              return page.response
-            },
-            !metric.pagination.initialOnly || bootstrap
-          )
-        : metric.valueType === 'uptime'
-          ? await extractUptime(key, response.text, metric)
-          : metric.text
-            ? extractText(key, response.text, metric)
-            : 'jq' in metric
-              ? await extractJq(key, response.text, metric)
-              : extractPrometheus(key, response.text, metric)
+    let extracted: MetricResult
+    if (metric.forEach) {
+      extracted = await collectForEachMetric(key, response.text, metric, async (childUrl) => {
+        const child = await requestMetric(metric, cookieJar, childUrl, false)
+        if (child.error || !child.response) throw new Error(child.error ?? 'Could not reach metric source')
+        return child.response
+      })
+    } else if (metric.pagination) {
+      extracted = await collectPaginatedJq(
+        key,
+        response.text,
+        metric,
+        async (pageUrl) => {
+          const page = await requestMetric(metric, cookieJar, pageUrl, true, query)
+          if (page.error || !page.response) throw new Error(page.error ?? 'Could not reach metric source')
+          return page.response
+        },
+        !metric.pagination.initialOnly || bootstrap
+      )
+    } else if (metric.valueType === 'uptime') {
+      extracted = await extractUptime(key, response.text, metric)
+    } else if (metric.text) {
+      extracted = extractText(key, response.text, metric)
+    } else if ('jq' in metric) {
+      extracted = await extractJq(key, response.text, metric)
+    } else {
+      extracted = extractPrometheus(key, response.text, metric)
+    }
     return transformMetricResult(key, extracted, metric)
   } catch (error) {
     const detail = error instanceof Error ? error.name : 'unknown error'

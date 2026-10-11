@@ -1,12 +1,11 @@
 import { io } from 'socket.io-client'
 import type { CookieJar } from 'tough-cookie'
 import type { MetricOverride } from './config-file-types'
+import { CUSTOM_METRIC_REQUEST_TIMEOUT_MS } from './constants'
 import { resolveReferences, resolveSocketIoArguments } from './custom-metric-references'
 import { extractJqValue } from './custom-metric-parsing'
 import { transformMetricResult, unavailable, type MetricResult } from './custom-metric-result'
 import { logger } from './logger'
-
-const REQUEST_TIMEOUT_MS = 5_000
 
 export async function collectSocketIoMetric(key: string, metric: MetricOverride, url: URL, headers: Headers, cookieJar: CookieJar): Promise<MetricResult> {
   const socketio = metric.source.socketio
@@ -24,7 +23,7 @@ export async function collectSocketIoMetric(key: string, metric: MetricOverride,
   const socket = io(url.origin, { autoConnect: false, auth: auth.values, ...(socketio.path ? { path: socketio.path } : {}), ...(Object.keys(extraHeaders).length > 0 ? { extraHeaders } : {}) })
   try {
     await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('Socket.IO connection timed out')), REQUEST_TIMEOUT_MS)
+      const timer = setTimeout(() => reject(new Error('Socket.IO connection timed out')), CUSTOM_METRIC_REQUEST_TIMEOUT_MS)
       socket.once('connect', () => {
         clearTimeout(timer)
         resolve()
@@ -35,8 +34,8 @@ export async function collectSocketIoMetric(key: string, metric: MetricOverride,
       })
       socket.connect()
     })
-    if (socketio.login) await socket.timeout(REQUEST_TIMEOUT_MS).emitWithAck(socketio.login.event, ...loginArguments.values)
-    const response = await socket.timeout(REQUEST_TIMEOUT_MS).emitWithAck(socketio.request.event, ...requestArguments.values)
+    if (socketio.login) await socket.timeout(CUSTOM_METRIC_REQUEST_TIMEOUT_MS).emitWithAck(socketio.login.event, ...loginArguments.values)
+    const response = await socket.timeout(CUSTOM_METRIC_REQUEST_TIMEOUT_MS).emitWithAck(socketio.request.event, ...requestArguments.values)
     return transformMetricResult(key, await extractJqValue(key, response, metric), metric)
   } catch (error) {
     const detail = error instanceof Error ? error.name : 'unknown error'

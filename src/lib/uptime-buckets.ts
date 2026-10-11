@@ -39,6 +39,10 @@ export function aggregateUptimeBuckets(
     if (observation.status === 'down') bucket.failures++
     if (observation.responseTimeMs !== undefined) bucket.slowestResponseTimeMs = Math.max(bucket.slowestResponseTimeMs ?? observation.responseTimeMs, observation.responseTimeMs)
   }
-  for (const bucket of buckets) bucket.status = bucket.failures > 0 && bucket.successes > 0 ? 'mixed' : bucket.failures > 0 ? 'down' : bucket.successes > 0 ? 'up' : 'unknown'
+  for (const bucket of buckets) {
+    if (bucket.failures > 0 && bucket.successes > 0) bucket.status = 'mixed'
+    else if (bucket.failures > 0) bucket.status = 'down'
+    else if (bucket.successes > 0) bucket.status = 'up'
+  }
   return buckets
 }

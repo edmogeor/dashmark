@@ -1,6 +1,5 @@
 import type { NumericCustomMetric, ResourceMetricSample } from '@/lib/status'
-
-const MAX_CHART_POINTS = 600
+import { MAX_CHART_POINTS } from '@/lib/constants'
 
 export type MetricSample = { timestamp: number } & Partial<Record<string, number>>
 export type ChartPoint = {

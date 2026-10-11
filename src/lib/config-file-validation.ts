@@ -1,5 +1,5 @@
 import fs from 'node:fs'
-import { MAX_CUSTOM_METRIC_STATE_LABEL_LENGTH } from './constants'
+import { MAX_CUSTOM_METRIC_STATE_LABEL_LENGTH, MAX_AUTH_STEPS, MAX_EXTRACTED_TOKENS } from './constants'
 import { RESOURCE_STATS } from './labels'
 import { logger } from './logger'
 import { isRecord } from './errors'
@@ -382,9 +382,6 @@ function parseJsonValue(value: unknown): MetricJsonValue | undefined {
   }
   return entries
 }
-
-const MAX_AUTH_STEPS = 5
-const MAX_EXTRACTED_TOKENS = 16
 
 function parseMetricRequestBody(body: unknown, path: string, kind: 'form'): { values?: Record<string, MetricRequestValue>; error?: string }
 function parseMetricRequestBody(body: unknown, path: string, kind: 'json'): { values?: Record<string, MetricJsonValue>; error?: string }

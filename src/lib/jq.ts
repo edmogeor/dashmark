@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
+import { MAX_JQ_PROCESSES } from './constants'
 
-const MAX_JQ_PROCESSES = 4
 let activeProcesses = 0
 const waiting: (() => void)[] = []
 

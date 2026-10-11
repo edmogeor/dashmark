@@ -1,8 +1,5 @@
 import WebSocket from 'ws'
-
-const MAX_OUTBOUND_EVENTS = 64
-const MAX_OUTBOUND_BYTES = 1024 * 1024
-const SOCKET_LIFETIME_MS = 60 * 60 * 1000
+import { REALTIME_MAX_OUTBOUND_EVENTS, REALTIME_MAX_OUTBOUND_BYTES, REALTIME_SOCKET_LIFETIME_MS } from './constants'
 
 export type MetricSubscription = { incremental: boolean; ready: boolean; cursor?: { timestamp: number; signature: string } }
 
@@ -39,8 +36,8 @@ export function createSocketLifecycle({ onMessage, onConnect, onClose }: SocketL
     const data = JSON.stringify(message)
     const bytes = Buffer.byteLength(data)
     // Allow one full history plus the normal update budget, never multiple queued large snapshots.
-    if (allowLargeSnapshot && bytes > MAX_OUTBOUND_BYTES && client.pendingBytes <= MAX_OUTBOUND_BYTES) client.outboundByteLimit = bytes + MAX_OUTBOUND_BYTES
-    if (client.pendingEvents >= MAX_OUTBOUND_EVENTS || client.pendingBytes + bytes > client.outboundByteLimit) {
+    if (allowLargeSnapshot && bytes > REALTIME_MAX_OUTBOUND_BYTES && client.pendingBytes <= REALTIME_MAX_OUTBOUND_BYTES) client.outboundByteLimit = bytes + REALTIME_MAX_OUTBOUND_BYTES
+    if (client.pendingEvents >= REALTIME_MAX_OUTBOUND_EVENTS || client.pendingBytes + bytes > client.outboundByteLimit) {
       closeClient(client, 1008)
       return false
     }
@@ -49,7 +46,7 @@ export function createSocketLifecycle({ onMessage, onConnect, onClose }: SocketL
     client.socket.send(data, (error) => {
       client.pendingEvents--
       client.pendingBytes -= bytes
-      if (client.pendingEvents === 0) client.outboundByteLimit = MAX_OUTBOUND_BYTES
+      if (client.pendingEvents === 0) client.outboundByteLimit = REALTIME_MAX_OUTBOUND_BYTES
       onSent?.(!error && !client.closed)
     })
     return true
@@ -66,9 +63,9 @@ export function createSocketLifecycle({ onMessage, onConnect, onClose }: SocketL
       statusSubscribed: true,
       pendingEvents: 0,
       pendingBytes: 0,
-      outboundByteLimit: MAX_OUTBOUND_BYTES,
+      outboundByteLimit: REALTIME_MAX_OUTBOUND_BYTES,
       closed: false,
-      lifetime: setTimeout(() => closeClient(client, 1001), SOCKET_LIFETIME_MS)
+      lifetime: setTimeout(() => closeClient(client, 1001), REALTIME_SOCKET_LIFETIME_MS)
     }
     client.lifetime.unref()
     clients.add(client)

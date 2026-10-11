@@ -1,12 +1,10 @@
 import got from 'got'
 import { CookieJar } from 'tough-cookie'
 import type { MetricOverride } from './config-file-types'
+import { CUSTOM_METRIC_REQUEST_TIMEOUT_MS, CUSTOM_METRIC_MAX_RESPONSE_BYTES, CUSTOM_METRIC_REQUESTS_PER_ORIGIN } from './constants'
 import { applyBasicAuth, applyTokenAuth, type JsonValue, resolveBody, resolveHeaders, resolveQuery } from './custom-metric-references'
 import { runJq } from './jq'
 
-const REQUEST_TIMEOUT_MS = 5_000
-const MAX_RESPONSE_BYTES = 1_048_576
-const REQUESTS_PER_ORIGIN = 2
 const cookieJars = new Map<string, CookieJar>()
 const requestSemaphores = new Map<string, { active: number; waiting: (() => void)[] }>()
 
@@ -17,7 +15,7 @@ type HttpResponse = { status: number; text: string }
 async function queueRequest<T>(origin: string, request: () => Promise<T>): Promise<T> {
   const semaphore = requestSemaphores.get(origin) ?? { active: 0, waiting: [] }
   requestSemaphores.set(origin, semaphore)
-  if (semaphore.active >= REQUESTS_PER_ORIGIN) await new Promise<void>((resolve) => semaphore.waiting.push(resolve))
+  if (semaphore.active >= CUSTOM_METRIC_REQUESTS_PER_ORIGIN) await new Promise<void>((resolve) => semaphore.waiting.push(resolve))
   else semaphore.active++
   try {
     return await request()
@@ -50,7 +48,7 @@ async function requestText(url: URL, headers: Headers, cookieJar: CookieJar, met
       followRedirect: false,
       retry: { limit: 0 },
       throwHttpErrors: false,
-      timeout: { request: REQUEST_TIMEOUT_MS },
+      timeout: { request: CUSTOM_METRIC_REQUEST_TIMEOUT_MS },
       signal: controller.signal,
       resolveBodyOnly: false,
       responseType: 'buffer',
@@ -59,7 +57,7 @@ async function requestText(url: URL, headers: Headers, cookieJar: CookieJar, met
       ...(body?.json ? { json: body.json } : {})
     })
     request.on('downloadProgress', ({ total, transferred }) => {
-      if ((total !== undefined && total > MAX_RESPONSE_BYTES) || transferred > MAX_RESPONSE_BYTES) {
+      if ((total !== undefined && total > CUSTOM_METRIC_MAX_RESPONSE_BYTES) || transferred > CUSTOM_METRIC_MAX_RESPONSE_BYTES) {
         responseTooLarge = true
         controller.abort()
       }
@@ -68,7 +66,7 @@ async function requestText(url: URL, headers: Headers, cookieJar: CookieJar, met
       const response = await request
       return { status: response.statusCode, text: Buffer.from(response.body.buffer, response.body.byteOffset, response.body.byteLength).toString() }
     } catch (error) {
-      if (responseTooLarge) throw new Error(`response exceeds ${MAX_RESPONSE_BYTES} bytes`)
+      if (responseTooLarge) throw new Error(`response exceeds ${CUSTOM_METRIC_MAX_RESPONSE_BYTES} bytes`)
       throw error
     }
   })

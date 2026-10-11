@@ -68,17 +68,25 @@ function formatParameter(value: string | number | boolean, parameter: NonNullabl
 }
 
 function resolveUrl(url: string, cardUrl: string | undefined, metricApiUrl: string | undefined, parameters: MetricOverride['parameters'], values: ParameterValues): string | undefined {
-  const baseUrl = url.startsWith('{metric_source}') ? (metricApiUrl ?? cardUrl) : url.startsWith('{url}') ? cardUrl : undefined
-  const placeholder = url.startsWith('{metric_source}') ? '{metric_source}' : '{url}'
-  const resolved = baseUrl === undefined && url.startsWith('{') ? undefined : baseUrl ? `${baseUrl.replace(/\/$/, '')}${url.slice(placeholder.length)}` : url
-  return resolved?.replace(/\{([a-z][a-z0-9_]*)\}/g, (match, name: string) =>
+  let baseUrl: string | undefined
+  let placeholder = '{url}'
+  if (url.startsWith('{metric_source}')) {
+    baseUrl = metricApiUrl ?? cardUrl
+    placeholder = '{metric_source}'
+  } else if (url.startsWith('{url}')) {
+    baseUrl = cardUrl
+  }
+  if (baseUrl === undefined && url.startsWith('{')) return undefined
+  const resolved = baseUrl ? `${baseUrl.replace(/\/$/, '')}${url.slice(placeholder.length)}` : url
+  return resolved.replace(/\{([a-z][a-z0-9_]*)\}/g, (match, name: string) =>
     !parameters?.[name] || values?.[name] === undefined ? match : encodeURIComponent(formatParameter(values[name], parameters[name]))
   )
 }
 
 function resolveJsonValue(value: MetricJsonValue, metric: MetricOverride, values: ParameterValues, labels: Record<string, string>): MetricJsonValue {
   const resolved = resolveReference(value, labels)
-  if (!isMetricJsonValue(resolved) || resolved === null || typeof resolved !== 'object') return isMetricJsonValue(resolved) ? resolved : value
+  if (!isMetricJsonValue(resolved)) return value
+  if (resolved === null || typeof resolved !== 'object') return resolved
   if (Array.isArray(resolved)) return resolved.map((item) => resolveJsonValue(item, metric, values, labels))
   if (Object.keys(resolved).length === 1 && isParameterReference(resolved)) {
     const name = resolved.parameter

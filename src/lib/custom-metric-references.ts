@@ -25,16 +25,25 @@ export function resolveReferences(metric: MetricOverride, references: ValueRefer
   for (const [name, reference] of Object.entries(references)) {
     try {
       const isToken = isTokenReference(reference)
-      const isReference = isToken || isSecretReference(reference)
-      const value = isToken
-        ? tokens[reference.token] && `${reference.prefix ?? ''}${tokens[reference.token]}`
-        : isSecretReference(reference)
-          ? (reference.value ?? (reference.env === undefined ? (reference.file === undefined ? undefined : readFileSync(reference.file, 'utf8').trim()) : process.env[reference.env]))
-          : String(reference)
-      if (!value)
-        throw new Error(
-          isToken ? 'authentication token is unavailable' : isReference && isSecretReference(reference) && reference.env === undefined ? 'secret file is empty' : 'environment variable is unset'
-        )
+      const isSecret = isSecretReference(reference)
+      let value: string | undefined
+      if (isToken) {
+        const token = tokens[reference.token]
+        value = token && `${reference.prefix ?? ''}${token}`
+      } else if (isSecret) {
+        value = reference.value
+        if (value === undefined || value === null) {
+          if (reference.env !== undefined) value = process.env[reference.env]
+          else if (reference.file !== undefined) value = readFileSync(reference.file, 'utf8').trim()
+        }
+      } else {
+        value = String(reference)
+      }
+      if (!value) {
+        if (isToken) throw new Error('authentication token is unavailable')
+        if (isSecret && reference.env === undefined) throw new Error('secret file is empty')
+        throw new Error('environment variable is unset')
+      }
       values[name] = value
     } catch (error) {
       logger.error('metrics', 'failed to resolve custom metric secret', { metric: metric.label, [kind]: name, error: error instanceof Error ? error.message : 'unknown error' })
