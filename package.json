@@ -62,7 +62,7 @@
     "fuse.js": "^7.0.0",
     "got": "^16.0.0",
     "happy-dom": "^20.14.0",
-    "lucide-react": "^1.35.0",
+    "lucide-react": "^1.55.0",
     "oxlint": "^1.85.0",
     "prettier": "^3.9.6",
     "radix-ui": "^1.6.7",
