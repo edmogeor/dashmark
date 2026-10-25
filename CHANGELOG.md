@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.8] - 2026-10-25
+
+### Changed
+
+- Update dashboard dependencies: Astro 7.3.8, Radix UI React Slot 1.5.0, TanStack Virtual Core 3.19.0, and Lucide React 1.55.0.
+- Update documentation to Astro 7.4.0 and Starlight 0.42.6.
+- Update Prettier to 3.9.10 and the Node.js setup action to 7.1.0.
+
 ### Fixed
 
 - Keep dashboard virtualizer types aligned with the React adapter when TanStack Virtual dependencies update independently.
