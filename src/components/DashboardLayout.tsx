@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, motion, type Transition } from 'framer-motion'
-import { useWindowVirtualizer } from '@tanstack/react-virtual'
-import type { Virtualizer } from '@tanstack/virtual-core'
+import { useWindowVirtualizer, type Virtualizer } from '@tanstack/react-virtual'
 import { AppCard } from './AppCard'
 import { useLocalization } from './localization'
 import type { CategoryItem } from './use-dashboard-view-model'
