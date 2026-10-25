@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep dashboard virtualizer types aligned with the React adapter when TanStack Virtual dependencies update independently.
+
 ## [0.8.7] - 2026-10-11
 
 ### Changed
