@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.10] - 2026-10-29
+
+### Security
+
+- Update the fast-uri override to 4.2.3 and brace-expansion to 5.0.12 to fix URI parsing and denial-of-service vulnerabilities in production dependencies.
+
 ## [0.8.9] - 2026-10-29
 
 ### Security
