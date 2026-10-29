@@ -60,7 +60,7 @@
     "fallow": "3.25.0",
     "framer-motion": "^13.2.0",
     "fuse.js": "^7.0.0",
-    "got": "^16.0.0",
+    "got": "^16.1.0",
     "happy-dom": "^20.14.0",
     "lucide-react": "^1.55.0",
     "oxlint": "^1.85.0",
