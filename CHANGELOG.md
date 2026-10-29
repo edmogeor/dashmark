@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.9] - 2026-10-29
+
+### Security
+
+- Update Fastify to 5.12.7, including upstream security fixes.
+
+### Changed
+
+- Update dashboard dependencies to Astro 7.4.2 and React / React DOM 19.3.1.
+- Update documentation to Astro 7.4.2 and Starlight 0.42.7.
+- Update Got to 16.1.0, shadcn to 4.22.1, and the Docker login action to 4.7.0.
+
 ## [0.8.8] - 2026-10-25
 
 ### Changed
